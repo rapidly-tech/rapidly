@@ -1,0 +1,72 @@
+{
+  "$schema": "https://turbo.build/schema.json",
+  "globalDependencies": ["**/.env.*local"],
+  "globalEnv": [
+    "RAPIDLY_API_URL",
+    "CODESPACES",
+    "CODESPACE_NAME",
+    "EXPO_PUBLIC_RAPIDLY_SERVER_URL",
+    "GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN",
+    "GITHUB_TOKEN",
+    "NODE_ENV",
+    "NEXT_PHASE",
+    "NEXT_RUNTIME",
+    "NEXT_PUBLIC_ENVIRONMENT",
+    "NEXT_PUBLIC_API_URL",
+    "NEXT_PUBLIC_BACKOFFICE_URL",
+    "NEXT_PUBLIC_STRIPE_KEY",
+    "NEXT_PUBLIC_CODESPACE_NAME",
+    "NEXT_PUBLIC_FRONTEND_BASE_URL",
+    "NEXT_PUBLIC_GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN",
+    "NEXT_PUBLIC_CODESPACE_NAME",
+    "NEXT_PUBLIC_GITHUB_CODESPACES_PORT_FORWARDING_DOMAIN",
+    "VERCEL_ENV",
+    "NEXT_PUBLIC_VERCEL_ENV",
+    "NEXT_PUBLIC_LOGIN_PATH",
+    "NEXT_PUBLIC_GITHUB_BADGE_EMBED_DEFAULT_LABEL",
+    "NEXT_PUBLIC_SENTRY_DSN",
+    "NEXT_PUBLIC_POSTHOG_TOKEN",
+    "NEXT_PUBLIC_STRIPE_COUNTRIES_WHITELIST",
+    "NEXT_PUBLIC_APPLE_DOMAIN_ASSOCIATION",
+    "SENTRY_AUTH_TOKEN",
+    "VERCEL_GIT_COMMIT_SHA",
+    "NEXT_PUBLIC_SENTRY_DSN",
+    "SENTRY_PROJECT",
+    "SENTRY_ORG",
+    "RAPIDLY_AUTH_COOKIE_KEY",
+    "RAPIDLY_AUTH_MCP_COOKIE_KEY",
+    "RAPIDLY_CHECKOUT_EMBED_SCRIPT_ALLOWED_ORIGINS",
+    "NEXT_PUBLIC_CHECKOUT_EMBED_SCRIPT_SRC",
+    "S3_PUBLIC_IMAGES_BUCKET_PROTOCOL",
+    "S3_PUBLIC_IMAGES_BUCKET_HOSTNAME",
+    "S3_PUBLIC_IMAGES_BUCKET_PORT",
+    "S3_PUBLIC_IMAGES_BUCKET_PATHNAME",
+    "S3_UPLOAD_ORIGINS",
+    "GOOGLE_GENERATIVE_AI_API_KEY",
+    "ANTHROPIC_API_KEY",
+    "GRAM_API_KEY",
+    "GRAM_API_URL",
+    "MCP_OAUTH2_CLIENT_ID",
+    "MCP_OAUTH2_CLIENT_SECRET",
+    "CI",
+    "ANALYZE"
+  ],
+  "tasks": {
+    "test": {},
+    "build": {
+      "dependsOn": ["^build"],
+      "outputs": [".next/**", "!.next/cache/**", "dist/**"]
+    },
+    "lint": {
+      "dependsOn": ["^build"]
+    },
+    "typecheck": {
+      "dependsOn": ["^build"]
+    },
+    "dev": {
+      "dependsOn": ["^build"],
+      "cache": false,
+      "persistent": true
+    }
+  }
+}

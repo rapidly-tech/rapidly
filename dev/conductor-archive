@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# conductor-archive - Rapidly Development Environment Cleanup
+# Version: 1.0.0-rapidly
+#
+# Cleanup Rapidly development environment when Conductor archives workspace.
+# Tears down Docker containers and volumes to free resources.
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ARCHIVE_TIMESTAMP="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+echo "[rapidly] Archiving workspace at ${ARCHIVE_TIMESTAMP}..."
+"$SCRIPT_DIR/cli/dev" docker cleanup -f

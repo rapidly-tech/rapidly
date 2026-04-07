@@ -1,0 +1,36 @@
+---
+title: "Workspace Access Tokens"
+sidebarTitle: "Workspace Access Tokens"
+---
+
+<Info>
+    All bearer tokens should be kept private and never shared or exposed in client-side code.
+</Info>
+
+Workspace Access Tokens (OAT) are tied to **one** of your workspace.
+
+You can create them from your workspace settings as follows:
+
+<Steps>
+    <Step title="Go to Workspace Settings">
+
+        In the Rapidly dashboard sidebar, navigate to **Settings** > **General** for your workspace.
+        You can also go directly to:  
+        `https://rapidly.tech/dashboard/${org_slug}/settings`
+
+    </Step>
+    <Step title="Create an access token">
+
+        Scroll down to **Developers** and click **New Token**
+
+    </Step>
+    <Step title="Configure the token details">
+    
+        - **Give your token a name**: Choose a descriptive name so you remember what this token is used for.
+
+        - **Set an expiration date**: Decide how long the token should be valid.
+
+        - **Select the required scopes**: Pick the permissions your token needs.
+
+    </Step>
+</Steps>

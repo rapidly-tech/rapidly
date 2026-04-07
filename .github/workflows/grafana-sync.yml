@@ -1,0 +1,106 @@
+# Rapidly — Sync Grafana dashboards to Grafana Cloud
+#
+# Runs on every push to main that touches a dashboard JSON, and can be
+# triggered manually. Uses the Grafana Cloud Dashboard API to upsert
+# each dashboard idempotently (overwrite: true).
+#
+# Required repository secrets:
+#   GRAFANA_CLOUD_URL          e.g. https://rapidlytech3rdparty.grafana.net
+#   GRAFANA_CLOUD_API_TOKEN    service account token with Editor role
+#                              (or an access policy token with
+#                              dashboards:write scope on the stack)
+
+name: Sync Grafana Dashboards
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/monitoring/grafana/dashboards/*.json"
+      - ".github/workflows/grafana-sync.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    name: Push dashboards to Grafana Cloud
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Validate secrets
+        env:
+          GRAFANA_CLOUD_URL: ${{ secrets.GRAFANA_CLOUD_URL }}
+          GRAFANA_CLOUD_API_TOKEN: ${{ secrets.GRAFANA_CLOUD_API_TOKEN }}
+        run: |
+          set -euo pipefail
+          if [ -z "${GRAFANA_CLOUD_URL:-}" ] || [ -z "${GRAFANA_CLOUD_API_TOKEN:-}" ]; then
+            echo "::error::Missing GRAFANA_CLOUD_URL or GRAFANA_CLOUD_API_TOKEN secret"
+            exit 1
+          fi
+
+      - name: Push each dashboard
+        env:
+          GRAFANA_CLOUD_URL: ${{ secrets.GRAFANA_CLOUD_URL }}
+          GRAFANA_CLOUD_API_TOKEN: ${{ secrets.GRAFANA_CLOUD_API_TOKEN }}
+          COMMIT_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          shopt -s nullglob
+
+          dashboards=(server/monitoring/grafana/dashboards/*.json)
+          if [ ${#dashboards[@]} -eq 0 ]; then
+            echo "No dashboard JSON files found — nothing to sync."
+            exit 0
+          fi
+
+          fail_count=0
+
+          for file in "${dashboards[@]}"; do
+            name=$(basename "$file")
+            echo "::group::Syncing ${name}"
+
+            # Build the API payload:
+            #   { "dashboard": <file contents with id stripped>,
+            #     "overwrite": true,
+            #     "message": "Synced from <repo>@<sha>" }
+            payload=$(jq -n \
+              --slurpfile dash "$file" \
+              --arg msg "Synced from ${GITHUB_REPOSITORY}@${COMMIT_SHA:0:7}" \
+              '{
+                dashboard: ($dash[0] | del(.id) | .uid //= ($dash[0].title | ascii_downcase | gsub("[^a-z0-9]+"; "-"))),
+                overwrite: true,
+                message: $msg
+              }')
+
+            # POST to Grafana Cloud and capture HTTP status separately from body
+            http_code=$(curl -sS -o /tmp/resp.json -w "%{http_code}" \
+              -X POST "${GRAFANA_CLOUD_URL%/}/api/dashboards/db" \
+              -H "Authorization: Bearer ${GRAFANA_CLOUD_API_TOKEN}" \
+              -H "Content-Type: application/json" \
+              -d "$payload")
+
+            if [ "$http_code" = "200" ] || [ "$http_code" = "201" ]; then
+              uid=$(jq -r '.uid // "?"' /tmp/resp.json)
+              version=$(jq -r '.version // "?"' /tmp/resp.json)
+              url=$(jq -r '.url // "?"' /tmp/resp.json)
+              echo "  ✓ ${name} → uid=${uid} version=${version} url=${url}"
+            else
+              echo "::error::Failed to sync ${name} (HTTP ${http_code})"
+              cat /tmp/resp.json
+              echo ""
+              fail_count=$((fail_count + 1))
+            fi
+
+            echo "::endgroup::"
+          done
+
+          if [ "$fail_count" -gt 0 ]; then
+            echo "::error::${fail_count} dashboard(s) failed to sync"
+            exit 1
+          fi
+
+          echo "All ${#dashboards[@]} dashboard(s) synced successfully."

@@ -1,0 +1,48 @@
+{
+  "private": true,
+  "name": "rapidly",
+  "scripts": {
+    "build": "turbo run build --filter='!./examples/*'",
+    "dev": "turbo watch dev",
+    "dev-web": "turbo run dev --filter=web",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "generate": "pnpm -C packages/client generate",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "preinstall": "npx only-allow pnpm",
+    "prepare": "turbo run build --filter='./packages/*'",
+    "release-packages": "turbo run build lint test --filter='./packages/*' && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.8",
+    "@iconify-json/mdi": "^1.2.3",
+    "@iconify-json/solar": "^1.2.5",
+    "@iconify/utils": "^3.1.0",
+    "@manypkg/cli": "^0.25.1",
+    "only-allow": "1.2.2",
+    "prettier": "^3.8.1",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "turbo": "^2.8.9"
+  },
+  "resolutions": {
+    "sharp": "0.33.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.2.13",
+      "@types/react-dom": "19.2.3",
+      "undici": ">=6.24.0"
+    },
+    "patchedDependencies": {
+      "openapi-typescript@7.10.1": "patches/openapi-typescript@7.10.1.patch"
+    }
+  },
+  "packageManager": "pnpm@10.29.3",
+  "manypkg": {
+    "ignoredRules": [
+      "INTERNAL_MISMATCH"
+    ]
+  }
+}

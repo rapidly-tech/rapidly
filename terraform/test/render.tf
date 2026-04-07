@@ -1,0 +1,280 @@
+
+# =============================================================================
+# Registry Credential
+# =============================================================================
+
+import {
+  to = render_registry_credential.ghcr
+  id = "rgc-d4jjclili9vc738h3eu0"
+}
+
+resource "render_registry_credential" "ghcr" {
+  name       = "Registry Credentials for GHCR"
+  registry   = "GITHUB"
+  username   = var.ghcr_username
+  auth_token = var.ghcr_auth_token
+}
+
+# =============================================================================
+# Locals
+# =============================================================================
+
+data "tfe_outputs" "production" {
+  organization = "rapidly-tech"
+  workspace    = "rapidly"
+}
+
+locals {
+  environment_id = data.tfe_outputs.production.values.test_environment_id
+  test_enabled   = false
+}
+
+# =============================================================================
+# PostgreSQL Database
+# =============================================================================
+
+resource "render_postgres" "db" {
+  environment_id = local.environment_id
+  name           = "db-test"
+  database_name  = "rapidly_cpit"
+  database_user  = "rapidly_cpit_user"
+  plan           = "pro_16gb"
+  region         = "ohio"
+  version        = "15"
+  disk_size_gb   = 100
+
+  high_availability_enabled = true
+
+  read_replicas = [
+    { name = "rapidly-read-test" },
+  ]
+
+  lifecycle {
+    ignore_changes = [
+      ip_allow_list,
+    ]
+  }
+
+  depends_on = [render_registry_credential.ghcr]
+}
+
+resource "render_redis" "redis" {
+  count             = local.test_enabled ? 1 : 0
+  environment_id    = local.environment_id
+  name              = "redis-test"
+  plan              = "standard"
+  region            = "ohio"
+  max_memory_policy = "noeviction"
+
+  # Empty IP allow list means only private network connections
+  ip_allow_list = []
+
+  depends_on = [render_registry_credential.ghcr]
+}
+
+# =============================================================================
+# Test
+# =============================================================================
+locals {
+  # Database connection info (derived from postgres resource)
+  db_internal_host = render_postgres.db.id
+  db_port          = "5432"
+  db_user          = render_postgres.db.database_user
+  db_password      = render_postgres.db.connection_info.password
+
+  # Extract actual database name from internal connection string
+  # Render appends a suffix to database_name, so we parse it from the connection string
+  # Format: postgresql://user:pass@host/dbname
+  db_name = regex("[^/]+$", render_postgres.db.connection_info.internal_connection_string)
+
+  # Read replica connection info
+  read_replica = [for r in render_postgres.db.read_replicas : r if r.name == "rapidly-read-test"][0]
+
+  # Redis connection info
+  redis_host = local.test_enabled ? render_redis.redis[0].id : ""
+  redis_port = "6379"
+}
+
+# =============================================================================
+# Service image data sources
+#
+# We read the current image digest from Render to avoid stale state in
+# Terraform causing "unable to fetch image" errors on service updates.
+#
+# The service IDs are hardcoded because referencing module outputs would
+# create a cyclic dependency (module -> data source -> module).
+#
+# First-time setup: create the services first without the data sources
+# (use a default tag like "latest"), then add the data sources with the
+# service IDs from `terraform state show`.
+# =============================================================================
+
+locals {
+  test_service_ids = {
+    api         = "srv-d4nuq6ur433s73eerdeg"
+    worker-test = "srv-d4nvmabe5dus738l4ui0"
+  }
+}
+
+data "render_web_service" "test_api" {
+  count = local.test_enabled ? 1 : 0
+  id    = local.test_service_ids["api"]
+}
+
+data "render_web_service" "test_worker" {
+  for_each = local.test_enabled ? { for k, v in local.test_service_ids : k => v if k != "api" } : {}
+  id       = each.value
+}
+
+module "test" {
+  count  = local.test_enabled ? 1 : 0
+  source = "../modules/render_service"
+
+  environment            = "test"
+  render_environment_id  = local.environment_id
+  registry_credential_id = render_registry_credential.ghcr.id
+
+  postgres_config = {
+    host          = local.db_internal_host
+    port          = local.db_port
+    user          = local.db_user
+    password      = local.db_password
+    read_host     = local.read_replica.id
+    read_port     = local.db_port
+    read_user     = local.db_user
+    read_password = local.db_password
+  }
+
+  redis_config = {
+    host = local.redis_host
+    port = local.redis_port
+  }
+
+  api_service_config = {
+    allowed_hosts          = "[\"test.rapidly.tech\"]"
+    cors_origins           = "[\"https://test.rapidly.tech\", \"https://github.com\", \"https://docs.rapidly.tech\"]"
+    custom_domains         = [{ name = "test-api.rapidly.tech" }]
+    image_url              = data.render_web_service.test_api[0].runtime_source.image.image_url
+    image_digest           = data.render_web_service.test_api[0].runtime_source.image.digest
+    web_concurrency        = "2"
+    forwarded_allow_ips    = "*"
+    database_pool_size     = "20"
+    postgres_database      = local.db_name
+    postgres_read_database = local.db_name
+    redis_db               = "0"
+    plan                   = "standard"
+  }
+
+  workers = {
+    worker-test = {
+      start_command      = "uv run dramatiq -p 2 -t 4 -f rapidly.worker.scheduler:start rapidly.worker.run"
+      image_url          = data.render_web_service.test_worker["worker-test"].runtime_source.image.image_url
+      image_digest       = data.render_web_service.test_worker["worker-test"].runtime_source.image.digest
+      dramatiq_prom_port = "10000"
+    }
+  }
+
+  google_secrets = {
+    client_id     = var.google_client_id
+    client_secret = var.google_client_secret
+  }
+
+  openai_secrets = {
+    api_key = var.openai_api_key
+  }
+
+  backend_config = {
+    environment                = "test"
+    base_url                   = "https://test-api.rapidly.tech"
+    user_session_cookie_domain = "rapidly.tech"
+    user_session_cookie_key    = "rapidly_test_session"
+    debug                      = "0"
+    email_sender               = "logger"
+    email_from_name            = "[TEST] Rapidly"
+    email_from_domain          = "notifications.test.rapidly.tech"
+    frontend_base_url          = "https://test.rapidly.tech"
+    jwks_path                  = "/etc/secrets/jwks.json"
+    log_level                  = "INFO"
+    testing                    = "0"
+  }
+
+  backend_secrets = {
+    stripe_publishable_key   = var.stripe_publishable_key
+    current_jwk_kid          = var.backend_current_jwk_kid
+    discord_bot_token        = var.backend_discord_bot_token
+    discord_client_id        = var.backend_discord_client_id
+    discord_client_secret    = var.backend_discord_client_secret
+    resend_api_key           = var.backend_resend_api_key
+    logo_dev_publishable_key = var.backend_logo_dev_publishable_key
+    secret                   = var.backend_secret
+    sentry_dsn               = var.backend_sentry_dsn
+    jwks                     = var.backend_jwks
+  }
+
+  aws_s3_config = {
+    region                   = "us-east-2"
+    signature_version        = "v4"
+    files_presign_ttl        = "600"
+    files_public_bucket_name = "rapidly-public-files"
+  }
+
+  aws_s3_secrets = {
+    access_key_id     = var.aws_access_key_id
+    secret_access_key = var.aws_secret_access_key
+  }
+
+  github_secrets = {
+    client_id     = var.github_client_id
+    client_secret = var.github_client_secret
+  }
+
+  stripe_secrets = {
+    connect_webhook_secret = var.stripe_connect_webhook_secret
+    secret_key             = var.stripe_secret_key
+    webhook_secret         = var.stripe_webhook_secret
+  }
+
+  logfire_config = {
+    token = var.logfire_token
+  }
+
+  apple_secrets = {
+    client_id = var.apple_client_id
+    team_id   = var.apple_team_id
+    key_id    = var.apple_key_id
+    key_value = var.apple_key_value
+  }
+
+  prometheus_config = {
+    url      = var.grafana_cloud_prometheus_url
+    username = var.grafana_cloud_prometheus_username
+    password = var.grafana_cloud_prometheus_password
+  }
+
+  tinybird_config = {
+    api_url             = "https://api.us-east.aws.tinybird.co"
+    clickhouse_url      = "https://clickhouse.us-east.aws.tinybird.co"
+    api_token           = var.tinybird_api_token
+    clickhouse_username = var.tinybird_clickhouse_username
+    clickhouse_token    = var.tinybird_clickhouse_token
+    workspace           = var.tinybird_workspace
+    events_write        = var.tinybird_events_write
+    events_read         = var.tinybird_events_read
+  }
+
+  depends_on = [render_registry_credential.ghcr, render_postgres.db, render_redis.redis]
+}
+
+# =============================================================================
+# Cloudflare DNS
+# =============================================================================
+
+resource "cloudflare_dns_record" "test_api" {
+  count   = local.test_enabled ? 1 : 0
+  zone_id = "22bcd1b07ec25452aab472486bc8df94"
+  name    = "test-api.rapidly.tech"
+  type    = "CNAME"
+  content = replace(module.test[0].api_service_url, "https://", "")
+  proxied = true
+  ttl     = 1
+}

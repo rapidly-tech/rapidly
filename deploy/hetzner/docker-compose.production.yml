@@ -1,0 +1,80 @@
+# ─────────────────────────────────────────────────────────────────────
+# Rapidly — Hetzner production stack
+#
+# Prerequisites:
+#   - .env.production in the same directory
+#   - PostgreSQL on separate server (private network)
+#   - Redis on separate server (private network)
+#   - Cloudflare Tunnel (cloudflared) running as systemd service
+#
+# Usage:
+#   docker compose -f docker-compose.production.yml pull
+#   docker compose -f docker-compose.production.yml up -d
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Frontend (Next.js) ─────────────────────────────────────────────
+  frontend:
+    image: ghcr.io/rapidly-tech/rapidly-web:latest
+    restart: always
+    ports:
+      - "127.0.0.1:3000:3000"
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_API_URL: https://api.rapidly.tech
+      NEXT_PUBLIC_FRONTEND_BASE_URL: https://rapidly.tech
+      S3_PUBLIC_IMAGES_BUCKET_HOSTNAME: uploads.rapidly.tech
+      S3_PUBLIC_IMAGES_BUCKET_PROTOCOL: https
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 20s
+
+  # ── Backend API ────────────────────────────────────────────────────
+  api:
+    image: ghcr.io/rapidly-tech/rapidly:latest
+    restart: always
+    ports:
+      - "127.0.0.1:10000:10000"
+    env_file: .env.production
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:10000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+  # ── Background Workers ─────────────────────────────────────────────
+  scheduler:
+    image: ghcr.io/rapidly-tech/rapidly:latest
+    restart: always
+    command: uv run python -m rapidly.worker.scheduler
+    env_file: .env.production
+
+  worker:
+    image: ghcr.io/rapidly-tech/rapidly:latest
+    restart: always
+    command: uv run dramatiq rapidly.worker.run -p 2 -t 4 --queues low_priority
+    env_file: .env.production
+
+  worker-medium:
+    image: ghcr.io/rapidly-tech/rapidly:latest
+    restart: always
+    command: uv run dramatiq rapidly.worker.run -p 2 -t 4 --queues medium_priority
+    env_file: .env.production
+
+  worker-high:
+    image: ghcr.io/rapidly-tech/rapidly:latest
+    restart: always
+    command: uv run dramatiq rapidly.worker.run -p 2 -t 4 --queues high_priority
+    env_file: .env.production
+
+  worker-webhook:
+    image: ghcr.io/rapidly-tech/rapidly:latest
+    restart: always
+    command: uv run dramatiq rapidly.worker.run -p 1 -t 16 --queues webhooks
+    env_file: .env.production
+    environment:
+      RAPIDLY_DATABASE_POOL_SIZE: 16
