@@ -92,20 +92,27 @@ jobs:
           BACKUP_FILE="rapidly-prod-$(date -u +%Y%m%d-%H%M%S).sql.gz"
           echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
 
-          # SSH to rapidly-app and exec pg_dump inside the api container
-          # (the api container has the postgres client and DB credentials in env).
-          # Pipe the gzipped dump back over the SSH stream.
+          # SSH to rapidly-app and run pg_dump in a one-shot postgres:16-alpine
+          # container. The rapidly api image doesn't ship pg_dump (it uses the
+          # Python postgres driver), so we spawn a sidecar that does. We share
+          # the network namespace of the running api container so the sidecar
+          # can reach the database with exactly the same hostname/port that
+          # the api uses, and we source RAPIDLY_POSTGRES_* from .env.production.
+          # The gzipped dump is streamed back over SSH stdout.
           ssh -i ~/.ssh/id_ed25519 \
               -o StrictHostKeyChecking=accept-new \
               -o ServerAliveInterval=30 \
               "${USER}@${HOST}" \
-              'cd /opt/rapidly && \
-               docker compose -f docker-compose.production.yml exec -T api \
-                 sh -c "pg_dump --no-owner --no-acl --format=plain \
-                        -h \"\$RAPIDLY_POSTGRES_HOST\" \
-                        -p \"\$RAPIDLY_POSTGRES_PORT\" \
-                        -U \"\$RAPIDLY_POSTGRES_USER\" \
-                        -d \"\$RAPIDLY_POSTGRES_DATABASE\" \
+              'docker run --rm \
+                 --network container:rapidly-api-1 \
+                 --env-file /opt/rapidly/.env.production \
+                 postgres:16-alpine \
+                 sh -c "PGPASSWORD=\"\$RAPIDLY_POSTGRES_PWD\" \
+                        pg_dump --no-owner --no-acl --format=plain \
+                          -h \"\$RAPIDLY_POSTGRES_HOST\" \
+                          -p \"\$RAPIDLY_POSTGRES_PORT\" \
+                          -U \"\$RAPIDLY_POSTGRES_USER\" \
+                          -d \"\$RAPIDLY_POSTGRES_DATABASE\" \
                         | gzip -9"' \
             > "$BACKUP_FILE"
 
