@@ -36,6 +36,12 @@ SQL >
         AND c.order_id IS NOT NULL
         AND c.customer_id IS NOT NULL
         AND c.currency IS NOT NULL
+        -- Always-true filter that references c.timestamp to force the
+        -- materialized-view optimiser to keep `timestamp` in __table1's
+        -- projection. Without this, the MV deploy fails with
+        -- NOT_FOUND_COLUMN_IN_BLOCK because the optimiser prunes columns
+        -- that only appear inside JOIN ON conditions.
+        AND c.timestamp >= toDateTime64('1970-01-01 00:00:00', 3)
     GROUP BY c.organization_id, c.order_id
 
 TYPE MATERIALIZED
