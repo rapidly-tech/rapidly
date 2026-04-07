@@ -1,30 +1,46 @@
-# Rapidly — Hetzner Postgres backup to S3
+# Rapidly — Hetzner Postgres backup to Cloudflare R2
 #
 # Runs nightly at 03:00 UTC and on workflow_dispatch. SSHes to rapidly-app,
 # runs pg_dump against the production Postgres (rapidly-db on the private
-# network), streams the gzipped dump back over SSH, then uploads to S3 via
-# OIDC (no long-lived AWS credentials in the workflow).
+# network), streams the gzipped dump back over SSH, then uploads to a
+# Cloudflare R2 bucket using R2's S3-compatible API.
+#
+# Why R2 instead of AWS S3:
+#   - The rest of the rapidly stack already uses R2 for object storage
+#     (the RAPIDLY_AWS_* env vars in .env.production point at R2 via its
+#     S3-compatible endpoint, not AWS).
+#   - R2 has zero egress fees, so backups are cheaper to download for
+#     restore drills.
+#   - R2 doesn't support GitHub OIDC, so we authenticate with a static
+#     access key + secret. Use a dedicated key with write-only access
+#     to the backup bucket — DO NOT reuse the production app's R2 key.
 #
 # Required GitHub repository / environment secrets:
-#   HETZNER_HOST, HETZNER_USER, HETZNER_SSH_KEY     (already configured for deploys)
-#   AWS_ROLE_ARN          IAM role to assume via GitHub OIDC
-#                         must have s3:PutObject on the backup bucket and
-#                         a trust policy allowing GitHub Actions on this repo
-#   AWS_REGION            e.g. eu-central-1
-#   AWS_BUCKET_NAME       e.g. rapidly-prod-db-backups
+#   HETZNER_HOST, HETZNER_USER, HETZNER_SSH_KEY     (already configured)
+#   R2_ACCOUNT_ID         your Cloudflare account ID (32-char hex string)
+#                         find at: dash.cloudflare.com → right sidebar
+#   R2_ACCESS_KEY_ID      32-char hex from R2 → Manage R2 API Tokens
+#                         create a NEW token, scoped to the backup bucket
+#                         with permission "Object Read & Write" (or just Write)
+#   R2_SECRET_ACCESS_KEY  64-char hex paired with the access key above
+#   R2_BUCKET_NAME        e.g. rapidly-prod-db-backups
 #
-# Setup steps for the AWS side (one-time):
-#   1. Create S3 bucket with default encryption + lifecycle rule
-#      (e.g. transition to Glacier after 30d, expire after 365d).
-#   2. Create an OIDC identity provider in IAM trusted to
-#      token.actions.githubusercontent.com.
-#   3. Create an IAM role with trust policy allowing
-#      repo:rapidly-tech/rapidly:environment:production and an inline
-#      policy granting s3:PutObject + s3:PutObjectAcl on the bucket.
-#   4. Add the three AWS_* secrets above to the production environment
-#      in GitHub repo settings.
+# Setup steps for the Cloudflare side (one-time):
+#   1. Cloudflare dashboard → R2 → Create bucket
+#      - Name: rapidly-prod-db-backups (or similar)
+#      - Location: Auto (closest to your customer base)
+#      - Add a lifecycle rule: delete objects older than 365 days
+#   2. R2 → Manage R2 API Tokens → Create API Token
+#      - Token name: rapidly-ci-db-backup
+#      - Permissions: Object Read & Write
+#      - Specify bucket: rapidly-prod-db-backups (scope to this one bucket)
+#      - TTL: pick a long expiry or "Forever"
+#      - Click Create — copy Access Key ID, Secret Access Key, and the
+#        bucket-specific endpoint URL (the Account ID is the subdomain)
+#   3. Add the four R2_* secrets to the production environment
+#      in GitHub repo settings (Settings → Environments → production).
 
-name: Backup Hetzner Postgres to S3
+name: Backup Hetzner Postgres to R2
 
 on:
   schedule:
@@ -32,36 +48,29 @@ on:
   workflow_dispatch:
 
 permissions:
-  id-token: write   # required for OIDC auth to AWS
   contents: read
 
 jobs:
   backup:
-    name: pg_dump → S3
+    name: pg_dump → R2
     runs-on: ubuntu-latest
     environment: production
     timeout-minutes: 30
     steps:
-      - name: Validate AWS secrets
+      - name: Validate R2 secrets
         env:
-          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
-          AWS_REGION: ${{ secrets.AWS_REGION }}
-          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
         run: |
           set -euo pipefail
-          for v in AWS_ROLE_ARN AWS_REGION AWS_BUCKET_NAME; do
+          for v in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET_NAME; do
             if [ -z "${!v:-}" ]; then
               echo "::error::Missing required secret: $v"
               exit 1
             fi
           done
-
-      - name: Authenticate with AWS via OIDC
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
-          role-session-name: rapidly-db-backup-${{ github.run_id }}
-          aws-region: ${{ secrets.AWS_REGION }}
 
       - name: Configure SSH
         env:
@@ -80,7 +89,7 @@ jobs:
           USER: ${{ secrets.HETZNER_USER }}
         run: |
           set -euo pipefail
-          BACKUP_FILE="rapidly-prod-$(date +%Y%m%d-%H%M%S).sql.gz"
+          BACKUP_FILE="rapidly-prod-$(date -u +%Y%m%d-%H%M%S).sql.gz"
           echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
 
           # SSH to rapidly-app and exec pg_dump inside the api container
@@ -109,17 +118,25 @@ jobs:
             exit 1
           fi
 
-      - name: Upload backup to S3
+      - name: Upload backup to Cloudflare R2
         env:
-          BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
+          # AWS CLI honours these — they configure the credential chain
+          # so we can pass --endpoint-url to point at R2's S3-compatible API.
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto    # R2 ignores region but the SDK requires one
+          BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
         run: |
           set -euo pipefail
-          # Date-prefixed key for easy browsing + lifecycle policies
-          DATE_PREFIX=$(date +%Y/%m/%d)
+          # Date-prefixed key for easy browsing + future lifecycle policies
+          DATE_PREFIX=$(date -u +%Y/%m/%d)
           aws s3 cp "$BACKUP_FILE" "s3://$BUCKET/$DATE_PREFIX/$BACKUP_FILE" \
-            --storage-class STANDARD_IA \
+            --endpoint-url "$ENDPOINT" \
             --no-progress
           echo "Uploaded: s3://$BUCKET/$DATE_PREFIX/$BACKUP_FILE"
+          echo ""
+          echo "Verify in Cloudflare dashboard: R2 → $BUCKET → $DATE_PREFIX/"
 
       - name: Clean up local files
         if: always()
