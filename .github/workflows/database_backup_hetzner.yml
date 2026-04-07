@@ -1,0 +1,127 @@
+# Rapidly — Hetzner Postgres backup to S3
+#
+# Runs nightly at 03:00 UTC and on workflow_dispatch. SSHes to rapidly-app,
+# runs pg_dump against the production Postgres (rapidly-db on the private
+# network), streams the gzipped dump back over SSH, then uploads to S3 via
+# OIDC (no long-lived AWS credentials in the workflow).
+#
+# Required GitHub repository / environment secrets:
+#   HETZNER_HOST, HETZNER_USER, HETZNER_SSH_KEY     (already configured for deploys)
+#   AWS_ROLE_ARN          IAM role to assume via GitHub OIDC
+#                         must have s3:PutObject on the backup bucket and
+#                         a trust policy allowing GitHub Actions on this repo
+#   AWS_REGION            e.g. eu-central-1
+#   AWS_BUCKET_NAME       e.g. rapidly-prod-db-backups
+#
+# Setup steps for the AWS side (one-time):
+#   1. Create S3 bucket with default encryption + lifecycle rule
+#      (e.g. transition to Glacier after 30d, expire after 365d).
+#   2. Create an OIDC identity provider in IAM trusted to
+#      token.actions.githubusercontent.com.
+#   3. Create an IAM role with trust policy allowing
+#      repo:rapidly-tech/rapidly:environment:production and an inline
+#      policy granting s3:PutObject + s3:PutObjectAcl on the bucket.
+#   4. Add the three AWS_* secrets above to the production environment
+#      in GitHub repo settings.
+
+name: Backup Hetzner Postgres to S3
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # daily 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required for OIDC auth to AWS
+  contents: read
+
+jobs:
+  backup:
+    name: pg_dump → S3
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Validate AWS secrets
+        env:
+          AWS_ROLE_ARN: ${{ secrets.AWS_ROLE_ARN }}
+          AWS_REGION: ${{ secrets.AWS_REGION }}
+          AWS_BUCKET_NAME: ${{ secrets.AWS_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          for v in AWS_ROLE_ARN AWS_REGION AWS_BUCKET_NAME; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+
+      - name: Authenticate with AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          role-session-name: rapidly-db-backup-${{ github.run_id }}
+          aws-region: ${{ secrets.AWS_REGION }}
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.HETZNER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Stream pg_dump from Hetzner → local file
+        env:
+          HOST: ${{ secrets.HETZNER_HOST }}
+          USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          set -euo pipefail
+          BACKUP_FILE="rapidly-prod-$(date +%Y%m%d-%H%M%S).sql.gz"
+          echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
+
+          # SSH to rapidly-app and exec pg_dump inside the api container
+          # (the api container has the postgres client and DB credentials in env).
+          # Pipe the gzipped dump back over the SSH stream.
+          ssh -i ~/.ssh/id_ed25519 \
+              -o StrictHostKeyChecking=accept-new \
+              -o ServerAliveInterval=30 \
+              "${USER}@${HOST}" \
+              'cd /opt/rapidly && \
+               docker compose -f docker-compose.production.yml exec -T api \
+                 sh -c "pg_dump --no-owner --no-acl --format=plain \
+                        -h \"\$RAPIDLY_POSTGRES_HOST\" \
+                        -p \"\$RAPIDLY_POSTGRES_PORT\" \
+                        -U \"\$RAPIDLY_POSTGRES_USER\" \
+                        -d \"\$RAPIDLY_POSTGRES_DATABASE\" \
+                        | gzip -9"' \
+            > "$BACKUP_FILE"
+
+          # Sanity-check: file exists and is non-trivial
+          SIZE=$(stat -c%s "$BACKUP_FILE" 2>/dev/null || stat -f%z "$BACKUP_FILE")
+          echo "Dump size: $SIZE bytes"
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "::error::Dump is suspiciously small (<1 KB) — likely a failure"
+            head -c 500 "$BACKUP_FILE" || true
+            exit 1
+          fi
+
+      - name: Upload backup to S3
+        env:
+          BUCKET: ${{ secrets.AWS_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          # Date-prefixed key for easy browsing + lifecycle policies
+          DATE_PREFIX=$(date +%Y/%m/%d)
+          aws s3 cp "$BACKUP_FILE" "s3://$BUCKET/$DATE_PREFIX/$BACKUP_FILE" \
+            --storage-class STANDARD_IA \
+            --no-progress
+          echo "Uploaded: s3://$BUCKET/$DATE_PREFIX/$BACKUP_FILE"
+
+      - name: Clean up local files
+        if: always()
+        run: |
+          rm -f "$BACKUP_FILE" ~/.ssh/id_ed25519
