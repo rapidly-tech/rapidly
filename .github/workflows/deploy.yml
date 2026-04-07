@@ -73,7 +73,7 @@ jobs:
       # Tag the image with branch, PR, semver, SHA, and "latest" for default branch
       - name: Docker meta
         id: meta
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: |
             ghcr.io/rapidly-tech/rapidly
@@ -131,7 +131,7 @@ jobs:
 
       - name: Docker meta (Web)
         id: meta-web
-        uses: docker/metadata-action@v5
+        uses: docker/metadata-action@v6
         with:
           images: ghcr.io/rapidly-tech/rapidly-web
           tags: |
