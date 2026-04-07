@@ -1,0 +1,128 @@
+"""Tests for file upload and download endpoints."""
+
+from urllib.parse import parse_qs, urlencode, urlparse
+
+import pytest
+from httpx import AsyncClient, ReadError
+
+from rapidly.catalog.file.queries import FileRepository
+from rapidly.catalog.file.s3 import S3_SERVICES
+from rapidly.integrations.aws.s3.exceptions import S3FileError
+from rapidly.models import Workspace
+from rapidly.postgres import AsyncSession
+from tests.fixtures.file import TestFile
+
+
+@pytest.mark.asyncio
+class TestEndpoints:
+    async def test_anonymous_create_401(
+        self, client: AsyncClient, workspace: Workspace
+    ) -> None:
+        response = await client.post("/api/files/")
+
+        assert response.status_code == 401
+
+    @pytest.mark.auth
+    async def test_create_downloadable_without_scopes(
+        self, client: AsyncClient, workspace: Workspace, logo_png: TestFile
+    ) -> None:
+        response = await client.post(
+            "/api/files/",
+            json=logo_png.build_create(workspace.id).model_dump(mode="json"),
+        )
+
+        assert response.status_code == 422
+
+    async def test_create_downloadable_with_web_scope(
+        self, session: AsyncSession, workspace: Workspace, logo_png: TestFile
+    ) -> None:
+        await logo_png.create(session, workspace)
+
+    async def test_create_downloadable_with_non_ascii_name(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+        non_ascii_file_name: TestFile,
+    ) -> None:
+        await non_ascii_file_name.create(session, workspace)
+
+    async def test_incomplete_upload_with_web_scope(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+        logo_jpg: TestFile,
+    ) -> None:
+        created = await logo_jpg.create(session, workspace)
+
+        await logo_jpg.upload(created)
+
+        # S3 object is not available until we fully complete it
+        with pytest.raises(S3FileError):
+            s3_service = S3_SERVICES[created.service]
+            s3_service.get_head_or_raise(created.path)
+
+        repository = FileRepository.from_session(session)
+        record = await repository.get_by_id(created.id, include_deleted=True)
+        assert record
+        assert record.is_uploaded is False
+
+    async def test_upload_without_signature(
+        self, session: AsyncSession, workspace: Workspace, logo_jpg: TestFile
+    ) -> None:
+        created = await logo_jpg.create(session, workspace)
+
+        part = created.upload.parts[0]
+
+        upload_url = part.url
+        url = urlparse(upload_url)
+        qs = parse_qs(url.query)
+
+        tampered_query = urlencode(
+            {
+                "uploadId": created.upload.id,
+                "partNumber": qs["partNumber"][0],
+                "X-Amz-Algorithm": qs["X-Amz-Algorithm"][0],
+                "X-Amz-Credential": qs["X-Amz-Credential"][0],
+                "X-Amz-Date": qs["X-Amz-Date"][0],
+                "X-Amz-Expires": qs["X-Amz-Expires"][0],
+                "X-Amz-SignedHeaders": qs["X-Amz-SignedHeaders"][0],
+                "X-Amz-Signature": "i-am-a-hacker",
+            }
+        )
+        tampered_url = f"{url.scheme}://{url.netloc}{url.path}?{tampered_query}"
+
+        try:
+            failed = False
+            res = await logo_jpg.put_upload(
+                tampered_url, logo_jpg.data, headers=part.headers
+            )
+            # TODO
+            # Investigate this issue with httpx raising ReadError instead
+            # of handling the denied request (sometimes)
+            failed = res.status_code != 200
+        except ReadError:
+            failed = True
+
+        assert failed
+
+        # S3 object is definitely not available
+        with pytest.raises(S3FileError):
+            s3_service = S3_SERVICES[created.service]
+            s3_service.get_head_or_raise(created.path)
+
+        repository = FileRepository.from_session(session)
+        record = await repository.get_by_id(created.id, include_deleted=True)
+        assert record
+        assert record.is_uploaded is False
+
+    async def test_upload_with_web_scope(
+        self, session: AsyncSession, workspace: Workspace, logo_jpg: TestFile
+    ) -> None:
+        created = await logo_jpg.create(session, workspace)
+        uploaded = await logo_jpg.upload(created)
+        await logo_jpg.complete(session, created, uploaded)
+
+        repository = FileRepository.from_session(session)
+        record = await repository.get_by_id(created.id, include_deleted=True)
+        assert record
+        assert record.is_uploaded is True

@@ -1,0 +1,28 @@
+# Rapidly — Trigger a nightly database export on Render so it is ready for the upload workflow.
+# Runs daily at 07:00 UTC and can also be triggered manually.
+
+name: Trigger database backup on Render
+
+on:
+  schedule:
+    # One hour before database_backup_upload.yml fetches the export
+    - cron: '0 7 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: none
+
+jobs:
+  trigger-backup:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Request Render database export
+      run: |
+          # POST to the Render API to start a new backup; --fail ensures non-2xx is caught
+          curl -X POST "https://api.render.com/v1/postgres/${{ secrets.RENDER_DATABASE_ID }}/backup" \
+          -H "Authorization: Bearer ${{ secrets.RENDER_API_KEY }}" \
+          -H "Content-Type: application/json" \
+          --fail \
+          --silent \
+          --output /dev/null

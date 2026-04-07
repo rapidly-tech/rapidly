@@ -1,0 +1,1786 @@
+"""Admin panel workspace management routes (HTMX).
+
+Server-rendered admin views for listing, reviewing, and managing
+workspaces: onboarding status changes, account review workflows,
+blocking/unblocking, and internal-notes editing.
+"""
+
+import builtins
+import contextlib
+import uuid
+from collections.abc import Generator
+from datetime import UTC, datetime
+from typing import Annotated, Any, Literal, override
+
+import stripe as stripe_lib
+import structlog
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from fastapi.responses import HTMLResponse
+from pydantic import UUID4, BeforeValidator, ValidationError
+from pydantic_core import PydanticCustomError
+from sqlalchemy import or_
+from sqlalchemy.orm import contains_eager, joinedload
+from tagflow import classes, tag, text
+
+from rapidly.billing.account import actions as account_service
+from rapidly.billing.account.actions import (
+    CannotChangeAdminError,
+    UserNotWorkspaceMemberError,
+)
+from rapidly.billing.account.queries import AccountRepository
+from rapidly.catalog.file import actions as file_service
+from rapidly.catalog.file.ordering import FileSortProperty
+from rapidly.catalog.file.queries import FileRepository
+from rapidly.core.currency import format_currency
+from rapidly.core.ordering import Sorting
+from rapidly.core.pagination import PaginationParams
+from rapidly.core.queries.utils import escape_like
+from rapidly.core.types import empty_str_to_none
+from rapidly.enums import AccountType
+from rapidly.integrations.stripe import actions as stripe_service
+from rapidly.models import (
+    Account,
+    File,
+    Workspace,
+)
+from rapidly.models.file import FileServiceTypes
+from rapidly.models.user import IdentityVerificationStatus
+from rapidly.models.workspace import WorkspaceStatus
+from rapidly.models.workspace_review import WorkspaceReview
+from rapidly.platform.user.queries import UserRepository
+from rapidly.platform.workspace import actions as workspace_service
+from rapidly.platform.workspace import ordering
+from rapidly.platform.workspace.ordering import WorkspaceSortProperty
+from rapidly.platform.workspace.queries import WorkspaceRepository
+from rapidly.platform.workspace.types import WorkspaceFeatureSettings
+from rapidly.platform.workspace_membership import (
+    actions as workspace_membership_service,
+)
+from rapidly.platform.workspace_membership.actions import (
+    CannotRemoveWorkspaceAdmin,
+    UserNotMemberOfWorkspace,
+)
+from rapidly.platform.workspace_membership.actions import (
+    WorkspaceNotFound as UserOrgWorkspaceNotFound,
+)
+from rapidly.postgres import (
+    AsyncReadSession,
+    AsyncSession,
+    get_db_read_session,
+    get_db_session,
+)
+
+from .. import formatters
+from ..components import accordion, button, datatable, description_list, input, modal
+from ..layout import layout
+from ..responses import HXRedirectResponse
+from ..toast import add_toast
+from .account_review._ai_review import AIReviewVerdict
+from .account_review._payment_verdict import PaymentVerdict
+from .account_review._setup_verdict import SetupVerdict
+from .analytics import (
+    PaymentAnalyticsService,
+    WorkspaceSetupAnalyticsService,
+)
+from .forms import (
+    AddPaymentMethodDomainForm,
+    UpdateWorkspaceDetailsForm,
+    UpdateWorkspaceForm,
+    UpdateWorkspaceInternalNotesForm,
+    WorkspaceStatusFormAdapter,
+)
+from .types import PaymentStatistics, SetupVerdictData
+
+router = APIRouter()
+
+_log = structlog.get_logger(__name__)
+
+
+# ── Helpers & Utilities ──
+
+
+def empty_str_to_none_before_enum(value: Any) -> Any:
+    """Convert empty strings to None before enum parsing."""
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    return value
+
+
+def empty_str_to_none_before_bool(value: Any) -> Any:
+    """Convert empty strings to None before boolean parsing."""
+    if isinstance(value, str) and value.strip() == "":
+        return None
+    if isinstance(value, str):
+        if value.lower() in ("true", "1", "yes", "on"):
+            return True
+        elif value.lower() in ("false", "0", "no", "off"):
+            return False
+    return value
+
+
+@contextlib.contextmanager
+def workspace_badge(workspace: Workspace) -> Generator[None]:
+    with tag.div(classes="badge"):
+        if workspace.status == WorkspaceStatus.ACTIVE:
+            classes("badge-success")
+        elif workspace.is_under_review or workspace.status == WorkspaceStatus.DENIED:
+            classes("badge-warning")
+        else:
+            classes("badge-secondary")
+        text(workspace.status.get_display_name())
+    yield
+
+
+# ── Datatable Columns ──
+
+
+class WorkspaceStatusColumn(
+    datatable.DatatableAttrColumn[Workspace, WorkspaceSortProperty]
+):
+    def render(self, request: Request, item: Workspace) -> Generator[None] | None:
+        with workspace_badge(item):
+            pass
+        return None
+
+
+class NextReviewThresholdColumn(
+    datatable.DatatableAttrColumn[Workspace, WorkspaceSortProperty]
+):
+    def render(self, request: Request, item: Workspace) -> Generator[None] | None:
+        from babel.numbers import format_currency
+
+        text(format_currency(item.next_review_threshold, "usd"))
+        return None
+
+
+class DaysInStatusColumn(
+    datatable.DatatableAttrColumn[Workspace, WorkspaceSortProperty]
+):
+    def render(self, request: Request, item: Workspace) -> Generator[None] | None:
+        if item.status_updated_at:
+            delta = datetime.now(UTC) - item.status_updated_at
+            days = delta.days
+        else:
+            delta = datetime.now(UTC) - item.created_at
+            days = delta.days
+
+        if item.is_under_review:
+            text(f"{days} days in review")
+        else:
+            text(f"{days} days since review")
+        return None
+
+
+# ── Description List Items ──
+
+
+class AccountTypeDescriptionListAttrItem(
+    description_list.DescriptionListAttrItem[Account]
+):
+    def render(self, request: Request, item: Account) -> Generator[None] | None:
+        account_type = item.account_type
+        if account_type == AccountType.stripe:
+            with tag.a(
+                href=f"https://dashboard.stripe.com/connect/accounts/{item.stripe_id}",
+                classes="link flex flex-row gap-1",
+                target="_blank",
+                rel="noopener noreferrer",
+            ):
+                text(account_type.get_display_name())
+                with tag.div(classes="icon-external-link"):
+                    pass
+        else:
+            text(account_type.get_display_name())
+        return None
+
+
+# ── Data Fetching ──
+
+
+async def get_payment_statistics(
+    session: AsyncSession, workspace_id: UUID4
+) -> PaymentStatistics:
+    """Get all-time payment statistics for an workspace."""
+
+    analytics_service = PaymentAnalyticsService(session)
+
+    # Get account ID for the workspace
+    account_id = await analytics_service.get_workspace_account_id(workspace_id)
+    if not account_id:
+        return PaymentStatistics(
+            payment_count=0,
+            p50_risk=0,
+            p90_risk=0,
+            transfer_sum=0,
+            total_payment_amount=0,
+        )
+
+    # Get payment statistics
+    (
+        payment_count,
+        total_payment_amount,
+        risk_scores,
+    ) = await analytics_service.get_succeeded_payments_stats(workspace_id)
+
+    # Calculate risk percentiles and level
+    p50_risk, p90_risk = analytics_service.calculate_risk_percentiles(risk_scores)
+
+    return PaymentStatistics(
+        payment_count=payment_count,
+        p50_risk=p50_risk,
+        p90_risk=p90_risk,
+        transfer_sum=0,
+        total_payment_amount=total_payment_amount,
+    )
+
+
+async def get_setup_verdict_data(
+    workspace: Workspace, session: AsyncSession
+) -> SetupVerdictData:
+    """Get enhanced setup verdict for an workspace."""
+
+    analytics_service = WorkspaceSetupAnalyticsService(session)
+
+    # Get all setup metrics using helper methods
+    webhooks_count = await analytics_service.get_webhooks_count(workspace.id)
+    org_tokens_count = await analytics_service.get_workspace_tokens_count(workspace.id)
+    products_count = await analytics_service.get_products_count(workspace.id)
+
+    # Check user verification status (get the first user as owner)
+    user_verified = await analytics_service.is_owner_identity_verified(workspace.id)
+
+    # Check account charges and payouts enabled
+    (
+        account_charges_enabled,
+        account_payouts_enabled,
+    ) = await analytics_service.check_account_enabled(workspace)
+
+    # Calculate setup score using helper
+    setup_score = analytics_service.calculate_setup_score(
+        webhooks_count=webhooks_count,
+        org_tokens_count=org_tokens_count,
+        products_count=products_count,
+        user_verified=user_verified,
+        account_charges_enabled=account_charges_enabled,
+        account_payouts_enabled=account_payouts_enabled,
+    )
+
+    return SetupVerdictData(
+        webhooks_count=webhooks_count,
+        api_keys_count=org_tokens_count,
+        products_count=products_count,
+        user_verified=user_verified,
+        account_charges_enabled=account_charges_enabled,
+        account_payouts_enabled=account_payouts_enabled,
+        setup_score=setup_score,
+        webhooks_configured=webhooks_count > 0,
+        products_configured=products_count > 0,
+        api_keys_created=org_tokens_count > 0,
+    )
+
+
+# ── List & Search ──
+
+
+@router.get("/", name="workspaces:list")
+async def list(
+    request: Request,
+    sorting: ordering.ListSorting,
+    session: AsyncReadSession = Depends(get_db_read_session),
+    page: int = Query(1, description="Page number, defaults to 1.", gt=0),
+    limit: int = Query(100, description="Size of a page, defaults to 100.", gt=0),
+    query: str | None = Query(None),
+    workspace_status: Annotated[
+        WorkspaceStatus | None,
+        BeforeValidator(empty_str_to_none_before_enum),
+        Query(),
+    ] = None,
+    has_appealed: Annotated[
+        bool | None, BeforeValidator(empty_str_to_none_before_bool), Query()
+    ] = None,
+    review_cycle: Annotated[
+        Literal["first", "subsequent"] | None,
+        BeforeValidator(empty_str_to_none),
+        Query(),
+    ] = None,
+) -> None:
+    # Create custom pagination with default limit of 100
+    pagination = PaginationParams(page, min(100, limit))
+    repository = WorkspaceRepository.from_session(session)
+    statement = (
+        repository.get_base_statement(include_deleted=True)
+        .join(Account, Workspace.account_id == Account.id, isouter=True)
+        .options(
+            contains_eager(Workspace.account),
+        )
+    )
+    if query:
+        try:
+            statement = statement.where(Workspace.id == uuid.UUID(query))
+        except ValueError:
+            escaped = escape_like(query)
+            statement = statement.where(
+                or_(
+                    Workspace.name.ilike(f"%{escaped}%"),
+                    Workspace.slug.ilike(f"%{escaped}%"),
+                    Workspace.website.ilike(f"%{escaped}%"),
+                )
+            )
+    if workspace_status:
+        statement = statement.where(Workspace.status == workspace_status)
+
+    # Add appeal filter
+    if has_appealed is not None:
+        if has_appealed:
+            statement = statement.join(
+                WorkspaceReview,
+                Workspace.id == WorkspaceReview.workspace_id,
+            ).where(WorkspaceReview.appeal_submitted_at.is_not(None))
+        else:
+            statement = statement.outerjoin(
+                WorkspaceReview,
+                Workspace.id == WorkspaceReview.workspace_id,
+            ).where(
+                or_(
+                    WorkspaceReview.id.is_(None),
+                    WorkspaceReview.appeal_submitted_at.is_(None),
+                )
+            )
+
+    # Add review cycle filter
+    if review_cycle:
+        match review_cycle:
+            case "first":
+                status = WorkspaceStatus.INITIAL_REVIEW
+            case "subsequent":
+                status = WorkspaceStatus.ONGOING_REVIEW
+        statement = statement.where(Workspace.status == status)
+
+    statement = repository.apply_sorting(statement, sorting)
+    items, count = await repository.paginate(
+        statement, limit=pagination.limit, page=pagination.page
+    )
+
+    with layout(
+        request,
+        [
+            ("Workspaces", str(request.url_for("workspaces:list"))),
+        ],
+        "workspaces:list",
+    ):
+        with tag.div(classes="flex flex-col gap-4"):
+            with tag.h1(classes="text-4xl"):
+                text("Workspaces")
+            with tag.form(method="GET", classes="w-full flex flex-col gap-4"):
+                with tag.div(classes="flex flex-row gap-2"):
+                    with input.search("query", query):
+                        pass
+                    with input.select(
+                        [
+                            ("All Workspace Statuses", ""),
+                            *[
+                                (status.get_display_name(), status.value)
+                                for status in WorkspaceStatus
+                            ],
+                        ],
+                        workspace_status.value if workspace_status else "",
+                        name="workspace_status",
+                    ):
+                        pass
+                    with input.select(
+                        [
+                            ("All Appeal Statuses", ""),
+                            ("Has Appealed", "true"),
+                            ("Has Not Appealed", "false"),
+                        ],
+                        "true"
+                        if has_appealed is True
+                        else ("false" if has_appealed is False else ""),
+                        name="has_appealed",
+                    ):
+                        pass
+                    with input.select(
+                        [
+                            ("All Review Cycles", ""),
+                            ("First Review", "first"),
+                            ("Subsequent Review", "subsequent"),
+                        ],
+                        review_cycle or "",
+                        name="review_cycle",
+                    ):
+                        pass
+                with tag.div(classes="flex flex-row gap-2"):
+                    with input.select(
+                        [
+                            ("25 per page", "25"),
+                            ("50 per page", "50"),
+                            ("100 per page", "100"),
+                        ],
+                        str(limit),
+                        name="limit",
+                    ):
+                        pass
+                    with button(type="submit"):
+                        text("Filter")
+            with datatable.Datatable[Workspace, WorkspaceSortProperty](
+                datatable.DatatableAttrColumn(
+                    "id", "ID", href_route_name="workspaces:get", clipboard=True
+                ),
+                datatable.DatatableDateTimeColumn(
+                    "created_at",
+                    "Created At",
+                    sorting=WorkspaceSortProperty.created_at,
+                ),
+                WorkspaceStatusColumn("status", "Status"),
+                datatable.DatatableAttrColumn(
+                    "name",
+                    "Name",
+                    sorting=WorkspaceSortProperty.workspace_name,
+                ),
+                datatable.DatatableAttrColumn(
+                    "slug",
+                    "Slug",
+                    sorting=WorkspaceSortProperty.slug,
+                    clipboard=True,
+                ),
+                NextReviewThresholdColumn(
+                    "next_review_threshold",
+                    "Next Review Threshold",
+                    sorting=WorkspaceSortProperty.next_review_threshold,
+                ),
+                DaysInStatusColumn(
+                    "status_updated_at",
+                    "Days in Status",
+                    sorting=WorkspaceSortProperty.days_in_status,
+                ),
+            ).render(request, items, sorting=sorting):
+                pass
+            with datatable.pagination(request, pagination, count):
+                pass
+
+
+# ── Update & Edit ──
+
+
+@router.api_route("/{id}/update", name="workspaces:update", methods=["GET", "POST"])
+async def update(
+    request: Request,
+    id: UUID4,
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    org_repo = WorkspaceRepository.from_session(session)
+    workspace = await org_repo.get_by_id(id, include_deleted=True)
+    if not workspace:
+        raise HTTPException(status_code=404)
+
+    validation_error: ValidationError | None = None
+
+    if request.method == "POST":
+        data = await request.form()
+        try:
+            form = UpdateWorkspaceForm.model_validate_form(data)
+            if form.slug != workspace.slug:
+                existing_slug = await org_repo.get_by_slug(form.slug)
+                if existing_slug is not None:
+                    raise ValidationError.from_exception_data(
+                        title="SlugAlreadyExists",
+                        line_errors=[
+                            {
+                                "loc": ("slug",),
+                                "type": PydanticCustomError(
+                                    "SlugAlreadyExists",
+                                    "An workspace with this slug already exists.",
+                                ),
+                                "input": form.slug,
+                            }
+                        ],
+                    )
+
+            form_dict = form.model_dump(exclude_none=True)
+            feature_flags_from_form = form_dict.pop("feature_flags", None)
+
+            # Dynamically handle all feature flags from WorkspaceFeatureSettings
+            # If None, all checkboxes were unchecked - set all to False
+            if feature_flags_from_form is None:
+                # Get all field names from WorkspaceFeatureSettings and set to False
+                feature_flags = {
+                    field_name: False
+                    for field_name in WorkspaceFeatureSettings.model_fields.keys()
+                }
+            else:
+                # Use the values from the form, ensuring all fields have values
+                feature_flags = {
+                    field_name: feature_flags_from_form.get(field_name, False)
+                    for field_name in WorkspaceFeatureSettings.model_fields.keys()
+                }
+
+            # Merge with existing feature_settings
+            updated_feature_settings = {
+                **workspace.feature_settings,
+                **feature_flags,
+            }
+
+            # Update workspace with both basic fields and feature_settings
+            workspace = await org_repo.update(
+                workspace,
+                update_dict={
+                    **form_dict,
+                    "feature_settings": updated_feature_settings,
+                },
+            )
+            return HXRedirectResponse(
+                request, str(request.url_for("workspaces:get", id=id)), 303
+            )
+
+        except ValidationError as e:
+            validation_error = e
+
+    # Prepare data for form rendering with current feature settings
+    # Dynamically populate all feature flags from WorkspaceFeatureSettings
+    form_data = {
+        "name": workspace.name,
+        "slug": workspace.slug,
+        "customer_invoice_prefix": workspace.customer_invoice_prefix,
+        "feature_flags": {
+            field_name: workspace.feature_settings.get(field_name, False)
+            for field_name in WorkspaceFeatureSettings.model_fields.keys()
+        },
+    }
+
+    with modal("Update Workspace", open=True):
+        with UpdateWorkspaceForm.render(
+            form_data,
+            hx_post=str(request.url_for("workspaces:update", id=id)),
+            hx_target="#modal",
+            classes="flex flex-col gap-4",
+            validation_error=validation_error,
+        ):
+            with tag.div(classes="modal-action"):
+                with tag.form(method="dialog"):
+                    with button(ghost=True):
+                        text("Cancel")
+                with button(
+                    type="submit",
+                    variant="primary",
+                ):
+                    text("Update")
+
+
+@router.api_route(
+    "/{id}/update_details", name="workspaces:update_details", methods=["GET", "POST"]
+)
+async def update_details(
+    request: Request,
+    id: UUID4,
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    org_repo = WorkspaceRepository.from_session(session)
+    workspace = await org_repo.get_by_id(id, include_deleted=True)
+    if not workspace:
+        raise HTTPException(status_code=404)
+
+    validation_error: ValidationError | None = None
+
+    if request.method == "POST":
+        data = await request.form()
+        try:
+            form = UpdateWorkspaceDetailsForm.model_validate_form(data)
+            workspace = await org_repo.update(
+                workspace, update_dict=form.model_dump(exclude_none=True)
+            )
+            return HXRedirectResponse(
+                request, str(request.url_for("workspaces:get", id=id)), 303
+            )
+
+        except ValidationError as e:
+            validation_error = e
+
+    with modal("Edit Business Information", open=True):
+        with tag.p(classes="text-sm text-base-content-secondary"):
+            text("Update the key information about your business and products")
+
+        with UpdateWorkspaceDetailsForm.render(
+            data=workspace,
+            validation_error=validation_error,
+            hx_post=str(request.url_for("workspaces:update_details", id=id)),
+            hx_target="#modal",
+            classes="space-y-6",
+        ):
+            # Action buttons
+            with tag.div(classes="modal-action pt-6 border-t border-base-200"):
+                with tag.form(method="dialog"):
+                    with button(ghost=True):
+                        text("Cancel")
+                with button(
+                    type="submit",
+                    variant="primary",
+                ):
+                    text("Update Details")
+
+
+@router.api_route(
+    "/{id}/update_internal_notes",
+    name="workspaces:update_internal_notes",
+    methods=["GET", "POST"],
+)
+async def update_internal_notes(
+    request: Request,
+    id: UUID4,
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    org_repo = WorkspaceRepository.from_session(session)
+    workspace = await org_repo.get_by_id(id, include_deleted=True)
+    if not workspace:
+        raise HTTPException(status_code=404)
+
+    validation_error: ValidationError | None = None
+
+    if request.method == "POST":
+        data = await request.form()
+        try:
+            form = UpdateWorkspaceInternalNotesForm.model_validate_form(data)
+            workspace = await org_repo.update(
+                workspace, update_dict=form.model_dump(exclude_none=True)
+            )
+            return HXRedirectResponse(
+                request, str(request.url_for("workspaces:get", id=id)), 303
+            )
+
+        except ValidationError as e:
+            validation_error = e
+
+    with modal("Edit Internal Notes", open=True):
+        with tag.p(classes="text-sm text-base-content-secondary"):
+            text("Add or update internal notes about this workspace (admin only)")
+
+        with UpdateWorkspaceInternalNotesForm.render(
+            data=workspace,
+            validation_error=validation_error,
+            hx_post=str(request.url_for("workspaces:update_internal_notes", id=id)),
+            hx_target="#modal",
+            classes="space-y-4",
+        ):
+            # Action buttons
+            with tag.div(classes="modal-action pt-6 border-t border-base-200"):
+                with tag.form(method="dialog"):
+                    with button(ghost=True):
+                        text("Cancel")
+                with button(
+                    type="submit",
+                    variant="primary",
+                ):
+                    text("Save Notes")
+
+
+# ── Delete ──
+
+
+@router.api_route("/{id}/delete", name="workspaces:delete", methods=["GET", "POST"])
+async def delete(
+    request: Request,
+    id: UUID4,
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    org_repo = WorkspaceRepository.from_session(session)
+    workspace = await org_repo.get_by_id(id, include_deleted=True)
+    if not workspace:
+        raise HTTPException(status_code=404)
+
+    if workspace.deleted_at is not None:
+        await add_toast(request, "This workspace is already deleted", variant="error")
+        return
+
+    if request.method == "POST":
+        await workspace_service.delete(session, workspace)
+        await add_toast(
+            request,
+            f"Workspace with ID {workspace.id} has been deleted",
+            "success",
+        )
+
+        return
+
+    with modal(f"Delete Workspace {workspace.id}", open=True):
+        with tag.div(classes="flex flex-col gap-4"):
+            with tag.p():
+                text("Are you sure you want to delete this Workspace? ")
+
+            with tag.p():
+                text("Deleting this Workspace DOES NOT:")
+            with tag.ul(classes="list-disc list-inside"):
+                with tag.li():
+                    text("Delete or anonymize Users related Workspace")
+                with tag.li():
+                    text("Delete or anonymize Account of the Workspace")
+                with tag.li():
+                    text(
+                        "Delete or anonymize customers and file shares of the Workspace"
+                    )
+                with tag.li():
+                    text("Remove API tokens (workspace or personal)")
+
+            with tag.p():
+                text("The User can be deleted separately")
+
+            with tag.div(classes="modal-action"):
+                with tag.form(method="dialog"):
+                    with button(ghost=True):
+                        text("Cancel")
+                with tag.form(method="dialog"):
+                    with button(
+                        type="button",
+                        variant="primary",
+                        hx_post=str(request.url),
+                        hx_target="#modal",
+                    ):
+                        text("Delete")
+
+
+# ── Member Management ──
+
+
+@router.get(
+    "/{id}/confirm_remove_member/{user_id}", name="workspaces:confirm_remove_member"
+)
+async def confirm_remove_member(
+    request: Request,
+    id: UUID4,
+    user_id: UUID4,
+    session: AsyncReadSession = Depends(get_db_read_session),
+) -> Any:
+    """Show confirmation modal for removing a member."""
+
+    # Get user info for the modal
+    user_repo = UserRepository.from_session(session)
+    user = await user_repo.get_by_id(user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    with modal(f"Remove {user.email}", open=True):
+        with tag.div(classes="flex items-start gap-4 mb-6"):
+            # Message content
+            with tag.div(classes="flex-1"):
+                with tag.p(classes="text-sm text-gray-600 mb-4"):
+                    text("Are you sure you want to remove ")
+                    with tag.strong():
+                        text(user.email)
+                    text(" from this workspace?")
+
+                with tag.p(classes="text-xs text-gray-500"):
+                    text(
+                        "This action cannot be undone. The user will lose access to all workspace resources."
+                    )
+
+        # Action buttons
+        with tag.div(classes="modal-action"):
+            with tag.form(method="dialog"):
+                with button(ghost=True):
+                    text("Cancel")
+
+            with tag.form(method="dialog"):
+                with button(
+                    variant="error",
+                    hx_delete=str(
+                        request.url_for(
+                            "workspaces:remove_member",
+                            id=id,
+                            user_id=user_id,
+                        )
+                    ),
+                    hx_target="#modal",
+                ):
+                    text("Remove User")
+
+
+@router.api_route(
+    "/{id}/remove_member/{user_id}",
+    name="workspaces:remove_member",
+    methods=["DELETE"],
+)
+async def remove_member(
+    request: Request,
+    id: UUID4,
+    user_id: UUID4,
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    """Remove member endpoint with DELETE method."""
+
+    try:
+        # Get user info for better error messages
+        user_repo = UserRepository.from_session(session)
+        user = await user_repo.get_by_id(user_id)
+        user_email = user.email if user else str(user_id)
+
+        # Attempt to remove the member safely
+        await workspace_membership_service.remove_member_safe(session, user_id, id)
+
+        # Add success toast and redirect
+        await add_toast(
+            request,
+            f"{user_email} has been removed from the workspace",
+            "success",
+        )
+
+        return HXRedirectResponse(
+            request, request.url_for("workspaces:get", id=id), 303
+        )
+
+    except UserOrgWorkspaceNotFound:
+        raise HTTPException(status_code=404, detail="Workspace not found")
+
+    except UserNotMemberOfWorkspace:
+        raise HTTPException(
+            status_code=400, detail="User is not a member of this workspace"
+        )
+
+    except CannotRemoveWorkspaceAdmin:
+        raise HTTPException(
+            status_code=403,
+            detail=f"Cannot remove {user_email} - they are the workspace admin",
+        )
+
+    except Exception:
+        _log.exception("Failed to remove user from workspace", workspace_id=str(id))
+        raise HTTPException(
+            status_code=500, detail="An error occurred while removing the user"
+        )
+
+
+# ── Admin Management ──
+
+
+@router.get(
+    "/{id}/confirm_change_admin/{user_id}", name="workspaces:confirm_change_admin"
+)
+async def confirm_change_admin(
+    request: Request,
+    id: UUID4,
+    user_id: UUID4,
+    session: AsyncReadSession = Depends(get_db_read_session),
+) -> Any:
+    """Show confirmation modal for changing account admin."""
+
+    # Get workspace and account
+    org_repo = WorkspaceRepository.from_session(session)
+    workspace = await org_repo.get_by_id(
+        id,
+        include_deleted=True,
+        options=(joinedload(Workspace.account),),
+    )
+
+    if not workspace or not workspace.account:
+        raise HTTPException(status_code=404, detail="Workspace or account not found")
+
+    # Get current admin
+    current_admin = await org_repo.get_admin_user(session, workspace)
+
+    # Get new admin user info
+    user_repo = UserRepository.from_session(session)
+    new_admin = await user_repo.get_by_id(user_id)
+
+    if not new_admin:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    # Check all the conditions that might prevent changing admin
+    has_stripe_account = bool(workspace.account.stripe_id)
+    user_not_verified = (
+        new_admin.identity_verification_status != IdentityVerificationStatus.verified
+    )
+    not_enough_users = len(await user_repo.get_all_by_workspace(workspace.id)) <= 1
+
+    # Determine if admin change is blocked and why
+    is_blocked = has_stripe_account or user_not_verified or not_enough_users
+
+    with modal("Change Account Admin", open=True):
+        with tag.div(classes="flex flex-col gap-4"):
+            # Show appropriate alert based on blocking conditions
+            if is_blocked:
+                with tag.div(classes="alert alert-error"):
+                    with tag.div():
+                        with tag.h3(classes="font-bold"):
+                            text("Cannot Change Admin")
+                        if has_stripe_account:
+                            with tag.p():
+                                text(
+                                    "To change account admin, first delete the Stripe account using admin account management."
+                                )
+                        elif user_not_verified:
+                            with tag.p():
+                                text(
+                                    "The selected user must be verified in Stripe before they can become an admin. Please ensure they complete identity verification first."
+                                )
+                        elif not_enough_users:
+                            with tag.p():
+                                text(
+                                    "Need at least 2 team members to change account admin."
+                                )
+            else:
+                with tag.div(classes="alert alert-success"):
+                    with tag.div():
+                        with tag.h3(classes="font-bold"):
+                            text("Change Account Administrator")
+                        with tag.p():
+                            text(
+                                "Account admin can now be changed. This will change who has admin control over the account."
+                            )
+
+            with tag.div(classes="space-y-4"):
+                with tag.div():
+                    with tag.h4(classes="font-semibold text-sm"):
+                        text("Current Admin:")
+                    with tag.p(classes="text-gray-600"):
+                        if current_admin:
+                            text(current_admin.email)
+                        else:
+                            text("No current admin found")
+
+                with tag.div():
+                    with tag.h4(classes="font-semibold text-sm"):
+                        text("New Admin:")
+                    with tag.p(classes="text-gray-600"):
+                        text(new_admin.email)
+
+                # Show verification status
+                with tag.div():
+                    with tag.h4(classes="font-semibold text-sm"):
+                        text("Identity Verification Status:")
+                    verification_status = new_admin.identity_verification_status
+                    if verification_status == IdentityVerificationStatus.verified:
+                        with tag.p(classes="text-green-600 font-medium"):
+                            text("✅ Verified")
+                    else:
+                        with tag.p(classes="text-red-600 font-medium"):
+                            text(f"❌ {verification_status.get_display_name()}")
+
+            # Show warning if user is not verified
+            if (
+                new_admin.identity_verification_status
+                != IdentityVerificationStatus.verified
+            ):
+                with tag.div(classes="alert alert-error"):
+                    with tag.div():
+                        with tag.h3(classes="font-bold"):
+                            text("Cannot Change Admin")
+                        with tag.p():
+                            text(
+                                "The selected user must be verified in Stripe before they can become an admin. Please ensure they complete identity verification first."
+                            )
+
+        # Action buttons
+        with tag.div(classes="modal-action"):
+            with tag.form(method="dialog"):
+                with button(ghost=True):
+                    text("Cancel")
+
+            # Show button based on blocking conditions
+            if is_blocked:
+                # Show disabled button with appropriate message
+                with button(variant="primary", disabled=True):
+                    if has_stripe_account:
+                        text("Change Admin (Delete Stripe Account First)")
+                    elif user_not_verified:
+                        text("Change Admin (Requires Verification)")
+                    elif not_enough_users:
+                        text("Change Admin (Need More Members)")
+            else:
+                # All conditions met - show active button
+                with tag.form(method="dialog"):
+                    with button(
+                        variant="primary",
+                        hx_post=str(
+                            request.url_for(
+                                "workspaces:change_admin",
+                                id=id,
+                                user_id=user_id,
+                            )
+                        ),
+                        hx_target="#modal",
+                    ):
+                        text("Change Admin")
+
+
+@router.api_route(
+    "/{id}/change_admin/{user_id}",
+    name="workspaces:change_admin",
+    methods=["POST"],
+)
+async def change_admin(
+    request: Request,
+    id: UUID4,
+    user_id: UUID4,
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    """Change account admin endpoint."""
+
+    try:
+        # Get workspace and account
+        org_repo = WorkspaceRepository.from_session(session)
+        workspace = await org_repo.get_by_id(
+            id, include_deleted=True, options=(joinedload(Workspace.account),)
+        )
+
+        if not workspace or not workspace.account:
+            raise HTTPException(
+                status_code=404, detail="Workspace or account not found"
+            )
+
+        # Get user info for better error messages
+        user_repo = UserRepository.from_session(session)
+        user = await user_repo.get_by_id(user_id)
+        user_email = user.email if user else str(user_id)
+
+        # Change the admin
+        await account_service.change_admin(
+            session, workspace.account, user_id, workspace.id
+        )
+
+        # Add success toast and redirect
+        await add_toast(
+            request,
+            f"Account admin changed to {user_email}",
+            "success",
+        )
+
+        return HXRedirectResponse(
+            request, request.url_for("workspaces:get", id=id), 303
+        )
+
+    except CannotChangeAdminError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except UserNotWorkspaceMemberError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    except Exception:
+        _log.exception("Failed to change workspace admin", workspace_id=str(id))
+        raise HTTPException(
+            status_code=500, detail="An error occurred while changing the admin"
+        )
+
+
+# ── Account & Payments ──
+
+
+@router.api_route(
+    "/{id}/setup_manual_payout",
+    name="workspaces:setup_manual_payout",
+    methods=["GET", "POST"],
+)
+async def setup_manual_payout(
+    request: Request,
+    id: UUID4,
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    org_repo = WorkspaceRepository.from_session(session)
+    workspace = await org_repo.get_by_id(id, include_deleted=True)
+    if not workspace:
+        raise HTTPException(status_code=404)
+
+    # Check if workspace already has an account
+    if workspace.account_id is not None:
+        raise HTTPException(status_code=400, detail="Workspace already has an account")
+
+    if request.method == "POST":
+        # Create a manual account for the workspace
+        # Get country from form data
+        data = await request.form()
+        country = data.get("country", "US")
+
+        # Get the first user of the workspace as admin
+        user_repository = UserRepository.from_session(session)
+        users = await user_repository.get_all_by_workspace(workspace.id)
+        if not users:
+            raise HTTPException(status_code=400, detail="Workspace has no users")
+
+        admin_user = users[0]  # Use first user as admin
+
+        # Create manual account
+        account = Account(
+            account_type=AccountType.manual,
+            admin_id=admin_user.id,
+            country=country,
+            currency="usd",
+            is_details_submitted=True,
+            is_charges_enabled=True,
+            is_payouts_enabled=True,
+            processor_fees_applicable=False,  # No processor fees for manual accounts
+            status=Account.Status.ACTIVE,
+        )
+
+        account_repo = AccountRepository.from_session(session)
+        await account_repo.create(account, flush=True)
+
+        # Associate account with workspace
+        workspace = await org_repo.update(
+            workspace, update_dict={"account_id": account.id}
+        )
+
+        await add_toast(
+            request,
+            f"Manual payout account created for {workspace.name}",
+            "success",
+        )
+
+        return HXRedirectResponse(
+            request, str(request.url_for("workspaces:get", id=id)), 303
+        )
+
+    with modal("Setup Manual Payout", open=True):
+        with tag.form(method="POST", action=str(request.url), classes="flex flex-col"):
+            # Warning message
+            with tag.div(classes="alert alert-warning"):
+                with tag.svg(
+                    classes="stroke-current shrink-0 h-6 w-6",
+                    fill="none",
+                    viewBox="0 0 24 24",
+                ):
+                    with tag.path(
+                        stroke_linecap="round",
+                        stroke_linejoin="round",
+                        stroke_width="2",
+                        d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z",
+                    ):
+                        pass
+                with tag.span(classes="font-semibold"):
+                    text(
+                        "Should only be enabled by Birk at this stage since its manual and reserved for a few customers in alpha"
+                    )
+
+            with tag.p():
+                text("This will create a manual payout account for this workspace.")
+
+            # Country selection
+            with tag.div(classes="form-control w-full"):
+                with tag.label(classes="label"):
+                    with tag.span(classes="label-text"):
+                        text("Country Code")
+                with tag.input(
+                    type="text",
+                    name="country",
+                    required=True,
+                    maxlength="2",
+                    minlength="2",
+                    pattern="[A-Z]{2}",
+                    placeholder="US",
+                    classes="input input-bordered w-full",
+                    title="Enter a 2-letter country code (e.g., US, GB, CA)",
+                ):
+                    pass
+                with tag.p(classes="text-xs text-gray-500 mt-1"):
+                    text("Enter a 2-letter ISO country code (e.g., US, GB, CA)")
+
+            with tag.div(classes="modal-action"):
+                with tag.form(method="dialog"):
+                    with button(ghost=True):
+                        text("Cancel")
+                with button(
+                    type="submit",
+                    variant="primary",
+                ):
+                    text("Create Manual Account")
+
+
+# ── File Downloads ──
+
+
+class FileDownloadLinkColumn(datatable.DatatableColumn[File]):
+    """A column that displays a download link for a file."""
+
+    def __init__(self, label: str = "Download"):
+        super().__init__(label)
+
+    def render(self, request: Request, item: File) -> Generator[None]:
+        """Render a download link for the file."""
+        url, _ = file_service.generate_download_url(item)
+        with tag.a(
+            href=url, classes="btn btn-sm", target="_blank", rel="noopener noreferrer"
+        ):
+            with tag.div(classes="icon-download"):
+                pass
+            text("Download")
+        yield
+
+
+class FileSizeColumn(datatable.DatatableAttrColumn[File, FileSortProperty]):
+    """A column that displays file size with proper formatting."""
+
+    @override
+    def get_value(self, item: File) -> str | None:
+        raw_value: int | None = self.get_raw_value(item)
+        return formatters.file_size(raw_value) if raw_value is not None else None
+
+
+# ── Detail ──
+
+
+@router.api_route("/{id}", name="workspaces:get", methods=["GET", "POST"])
+async def get(
+    request: Request,
+    id: UUID4,
+    files_page: int = Query(1, ge=1),
+    files_limit: int = Query(10, ge=1, le=100),
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    repository = WorkspaceRepository.from_session(session)
+    workspace = await repository.get_by_id(
+        id,
+        options=(
+            joinedload(Workspace.account),
+            joinedload(Workspace.review),
+        ),
+        include_deleted=True,
+        include_blocked=True,
+    )
+
+    if workspace is None:
+        raise HTTPException(status_code=404)
+
+    user_repository = UserRepository.from_session(session)
+    users = await user_repository.get_all_by_workspace(workspace.id)
+
+    account = workspace.account
+
+    # Get setup, payment, and workspace verdicts for account review sections
+    setup_verdict_data = await get_setup_verdict_data(workspace, session)
+    payment_stats = await get_payment_statistics(session, workspace.id)
+    setup_verdict = SetupVerdict(setup_verdict_data, workspace)
+
+    validation_error: ValidationError | None = None
+    # Always show actions in the payment section (context-sensitive based on status)
+    show_actions = True
+    if request.method == "POST":
+        # This part handles the "Approve" action
+        # It's a POST to the current page URL, not the status update URL
+        data = await request.form()
+        try:
+            account_status = WorkspaceStatusFormAdapter.validate_python(data)
+            if account_status.action == "approve":
+                await workspace_service.confirm_workspace_reviewed(
+                    session, workspace, account_status.next_review_threshold
+                )
+            elif account_status.action == "deny":
+                await workspace_service.deny_workspace(session, workspace)
+            elif account_status.action == "under_review":
+                await workspace_service.set_workspace_under_review(session, workspace)
+            elif account_status.action == "approve_appeal":
+                await workspace_service.approve_appeal(session, workspace)
+            elif account_status.action == "deny_appeal":
+                await workspace_service.deny_appeal(session, workspace)
+            return HXRedirectResponse(request, request.url, 303)
+        except ValidationError as e:
+            validation_error = e
+
+    # Create payment verdict after validation_error is potentially set
+    payment_verdict = PaymentVerdict(
+        payment_stats,
+        workspace,
+        show_actions,
+        request,
+        validation_error,
+    )
+
+    # Create AI review verdict
+    ai_review_verdict = AIReviewVerdict(workspace.review, workspace, request)
+
+    with layout(
+        request,
+        [
+            (workspace.name, str(request.url)),
+            ("Workspaces", str(request.url_for("workspaces:list"))),
+        ],
+        "workspaces:get",
+    ):
+        with tag.div(classes="flex flex-col gap-4"):
+            with tag.div(classes="flex justify-between items-center"):
+                with tag.h1(classes="text-4xl"):
+                    text(workspace.name)
+                with tag.div(classes="flex gap-2"):
+                    with tag.button(
+                        classes="btn",
+                        hx_get=str(
+                            request.url_for(
+                                "workspaces:add_payment_method_domain",
+                                id=workspace.id,
+                            )
+                        ),
+                        hx_target="#modal",
+                        title="Add Domain to Apple Pay / Google Pay Allowlist",
+                    ):
+                        with tag.div(classes="icon-globe"):
+                            pass
+                        text("Add Domain to Allowlist")
+                    with button(
+                        variant="primary",
+                        hx_get=str(
+                            request.url_for("workspaces:update", id=workspace.id)
+                        ),
+                        hx_target="#modal",
+                    ):
+                        text("Edit")
+                    with tag.a(
+                        classes="btn",
+                        href=str(
+                            request.url_for(
+                                "workspaces-v2:detail",
+                                workspace_id=workspace.id,
+                            )
+                        ),
+                        title="Switch to new view",
+                    ):
+                        text("View V2")
+            with tag.div(classes="grid grid-cols-1 lg:grid-cols-2 gap-4"):
+                with description_list.DescriptionList[Workspace](
+                    description_list.DescriptionListAttrItem(
+                        "id", "ID", clipboard=True
+                    ),
+                    description_list.DescriptionListAttrItem(
+                        "slug", "Slug", clipboard=True
+                    ),
+                    description_list.DescriptionListDateTimeItem(
+                        "created_at", "Created At"
+                    ),
+                    description_list.DescriptionListDateTimeItem(
+                        "deleted_at", "Deleted At"
+                    ),
+                    description_list.DescriptionListLinkItem(
+                        "website", "Website", external=True
+                    ),
+                    description_list.DescriptionListAttrItem(
+                        "email", "Support email", clipboard=True
+                    ),
+                    description_list.DescriptionListSocialsItem("Social Links"),
+                ).render(request, workspace):
+                    pass
+                # Simple users table
+                with tag.div(classes="card card-border w-full shadow-sm"):
+                    with tag.div(classes="card-body"):
+                        with tag.div(classes="flex justify-between items-center mb-4"):
+                            with tag.h2(classes="card-title"):
+                                text(f"Team Members ({len(users)})")
+
+                        # Check if current workspace has admin
+                        admin_user = None
+                        if workspace.account_id:
+                            admin_user = await repository.get_admin_user(
+                                session, workspace
+                            )
+
+                        if users:
+                            # Users table
+                            with tag.div(classes="overflow-x-auto"):
+                                with tag.table(classes="table table-zebra w-full"):
+                                    # Table header
+                                    with tag.thead():
+                                        with tag.tr():
+                                            with tag.th():
+                                                text("User")
+                                            with tag.th():
+                                                text("Role")
+                                            with tag.th():
+                                                text("Joined")
+                                            with tag.th():
+                                                text("Actions")
+
+                                    # Table body
+                                    with tag.tbody():
+                                        for user in users:
+                                            is_admin = (
+                                                admin_user and user.id == admin_user.id
+                                            )
+                                            with tag.tr():
+                                                # User info
+                                                with tag.td():
+                                                    with tag.div(
+                                                        classes="flex items-center gap-3"
+                                                    ):
+                                                        # User details
+                                                        with tag.div():
+                                                            with tag.a(
+                                                                href=str(
+                                                                    request.url_for(
+                                                                        "users:get",
+                                                                        id=user.id,
+                                                                    )
+                                                                ),
+                                                                classes="font-medium hover:text-primary",
+                                                            ):
+                                                                text(user.email)
+
+                                                # Role
+                                                with tag.td():
+                                                    if is_admin:
+                                                        with tag.span(
+                                                            classes="badge badge-primary"
+                                                        ):
+                                                            text("Admin")
+                                                    else:
+                                                        with tag.span(
+                                                            classes="badge badge-ghost"
+                                                        ):
+                                                            text("Member")
+
+                                                # Joined date
+                                                with tag.td():
+                                                    with tag.span(
+                                                        classes="text-sm text-gray-600"
+                                                    ):
+                                                        if (
+                                                            hasattr(user, "created_at")
+                                                            and user.created_at
+                                                        ):
+                                                            text(
+                                                                user.created_at.strftime(
+                                                                    "%b %d, %Y"
+                                                                )
+                                                            )
+                                                        else:
+                                                            text("—")
+
+                                                # Actions
+                                                with tag.td():
+                                                    with tag.div(classes="flex gap-2"):
+                                                        # Impersonate button (always visible)
+                                                        with tag.button(
+                                                            classes="btn btn-primary btn-sm",
+                                                            name="user_id",
+                                                            value=str(user.id),
+                                                            hx_post=str(
+                                                                request.url_for(
+                                                                    "admin:start_impersonation",
+                                                                )
+                                                            ),
+                                                            hx_confirm="Are you sure you want to impersonate this user?",
+                                                        ):
+                                                            text("Impersonate")
+
+                                                        # More actions dropdown menu
+                                                        if not is_admin:
+                                                            with tag.div(
+                                                                classes="dropdown dropdown-end"
+                                                            ):
+                                                                with tag.div(
+                                                                    classes="btn btn-ghost btn-sm",
+                                                                    tabindex="0",
+                                                                    role="button",
+                                                                ):
+                                                                    # Three dots icon
+                                                                    with tag.svg(
+                                                                        classes="w-4 h-4",
+                                                                        fill="currentColor",
+                                                                        viewBox="0 0 20 20",
+                                                                    ):
+                                                                        with tag.path(
+                                                                            d="M10 6a2 2 0 110-4 2 2 0 010 4zM10 12a2 2 0 110-4 2 2 0 010 4zM10 18a2 2 0 110-4 2 2 0 010 4z"
+                                                                        ):
+                                                                            pass
+
+                                                                with tag.ul(
+                                                                    classes="dropdown-content menu bg-base-100 rounded-box z-[1] w-52 p-2 shadow",
+                                                                    tabindex="0",
+                                                                ):
+                                                                    # Make Admin option (always show, handle restrictions in modal)
+                                                                    with tag.li():
+                                                                        with tag.a(
+                                                                            hx_get=str(
+                                                                                request.url_for(
+                                                                                    "workspaces:confirm_change_admin",
+                                                                                    id=workspace.id,
+                                                                                    user_id=user.id,
+                                                                                )
+                                                                            ),
+                                                                            hx_target="#modal",
+                                                                            classes="text-warning hover:bg-warning hover:text-warning-content",
+                                                                        ):
+                                                                            text(
+                                                                                "Make Admin"
+                                                                            )
+
+                                                                    # Remove option
+                                                                    with tag.li():
+                                                                        with tag.a(
+                                                                            hx_get=str(
+                                                                                request.url_for(
+                                                                                    "workspaces:confirm_remove_member",
+                                                                                    id=workspace.id,
+                                                                                    user_id=user.id,
+                                                                                )
+                                                                            ),
+                                                                            hx_target="#modal",
+                                                                            classes="text-error hover:bg-error hover:text-error-content",
+                                                                        ):
+                                                                            text(
+                                                                                "Remove Member"
+                                                                            )
+
+                        else:
+                            # Empty state
+                            with tag.div(classes="text-center py-8"):
+                                with tag.div(classes="text-gray-400 mb-2"):
+                                    text("👥")
+                                with tag.p(classes="text-gray-600"):
+                                    text("No team members yet")
+            with tag.div(classes="grid grid-cols-1 lg:grid-cols-2 gap-4"):
+                with tag.div(classes="card card-border w-full shadow-sm"):
+                    with tag.div(classes="card-body"):
+                        with tag.h2(classes="card-title"):
+                            text("Account Status")
+                        if account:
+                            with description_list.DescriptionList[Account](
+                                description_list.DescriptionListAttrItem(
+                                    "id", "Account Id", clipboard=True
+                                ),
+                                AccountTypeDescriptionListAttrItem(
+                                    "account_type", "Account Type"
+                                ),
+                                description_list.DescriptionListAttrItem(
+                                    "country", "Country"
+                                ),
+                                description_list.DescriptionListAttrItem(
+                                    "currency", "Currency"
+                                ),
+                            ).render(request, account):
+                                pass
+
+                            # Show admin change status
+                            if account and len(users) <= 1:
+                                with tag.div(
+                                    classes="mt-4 p-3 bg-gray-50 border border-gray-200 rounded"
+                                ):
+                                    with tag.p(classes="text-sm text-gray-600"):
+                                        text(
+                                            "ℹ️ Need at least 2 team members to change account admin."
+                                        )
+                        else:
+                            with tag.div(classes="text-center py-8"):
+                                with tag.p(classes="text-gray-600 mb-4"):
+                                    text(
+                                        "No account has been set up for this workspace"
+                                    )
+                                with button(
+                                    hx_get=str(
+                                        request.url_for(
+                                            "workspaces:setup_manual_payout",
+                                            id=workspace.id,
+                                        )
+                                    ),
+                                    hx_target="#modal",
+                                    variant="primary",
+                                ):
+                                    text("Setup Manual Account")
+
+                with tag.div(classes="card card-border w-full shadow-sm"):
+                    with tag.div(classes="card-body"):
+                        with tag.div(classes="flex justify-between items-center"):
+                            with tag.h2(classes="card-title"):
+                                text("Details")
+                            with button(
+                                hx_get=str(
+                                    request.url_for(
+                                        "workspaces:update_details",
+                                        id=workspace.id,
+                                    )
+                                ),
+                                hx_target="#modal",
+                                variant="secondary",
+                            ):
+                                text("Edit Details")
+
+                        a = "workspace-details-accordion"
+                        with accordion.item(a, "About"):
+                            with tag.p(classes="whitespace-pre-line"):
+                                text(workspace.details.get("about", "—"))
+                        with accordion.item(a, "Share Description"):
+                            with tag.p(classes="whitespace-pre-line"):
+                                text(workspace.details.get("product_description", "—"))
+                        with accordion.item(a, "Intended Use"):
+                            with tag.p(classes="whitespace-pre-line"):
+                                text(workspace.details.get("intended_use", "—"))
+                        with accordion.item(a, "Acquisition"):
+                            with tag.ul(classes="list-disc list-inside"):
+                                for acquisition in workspace.details.get(
+                                    "customer_acquisition", []
+                                ):
+                                    with tag.li():
+                                        text(acquisition)
+                        with accordion.item(a, "Expected annual revenue"):
+                            expected_revenue = workspace.details.get(
+                                "future_annual_revenue"
+                            )
+                            if expected_revenue:
+                                text(format_currency(expected_revenue, "usd"))
+                            else:
+                                text("—")
+                            if workspace.details.get("switching"):
+                                with accordion.item(a, "Switching from"):
+                                    text(
+                                        f"{workspace.details['switching_from']} ({format_currency(workspace.details['previous_annual_revenue'], 'usd')})"
+                                    )
+
+            # Internal Notes Section
+            with tag.div(classes="card card-border w-full shadow-sm"):
+                with tag.div(classes="card-body"):
+                    with tag.div(classes="flex justify-between items-center mb-4"):
+                        with tag.h2(classes="card-title"):
+                            text("Internal Notes")
+                        with button(
+                            hx_get=str(
+                                request.url_for(
+                                    "workspaces:update_internal_notes",
+                                    id=workspace.id,
+                                )
+                            ),
+                            hx_target="#modal",
+                            variant="secondary",
+                        ):
+                            text("Edit Notes")
+
+                    if workspace.internal_notes:
+                        with tag.div(classes="prose max-w-none"):
+                            with tag.p(classes="whitespace-pre-line text-sm"):
+                                text(workspace.internal_notes)
+                    else:
+                        with tag.div(classes="text-center py-4"):
+                            with tag.p(classes="text-gray-400"):
+                                text("No internal notes yet")
+
+            # Workspace Review Section
+            with tag.div(classes="mt-8"):
+                with tag.div(classes="flex items-center gap-4 mb-4"):
+                    with tag.h2(classes="text-2xl font-bold"):
+                        text("Workspace Review")
+                    with workspace_badge(workspace):
+                        pass
+
+                with tag.div(
+                    classes="grid grid-cols-1 lg:grid-cols-2 xl:grid-cols-3 gap-4"
+                ):
+                    with tag.div(classes="card card-border w-full shadow-sm"):
+                        with ai_review_verdict.render():
+                            pass
+
+                    with tag.div(classes="card card-border w-full shadow-sm"):
+                        with setup_verdict.render():
+                            pass
+
+                    with tag.div(classes="card card-border w-full shadow-sm"):
+                        with payment_verdict.render():
+                            pass
+
+            # Workspace Files Section
+            with tag.div(classes="mt-8 flex flex-col gap-4", id="files"):
+                with tag.div(classes="flex items-center gap-4 mb-4"):
+                    with tag.h2(classes="text-2xl font-bold"):
+                        text("Downloadable Files")
+
+                sorting: builtins.list[Sorting[FileSortProperty]] = [
+                    (FileSortProperty.created_at, True)
+                ]
+                file_repository = FileRepository.from_session(session)
+                files, files_count = await file_repository.paginate_by_workspace(
+                    workspace.id,
+                    service=FileServiceTypes.downloadable,
+                    sorting=sorting,
+                    limit=files_limit,
+                    page=files_page,
+                )
+
+                with datatable.Datatable[File, FileSortProperty](
+                    datatable.DatatableAttrColumn("name", "Name"),
+                    datatable.DatatableDateTimeColumn("created_at", "Created At"),
+                    datatable.DatatableAttrColumn("mime_type", "MIME Type"),
+                    FileSizeColumn("size", "Size"),
+                    FileDownloadLinkColumn(),
+                    empty_message="No downloadable files found",
+                ).render(request, files, sorting=sorting):
+                    pass
+
+                with datatable.pagination(
+                    request, PaginationParams(files_page, files_limit), files_count
+                ):
+                    pass
+
+
+# ── Modals & Utilities ──
+
+
+@router.get("/{id}/clear_modal", name="workspaces:clear_modal")
+async def clear_modal(id: UUID4) -> Any:
+    """Clear the modal content."""
+    return HTMLResponse('<div id="modal"></div>')
+
+
+# ── Payment Domain Allowlist ──
+
+
+@router.api_route(
+    "/{id}/add-payment-method-domain",
+    name="workspaces:add_payment_method_domain",
+    methods=["GET", "POST"],
+)
+async def add_payment_method_domain(
+    request: Request,
+    id: UUID4,
+    session: AsyncSession = Depends(get_db_session),
+) -> Any:
+    repository = WorkspaceRepository.from_session(session)
+    workspace = await repository.get_by_id(id)
+
+    if workspace is None:
+        raise HTTPException(status_code=404)
+
+    validation_error: ValidationError | None = None
+    if request.method == "POST":
+        data = await request.form()
+        try:
+            form = AddPaymentMethodDomainForm.model_validate_form(data)
+
+            # Create the payment method domain in Stripe
+            await stripe_service.create_payment_method_domain(form.domain_name)
+
+            await add_toast(
+                request,
+                f"Successfully added {form.domain_name} to allowlist",
+                variant="success",
+            )
+            return
+
+        except ValidationError as e:
+            validation_error = e
+        except stripe_lib.InvalidRequestError as e:
+            _log.error(
+                "Invalid request to Stripe API",
+                workspace_id=id,
+                domain=data.get("domain_name"),
+                error=str(e),
+                error_code=e.code if hasattr(e, "code") else None,
+            )
+            error_message = (
+                "Unable to add domain to allowlist. "
+                "Please verify the domain and try again."
+            )
+            await add_toast(request, error_message, variant="error")
+
+    with modal("Add Domain to Allowlist", open=True):
+        with tag.p(classes="text-sm text-base-content-secondary mb-4"):
+            text(
+                "Add a custom domain to the Apple Pay / Google Pay allowlist. "
+                "This allows these payment methods to appear in embeds on the specified domain."
+            )
+
+        with AddPaymentMethodDomainForm.render(
+            {},
+            hx_post=str(request.url),
+            hx_target="#modal",
+            classes="flex flex-col gap-4",
+            validation_error=validation_error,
+        ):
+            with tag.div(classes="modal-action"):
+                with tag.form(method="dialog"):
+                    with button(ghost=True):
+                        text("Cancel")
+                with button(
+                    type="submit",
+                    variant="primary",
+                ):
+                    text("Add Domain")

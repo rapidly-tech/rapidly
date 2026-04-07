@@ -1,0 +1,27 @@
+# Rapidly — Automatically compress documentation images on pull requests to keep the repo lean.
+
+name: Compress docs images
+
+on:
+  pull_request:
+    paths:
+      - "docs/**.png"
+      - "docs/**.jpg"
+      - "docs/**.jpeg"
+      - "docs/**.webp"
+
+jobs:
+  compress:
+    # Only run on PRs from branches within this repo (skip forks)
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    name: Optimize documentation images
+    permissions: write-all
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Compress changed images
+        uses: calibreapp/image-actions@1.4.1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

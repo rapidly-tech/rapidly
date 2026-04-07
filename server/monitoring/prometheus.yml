@@ -1,0 +1,9 @@
+# Rapidly — Prometheus configuration for local development
+#
+# The Dramatiq worker pushes metrics via remote write to /api/v1/write,
+# so no scrape targets are needed here.  This file is mounted read-only
+# into the Prometheus container by docker-compose.
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
