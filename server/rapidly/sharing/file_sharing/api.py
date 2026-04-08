@@ -1,5 +1,6 @@
 """File sharing API endpoints."""
 
+from typing import NoReturn
 from uuid import UUID
 
 import structlog
@@ -84,7 +85,7 @@ _log = structlog.get_logger(__name__)
 _CREATION_ERROR_MAP = {401: Unauthorized, 403: NotPermitted}
 
 
-def _raise_creation_error(e: file_sharing_service.ChannelCreationError) -> None:
+def _raise_creation_error(e: file_sharing_service.ChannelCreationError) -> NoReturn:
     """Map a ChannelCreationError to the appropriate HTTP exception."""
     error_cls = _CREATION_ERROR_MAP.get(e.status_code, BadRequest)
     raise error_cls(e.detail)
