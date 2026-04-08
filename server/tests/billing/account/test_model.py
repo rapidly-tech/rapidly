@@ -60,28 +60,28 @@ class TestAccountFeeCalulations:
         user: User,
     ) -> None:
         session.expunge_all()
-        # Default platform fee (falls back to config: 5% + $0 fixed)
+        # Default platform fee (falls back to config: 2% + $0 fixed)
         account = generate_account(
             user,
             fee_basis_points=None,
             fee_fixed=None,
         )
 
-        # $10 → 5% = $0.50
-        assert account.calculate_fee_in_cents(1_000) == 50
-        # $100 → 5% = $5.00
-        assert account.calculate_fee_in_cents(10_000) == 500
+        # $10 → 2% = $0.20
+        assert account.calculate_fee_in_cents(1_000) == 20
+        # $100 → 2% = $2.00
+        assert account.calculate_fee_in_cents(10_000) == 200
 
         # Stripe-compatible rounding
 
-        # $87.30 → 5% = $4.365 → rounds to $4.37
-        assert account.calculate_fee_in_cents(8_730) == 437
+        # $87.30 → 2% = $1.746 → rounds to $1.75
+        assert account.calculate_fee_in_cents(8_730) == 175
 
-        # $87.49 → 5% = $4.3745 → rounds to $4.37
-        assert account.calculate_fee_in_cents(8_749) == 437
+        # $87.49 → 2% = $1.7498 → rounds to $1.75
+        assert account.calculate_fee_in_cents(8_749) == 175
 
-        # $87.60 → 5% = $4.38
-        assert account.calculate_fee_in_cents(8_760) == 438
+        # $87.60 → 2% = $1.752 → rounds to $1.75
+        assert account.calculate_fee_in_cents(8_760) == 175
 
     def test_custom(
         self,

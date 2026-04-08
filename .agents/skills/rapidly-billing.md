@@ -10,7 +10,7 @@ Channel Created (free or paid)
 WebRTC P2P File Transfer
     ↓ (if paid)
 Stripe Checkout Session (Direct Charge on seller's Connect account)
-    → 5% platform fee (application_fee_amount)
+    → 2% platform fee (application_fee_amount)
     → Payment token unlocks download
     ↓
 Download Completed → Slot Claimed
@@ -70,7 +70,7 @@ Tracks a Stripe payment for a paid file download.
 | `status` | FileSharePaymentStatus | pending, completed, refunded, failed |
 | `amount_cents` | int | Payment amount in cents |
 | `currency` | str | ISO 4217 currency code |
-| `platform_fee_cents` | int | Rapidly's platform fee (5%) |
+| `platform_fee_cents` | int | Rapidly's platform fee (2%) |
 | `stripe_checkout_session_id` | str \| None | Stripe Checkout Session ID |
 | `stripe_payment_intent_id` | str \| None | Stripe PaymentIntent ID |
 | `buyer_email` | str \| None | Buyer contact |
@@ -289,14 +289,14 @@ upsert_from_stripe_charge(session, charge, wallet) → Payment
 Rapidly uses **Stripe Connect with Direct Charges**. Sellers connect their Stripe accounts via Express onboarding. When a buyer pays for a file download:
 
 1. A Stripe Checkout Session is created on the **seller's connected account**
-2. The platform collects a 5% application fee automatically
+2. The platform collects a 2% application fee automatically
 3. The buyer pays the seller directly; Rapidly never holds funds
 
 ### Platform Fee
 
 ```python
 # server/rapidly/config.py
-FILE_SHARING_PLATFORM_FEE_PERCENT = 500  # 5% in basis points
+FILE_SHARING_PLATFORM_FEE_PERCENT = 200  # 2% in basis points
 
 # Calculation in file_sharing/service.py
 fee_amount = int(price_cents * (FILE_SHARING_PLATFORM_FEE_PERCENT / 10000))
@@ -408,7 +408,7 @@ Slots are claimed on download completion, NOT on channel fetch. This avoids wast
 2. Client calls POST /api/file-sharing/channels/<slug>/checkout
 3. FileSharingService.create_checkout():
    a. Look up channel in Redis, verify it's paid
-   b. Calculate application fee: price * 5%
+   b. Calculate application fee: price * 2%
    c. Generate payment_token (secrets.token_urlsafe)
    d. Store token hash in Redis (valid for channel TTL)
    e. Call stripe_service.create_checkout_session_direct():
@@ -596,7 +596,7 @@ server/rapidly/integrations/stripe/
 
 ### Platform Fee Calculation
 ```python
-# 5% fee = 500 basis points
-fee_amount = int(price_cents * (500 / 10000))
-# Example: $10.00 (1000 cents) → fee = 50 cents ($0.50)
+# 2% fee = 200 basis points
+fee_amount = int(price_cents * (200 / 10000))
+# Example: $10.00 (1000 cents) → fee = 20 cents ($0.20)
 ```

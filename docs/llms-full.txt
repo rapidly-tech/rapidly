@@ -34,7 +34,7 @@ Self-service portal for customers to view their file sharing sessions, downloads
 Add custom checkout fields to shares: text, number, date, checkbox, and select types. Collect additional information from customers at purchase time. Configurable per share with validation rules.
 
 ### Finance & Payouts
-Stripe Connect Express integration for payouts in 143 countries. 5% platform fee on paid shares only (free for basic sharing). Multi-currency support including USD, EUR, GBP, CAD, AUD, and more. Manual withdrawal process with minimum payout thresholds. Transparent fee breakdown including Stripe processing fees.
+Stripe Connect Express integration for payouts in 143 countries. 2% platform fee on paid shares only (free for basic sharing). Multi-currency support including USD, EUR, GBP, CAD, AUD, and more. Manual withdrawal process with minimum payout thresholds. Transparent fee breakdown including Stripe processing fees.
 
 ### Webhooks
 Real-time event notifications for automation and integrations. Configure webhook endpoints to receive events when shares are accessed, payments complete, or customers are created. Delivery tracking with retry logic. Event types: customer.created, customer.updated, customer.deleted, customer.state_changed, share.created, share.updated, workspace.updated, file_sharing_session.created, file_sharing_session.download_completed, file_sharing_session.expired, file_sharing_session.payment_received.
@@ -116,7 +116,7 @@ Base URL: https://api.rapidly.tech/api
 ## Policies
 
 ### Fees
-- 5% platform fee on paid shares only
+- 2% platform fee on paid shares only
 - Free for basic file sharing (no payment gating)
 - Stripe processing: 2.9% + $0.30 per transaction
 - International cards: additional +1.5%

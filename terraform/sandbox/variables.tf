@@ -65,12 +65,6 @@ variable "backend_discord_proxy_url" {
   sensitive   = true
 }
 
-variable "backend_resend_api_key_sandbox" {
-  description = "Resend API Key for sandbox"
-  type        = string
-  sensitive   = true
-}
-
 variable "backend_logo_dev_publishable_key_sandbox" {
   description = "Logo.dev Publishable Key for sandbox"
   type        = string

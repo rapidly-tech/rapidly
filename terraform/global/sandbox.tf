@@ -76,14 +76,6 @@ resource "tfe_variable" "backend_discord_proxy_url_sandbox" {
   variable_set_id = tfe_variable_set.sandbox.id
 }
 
-resource "tfe_variable" "backend_resend_api_key_sandbox" {
-  key             = "backend_resend_api_key_sandbox"
-  category        = "terraform"
-  description     = "Resend API Key for sandbox"
-  sensitive       = true
-  variable_set_id = tfe_variable_set.sandbox.id
-}
-
 resource "tfe_variable" "backend_logo_dev_publishable_key_sandbox" {
   key             = "backend_logo_dev_publishable_key_sandbox"
   category        = "terraform"

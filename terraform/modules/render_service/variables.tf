@@ -106,9 +106,8 @@ variable "backend_config" {
     user_session_cookie_domain = string                 # "rapidly.tech"
     user_session_cookie_key    = optional(string, "")
     debug                      = string               # "0"
-    email_sender               = string               # "resend"
+    email_sender               = string               # "gmail"
     email_from_name            = string               # "Rapidly"
-    email_from_domain          = string               # "notifications.rapidly.tech"
     frontend_base_url          = string               # "https://rapidly.tech"
     jwks_path                  = string               # "/etc/secrets/jwks.json"
     log_level                  = string               # "INFO"
@@ -126,7 +125,6 @@ variable "backend_secrets" {
     discord_client_secret   = string
     discord_proxy_url       = optional(string, "")
     posthog_project_api_key = optional(string, "")
-    resend_api_key          = string
     logo_dev_publishable_key = optional(string, "")
     secret                  = string
     sentry_dsn              = string

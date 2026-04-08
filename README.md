@@ -108,7 +108,7 @@ rapidly/
 ## Pricing
 
 - **Free** for file sharing and secret exchange
-- **5 % platform fee** on paid shares (via Stripe): no monthly costs
+- **2 % platform fee** on paid shares (via Stripe): no monthly costs
 - See the [fee schedule](https://rapidly.tech/docs/policies/fees) for full details
 
 ## Contributing

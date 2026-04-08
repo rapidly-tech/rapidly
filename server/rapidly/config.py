@@ -308,7 +308,7 @@ class Settings(BaseSettings):
     FILE_SHARING_TURN_TLS_ENABLED: bool = False
     FILE_SHARING_TURN_SECRET: str = ""
     FILE_SHARING_TURN_CREDENTIAL_TTL: int = 86400
-    FILE_SHARING_PLATFORM_FEE_PERCENT: int = 500
+    FILE_SHARING_PLATFORM_FEE_PERCENT: int = 200
     FILE_SHARING_MIN_PRICE_CENTS: int = 100
     FILE_SHARING_MAX_PRICE_CENTS: int = 100_000_000
     FILE_SHARING_PAID_CHANNEL_TTL: int = 86400
@@ -342,8 +342,6 @@ class Settings(BaseSettings):
     GMAIL_SMTP_HOST: str = "smtp.gmail.com"
     GMAIL_SMTP_PORT: int = 587
     EMAIL_FROM_NAME: str = "Rapidly"
-    EMAIL_FROM_DOMAIN: str = "notifications.rapidly.tech"
-    EMAIL_FROM_LOCAL: str = "mail"
     EMAIL_DEFAULT_REPLY_TO_NAME: str = "Rapidly Support"
     EMAIL_DEFAULT_REPLY_TO_EMAIL_ADDRESS: str = "support@rapidly.tech"
 

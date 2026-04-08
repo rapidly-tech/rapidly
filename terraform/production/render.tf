@@ -225,9 +225,8 @@ module "production" {
     admin_host                 = "backoffice.rapidly.tech"
     user_session_cookie_domain = "rapidly.tech"
     debug                      = "0"
-    email_sender               = "resend"
+    email_sender               = "gmail"
     email_from_name            = "Rapidly"
-    email_from_domain          = "notifications.rapidly.tech"
     frontend_base_url          = "https://rapidly.tech"
     jwks_path                  = "/etc/secrets/jwks.json"
     log_level                  = "INFO"
@@ -242,7 +241,6 @@ module "production" {
     discord_client_secret    = var.backend_discord_client_secret_production
     discord_proxy_url        = var.backend_discord_proxy_url
     posthog_project_api_key  = var.backend_posthog_project_api_key_production
-    resend_api_key           = var.backend_resend_api_key_production
     logo_dev_publishable_key = var.backend_logo_dev_publishable_key_production
     secret                   = var.backend_secret_production
     sentry_dsn               = var.backend_sentry_dsn_production

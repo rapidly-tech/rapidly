@@ -34,7 +34,6 @@ resource "render_env_group" "backend" {
       RAPIDLY_DEBUG                      = { value = var.backend_config.debug }
       RAPIDLY_EMAIL_SENDER               = { value = var.backend_config.email_sender }
       RAPIDLY_EMAIL_FROM_NAME            = { value = var.backend_config.email_from_name }
-      RAPIDLY_EMAIL_FROM_DOMAIN          = { value = var.backend_config.email_from_domain }
       RAPIDLY_ENV                        = { value = local.environment }
       RAPIDLY_FRONTEND_BASE_URL          = { value = var.backend_config.frontend_base_url }
       RAPIDLY_JWKS                       = { value = var.backend_config.jwks_path }
@@ -46,7 +45,6 @@ resource "render_env_group" "backend" {
       RAPIDLY_DISCORD_CLIENT_ID          = { value = var.backend_secrets.discord_client_id }
       RAPIDLY_DISCORD_CLIENT_SECRET      = { value = var.backend_secrets.discord_client_secret }
       RAPIDLY_DISCORD_PROXY_URL          = { value = var.backend_secrets.discord_proxy_url }
-      RAPIDLY_RESEND_API_KEY             = { value = var.backend_secrets.resend_api_key }
       RAPIDLY_LOGO_DEV_PUBLISHABLE_KEY   = { value = var.backend_secrets.logo_dev_publishable_key }
       RAPIDLY_SECRET                     = { value = var.backend_secrets.secret }
       RAPIDLY_SENTRY_DSN                 = { value = var.backend_secrets.sentry_dsn }

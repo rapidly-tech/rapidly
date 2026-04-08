@@ -191,7 +191,6 @@ module "test" {
     debug                      = "0"
     email_sender               = "logger"
     email_from_name            = "[TEST] Rapidly"
-    email_from_domain          = "notifications.test.rapidly.tech"
     frontend_base_url          = "https://test.rapidly.tech"
     jwks_path                  = "/etc/secrets/jwks.json"
     log_level                  = "INFO"
@@ -204,7 +203,6 @@ module "test" {
     discord_bot_token        = var.backend_discord_bot_token
     discord_client_id        = var.backend_discord_client_id
     discord_client_secret    = var.backend_discord_client_secret
-    resend_api_key           = var.backend_resend_api_key
     logo_dev_publishable_key = var.backend_logo_dev_publishable_key
     secret                   = var.backend_secret
     sentry_dsn               = var.backend_sentry_dsn

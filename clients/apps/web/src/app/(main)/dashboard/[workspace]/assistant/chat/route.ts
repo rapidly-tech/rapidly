@@ -68,7 +68,7 @@ File shares can be free or paid:
  - Paid shares: one-time payment via Stripe before accessing the file
 
 ## Earnings
-When you set a price on file shares, payments are processed via Stripe with a 5% platform fee.
+When you set a price on file shares, payments are processed via Stripe with a 2% platform fee.
 You can track your earnings and manage payouts from the Earnings section.`
 
 const routerSystemPrompt = `

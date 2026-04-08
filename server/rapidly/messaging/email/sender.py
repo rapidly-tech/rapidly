@@ -20,13 +20,11 @@ _log: Logger = structlog.get_logger(__name__)
 # ── Sender defaults ──────────────────────────────────────────────────
 
 _FROM_NAME: str = settings.EMAIL_FROM_NAME
-_FROM_ADDRESS: str = f"{settings.EMAIL_FROM_LOCAL}@{settings.EMAIL_FROM_DOMAIN}"
 _REPLY_TO_NAME: str | None = settings.EMAIL_DEFAULT_REPLY_TO_NAME
 _REPLY_TO_ADDRESS: str | None = settings.EMAIL_DEFAULT_REPLY_TO_EMAIL_ADDRESS
 
 # Public aliases for external callers
 DEFAULT_FROM_NAME = _FROM_NAME
-DEFAULT_FROM_EMAIL_ADDRESS = _FROM_ADDRESS
 DEFAULT_REPLY_TO_NAME = _REPLY_TO_NAME
 DEFAULT_REPLY_TO_EMAIL_ADDRESS = _REPLY_TO_ADDRESS
 
@@ -63,7 +61,6 @@ class EmailSender(ABC):
         subject: str,
         html_content: str,
         from_name: str = _FROM_NAME,
-        from_email_addr: str = _FROM_ADDRESS,
         email_headers: dict[str, str] | None = None,
         reply_to_name: str | None = _REPLY_TO_NAME,
         reply_to_email_addr: str | None = _REPLY_TO_ADDRESS,
@@ -82,7 +79,6 @@ class LoggingEmailSender(EmailSender):
         subject: str,
         html_content: str,
         from_name: str = _FROM_NAME,
-        from_email_addr: str = _FROM_ADDRESS,
         email_headers: dict[str, str] | None = None,
         reply_to_name: str | None = _REPLY_TO_NAME,
         reply_to_email_addr: str | None = _REPLY_TO_ADDRESS,
@@ -93,7 +89,6 @@ class LoggingEmailSender(EmailSender):
             to=to_ascii_email(to_email_addr),
             subject=subject,
             from_name=from_name,
-            from_addr=to_ascii_email(from_email_addr),
         )
 
 
@@ -107,7 +102,6 @@ class GmailEmailSender(EmailSender):
         subject: str,
         html_content: str,
         from_name: str = _FROM_NAME,
-        from_email_addr: str = _FROM_ADDRESS,
         email_headers: dict[str, str] | None = None,
         reply_to_name: str | None = _REPLY_TO_NAME,
         reply_to_email_addr: str | None = _REPLY_TO_ADDRESS,
@@ -146,7 +140,6 @@ class GmailEmailSender(EmailSender):
 
 class EmailFromReply(TypedDict):
     from_name: str
-    from_email_addr: str
     reply_to_name: str
     reply_to_email_addr: str
 
@@ -156,7 +149,6 @@ def enqueue_email(
     subject: str,
     html_content: str,
     from_name: str = _FROM_NAME,
-    from_email_addr: str = _FROM_ADDRESS,
     email_headers: dict[str, str] | None = None,
     reply_to_name: str | None = _REPLY_TO_NAME,
     reply_to_email_addr: str | None = _REPLY_TO_ADDRESS,
@@ -169,7 +161,6 @@ def enqueue_email(
         subject=subject,
         html_content=html_content,
         from_name=from_name,
-        from_email_addr=from_email_addr,
         email_headers=email_headers,
         reply_to_name=reply_to_name,
         reply_to_email_addr=reply_to_email_addr,

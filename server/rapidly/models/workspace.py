@@ -338,7 +338,6 @@ class Workspace(RateLimitMixin, BaseEntity):
     def email_from_reply(self) -> "EmailFromReply":
         return {
             "from_name": f"{self.name} (via {settings.EMAIL_FROM_NAME})",
-            "from_email_addr": f"{self.slug}@{settings.EMAIL_FROM_DOMAIN}",
             "reply_to_name": self.name,
             "reply_to_email_addr": self.email
             or settings.EMAIL_DEFAULT_REPLY_TO_EMAIL_ADDRESS,
