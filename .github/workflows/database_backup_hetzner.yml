@@ -1,0 +1,151 @@
+# Rapidly — Hetzner Postgres backup to Cloudflare R2
+#
+# Runs nightly at 03:00 UTC and on workflow_dispatch. SSHes to rapidly-app,
+# runs pg_dump against the production Postgres (rapidly-db on the private
+# network), streams the gzipped dump back over SSH, then uploads to a
+# Cloudflare R2 bucket using R2's S3-compatible API.
+#
+# Why R2 instead of AWS S3:
+#   - The rest of the rapidly stack already uses R2 for object storage
+#     (the RAPIDLY_AWS_* env vars in .env.production point at R2 via its
+#     S3-compatible endpoint, not AWS).
+#   - R2 has zero egress fees, so backups are cheaper to download for
+#     restore drills.
+#   - R2 doesn't support GitHub OIDC, so we authenticate with a static
+#     access key + secret. Use a dedicated key with write-only access
+#     to the backup bucket — DO NOT reuse the production app's R2 key.
+#
+# Required GitHub repository / environment secrets:
+#   HETZNER_HOST, HETZNER_USER, HETZNER_SSH_KEY     (already configured)
+#   R2_ACCOUNT_ID         your Cloudflare account ID (32-char hex string)
+#                         find at: dash.cloudflare.com → right sidebar
+#   R2_ACCESS_KEY_ID      32-char hex from R2 → Manage R2 API Tokens
+#                         create a NEW token, scoped to the backup bucket
+#                         with permission "Object Read & Write" (or just Write)
+#   R2_SECRET_ACCESS_KEY  64-char hex paired with the access key above
+#   R2_BUCKET_NAME        e.g. rapidly-prod-db-backups
+#
+# Setup steps for the Cloudflare side (one-time):
+#   1. Cloudflare dashboard → R2 → Create bucket
+#      - Name: rapidly-prod-db-backups (or similar)
+#      - Location: Auto (closest to your customer base)
+#      - Add a lifecycle rule: delete objects older than 365 days
+#   2. R2 → Manage R2 API Tokens → Create API Token
+#      - Token name: rapidly-ci-db-backup
+#      - Permissions: Object Read & Write
+#      - Specify bucket: rapidly-prod-db-backups (scope to this one bucket)
+#      - TTL: pick a long expiry or "Forever"
+#      - Click Create — copy Access Key ID, Secret Access Key, and the
+#        bucket-specific endpoint URL (the Account ID is the subdomain)
+#   3. Add the four R2_* secrets to the production environment
+#      in GitHub repo settings (Settings → Environments → production).
+
+name: Backup Hetzner Postgres to R2
+
+on:
+  schedule:
+    - cron: "0 3 * * *"   # daily 03:00 UTC
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    name: pg_dump → R2
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 30
+    steps:
+      - name: Validate R2 secrets
+        env:
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+        run: |
+          set -euo pipefail
+          for v in R2_ACCOUNT_ID R2_ACCESS_KEY_ID R2_SECRET_ACCESS_KEY R2_BUCKET_NAME; do
+            if [ -z "${!v:-}" ]; then
+              echo "::error::Missing required secret: $v"
+              exit 1
+            fi
+          done
+
+      - name: Configure SSH
+        env:
+          SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+        run: |
+          set -euo pipefail
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H ${{ secrets.HETZNER_HOST }} >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Stream pg_dump from Hetzner → local file
+        env:
+          HOST: ${{ secrets.HETZNER_HOST }}
+          USER: ${{ secrets.HETZNER_USER }}
+        run: |
+          set -euo pipefail
+          BACKUP_FILE="rapidly-prod-$(date -u +%Y%m%d-%H%M%S).sql.gz"
+          echo "BACKUP_FILE=$BACKUP_FILE" >> "$GITHUB_ENV"
+
+          # SSH to rapidly-app and run pg_dump in a one-shot postgres:16-alpine
+          # container. The rapidly api image doesn't ship pg_dump (it uses the
+          # Python postgres driver), so we spawn a sidecar that does. We share
+          # the network namespace of the running api container so the sidecar
+          # can reach the database with exactly the same hostname/port that
+          # the api uses, and we source RAPIDLY_POSTGRES_* from .env.production.
+          # The gzipped dump is streamed back over SSH stdout.
+          ssh -i ~/.ssh/id_ed25519 \
+              -o StrictHostKeyChecking=accept-new \
+              -o ServerAliveInterval=30 \
+              "${USER}@${HOST}" \
+              'docker run --rm \
+                 --network container:rapidly-api-1 \
+                 --env-file /opt/rapidly/.env.production \
+                 postgres:16-alpine \
+                 sh -c "PGPASSWORD=\"\$RAPIDLY_POSTGRES_PWD\" \
+                        pg_dump --no-owner --no-acl --format=plain \
+                          -h \"\$RAPIDLY_POSTGRES_HOST\" \
+                          -p \"\$RAPIDLY_POSTGRES_PORT\" \
+                          -U \"\$RAPIDLY_POSTGRES_USER\" \
+                          -d \"\$RAPIDLY_POSTGRES_DATABASE\" \
+                        | gzip -9"' \
+            > "$BACKUP_FILE"
+
+          # Sanity-check: file exists and is non-trivial
+          SIZE=$(stat -c%s "$BACKUP_FILE" 2>/dev/null || stat -f%z "$BACKUP_FILE")
+          echo "Dump size: $SIZE bytes"
+          if [ "$SIZE" -lt 1024 ]; then
+            echo "::error::Dump is suspiciously small (<1 KB) — likely a failure"
+            head -c 500 "$BACKUP_FILE" || true
+            exit 1
+          fi
+
+      - name: Upload backup to Cloudflare R2
+        env:
+          # AWS CLI honours these — they configure the credential chain
+          # so we can pass --endpoint-url to point at R2's S3-compatible API.
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto    # R2 ignores region but the SDK requires one
+          BUCKET: ${{ secrets.R2_BUCKET_NAME }}
+          ENDPOINT: https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com
+        run: |
+          set -euo pipefail
+          # Date-prefixed key for easy browsing + future lifecycle policies
+          DATE_PREFIX=$(date -u +%Y/%m/%d)
+          aws s3 cp "$BACKUP_FILE" "s3://$BUCKET/$DATE_PREFIX/$BACKUP_FILE" \
+            --endpoint-url "$ENDPOINT" \
+            --no-progress
+          echo "Uploaded: s3://$BUCKET/$DATE_PREFIX/$BACKUP_FILE"
+          echo ""
+          echo "Verify in Cloudflare dashboard: R2 → $BUCKET → $DATE_PREFIX/"
+
+      - name: Clean up local files
+        if: always()
+        run: |
+          rm -f "$BACKUP_FILE" ~/.ssh/id_ed25519

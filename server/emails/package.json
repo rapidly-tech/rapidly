@@ -1,0 +1,59 @@
+{
+  "name": "react-email-pkg",
+  "version": "1.0.0",
+  "private": true,
+  "readme": "README.md",
+  "main": "dist/index.global.js",
+  "bin": "dist/index.global.js",
+  "scripts": {
+    "dev": "email dev --dir src/emails",
+    "clean": "rm -rf dist bin",
+    "types": "uv --directory .. run python -m rapidly.email.schemas | openapi-typescript --output src/types/openapi.ts && prettier src/types/openapi.ts --write",
+    "build": "pnpm run clean && tsup && pkg package.json",
+    "typecheck": "tsc --noEmit",
+    "lint": "prettier src/** --write"
+  },
+  "packageManager": "pnpm@10.28.1",
+  "dependencies": {
+    "@react-email/components": "^1.0.1",
+    "@react-email/render": "^2.0.0",
+    "commander": "^14.0.2",
+    "react": "^19.2.3",
+    "react-dom": "^19.2.3"
+  },
+  "devDependencies": {
+    "@react-email/preview-server": "^5.0.8",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@yao-pkg/pkg": "^6.11.0",
+    "openapi-typescript": "^7.10.1",
+    "prettier": "^3.7.4",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "react-email": "^5.0.8",
+    "tsup": "^8.5.1",
+    "typescript": "^5.9.3"
+  },
+  "pkg": {
+    "targets": [
+      "host"
+    ],
+    "outputPath": "bin"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "sharp"
+    ],
+    "overrides": {
+      "minimatch@<3.1.4": "^3.1.4",
+      "minimatch@>=5.0.0 <5.1.8": "^5.1.8",
+      "minimatch@>=10.0.0 <10.2.3": "^10.2.3",
+      "next@>=16.0.0 <16.1.7": "^16.1.7",
+      "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
+      "rollup@>=4.0.0 <4.59.0": "^4.59.0",
+      "tar@<6.2.1": "^6.2.1"
+    }
+  }
+}

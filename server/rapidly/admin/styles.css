@@ -1,0 +1,8 @@
+/* Rapidly backoffice — Tailwind CSS entry point with DaisyUI integration. */
+@import "tailwindcss";
+@import "./static/solar-icons.css";
+@plugin "daisyui" {
+  themes:
+    light --default,
+    dark --prefersdark;
+}

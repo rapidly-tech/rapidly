@@ -1,0 +1,132 @@
+# Rapidly CD — Deploy to Hetzner via SSH + Docker
+name: Deploy to Hetzner
+
+on:
+  workflow_call:
+    inputs:
+      environment:
+        description: "Environment to deploy to (production)"
+        required: true
+        type: string
+      docker-digest:
+        description: "Backend Docker image digest"
+        required: true
+        type: string
+      has-migrations:
+        description: "Whether this deployment includes database migrations"
+        required: false
+        type: boolean
+        default: false
+      skip-backend:
+        description: "Skip backend deployment"
+        required: false
+        type: boolean
+        default: false
+      skip-frontend:
+        description: "Skip frontend deployment"
+        required: false
+        type: boolean
+        default: false
+    secrets:
+      HETZNER_SSH_KEY:
+        required: true
+      HETZNER_HOST:
+        required: true
+      HETZNER_USER:
+        required: true
+      SENTRY_AUTH_TOKEN:
+        required: true
+      SENTRY_ORG:
+        required: true
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  deploy-backend:
+    name: "Backend: Deploy to Hetzner (${{ inputs.environment }})"
+    concurrency:
+      group: deploy-backend-${{ inputs.environment }}
+      cancel-in-progress: false
+    if: inputs.skip-backend != true
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Deploy Backend to Hetzner
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: 22
+          script: |
+            set -euo pipefail
+            cd /opt/rapidly
+
+            echo "==> Pulling latest backend image..."
+            docker pull ghcr.io/rapidly-tech/rapidly:latest
+            docker tag ghcr.io/rapidly-tech/rapidly:latest rapidly-api:latest
+
+            # Run migrations if needed
+            if [ "${{ inputs.has-migrations }}" = "true" ]; then
+              echo "==> Running database migrations..."
+              docker compose -f docker-compose.production.yml run --rm api uv run alembic upgrade head
+            fi
+
+            echo "==> Restarting backend services..."
+            docker compose -f docker-compose.production.yml up -d --no-deps api worker worker-medium worker-high worker-webhook scheduler
+
+            echo "==> Cleaning up old images..."
+            docker image prune -f
+
+            echo "==> Backend deployment complete!"
+
+      - name: Sentry Release
+        continue-on-error: true
+        uses: getsentry/action-release@v3.5.0
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+        with:
+          environment: ${{ inputs.environment }}
+          dist: ${{ inputs.docker-digest }}
+          release: ${{ github.sha }}
+          projects: server
+          working_directory: ./server
+
+  deploy-frontend:
+    name: "Frontend: Deploy to Hetzner (${{ inputs.environment }})"
+    concurrency:
+      group: deploy-frontend-${{ inputs.environment }}
+      cancel-in-progress: true
+    if: inputs.skip-frontend != true
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.environment }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Deploy Frontend to Hetzner
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: 22
+          script: |
+            set -euo pipefail
+            cd /opt/rapidly
+
+            echo "==> Pulling latest frontend image..."
+            docker pull ghcr.io/rapidly-tech/rapidly-web:latest
+            docker tag ghcr.io/rapidly-tech/rapidly-web:latest rapidly-web:latest
+
+            echo "==> Restarting frontend..."
+            docker compose -f docker-compose.production.yml up -d --no-deps web
+
+            echo "==> Cleaning up old images..."
+            docker image prune -f
+
+            echo "==> Frontend deployment complete!"

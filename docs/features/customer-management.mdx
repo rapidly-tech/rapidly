@@ -1,0 +1,43 @@
+---
+title: "Customer Management"
+sidebarTitle: "Customer Management"
+description: "Get insights on your customers and sales"
+---
+
+## Managing Customers
+
+Rapidly has a built-in feature to view and manage your Customers.
+
+Everyone who has ever purchased something from you will be recorded as a Customer to your Workspace. You’re able to see past purchases and file share transactions, as well as some additional metrics.
+
+### Customer Types
+
+Customers can be one of two types:
+
+- **Individual** -- A single user (the default).
+- **Team** -- A customer that can have multiple members with different roles. Useful for seat-based pricing. Once upgraded to a team, a customer cannot be downgraded back to individual.
+
+### Short ID
+
+Each customer is assigned an 8-character base-26 short ID for easy reference and display in the dashboard.
+
+### Payment Methods & Billing
+
+Customers can have associated payment methods and a billing address on file, managed through the API or the customer portal.
+
+### OAuth Account Linking
+
+Customers can link third-party accounts via the customer portal:
+
+- **Microsoft** -- Link a Microsoft account for identity verification.
+- **Discord** -- Link a Discord account for community integration.
+
+## External ID
+
+Quite often, you'll have your own users management system in your application, where your customer already have an ID. To ease reconciliation between Rapidly and your system, we have a dedicated `external_id` field on Customers. It's unique across your workspace and can't be changed once set.
+
+## Metadata
+
+You may set additional metadata on Customers. This can be very useful to store additional data about your customer you want to be available through our API and webhooks.
+
+It can be set through the dashboard or through the [API](/api-reference/customers/update#body-metadata).
