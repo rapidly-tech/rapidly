@@ -41,7 +41,7 @@ class Environment(StrEnum):
     """Deployment stage identifiers.
 
     ``testing`` is the local pytest runner; ``test`` is the hosted staging
-    environment on Render.
+    environment on Hetzner.
     """
 
     development = "development"
