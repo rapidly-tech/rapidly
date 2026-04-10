@@ -1,0 +1,314 @@
+# Rapidly CI — Server tests, linting, type-checking, and migration safety checks
+name: Server
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types: [opened, synchronize, edited]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  # Determine which parts of the server tree changed to skip unnecessary jobs
+  changes:
+    name: "Detect changes"
+    runs-on: ubuntu-latest
+    outputs:
+      server: ${{ steps.filter.outputs.server }}
+      migrations: ${{ steps.filter.outputs.migrations }}
+      tinybird: ${{ steps.filter.outputs.tinybird }}
+      server_files: ${{ steps.filter.outputs.server_files }}
+    steps:
+      - uses: actions/checkout@v6
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          list-files: json
+          filters: |
+            server:
+              - 'server/**'
+              - '.github/workflows/test_server.yaml'
+            migrations:
+              - 'server/migrations/versions/**'
+            tinybird:
+              - 'server/tinybird/**'
+
+  # Run ruff linting and mypy type-checking on the Python server code
+  linters:
+    name: "Server: Linters 📝"
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      # - uses: actions/cache@v4
+      #   with:
+      #     path: |
+      #       server/.mypy_cache
+      #     key: mypy-${{ runner.os }}-${{ github.sha }}
+      #     restore-keys: |
+      #       mypy-${{ runner.os }}-
+      #       mypy-
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "server/pyproject.toml"
+
+      - name: 🔧 uv install
+        working-directory: ./server
+        run: uv sync --dev
+
+      - name: 🐶 Lint Server (ruff)
+        working-directory: ./server
+        run: uv run task lint_check
+
+      - name: 🛟 Type Check Server (mypy)
+        working-directory: ./server
+        run: uv run task lint_types
+
+  # Validate Tinybird datasource/pipe schemas against a local Tinybird instance
+  tinybird-check:
+    name: "Server: Tinybird Schema 🐦"
+    needs: changes
+    if: needs.changes.outputs.tinybird == 'true'
+    runs-on: ubuntu-latest
+    services:
+      tinybird:
+        image: tinybirdco/tinybird-local:latest
+        ports:
+          - 7181:7181
+        options: >-
+          --health-cmd "curl -sf http://127.0.0.1:7181/tokens || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: 🐦 Install Tinybird CLI
+        run: curl -sSL https://tinybird.co/install.sh | bash && echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      - name: 🐦 Validate Tinybird schema
+        working-directory: ./server/tinybird
+        run: |
+          export TB_HOST=http://localhost:7181
+          export TB_ADMIN_TOKEN=$(curl -s http://localhost:7181/tokens | jq -r .admin_token)
+          tb fmt --diff --no-color datasources/*.datasource pipes/*.pipe endpoints/*.pipe
+          tb build
+          tb test run
+
+  # Ensure PRs with migrations don't also include unrelated code changes.
+  # This enforces deployment safety — migrations run before code deploys.
+  migration-check:
+    name: "Server: Migration Check 📚"
+    needs: changes
+    if: needs.changes.outputs.migrations == 'true' && github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check for disallowed files
+        id: check
+        env:
+          SERVER_FILES: ${{ needs.changes.outputs.server_files }}
+        run: |
+          DISALLOWED=""
+          for file in $(echo "$SERVER_FILES" | jq -r '.[]'); do
+            # Allow: migrations, models, and the workflow file itself
+            if [[ "$file" == server/migrations/* ]]; then
+              continue
+            fi
+            if [[ "$file" == server/rapidly/models/* ]]; then
+              continue
+            fi
+            if [[ "$file" == .github/* ]]; then
+              continue
+            fi
+            DISALLOWED="$DISALLOWED$file\n"
+          done
+
+          if [ -n "$DISALLOWED" ]; then
+            echo "has_disallowed=true" >> $GITHUB_OUTPUT
+            FILES_LIST=$(echo -e "$DISALLOWED" | sed '/^$/d' | sed 's/^/- `/' | sed 's/$/`/')
+            echo "files_list<<EOF" >> $GITHUB_OUTPUT
+            echo "$FILES_LIST" >> $GITHUB_OUTPUT
+            echo "EOF" >> $GITHUB_OUTPUT
+          else
+            echo "has_disallowed=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Find existing comment
+        uses: peter-evans/find-comment@v4
+        id: fc
+        with:
+          issue-number: ${{ github.event.number }}
+          body-includes: "<!-- __MIGRATION_CHECK -->"
+
+      - name: Create or update failure comment
+        if: steps.check.outputs.has_disallowed == 'true'
+        uses: peter-evans/create-or-update-comment@v5
+        with:
+          issue-number: ${{ github.event.number }}
+          comment-id: ${{ steps.fc.outputs.comment-id }}
+          edit-mode: replace
+          body: |
+            <!-- __MIGRATION_CHECK -->
+            ## ⚠️ Migration Isolation Check Failed
+
+            This PR contains database migrations along with other code changes. To ensure safe deployments, please split this into separate PRs,
+            or verify that your changes will not break. Keep in mind that the API is deployed before the workers.
+
+            1. **Migration PR**: Only model changes and the migration file
+            2. **Code PR**: All other changes (can be merged after migration PR)
+
+            ### Files that should be in a separate PR:
+            ${{ steps.check.outputs.files_list }}
+
+            ### Why?
+            Migrations are deployed separately and run before code changes. Mixing them can cause deployment issues if the new code depends on the migration.
+
+      - name: Delete resolved comment
+        if: steps.check.outputs.has_disallowed == 'false' && steps.fc.outputs.comment-id != ''
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.deleteComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              comment_id: ${{ steps.fc.outputs.comment-id }}
+            })
+
+      - name: Fail check
+        if: steps.check.outputs.has_disallowed == 'true'
+        run: exit 1
+
+  # Full test suite: spins up Postgres, MinIO, and Tinybird, runs Alembic
+  # migrations, then executes pytest in parallel
+  test:
+    name: "Server: Tests 🐍"
+    needs: changes
+    if: needs.changes.outputs.server == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      RAPIDLY_ENV: testing
+      RAPIDLY_EMAIL_RENDERER_BINARY_PATH: ${{ github.workspace }}/server/emails/bin/react-email-pkg
+
+    services:
+      postgres:
+        image: postgres:15.1-bullseye
+        env:
+          POSTGRES_USER: rapidly
+          POSTGRES_PASSWORD: rapidly
+          POSTGRES_DB: rapidly_test
+          POSTGRES_PORT: 5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+
+      minio:
+        image: bitnamilegacy/minio:2024.5.28
+        ports:
+          - 9010:9000
+          - 9001:9001
+        env:
+          MINIO_ROOT_USER: rapidly
+          MINIO_ROOT_PASSWORD: rapidlyrapidly
+        options: >-
+          --health-cmd "curl -I http://127.0.0.1:9000/minio/health/live"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      tinybird:
+        image: tinybirdco/tinybird-local:latest
+        ports:
+          - 7181:7181
+          - 7182:7182
+        options: >-
+          --health-cmd "curl -s http://127.0.0.1:7181/tokens || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v6
+
+      # Configure MinIO buckets and access policies for S3-compatible storage
+      - name: 💿 MinIO Setup
+        working-directory: ./server/.minio
+        env:
+          MINIO_HOST: 127.0.0.1
+          MINIO_PORT: 9010
+          MINIO_ROOT_USER: rapidly
+          MINIO_ROOT_PASSWORD: rapidlyrapidly
+          ACCESS_KEY: rapidly-development
+          SECRET_ACCESS_KEY: rapidly123456789
+          BUCKET_NAME: rapidly-s3
+          PUBLIC_BUCKET_NAME: rapidly-s3-public
+          BUCKET_TESTING_NAME: testing-rapidly-s3
+          POLICY_FILE: policy.json
+        run: bash github.sh
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: server/emails/package.json
+
+      # Build the React Email renderer used for transactional email templates
+      - name: 📬 Setup Node.js environment for server/emails
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: server/emails/.node-version
+          cache: "pnpm"
+          cache-dependency-path: "clients/pnpm-lock.yaml"
+
+      - name: 📬 Build server/emails
+        working-directory: server/emails
+        run: pnpm install --frozen-lockfile && pnpm build
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v7
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version-file: "server/pyproject.toml"
+
+      - name: 🔧 uv install
+        working-directory: ./server
+        run: |
+          uv sync --dev
+          uv run task generate_dev_jwks
+
+      - name: 🐦 Install Tinybird CLI
+        run: curl -sSL https://tinybird.co/install.sh | bash && echo "$HOME/.local/bin" >> $GITHUB_PATH
+
+      # Apply all pending Alembic migrations to the test database
+      - name: ⚗️ alembic migrate
+        working-directory: ./server
+        run: uv run task db_migrate
+
+      # Verify no unapplied model changes exist (catches missing migration files)
+      - name: ⚗️ alembic check
+        working-directory: ./server
+        run: uv run alembic check
+
+      # Run the full pytest suite with parallel workers
+      - name: 🐍 Run tests (pytest)
+        working-directory: ./server
+        run: uv run pytest -n auto --dist=loadgroup --no-cov

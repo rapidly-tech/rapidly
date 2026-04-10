@@ -1,0 +1,48 @@
+name: Terraform Apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: 'Type "apply" to confirm'
+        required: true
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  apply:
+    name: "Terraform Apply"
+    if: inputs.confirm == 'apply'
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    env:
+      AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+      AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+      TF_VAR_hcloud_token: ${{ secrets.HCLOUD_TOKEN }}
+      TF_VAR_environment: production
+      TF_VAR_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJGrMtYaJUqbHwhuusiqLHjYEzvwQNEaBJiCEEJJiX2o"
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hashicorp/setup-terraform@v4
+
+      - name: Init
+        working-directory: ./terraform
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ secrets.R2_BUCKET_NAME }}" \
+            -backend-config="endpoints={s3=\"https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com\"}"
+
+      - name: Plan
+        working-directory: ./terraform
+        run: terraform plan -input=false -out=apply.tfplan
+
+      - name: Apply
+        working-directory: ./terraform
+        run: terraform apply -input=false -auto-approve apply.tfplan
+
+      - name: Verify
+        working-directory: ./terraform
+        run: terraform plan -input=false

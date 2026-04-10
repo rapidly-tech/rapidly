@@ -1,0 +1,1 @@
+"""Rapidly catalog domain group."""

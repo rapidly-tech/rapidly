@@ -1,0 +1,184 @@
+---
+title: "Rapidly: Secure File Sharing with Built-in Payments"
+sidebarTitle: "Introduction"
+description: "Share files securely with end-to-end encryption. Monetize your content with payment-gated channels. No infrastructure required."
+---
+
+## What is Rapidly?
+
+Rapidly is a secure file-sharing platform with built-in payment gating. Share files peer-to-peer with end-to-end encryption (AES-256-GCM over WebRTC), monetize your shares via Stripe Connect, and manage everything from a workspace dashboard.
+
+<CardGroup cols={2}>
+  <Card title="End-to-End Encrypted Sharing" icon="lock">
+    Files transfer directly between peers via WebRTC. AES-256-GCM encryption
+    ensures only the intended recipient can access your content.
+  </Card>
+  <Card title="Payment-Gated Channels" icon="credit-card">
+    Attach prices to file shares and get paid via Stripe Connect. Fixed pricing,
+    pay-what-you-want, or free -- your choice.
+  </Card>
+</CardGroup>
+
+## Problems We Solve
+
+<AccordionGroup>
+  <Accordion title="Secure File Distribution" icon="shield-halved">
+    **The Problem**: Sharing files securely -- especially large or sensitive ones -- requires complex infrastructure: S3 buckets, signed URLs, access control, and encryption.
+
+    **Rapidly's Solution**: P2P encrypted file transfers via WebRTC with download quotas and ClamAV malware scanning. No third-party cloud storage needed -- files go directly from sender to receiver.
+  </Accordion>
+
+  <Accordion title="Monetizing Digital Content" icon="money-bill">
+    **The Problem**: Selling access to files means stitching together a payment processor, access control layer, delivery mechanism, and customer management system.
+
+    **Rapidly's Solution**: Create a share, set a price, and distribute the link. Rapidly handles payment collection, access gating, and customer tracking in one platform.
+  </Accordion>
+
+  <Accordion title="Secret & Sensitive Data Sharing" icon="user-secret">
+    **The Problem**: Sharing passwords, API keys, or sensitive documents via email or chat leaves data exposed in message histories and server logs.
+
+    **Rapidly's Solution**: One-time encrypted secrets with automatic expiration. Once viewed, the secret is destroyed. No trace left behind.
+  </Accordion>
+</AccordionGroup>
+
+## Core Features
+
+<CardGroup cols={3}>
+  <Card title="File Sharing" icon="share-nodes" href="/features/file-sharing">
+    P2P encrypted transfers via WebRTC with download quotas and ClamAV scanning
+  </Card>
+  <Card title="Secret Sharing" icon="key" href="/features/secret-sharing">
+    One-time encrypted text and file secrets with expiration controls
+  </Card>
+  <Card title="Analytics" icon="chart-line" href="/features/analytics">
+    Track share views, downloads, and customer activity with event streams
+  </Card>
+  <Card title="Customer Management" icon="users" href="/features/customer-management">
+    Manage customers across your workspace with profiles, history, and metadata
+  </Card>
+  <Card title="Finance & Payouts" icon="building-columns" href="/features/finance/accounts">
+    Stripe Connect integration for payouts in 143 countries
+  </Card>
+  <Card title="Webhooks" icon="link" href="/integrate/webhooks/endpoints">
+    Real-time event notifications for automation and integrations
+  </Card>
+</CardGroup>
+
+## Quick Start
+
+<Steps>
+  <Step title="Create Your Workspace">
+    [Sign up for Rapidly](https://rapidly.tech/signup) using Google, Microsoft, Apple, or email. Create a workspace to organize your shares, customers, and team members.
+
+  </Step>
+
+  <Step title="Share Your First File">
+    Create a file-sharing channel from your dashboard:
+    - Upload a file or start a live P2P channel
+    - Optionally set a price (fixed, pay-what-you-want, or free)
+    - Share the generated link with your recipient
+
+    The recipient connects directly to you via WebRTC -- no file ever touches our servers.
+
+    Learn more about [File Sharing](/features/file-sharing)
+  </Step>
+
+  <Step title="Connect Stripe (Optional)">
+    To accept payments on your shares, connect your Stripe account via Stripe Connect in the workspace settings. Rapidly handles checkout and deposits payouts directly to your bank account.
+
+    Learn more about [Finance & Payouts](/features/finance/accounts)
+  </Step>
+
+  <Step title="Set Up Webhooks (Optional)">
+    Get notified when shares are accessed, payments complete, or customers are created:
+    - Configure webhook endpoints in your dashboard
+    - React to events in real time
+    - Keep your systems in sync
+
+    Read the [Webhooks guide](/integrate/webhooks/endpoints)
+  </Step>
+</Steps>
+
+## Integration Options
+
+<CardGroup cols={2}>
+  <Card title="REST API" icon="code" href="/api-reference">
+    Full programmatic control over shares, customers, events, and payouts
+  </Card>
+  <Card title="Webhooks" icon="link" href="/integrate/webhooks/endpoints">
+    Real-time event delivery to your servers for automation
+  </Card>
+  <Card title="OAuth2 Provider" icon="shield-halved" href="/integrate/oauth2/introduction">
+    Use Rapidly as an identity provider for your applications
+  </Card>
+  <Card title="Authentication" icon="key" href="/integrate/authentication">
+    Access tokens, OAuth2, and API authentication
+  </Card>
+</CardGroup>
+
+## Transparent Pricing
+
+<CardGroup cols={2}>
+  <Card title="2% Platform Fee" icon="percent">
+    **On paid shares only**
+
+    Free for basic sharing -- simple, transparent pricing
+  </Card>
+  <Card title="$0" icon="dollar-sign">
+    **Monthly fees or setup costs**
+
+    Pay only when you earn, no fixed costs
+  </Card>
+</CardGroup>
+
+<Info>
+  **Additional fees may apply**: Some transactions may incur additional fees
+  (international cards, currency conversion). Payout fees are charged by Stripe.
+  See our [detailed fees page](/policies/fees) for complete information.
+</Info>
+
+## Open Source & Community
+
+Rapidly is built in the open with full transparency and a growing community of contributors.
+
+<CardGroup cols={2}>
+  <Card
+    title="Open Source Codebase"
+    icon="github"
+    href="https://github.com/rapidly-tech/rapidly"
+  >
+    Apache 2.0 license -- inspect, modify, and self-host
+  </Card>
+  <Card
+    title="Public Development"
+    icon="users"
+    href="https://github.com/rapidly-tech/rapidly/issues"
+  >
+    Feature requests, roadmap, and issues -- all developed in public
+  </Card>
+  <Card
+    title="Community Support"
+    icon="discord"
+    href="https://discord.gg/rapidly"
+  >
+    Join our Discord for help, feedback, and feature discussions
+  </Card>
+  <Card title="Transparent Pricing" icon="eye">
+    No hidden fees or surprise charges. What you see is what you pay.
+  </Card>
+</CardGroup>
+
+## Ready to Start?
+
+<CardGroup cols={2}>
+  <Card title="Create Workspace" icon="user-plus" href="https://rapidly.tech/signup">
+    **Free signup, no credit card required**
+
+    Get started in under 2 minutes
+  </Card>
+  <Card title="Explore the API" icon="code" href="/api-reference">
+    **Complete API documentation**
+
+    Interactive examples and SDKs
+  </Card>
+</CardGroup>

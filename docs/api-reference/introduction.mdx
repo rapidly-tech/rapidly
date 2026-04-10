@@ -1,0 +1,220 @@
+---
+title: "API Overview"
+sidebarTitle: "Introduction"
+description: "Base URLs, authentication, pagination, rate limits, and the difference between the Core API and the Customer Portal API"
+---
+
+<CardGroup cols={2}>
+  <Card title="Production Base URL" icon="globe">
+    `https://api.rapidly.tech/api`
+  </Card>
+  <Card title="Sandbox Base URL" icon="flask">
+    `https://sandbox-api.rapidly.tech/api`
+  </Card>
+  <Card title="Auth (Workspace)" icon="key" href="/integrate/oat">
+    Use a **Workspace Access Token (OAT)** in the `Authorization: Bearer`
+    header
+  </Card>
+  <Card
+    title="Auth (Customer Portal)"
+    icon="user-lock"
+    href="/api-reference/customer-portal/sessions/create"
+  >
+    Use a **Customer Access Token** created via `/api/customer-sessions/`
+  </Card>
+</CardGroup>
+
+## Base URLs
+
+| Environment | Base URL                          | Purpose                         |
+| ----------- | --------------------------------- | ------------------------------- |
+| Production  | `https://api.rapidly.tech/api`         | Real customers & live payments  |
+| Sandbox     | `https://sandbox-api.rapidly.tech/api` | Safe testing & integration work |
+
+<Info>
+  The sandbox environment is fully isolated—data, users, tokens, and
+  workspaces created there do not affect production. Create separate tokens
+  in each environment.
+</Info>
+
+Read more: [Sandbox Environment](/integrate/sandbox)
+
+## Authentication
+
+### Workspace Access Tokens (OAT)
+
+Use an **OAT** to act on behalf of your workspace (manage shares, customers, etc.).
+
+```http
+Authorization: Bearer rapidly_oat_xxxxxxxxxxxxxxxxx
+```
+
+<Tip>
+  Create OATs in your workspace settings. See: [Workspace Access
+  Tokens](/integrate/oat)
+</Tip>
+
+<Warning>
+  Never expose an OAT in client-side code, public repos, or logs. If leaked, it
+  will be revoked automatically by our secret scanning integrations.
+</Warning>
+
+### Customer Access Tokens
+
+Do **not** use OATs in the browser. For customer-facing flows, [generate a **Customer Session**](/api-reference/customer-portal/sessions/create) server-side, then use the returned **customer access token** with the **Customer Portal API** to let a signed-in customer view their own data.
+
+## Core API vs Customer Portal API
+
+| Aspect               | Core API                                                                 | Customer Portal API                            |
+| -------------------- | ------------------------------------------------------------------------ | ---------------------------------------------- |
+| Audience             | Your server / backend                                                    | One of your customer                           |
+| Auth Type            | Workspace Access Token (OAT)                                          | Customer Access Token                          |
+| Scope                | Full workspace resources (shares, customers, files)                      | Only the authenticated customer’s data         |
+| Typical Use          | Admin dashboards, internal tools, automation, provisioning               | Building a custom customer portal or gated app |
+| Token Creation       | Via dashboard (manual)                                                   | Via `/api/customer-sessions/` (server-side)     |
+| Sensitive Operations | Yes (create/update shares, manage customers, etc.)                       | No (read/update only what the customer owns)   |
+
+<Note>
+  The Customer Portal API is a *restricted* surface designed for safe exposure
+  in user-facing contexts (after exchanging a session). It cannot perform
+  privileged workspace-level mutations like creating shares or managing other customers.
+</Note>
+
+## Quick Examples
+
+<CodeGroup>
+```bash curl (Production - Core API)
+curl https://api.rapidly.tech/api/shares/ \
+  -H "Authorization: Bearer $RAPIDLY_OAT" \
+  -H "Accept: application/json"
+```
+
+```bash curl (Sandbox - Core API)
+curl https://sandbox-api.rapidly.tech/api/shares/ \
+  -H "Authorization: Bearer $RAPIDLY_OAT_SANDBOX" \
+  -H "Accept: application/json"
+```
+
+```bash curl (Customer Portal API)
+curl https://api.rapidly.tech/api/customer-portal/ \
+  -H "Authorization: Bearer $RAPIDLY_CUSTOMER_TOKEN" \
+  -H "Accept: application/json"
+```
+
+</CodeGroup>
+
+## Using the API Directly
+
+You can call the Rapidly API directly using `fetch` (TypeScript) or `httpx` (Python). Use the appropriate base URL for your environment:
+
+<CodeGroup>
+```ts TypeScript
+// For sandbox: https://sandbox-api.rapidly.tech/api
+// For production: https://api.rapidly.tech/api
+
+const response = await fetch("https://api.rapidly.tech/api/shares/", {
+  headers: {
+    Authorization: `Bearer ${process.env.RAPIDLY_ACCESS_TOKEN!}`,
+    Accept: "application/json",
+  },
+});
+
+const data = await response.json();
+```
+
+```py Python
+import os
+import httpx
+
+# For sandbox: https://sandbox-api.rapidly.tech
+# For production: https://api.rapidly.tech
+
+client = httpx.Client(
+    base_url="https://api.rapidly.tech",
+    headers={"Authorization": f"Bearer {os.environ['RAPIDLY_ACCESS_TOKEN']}"},
+)
+
+response = client.get("/api/shares/")
+data = response.json()
+```
+
+</CodeGroup>
+
+## Pagination
+
+List endpoints in the Rapidly API support pagination to help you efficiently retrieve large datasets. Use the `page` and `limit` query parameters to control pagination.
+
+### Query Parameters
+
+| Parameter | Type    | Default | Max | Description                                                      |
+| --------- | ------- | ------- | --- | ---------------------------------------------------------------- |
+| `page`    | integer | `1`     | -   | Page number, starting from 1                                     |
+| `limit`   | integer | `10`    | `100` | Number of items to return per page (window size) |
+
+<Info>
+  The `page` parameter works as a window offset. For example, `page=2&limit=10`
+  means the API will skip the first 10 elements and return the next 10.
+</Info>
+
+### Response Format
+
+All paginated responses include a `pagination` object with metadata about the current page and total results:
+
+| Field         | Type    | Description                                                       |
+| ------------- | ------- | ----------------------------------------------------------------- |
+| `total_count` | integer | Total number of items matching your query across all pages       |
+| `max_page`    | integer | Total number of pages available, given the current `limit` value |
+
+### Example
+
+Let's say you want to fetch shares with a limit of 100 items per page:
+
+<CodeGroup>
+```bash Request
+curl https://api.rapidly.tech/api/shares/?page=1&limit=100 \
+  -H "Authorization: Bearer $RAPIDLY_OAT" \
+  -H "Accept: application/json"
+```
+
+```json Response
+{
+  "items": [
+    {
+      "id": "...",
+      "name": "Product 1",
+      ...
+    },
+    ...
+  ],
+  "pagination": {
+    "total_count": 250,
+    "max_page": 3
+  }
+}
+```
+</CodeGroup>
+
+In this example:
+- `total_count=250` indicates there are 250 total shares
+- `limit=100` means each page contains up to 100 shares
+- `max_page=3` means you need to make 3 requests to retrieve all shares (pages 1, 2, and 3)
+
+<Tip>
+  To retrieve all pages, increment the `page` parameter from `1` to `max_page`.
+  Our SDKs provide built-in pagination helpers to automatically iterate through
+  all pages.
+</Tip>
+
+## Rate Limits
+
+Rapidly API has rate limits to ensure fair usage and maintain performance. The limits are as follows:
+
+- **Default**: 500 requests per minute
+- **Restricted endpoints** (e.g., login, token exchange): 60 requests per minute
+
+If you exceed the rate limit, you will receive a `429 Too Many Requests` response. The response will include a `Retry-After` header indicating how long you should wait before making another request.
+
+<Note>
+  Workspaces requiring higher rate limits for production workloads may
+  contact our support team to discuss elevated limits.
+</Note>

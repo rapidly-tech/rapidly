@@ -1,0 +1,101 @@
+# Rapidly — one-shot Hetzner host recovery
+#
+# Manually triggered cleanup that SSHes to the production host, drains the
+# containerd content store of any stale ingest entries from interrupted pulls,
+# restarts docker, force-pulls fresh images, and brings the production
+# docker-compose stack back up.
+#
+# Use this when `Build and Deploy` keeps failing on:
+#   failed commit on ref "...": commit failed: rename
+#       /var/lib/containerd/.../ingest/.../data
+#       /var/lib/containerd/.../blobs/sha256/...: no such file or directory
+#
+# That error means containerd's ingest directory has orphaned entries from a
+# previously interrupted `docker pull` and the runtime cannot reconcile them
+# without operator intervention.
+
+name: Cleanup Hetzner containerd
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    name: "Hetzner: Recover containerd and redeploy"
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: SSH cleanup and redeploy
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: 22
+          command_timeout: 10m
+          script: |
+            set -uo pipefail
+            cd /opt/rapidly
+
+            echo "==> Disk usage before cleanup"
+            df -h /var/lib || true
+            echo
+
+            echo "==> Docker images before cleanup"
+            docker images || true
+            echo
+
+            echo "==> Stopping docker so containerd can be cleaned safely"
+            sudo systemctl stop docker || true
+            sudo systemctl stop containerd || true
+
+            echo "==> Wiping orphaned containerd ingest entries"
+            sudo rm -rf /var/lib/containerd/io.containerd.content.v1.content/ingest/* || true
+
+            echo "==> Restarting containerd and docker"
+            sudo systemctl start containerd || true
+            sudo systemctl start docker
+
+            # Wait for the docker daemon to actually be ready before issuing commands
+            for i in 1 2 3 4 5 6 7 8 9 10; do
+              if docker info >/dev/null 2>&1; then
+                echo "    docker daemon ready after $i attempt(s)"
+                break
+              fi
+              sleep 2
+            done
+
+            echo "==> Pruning dangling images and build cache"
+            docker system prune -af || true
+
+            echo "==> Force-removing rapidly tags so they get re-fetched cleanly"
+            docker rmi -f ghcr.io/rapidly-tech/rapidly:latest 2>/dev/null || true
+            docker rmi -f rapidly-api:latest 2>/dev/null || true
+            docker rmi -f ghcr.io/rapidly-tech/rapidly-web:latest 2>/dev/null || true
+            docker rmi -f rapidly-web:latest 2>/dev/null || true
+
+            echo "==> Pulling fresh images for every service"
+            # Don't enumerate service names — the compose file on the host
+            # has drifted between "frontend" and "web" before. Pulling all
+            # services is robust to naming changes.
+            docker compose -f docker-compose.production.yml pull
+
+            echo "==> Re-tagging local aliases the deploy script expects"
+            docker tag ghcr.io/rapidly-tech/rapidly:latest rapidly-api:latest
+            docker tag ghcr.io/rapidly-tech/rapidly-web:latest rapidly-web:latest
+
+            echo "==> Bringing the full stack back up"
+            docker compose -f docker-compose.production.yml up -d
+
+            echo "==> Final state"
+            docker compose -f docker-compose.production.yml ps
+            df -h /var/lib || true
+
+            echo
+            echo "==> Cleanup and redeploy complete"

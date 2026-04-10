@@ -1,0 +1,1 @@
+"""Rapidly identity domain group."""

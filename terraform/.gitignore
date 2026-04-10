@@ -1,0 +1,7 @@
+# Rapidly infrastructure — Terraform gitignore
+.terraform/
+*.tfstate
+*.tfstate.backup
+**/.terraform/
+**/.terraform.lock.hcl
+
