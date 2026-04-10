@@ -1,0 +1,199 @@
+[project]
+name = "rapidly"
+version = "0.0.0"
+readme = "README.md"
+requires-python = ">=3.14.0"
+dependencies = [
+  # ── Web framework & HTTP ─────────────────────────────────────
+  "fastapi>=0.120.2",
+  "uvicorn[standard]>=0.31.1",
+  "sse-starlette>=2.0.0",
+  "httpx>=0.23.0",
+  "python-multipart>=0.0.12",
+  "asgi-ratelimit>=0.10.0",
+  # ── Database & migrations ────────────────────────────────────
+  "sqlalchemy[asyncio]>=2.0.34",
+  "asyncpg>=0.29.0",
+  "psycopg2-binary>=2.9.5",
+  "alembic>=1.9.2",
+  "alembic-utils>=0.8.8",
+  "greenlet>=3.1.1",
+  "sqlalchemy-utils>=0.41.1",
+  # ── Caching & queues ─────────────────────────────────────────
+  "redis>=5.0.4",
+  "dramatiq[redis,watch]>=1.17.1",
+  # ── Validation & serialisation ───────────────────────────────
+  "pydantic>=2.11",
+  "pydantic-settings>=2.5.2",
+  "pydantic-extra-types>=2.9.0",
+  "email-validator>=2.1.0.post1",
+  "python-dateutil>=2.9.0.post0",
+  # ── Auth & security ──────────────────────────────────────────
+  "pyjwt>=2.12.0",
+  "authlib>=1.6.0",
+  "httpx-oauth>=0.16.0",
+  "cryptography>=46.0.7",
+  "itsdangerous>=2.2.0",
+  "safe-redirect-url>=0.1.1",
+  # ── Payments ─────────────────────────────────────────────────
+  "stripe>=14,<15",
+  # ── Object storage ──────────────────────────────────────────
+  "boto3>=1.38.30",
+  # ── File scanning ───────────────────────────────────────────
+  "pyclamd>=0.4.0",
+  # ── Email ────────────────────────────────────────────────────
+  "exponent-server-sdk>=2.1.0",
+  # ── Observability & logging ──────────────────────────────────
+  "structlog>=24.4.0",
+  "sentry-sdk[fastapi,sqlalchemy]>=2.48.0",
+  "logfire[fastapi,httpx,sqlalchemy,redis]>=2.6.0",
+  "posthog>=3.6.0",
+  "prometheus-client>=0.21.0",
+  # ── IP geolocation ───────────────────────────────────────────
+  "maxminddb>=2.6.0",
+  # ── Analytics ────────────────────────────────────────────────
+  "clickhouse-connect>=0.8.0",
+  # ── AI ───────────────────────────────────────────────────────
+  "pydantic-ai-slim[openai]>=0.7.1",
+  # ── Internationalisation & geography ─────────────────────────
+  "babel>=2.16.0",
+  "pycountry>=24.6.1",
+  # ── Integrations ─────────────────────────────────────────────
+  "githubkit==0.14.3",
+  "standardwebhooks>=1.0.0",
+  # ── Utilities ────────────────────────────────────────────────
+  "python-slugify>=8.0.1",
+  "python-snappy>=0.7.3",
+  "makefun>=1.15.6",
+  "typer>=0.12.5",
+  "taskipy>=1.10.3",
+  "tagflow>=0.7.0",
+  # ── Scheduling ──────────────────────────────────────────────
+  "apscheduler>=3.10.4",
+  "aiosmtplib>=5.1.0",
+]
+
+[dependency-groups]
+dev = [
+  # ── Testing ──────────────────────────────────────────────────
+  "pytest<10",
+  "pytest-asyncio>=0.24",
+  "pytest-mock>=3.10.0",
+  "pytest-sugar>=1.0.0",
+  "pytest-subtests>=0.13.1",
+  "pytest-recording>=0.13.1",
+  "pytest-cov>=5.0.0",
+  "pytest-xdist[psutil]>=3.6.1",
+  "coverage>=7.6.0",
+  "respx>=0.21.1",
+  "freezegun>=1.5.1",
+  "fakeredis[lua]>=2.26.1",
+
+  # ── Type checking & linting ──────────────────────────────────
+  "mypy>=1.11",
+  "ruff>=0.6.9",
+  "types-redis>=4.6.0.20240903",
+  "types-python-slugify>=8.0.0.3",
+  "types-requests>=2.31.0.10",
+  "boto3-stubs[s3]>=1.38.30",
+
+  # ── Misc dev tools ──────────────────────────────────────────
+  "typer>=0.12.5",
+  "sqlalchemy-utils>=0.41.2",
+  "minio>=7.2.9",
+  "locust>=2.20.0",
+  "debugpy>=1.8.19",
+]
+
+# ── Development tasks (run via `uv run task <name>`) ─────────────────
+
+[tool.taskipy.tasks]
+# Build assets
+emails = { cmd = "cd emails && pnpm i --frozen-lockfile && pnpm run build", help = "Build the React email renderer into a standalone binary" }
+backoffice = { cmd = "pnpm -C rapidly/backoffice install && pnpm -C rapidly/backoffice build", help = "Bundle admin UI static assets for production" }
+
+# Run services
+api = { cmd = "env AUTHLIB_INSECURE_TRANSPORT=true uvicorn rapidly.app:app --reload --workers 1 --host 127.0.0.1 --port 8000", help = "Launch the API server with hot-reload on port 8000" }
+worker = { cmd = "dramatiq -p 1 -t 1 --watch rapidly -f rapidly.worker.scheduler:start rapidly.worker.run", help = "Launch Dramatiq workers with file-watch auto-restart" }
+
+# Quality & testing
+test = { cmd = "RAPIDLY_ENV=testing python -m pytest --cov rapidly/ --cov-report=term-missing", help = "Execute the full test suite and report coverage" }
+test_fast = { cmd = "RAPIDLY_ENV=testing python -m pytest -n auto -p no:sugar --no-cov", help = "Execute tests across all CPU cores (no coverage)" }
+lint = { cmd = "ruff format . && ruff check --fix .", help = "Auto-format code and fix lint issues with ruff" }
+lint_check = { cmd = "ruff format --check . && ruff check .", help = "Verify formatting and lint rules pass (CI)" }
+lint_types = { cmd = "mypy rapidly scripts tests", help = "Run mypy for static type verification" }
+loadtest = { cmd = "locust -f load_tests/locustfile.py --host=http://127.0.0.1:8000", help = "Open the Locust web UI for load testing" }
+
+# Database
+db_migrate = { cmd = "python -m scripts.db upgrade", help = "Apply all pending Alembic migrations" }
+db_recreate = { cmd = "python -m scripts.db recreate", help = "Tear down and rebuild the database from migrations" }
+db_reparent = { cmd = "python -m scripts.db reparent", help = "Resolve divergent Alembic migration heads" }
+
+# Data seeding & integrations
+seeds_load = { cmd = "python -m scripts.seeds_load", help = "Populate the database with sample development data" }
+tb_deploy = { cmd = "python -m scripts.tinybird", help = "Push Tinybird data source definitions" }
+loadtest_setup = { cmd = "python -m scripts.loadtest_setup", help = "Create fixtures for event ingestion benchmarks" }
+verify_github_app = { cmd = "python -m rapidly.verify_github_app", help = "Check that the GitHub App is correctly configured" }
+generate_dev_jwks = { cmd = "python -m rapidly.core.jwk rapidly_dev > ./.jwks.json", help = "Generate a JWKS key file for local auth" }
+
+# Maintenance
+clean = { cmd = "find * -name '*.pyc' -delete && find * -name '__pycache__' -delete", help = "Delete compiled Python bytecode files" }
+pre_deploy = { cmd = "task db_migrate", help = "Run pre-deployment steps (currently: migrations)" }
+
+# ── Pytest ───────────────────────────────────────────────────────────
+
+[tool.pytest.ini_options]
+markers = ["auth"]
+asyncio_mode = "strict"
+asyncio_default_fixture_loop_scope = "function"
+
+# ── Coverage ─────────────────────────────────────────────────────────
+
+[tool.coverage.run]
+concurrency = ["thread", "greenlet"]
+
+[tool.coverage.report]
+# https://github.com/nedbat/coveragepy/issues/831
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+
+# ── Ruff (linting & formatting) ─────────────────────────────────────
+
+[tool.ruff]
+target-version = "py312"
+
+[tool.ruff.lint]
+extend-select = ["I", "UP", "T20", "B039", "PT", "RUF022", "RUF023", "RUF10", "RUF20"]
+ignore = [
+  "F841",   # unused variable — too noisy in test fixtures
+  "PT012",  # pytest.raises block should contain a single statement
+]
+
+[tool.ruff.lint.per-file-ignores]
+"migrations/*" = ["F401"]  # Alembic imports models for autogenerate
+"scripts/*" = ["T20"]      # Allow print() in management scripts
+
+# ── Mypy (static type checking) ─────────────────────────────────────
+
+[tool.mypy]
+ignore_missing_imports = true
+plugins = ["pydantic.mypy"]
+warn_redundant_casts = true
+warn_unused_ignores = true
+disallow_any_generics = true
+check_untyped_defs = true
+no_implicit_reexport = true
+strict_equality = true
+disallow_untyped_defs = true
+skip_cache_mtime_checks = true
+
+[tool.pydantic-mypy]
+init_forbid_extra = true
+init_typed = true
+warn_required_dynamic_aliases = false
+warn_untyped_fields = true
+
+# ── Dependency overrides ────────────────────────────────────────────
+
+[tool.uv.sources]
+# Patched fork: fixes asyncio memory leak in Dramatiq's async middleware.
+dramatiq = { git = "https://github.com/frankie567/dramatiq", rev = "memory-leak-asyncio-ter" }

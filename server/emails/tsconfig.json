@@ -1,0 +1,13 @@
+{
+  "include": ["src"],
+  "exclude": ["node_modules", "dist", "bin"],
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "CommonJS",
+    "jsx": "react-jsx",
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true
+  }
+}

@@ -1,0 +1,80 @@
+---
+rss: true
+title: Product Updates
+description: Stay up to date with the latest changes and improvements to Rapidly.
+---
+
+<Update label="2026-04-08">
+## Platform Fee
+
+Rapidly charges a **2% platform fee** on paid file-share and storefront transactions. Free file sharing and secret exchange incur no fees.
+
+- **Stripe processing fees** (typically 2.9% + 30¢, plus +1.5% for international cards) are charged separately by Stripe and are not included in our 2%
+- See the [Fees policy](/policies/fees) for the full breakdown and worked example
+
+</Update>
+
+<Update label="2026-03-27">
+## Documentation Portal
+
+Launched the Rapidly documentation portal with comprehensive guides for all platform features:
+
+- **File Sharing** — P2P encrypted file transfer with WebRTC
+- **Secret Sharing** — One-time encrypted text and file secrets
+- **Analytics** — Event ingestion, metrics, and real-time streaming
+- **Customer Management** — CRM with custom fields and metadata
+- **Finance & Payouts** — Stripe Connect integration for sellers
+
+</Update>
+
+<Update label="2026-03-01">
+## Self-Hosted Signaling & TURN
+
+Replaced third-party signaling with a custom WebSocket signaling server and self-hosted COTURN for reliable peer-to-peer connections:
+
+- **WebSocket signaling** at `/api/file-sharing/signal/{slug}` — handles SDP offers/answers and ICE candidates
+- **COTURN relay** — fallback for restrictive NAT/firewalls, encrypted data never exposed to relay
+- **Rate limiting** — 20 connections per IP per 60s, 60 messages per connection per 10s
+- **Room management** — per-channel peer cap of 50, empty rooms garbage-collected after 15 min
+
+</Update>
+
+<Update label="2026-02-15">
+## Paid File Sharing
+
+Monetize file shares with integrated Stripe payments:
+
+- **Payment gating** — require Stripe Checkout before downloading
+- **Pricing** — USD (additional currencies planned)
+- **Download limits** — customizable from 1 to 1,000, or unlimited
+- **Real-time dashboard** — monitor active downloaders with per-peer progress
+- **Platform fee** — 2% on paid file shares, no monthly fees
+
+</Update>
+
+<Update label="2026-02-01">
+## Secret Sharing
+
+Share sensitive information that self-destructs after reading:
+
+- **Encrypted text secrets** — passwords, API keys, credentials
+- **Encrypted file secrets** — sensitive documents
+- **Zero-knowledge** — OpenPGP encryption, server never sees plaintext
+- **One-time read** — automatically deleted after first access
+- **Expiration** — optional TTL for unread secrets
+
+</Update>
+
+<Update label="2026-01-15">
+## P2P Encrypted File Sharing
+
+Core file sharing feature launched:
+
+- **WebRTC peer-to-peer** — files transfer directly between browsers
+- **AES-256-GCM encryption** — all files encrypted before leaving your device
+- **Zero-knowledge architecture** — encryption key in URL fragment, never sent to server
+- **Password protection** — optional secondary layer of security
+- **Checksum verification** — SHA-256 integrity checking for transferred files
+- **Abuse reporting** — flag and close channels that violate terms
+
+</Update>

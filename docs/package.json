@@ -1,0 +1,51 @@
+{
+  "name": "rapidly-docs",
+  "private": true,
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "mintlify dev",
+    "broken-links": "mintlify broken-links"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "packageManager": "pnpm@10.28.1",
+  "dependencies": {
+    "mintlify": "^4.2.331"
+  },
+  "devDependencies": {
+    "@scalar/openapi-parser": "^0.23.13",
+    "@types/node": "^24.10.11",
+    "js-yaml": "^4.1.1",
+    "openapi-sampler": "^1.6.2",
+    "tsx": "^4.21.0"
+  },
+  "pnpm": {
+    "overrides": {
+      "ajv": "^8.18.0",
+      "axios": "^1.13.5",
+      "basic-ftp": "^5.2.0",
+      "body-parser": "^1.20.3",
+      "brace-expansion@<1.1.12": "^1.1.13",
+      "cookie": "^0.7.0",
+      "express": "^4.20.0",
+      "fast-xml-parser": "^4.5.5",
+      "js-yaml": "^4.1.1",
+      "lodash": "^4.18.0",
+      "minimatch@<3.1.4": "^3.1.4",
+      "path-to-regexp@<0.1.13": "^0.1.13",
+      "picomatch@<2.3.2": "^2.3.2",
+      "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
+      "qs": "^6.14.2",
+      "send": "^0.19.0",
+      "serve-static": "^1.16.0",
+      "socket.io-parser": "^4.2.6",
+      "tar@<6.2.1": "^6.2.1",
+      "yaml": "^2.8.3",
+      "zod": "^3.22.3"
+    }
+  }
+}

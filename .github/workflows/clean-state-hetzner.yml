@@ -1,0 +1,72 @@
+# Rapidly — full clean-state reset on the Hetzner production stack
+#
+# Manually triggered one-shot that wipes all ephemeral and persistent
+# user-facing state on the running production cluster:
+#
+#   1. Postgres TRUNCATE on every public-schema table EXCEPT
+#      alembic_version (uses RESTART IDENTITY and CASCADE)
+#   2. Redis FLUSHDB on the cache server (drops sessions, rate-limit
+#      counters, dramatiq job queues, cached query results, and the
+#      file-sharing landing-page counter so it resets to zero)
+#   3. Restart api / worker / worker-medium / worker-high /
+#      worker-webhook / scheduler / web containers so module-level state
+#      is fresh and any stale connection pools are dropped
+#
+# Steps 1+2 are implemented by `scripts.db wipe_data --confirm`, defined
+# in server/scripts/db.py — this workflow is just the production-side
+# trigger that runs that command in a one-shot api container.
+#
+# This workflow is intentionally NOT in deploy.yml's path filter, so
+# committing it does not trigger a backend deploy.
+#
+# DANGER: irreversible. Every user account, workspace, customer, Stripe
+# Connect account link, file share, secret, event, webhook delivery and
+# audit log row in the production database will be deleted. The Postgres
+# schema is preserved but every table will be empty.
+
+name: Clean State Hetzner
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  clean:
+    name: "Hetzner: Flush Redis + Truncate Postgres + Restart"
+    runs-on: ubuntu-latest
+    environment: production
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: SSH clean-state
+        uses: appleboy/ssh-action@v1
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: 22
+          command_timeout: 10m
+          script: |
+            set -euo pipefail
+            cd /opt/rapidly
+
+            echo "==> Wiping postgres + redis via scripts.db wipe-data"
+            docker compose -f docker-compose.production.yml run --rm api \
+              uv run python -m scripts.db wipe-data --confirm
+
+            echo
+            echo "==> Restarting all services so module-level state is fresh"
+            # Don't enumerate service names — the compose file on the host has
+            # historically drifted from the in-repo version (frontend vs web,
+            # etc.), so just force-recreate everything that compose knows about.
+            docker compose -f docker-compose.production.yml up -d --force-recreate
+
+            echo
+            echo "==> Final container state"
+            docker compose -f docker-compose.production.yml ps
+
+            echo
+            echo "==> Clean-state complete"

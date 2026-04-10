@@ -1,0 +1,62 @@
+---
+title: "Customer Portal"
+sidebarTitle: "Customer Portal"
+description: "A self-service portal where customers view file share sessions, downloads, and payments"
+---
+
+The Customer Portal is where your customers can view their file sharing sessions, track downloads, and review payments. Each workspace gets a portal at its own URL.
+
+## Portal URL
+
+The customer portal is available at:
+
+```
+https://rapidly.tech/{workspace-slug}/portal
+```
+
+Customers authenticate by entering the email address associated with their account. Rapidly sends a one-time code to that email, which the customer exchanges for a session token. Rate limiting is applied to prevent abuse.
+
+If a customer’s email is associated with multiple workspaces, they will be prompted to select which one to sign into.
+
+## What Customers Can See
+
+Once authenticated, customers have access to:
+
+- **File sharing sessions** -- A list of all their file sharing sessions, with details like status, file size, and download count.
+- **Downloads** -- Per-session download history.
+- **Payments** -- Payment records for paid file shares.
+- **Profile** -- View and update their customer profile.
+- **Real-time updates** -- The portal streams live updates via SSE, so new sessions and payments appear without refreshing.
+
+## Pre-Authenticated Session Links
+
+You can create a pre-authenticated portal link from your backend so customers skip the email login flow. Call `POST /api/customer-sessions/` with the customer’s ID to receive a `customer_portal_url` you can redirect them to.
+
+```typescript
+async function run() {
+  const response = await fetch("https://api.rapidly.tech/api/customer-sessions/", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Authorization: `Bearer ${process.env["RAPIDLY_ACCESS_TOKEN"] ?? ""}`,
+    },
+    body: JSON.stringify({
+      customer_id: "<value>",
+    }),
+  });
+
+  const result = await response.json();
+  redirect(result.customer_portal_url);
+}
+
+run();
+```
+
+You can also create sessions using `external_customer_id` if you track customers by your own system’s IDs.
+
+### Session Options
+
+When creating a session, you can optionally pass:
+
+- **`return_url`** -- Shows a back button in the portal that links to this URL.
+- **`member_id`** or **`external_member_id`** -- For workspaces with member model enabled, create a member-scoped session instead of a customer-level session.
