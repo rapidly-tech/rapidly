@@ -1,0 +1,16 @@
+# Rapidly — Dependabot configuration
+# Keeps GitHub Actions and Python dependencies up to date.
+
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+      day: "monday"
+
+  - package-ecosystem: "pip"
+    directory: "/server"
+    schedule:
+      interval: "weekly"
+      day: "monday"

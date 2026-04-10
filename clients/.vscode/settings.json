@@ -1,0 +1,25 @@
+{
+  "_description": "Rapidly frontend — VS Code workspace settings for TypeScript development.",
+  "editor.formatOnSave": true,
+  "tailwindCSS.suggestions": true,
+  "tailwindCSS.validate": true,
+  "[tailwindcss]": {
+    "editor.defaultFormatter": "bradlc.vscode-tailwindcss"
+  },
+  "[typescriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode",
+    "editor.formatOnSave": true,
+    "editor.tabSize": 2
+  },
+  "files.exclude": {
+    "**/.git": true,
+    "**/node_modules": true,
+    "**/.next": true
+  },
+  "editor.rulers": [120]
+}

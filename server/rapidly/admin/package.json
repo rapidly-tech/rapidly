@@ -1,0 +1,30 @@
+{
+  "name": "@rapidly/backoffice",
+  "description": "Rapidly admin backoffice — HTMX + DaisyUI static asset pipeline",
+  "private": true,
+  "version": "1.0.0",
+  "scripts": {
+    "build:icons": "node generate-icons.mjs",
+    "build:css": "npm run build:icons && tailwindcss -i ./styles.css -o ./static/styles.css",
+    "build:js": "esbuild scripts.mjs --bundle --minify --outfile=./static/scripts.js",
+    "build": "npm run build:css && npm run build:js"
+  },
+  "dependencies": {
+    "@tailwindcss/cli": "^4.1.17",
+    "@tailwindcss/postcss": "^4.1.17",
+    "daisyui": "^5.4.7",
+    "esbuild": "^0.25.12",
+    "event-source-plus": "^0.1.15",
+    "htmx.org": "^2.0.8",
+    "hyperscript.org": "^0.9.14",
+    "tailwindcss": "^4.1.17"
+  },
+  "devDependencies": {
+    "@iconify-json/solar": "^1.2.5"
+  },
+  "pnpm": {
+    "overrides": {
+      "picomatch@<2.3.2": "^2.3.2"
+    }
+  }
+}

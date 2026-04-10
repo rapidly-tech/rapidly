@@ -1,0 +1,53 @@
+# ─────────────────────────────────────────────────────────────────────
+# Cloudflare Tunnel — Rapidly production ingress
+#
+# Install on Hetzner app server:
+#   1. apt install cloudflared
+#   2. cloudflared tunnel login
+#   3. cloudflared tunnel create rapidly-production
+#   4. Copy this file to /etc/cloudflared/config.yml
+#   5. Replace <TUNNEL_ID> with the actual tunnel ID
+#   6. cloudflared service install
+#   7. systemctl start cloudflared
+#
+# Route DNS (run once after tunnel creation):
+#   cloudflared tunnel route dns rapidly-production rapidly.tech
+#   cloudflared tunnel route dns rapidly-production www.rapidly.tech
+#   cloudflared tunnel route dns rapidly-production api.rapidly.tech
+#   cloudflared tunnel route dns rapidly-production api-alt.rapidly.tech
+#   cloudflared tunnel route dns rapidly-production buy.rapidly.tech
+#   cloudflared tunnel route dns rapidly-production backoffice.rapidly.tech
+# ─────────────────────────────────────────────────────────────────────
+
+tunnel: <TUNNEL_ID>
+credentials-file: /home/rapidly/.cloudflared/<TUNNEL_ID>.json
+
+ingress:
+  # Frontend (Next.js on port 3000)
+  - hostname: rapidly.tech
+    service: http://localhost:3000
+  - hostname: www.rapidly.tech
+    service: http://localhost:3000
+
+  # Backend API (FastAPI on port 10000)
+  - hostname: api.rapidly.tech
+    service: http://localhost:10000
+    originRequest:
+      noTLSVerify: true
+  - hostname: api-alt.rapidly.tech
+    service: http://localhost:10000
+    originRequest:
+      noTLSVerify: true
+  - hostname: buy.rapidly.tech
+    service: http://localhost:10000
+    originRequest:
+      noTLSVerify: true
+
+  # Admin backoffice (same FastAPI, routed by Host header)
+  - hostname: backoffice.rapidly.tech
+    service: http://localhost:10000
+    originRequest:
+      noTLSVerify: true
+
+  # Catch-all: return 404 for unmatched hostnames
+  - service: http_status:404
