@@ -1,0 +1,155 @@
+# Rapidly
+
+> Secure file sharing with built-in payments. End-to-end encrypted, peer-to-peer.
+
+Rapidly is a secure file-sharing platform with built-in payment gating. Share files peer-to-peer with end-to-end encryption (AES-256-GCM over WebRTC), monetize your shares via Stripe Connect, and manage everything from a workspace dashboard.
+
+Website: https://rapidly.tech
+Docs: https://rapidly.tech/docs
+API Reference: https://rapidly.tech/docs/api-reference
+GitHub: https://github.com/rapidly-tech/rapidly
+Discord: https://dub.sh/rapidly-discord
+
+## Features
+
+### File Sharing
+P2P encrypted file transfers via WebRTC with AES-256-GCM encryption. Zero-knowledge architecture where encryption keys live in URL fragments (never sent to the server). Includes download quotas, password protection, ClamAV malware scanning, and checksum verification. Files transfer directly between sender and receiver -- no cloud storage needed.
+
+### Secret Sharing
+One-time encrypted text and file secrets using OpenPGP. Secrets are automatically destroyed after viewing. Supports password protection, configurable expiration (60 seconds to 7 days), and atomic deletion. Zero-knowledge design ensures the server never sees plaintext content.
+
+### Shares (Products)
+Catalog items for paid file-sharing channels. Support fixed pricing, pay-what-you-want, free, metered/usage-based, and seat-based tiers. Multi-currency support including USD, EUR, GBP, CAD, AUD, and more. Attach custom fields to checkout for collecting additional customer information.
+
+### Analytics
+Track share views, downloads, revenue, and customer activity. Event ingestion API for custom events. Real-time event streaming. Metrics dashboard with time-series charts. Event types for categorizing and filtering analytics data.
+
+### Customer Management
+Track customers who purchase file shares. Two customer types: individual (single user) and team (multiple members with roles). Customer profiles with metadata, external IDs, short IDs (8-char base-26), payment methods, billing address, and purchase history. OAuth account linking via Microsoft and Discord. Full CRUD API for managing customers programmatically. State tracking for customer lifecycle management.
+
+### Customer Portal
+Self-service portal for customers to view their file sharing sessions, downloads, and payments. Pre-authenticated session links for seamless access. Embeddable portal SDK for integration into your own applications.
+
+### Custom Fields
+Add custom checkout fields to shares: text, number, date, checkbox, and select types. Collect additional information from customers at purchase time. Configurable per share with validation rules.
+
+### Finance & Payouts
+Stripe Connect Express integration for payouts in 143 countries. 2% platform fee on paid shares only (free for basic sharing). Multi-currency support including USD, EUR, GBP, CAD, AUD, and more. Manual withdrawal process with minimum payout thresholds. Transparent fee breakdown including Stripe processing fees.
+
+### Webhooks
+Real-time event notifications for automation and integrations. Configure webhook endpoints to receive events when shares are accessed, payments complete, or customers are created. Delivery tracking with retry logic. Event types: customer.created, customer.updated, customer.deleted, customer.state_changed, share.created, share.updated, workspace.updated, file_sharing_session.created, file_sharing_session.download_completed, file_sharing_session.expired, file_sharing_session.payment_received.
+
+### OAuth 2.0
+Full RFC 6749 / OpenID Connect implementation. Use Rapidly as an identity provider for your applications. Authorization code flow, refresh tokens, token introspection, and revocation. Client management via dashboard or API.
+
+### Sandbox Environment
+Isolated test environment for development. Use Stripe test card numbers for payment testing. SDK configuration flag to switch between sandbox and production. No real transactions processed.
+
+## Authentication
+
+### Workspace Access Tokens
+Generate access tokens from your workspace dashboard for programmatic API access. Tokens are scoped to a workspace and support GitHub Secret Scanning for leak detection.
+
+### OAuth 2.0 Provider
+Use Rapidly as an OAuth 2.0 / OpenID Connect provider to authenticate users in your applications.
+
+## API Overview
+
+Base URL: https://api.rapidly.tech/api
+
+### Core Endpoints
+
+**Customers**
+- GET /api/customers/ - List customers
+- POST /api/customers/ - Create customer
+- GET /api/customers/{id} - Get customer
+- PATCH /api/customers/{id} - Update customer
+- DELETE /api/customers/{id} - Delete customer
+
+**Products (Shares)**
+- GET /api/shares/{id} - Get product
+- GET /api/shares/ - List products
+- POST /api/shares/ - Create product
+- PATCH /api/shares/{id} - Update product
+
+**Events**
+- POST /api/events/ - Ingest event
+- GET /api/events/{id} - Get event
+- GET /api/events/ - List events
+
+**Files**
+- POST /api/files/ - Create file
+- GET /api/files/ - List files
+- PATCH /api/files/{id} - Update file
+- DELETE /api/files/{id} - Delete file
+- POST /api/files/{id}/complete-upload - Complete upload
+
+**Workspaces**
+- GET /api/organizations/{id} - Get workspace
+- GET /api/organizations/ - List workspaces
+- POST /api/organizations/ - Create workspace
+- PATCH /api/organizations/{id} - Update workspace
+
+**Metrics**
+- GET /api/metrics/ - Get metrics
+- GET /api/metrics/limits - Get metric limits
+
+### Customer Portal API
+- GET /api/customer-portal/customer - Get current customer
+- GET /api/customer-portal/organization - Get organization
+- POST /api/customer-portal/sessions - Create portal session
+
+### Webhook Endpoints API
+- POST /api/webhooks/endpoints - Create endpoint
+- GET /api/webhooks/endpoints/{id} - Get endpoint
+- GET /api/webhooks/endpoints - List endpoints
+- PATCH /api/webhooks/endpoints/{id} - Update endpoint
+- DELETE /api/webhooks/endpoints/{id} - Delete endpoint
+
+### OpenID Connect
+- GET /api/oauth2/authorize - Authorization endpoint
+- POST /api/oauth2/token - Token endpoint
+- POST /api/oauth2/introspect - Token introspection
+- POST /api/oauth2/revoke - Token revocation
+- GET /api/oauth2/userinfo - UserInfo endpoint
+
+## Policies
+
+### Fees
+- 2% platform fee on paid shares only
+- Free for basic file sharing (no payment gating)
+- Stripe processing: 2.9% + $0.30 per transaction
+- International cards: additional +1.5%
+- Disputes: $15 per chargeback
+- Payout fees charged by Stripe
+
+### Supported Countries
+- Payments accepted globally (except US-sanctioned countries: Cuba, Russia, Iran, North Korea, Syria)
+- Payouts available in 143 countries via Stripe Connect Express
+
+### Acceptable Use
+Digital content and file shares only. No physical goods, human services, donations, adult content, gambling, financial services, or illegal/harmful content. See full policy at https://rapidly.tech/docs/policies/acceptable-use
+
+### Account Reviews
+Automated compliance reviews using AI-powered validation. Evaluates workspaces against acceptable use policies. Risk scoring (0-100), violated sections tracking, and appeal workflow support.
+
+## Technical Stack
+
+- **Backend**: Python / FastAPI with SQLAlchemy async ORM
+- **Frontend**: Next.js with TypeScript
+- **Database**: PostgreSQL
+- **Cache/Signaling**: Redis
+- **File Storage**: MinIO (S3-compatible)
+- **Payments**: Stripe Connect
+- **File Transfer**: WebRTC with self-hosted TURN relay (COTURN)
+- **Encryption**: AES-256-GCM (files), OpenPGP (secrets)
+- **Malware Scanning**: ClamAV
+- **Background Jobs**: Dramatiq
+- **License**: Apache 2.0
+
+## Support
+
+- Email: support@rapidly.tech
+- GitHub Issues: https://github.com/rapidly-tech/rapidly/issues
+- Feature Requests: https://github.com/orgs/rapidly-tech/discussions/categories/feature-requests
+- Discord: https://dub.sh/rapidly-discord

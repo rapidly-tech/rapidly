@@ -1,0 +1,67 @@
+{
+  "private": true,
+  "name": "rapidly",
+  "scripts": {
+    "build": "turbo run build --filter='!./examples/*'",
+    "dev": "turbo watch dev",
+    "dev-web": "turbo run dev --filter=web",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "generate": "pnpm -C packages/client generate",
+    "format": "prettier --write \"**/*.{ts,tsx,md}\"",
+    "preinstall": "npx only-allow pnpm",
+    "prepare": "turbo run build --filter='./packages/*'",
+    "release-packages": "turbo run build lint test --filter='./packages/*' && changeset publish"
+  },
+  "devDependencies": {
+    "@changesets/cli": "^2.29.8",
+    "@iconify-json/mdi": "^1.2.3",
+    "@iconify-json/solar": "^1.2.5",
+    "@iconify/utils": "^3.1.0",
+    "@manypkg/cli": "^0.25.1",
+    "only-allow": "1.2.2",
+    "prettier": "^3.8.1",
+    "prettier-plugin-organize-imports": "^4.3.0",
+    "prettier-plugin-tailwindcss": "^0.7.2",
+    "turbo": "^2.8.9"
+  },
+  "resolutions": {
+    "sharp": "0.33.3"
+  },
+  "pnpm": {
+    "overrides": {
+      "@types/react": "19.2.13",
+      "@types/react-dom": "19.2.3",
+      "undici": ">=6.24.0",
+      "@hono/node-server": "^1.19.13",
+      "@tootallnate/once": "^3.0.1",
+      "@xmldom/xmldom": "^0.8.12",
+      "brace-expansion@>=1.0.0 <1.1.12": "^1.1.13",
+      "brace-expansion@>=2.0.0 <2.0.3": "^2.0.3",
+      "brace-expansion@>=5.0.0 <5.0.5": "^5.0.5",
+      "esbuild@<0.25.0": "^0.25.0",
+      "fast-xml-parser": "^5.5.7",
+      "flatted": "^3.4.2",
+      "hono@<4.12.12": "^4.12.12",
+      "lodash": "^4.18.0",
+      "node-forge": "^1.4.0",
+      "path-to-regexp@>=8.0.0 <8.4.0": "^8.4.0",
+      "picomatch@<2.3.2": "^2.3.2",
+      "picomatch@>=3.0.0 <3.0.2": "^3.0.2",
+      "picomatch@>=4.0.0 <4.0.4": "^4.0.4",
+      "vite@>=5.0.0 <6.0.0": "^6.4.2",
+      "vite@>=6.0.0 <6.4.2": "^6.4.2",
+      "yaml": "^2.8.3"
+    },
+    "patchedDependencies": {
+      "openapi-typescript@7.10.1": "patches/openapi-typescript@7.10.1.patch"
+    }
+  },
+  "packageManager": "pnpm@10.29.3",
+  "manypkg": {
+    "ignoredRules": [
+      "INTERNAL_MISMATCH"
+    ]
+  }
+}
