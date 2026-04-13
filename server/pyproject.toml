@@ -21,7 +21,7 @@ dependencies = [
   "sqlalchemy-utils>=0.41.1",
   # ── Caching & queues ─────────────────────────────────────────
   "redis>=5.0.4",
-  "dramatiq[redis,watch]>=1.17.1",
+  "dramatiq[redis,watch]>=2.1.0",
   # ── Validation & serialisation ───────────────────────────────
   "pydantic>=2.11",
   "pydantic-settings>=2.5.2",
