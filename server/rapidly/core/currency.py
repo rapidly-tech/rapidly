@@ -7,37 +7,30 @@ currency formatting via Babel.
 
 from decimal import Decimal
 from enum import StrEnum
-from typing import TYPE_CHECKING
 
 from babel.numbers import format_currency as _format_currency
 
-from rapidly.config import settings
-
 # ── Presentment Currency Enum ──
 
-if TYPE_CHECKING or settings.is_development() or settings.is_testing():
 
-    class PresentmentCurrency(StrEnum):
-        aud = "aud"
-        brl = "brl"
-        cad = "cad"
-        chf = "chf"
-        eur = "eur"
-        inr = "inr"
-        gbp = "gbp"
-        jpy = "jpy"
-        sek = "sek"
-        usd = "usd"
-else:
-    # For now, only USD is supported in production
-    class PresentmentCurrency(StrEnum):
-        usd = "usd"
+class PresentmentCurrency(StrEnum):
+    aud = "aud"
+    brl = "brl"
+    cad = "cad"
+    chf = "chf"
+    eur = "eur"
+    inr = "inr"
+    gbp = "gbp"
+    jpy = "jpy"
+    sek = "sek"
+    usd = "usd"
 
 
 # ── Formatting ──
 
 _CURRENCY_DECIMAL_FACTORS: dict[str, int] = {
     "aud": 100,
+    "brl": 100,
     "cad": 100,
     "chf": 100,
     "eur": 100,

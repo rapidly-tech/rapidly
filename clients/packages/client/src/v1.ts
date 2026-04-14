@@ -38,7 +38,7 @@ export interface paths {
     post?: never
     /**
      * Disconnect Oauth Account
-     * @description Disconnect an OAuth account (GitHub or Google) from the authenticated user.
+     * @description Disconnect an OAuth account (Microsoft or Google) from the authenticated user.
      *
      *     This allows users to unlink their OAuth provider while keeping their Rapidly account.
      *     They can still authenticate using other methods (email magic link or other OAuth providers).
@@ -451,6 +451,28 @@ export interface paths {
     get: operations['workspaces:get_account']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/workspaces/{id}/switch-account': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Switch Workspace Stripe Account
+     * @description Switch the workspace's active Stripe account to an existing one.
+     *
+     *     **Scopes**: `workspaces:write`
+     */
+    post: operations['workspaces:switch_account']
     delete?: never
     options?: never
     head?: never
@@ -1102,6 +1124,9 @@ export interface paths {
     /**
      * Get Stats
      * @description Public endpoint returning total file share count for the landing page.
+     *
+     *     When ``workspace_id`` is provided, returns the combined count of
+     *     file-share sessions **and** secrets created under that workspace.
      */
     get: operations['file-sharing:get_stats']
     put?: never
@@ -1216,8 +1241,31 @@ export interface paths {
      *     Stores an OpenPGP encrypted message. The decryption key is never
      *     sent to the server - it should be included in the URL on the client side.
      *     Secrets are always one-time and deleted after first retrieval.
+     *
+     *     For paid secrets (price_cents > 0), the user must be authenticated
+     *     and a member of the specified workspace.
      */
     post: operations['file-sharing:create_secret']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/file-sharing/secret/{secret_id}/metadata': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Secret Metadata
+     * @description Peek at secret metadata (title, payment info) without consuming it.
+     */
+    get: operations['file-sharing:get_secret_metadata']
+    put?: never
+    post?: never
     delete?: never
     options?: never
     head?: never
@@ -1236,7 +1284,8 @@ export interface paths {
      * @description Fetch an encrypted text secret.
      *
      *     Returns the encrypted message and deletes it from storage.
-     *     The secret can only be retrieved once.
+     *     The secret can only be retrieved once. For paid secrets, a payment
+     *     token (via header or cookie) is required.
      */
     get: operations['file-sharing:fetch_secret']
     put?: never
@@ -1263,6 +1312,9 @@ export interface paths {
      *     Stores an OpenPGP encrypted file. The decryption key is never
      *     sent to the server - it should be included in the URL on the client side.
      *     Files are always one-time and deleted after first retrieval.
+     *
+     *     For paid files (price_cents > 0), the user must be authenticated
+     *     and a member of the specified workspace.
      */
     post: operations['file-sharing:create_file_secret']
     delete?: never
@@ -1283,11 +1335,58 @@ export interface paths {
      * @description Fetch an encrypted file secret.
      *
      *     Returns the encrypted file and deletes it from storage.
-     *     The file can only be retrieved once.
+     *     The file can only be retrieved once. For paid files, a payment
+     *     token (via header or cookie) is required.
      */
     get: operations['file-sharing:fetch_file_secret']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/file-sharing/secrets/{secret_id}/checkout': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Create Secret Checkout
+     * @description Create a Stripe Checkout Session for a paid secret.
+     *
+     *     Returns a checkout URL to redirect the buyer to Stripe.
+     */
+    post: operations['file-sharing:create_secret_checkout']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/file-sharing/secrets/{secret_id}/claim-payment-token': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Claim Secret Payment Token
+     * @description Exchange a Stripe checkout session ID for the secret payment token.
+     *
+     *     One-time use — the token can only be claimed once.
+     *     The token is delivered ONLY via an httpOnly cookie (never in the response body)
+     *     to prevent exfiltration by third-party scripts.
+     */
+    post: operations['file-sharing:claim_secret_payment_token']
     delete?: never
     options?: never
     head?: never
@@ -1365,10 +1464,11 @@ export interface paths {
     put?: never
     /**
      * Create Checkout
-     * @description Create a Stripe Checkout Session for a paid channel.
+     * @description Create a Stripe Checkout Session or direct PaymentIntent for a paid channel.
      *
-     *     Returns a checkout URL to redirect the buyer to Stripe.
-     *     Rate limited to prevent abuse.
+     *     If ``payment_method_id`` is provided in the request body, charges the
+     *     saved card directly via PaymentIntent (no Stripe Checkout redirect).
+     *     Requires authentication when using a saved payment method.
      */
     post: operations['file-sharing:create_checkout']
     delete?: never
@@ -1441,6 +1541,9 @@ export interface paths {
      *     One-time use — the token can only be claimed once. Called by the
      *     frontend after a Stripe checkout redirect to retrieve the payment
      *     token without exposing it in the URL.
+     *
+     *     The token is delivered ONLY via an httpOnly cookie (never in the
+     *     response body) to prevent exfiltration by third-party scripts.
      */
     post: operations['file-sharing:claim_payment_token']
     delete?: never
@@ -2102,6 +2205,93 @@ export interface paths {
     get: operations['customer_portal:customer_portal.oauth_accounts.callback']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/customer-portal/payment-methods': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Payment Methods
+     * @description List all saved payment methods for the authenticated customer.
+     */
+    get: operations['customer_portal:list_payment_methods']
+    put?: never
+    /**
+     * Add Payment Method
+     * @description Add a new payment method via Stripe SetupIntent.
+     *
+     *     Returns ``succeeded`` with the saved payment method, or
+     *     ``requires_action`` with a ``client_secret`` for 3D Secure.
+     */
+    post: operations['customer_portal:add_payment_method']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/customer-portal/payment-methods/confirm': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Confirm Payment Method
+     * @description Complete the add-card flow after 3D Secure verification.
+     */
+    post: operations['customer_portal:confirm_payment_method']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/customer-portal/payment-methods/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete Payment Method
+     * @description Remove a saved payment method.
+     */
+    delete: operations['customer_portal:delete_payment_method']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/customer-portal/payment-methods/{id}/default': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Set Default Payment Method
+     * @description Set a payment method as the customer's default.
+     */
+    post: operations['customer_portal:set_default_payment_method']
     delete?: never
     options?: never
     head?: never
@@ -3992,6 +4182,14 @@ export interface components {
        */
       action: 'allow' | 'deny'
     }
+    /** Body_workspaces:switch_account */
+    Body_workspaces_switch_account: {
+      /**
+       * Account Id
+       * Format: uuid
+       */
+      account_id: string
+    }
     /**
      * CardPayment
      * @description Schema of a payment with a card payment method.
@@ -4092,6 +4290,17 @@ export interface components {
       last4: string
     }
     /**
+     * ChannelCheckoutRequest
+     * @description Request body for channel checkout (optional saved payment method).
+     */
+    ChannelCheckoutRequest: {
+      /**
+       * Payment Method Id
+       * @description ID of a saved payment method to charge directly (skips Stripe Checkout)
+       */
+      payment_method_id?: string | null
+    }
+    /**
      * ChannelCheckoutResponse
      * @description Response schema for creating a checkout session for a paid channel.
      */
@@ -4123,12 +4332,8 @@ export interface components {
        * @description Price in cents (None = free)
        */
       price_cents?: number | null
-      /**
-       * Currency
-       * @description ISO 4217 currency code
-       * @default usd
-       */
-      currency: string
+      /** @description ISO 4217 currency code. When omitted, the workspace's default presentment currency is used (falls back to ``usd`` if no workspace is provided). */
+      currency?: components['schemas']['PresentmentCurrency'] | null
       /**
        * Title
        * @description Custom display title for the share (shown in dashboard)
@@ -4247,6 +4452,12 @@ export interface components {
        * @default false
        */
       payment_required: boolean
+      /**
+       * Creator Country
+       * @description ISO 3166-1 alpha-2 country code of the uploader
+       * @default
+       */
+      creator_country: string
     }
     /**
      * ChannelRenewRequest
@@ -4322,17 +4533,6 @@ export interface components {
        * @description Stripe Checkout Session ID from the success redirect
        */
       checkout_session_id: string
-    }
-    /**
-     * ClaimPaymentTokenResponse
-     * @description Response with the claimed payment token.
-     */
-    ClaimPaymentTokenResponse: {
-      /**
-       * Payment Token
-       * @description Payment token for accessing the paid content
-       */
-      payment_token: string
     }
     /** CostMetadata */
     'CostMetadata-Input': {
@@ -6218,6 +6418,28 @@ export interface components {
        */
       member_model_enabled: boolean
     }
+    /**
+     * DirectPaymentResponse
+     * @description Response when paying with a saved payment method (no Stripe Checkout redirect).
+     */
+    DirectPaymentResponse: {
+      /**
+       * Client Secret
+       * @description PaymentIntent client_secret for frontend confirmation
+       */
+      client_secret: string
+      /**
+       * Payment Intent Id
+       * @description Stripe PaymentIntent ID
+       */
+      payment_intent_id: string
+      /**
+       * Requires Action
+       * @description True if 3D Secure verification is needed
+       * @default false
+       */
+      requires_action: boolean
+    }
     /** DiscordGuild */
     DiscordGuild: {
       /** Name */
@@ -6803,6 +7025,23 @@ export interface components {
        * @default 3600
        */
       expiration: number
+      /**
+       * Workspace Id
+       * @description Workspace ID to associate the secret with (for workspace-scoped counters)
+       */
+      workspace_id?: string | null
+      /**
+       * Price Cents
+       * @description Price in cents (None = free)
+       */
+      price_cents?: number | null
+      /** @description ISO 4217 currency code. When omitted, the workspace's default presentment currency is used (falls back to ``usd`` if no workspace is provided). */
+      currency?: components['schemas']['PresentmentCurrency'] | null
+      /**
+       * Title
+       * @description Display title for paid storefront listing
+       */
+      title?: string | null
     }
     /**
      * FileServiceTypes
@@ -8341,6 +8580,130 @@ export interface components {
       | components['schemas']['CardPayment']
       | components['schemas']['GenericPayment']
     /**
+     * PaymentMethodConfirm
+     * @description Request body to confirm a payment method after 3D Secure.
+     */
+    PaymentMethodConfirm: {
+      /**
+       * Setup Intent Id
+       * @description The SetupIntent ID returned from the requires_action step
+       */
+      setup_intent_id: string
+      /**
+       * Set Default
+       * @description Whether to set this as the default payment method
+       * @default true
+       */
+      set_default: boolean
+    }
+    /**
+     * PaymentMethodCreate
+     * @description Request body for adding a new payment method via SetupIntent.
+     */
+    PaymentMethodCreate: {
+      /**
+       * Confirmation Token Id
+       * @description Stripe.js confirmation token for the new payment method
+       */
+      confirmation_token_id: string
+      /**
+       * Set Default
+       * @description Whether to set this as the default payment method
+       * @default true
+       */
+      set_default: boolean
+      /**
+       * Return Url
+       * @description URL to redirect to after 3D Secure verification
+       */
+      return_url: string
+    }
+    /**
+     * PaymentMethodCreateRequiresActionResponse
+     * @description Response when additional verification (3D Secure) is needed.
+     */
+    PaymentMethodCreateRequiresActionResponse: {
+      /**
+       * Status
+       * @default requires_action
+       * @constant
+       */
+      status: 'requires_action'
+      /**
+       * Client Secret
+       * @description SetupIntent client_secret for frontend to complete verification
+       */
+      client_secret: string
+    }
+    /**
+     * PaymentMethodCreateSucceededResponse
+     * @description Response when payment method was saved successfully.
+     */
+    PaymentMethodCreateSucceededResponse: {
+      /**
+       * Status
+       * @default succeeded
+       * @constant
+       */
+      status: 'succeeded'
+      payment_method: components['schemas']['PaymentMethodSchema']
+    }
+    /**
+     * PaymentMethodSchema
+     * @description Read-model for a saved payment method.
+     */
+    PaymentMethodSchema: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      processor: components['schemas']['PaymentProcessor']
+      /**
+       * Type
+       * @description Payment method type (card, us_bank_account, etc.)
+       */
+      type: string
+      /**
+       * Brand
+       * @description Card brand (visa, mastercard)
+       */
+      brand?: string | null
+      /**
+       * Last4
+       * @description Last 4 digits
+       */
+      last4?: string | null
+      /**
+       * Exp Month
+       * @description Expiration month
+       */
+      exp_month?: number | null
+      /**
+       * Exp Year
+       * @description Expiration year
+       */
+      exp_year?: number | null
+      /**
+       * Is Default
+       * @description Whether this is the default PM
+       * @default false
+       */
+      is_default: boolean
+    }
+    /**
      * PaymentProcessor
      * @enum {string}
      */
@@ -8635,6 +8998,22 @@ export interface components {
       )[]
     }
     /**
+     * SecretCheckoutResponse
+     * @description Response schema for creating a checkout session for a paid secret.
+     */
+    SecretCheckoutResponse: {
+      /**
+       * Checkout Url
+       * @description Stripe Checkout URL to redirect buyer
+       */
+      checkout_url: string
+      /**
+       * Session Id
+       * @description Stripe Checkout Session ID
+       */
+      session_id: string
+    }
+    /**
      * SecretCreateRequest
      * @description Request schema for creating a new secret (text).
      */
@@ -8650,6 +9029,23 @@ export interface components {
        * @default 3600
        */
       expiration: number
+      /**
+       * Workspace Id
+       * @description Workspace ID to associate the secret with (for workspace-scoped counters)
+       */
+      workspace_id?: string | null
+      /**
+       * Price Cents
+       * @description Price in cents (None = free)
+       */
+      price_cents?: number | null
+      /** @description ISO 4217 currency code. When omitted, the workspace's default presentment currency is used (falls back to ``usd`` if no workspace is provided). */
+      currency?: components['schemas']['PresentmentCurrency'] | null
+      /**
+       * Title
+       * @description Display title for paid storefront listing
+       */
+      title?: string | null
     }
     /**
      * SecretCreateResponse
@@ -8676,6 +9072,97 @@ export interface components {
        * @description OpenPGP encrypted message/file
        */
       message: string
+      /**
+       * Payment Required
+       * @description Whether payment is required before content is accessible
+       * @default false
+       */
+      payment_required: boolean
+      /**
+       * Price Cents
+       * @description Price in cents (None = free)
+       */
+      price_cents?: number | null
+      /**
+       * Currency
+       * @description ISO 4217 currency code
+       */
+      currency?: string | null
+      /**
+       * Title
+       * @description Display title
+       */
+      title?: string | null
+    }
+    /**
+     * SecretMetadataResponse
+     * @description Response schema for peeking at secret metadata without consuming it.
+     */
+    SecretMetadataResponse: {
+      /**
+       * Title
+       * @description Display title
+       */
+      title?: string | null
+      /**
+       * Payment Required
+       * @description Whether payment is required before content is accessible
+       * @default false
+       */
+      payment_required: boolean
+      /**
+       * Price Cents
+       * @description Price in cents (None = free)
+       */
+      price_cents?: number | null
+      /**
+       * Currency
+       * @description ISO 4217 currency code
+       */
+      currency?: string | null
+    }
+    /**
+     * SecretStorefront
+     * @description Schema of a public paid secret on the storefront.
+     */
+    SecretStorefront: {
+      /**
+       * Id
+       * @description Secret UUID identifier.
+       */
+      id: string
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp.
+       */
+      created_at: string
+      /**
+       * Uuid
+       * @description Secret UUID for access URLs.
+       */
+      uuid: string
+      /**
+       * Title
+       * @description Display title.
+       */
+      title?: string | null
+      /**
+       * Price Cents
+       * @description Price in cents.
+       */
+      price_cents?: number | null
+      /**
+       * Currency
+       * @description Currency code (e.g. usd).
+       * @default usd
+       */
+      currency: string
+      /**
+       * Expires At
+       * @description Expiration timestamp, if set.
+       */
+      expires_at?: string | null
     }
     /**
      * Share
@@ -8956,7 +9443,7 @@ export interface components {
       /**
        * Minimum Amount
        * @description The minimum amount the customer can pay. If set to 0, the price is 'free or pay what you want' and $0 is accepted. If set to a value between 1-49, it will be rejected. Defaults to 50 cents.
-       * @default 50
+       * @default 2000
        */
       minimum_amount: number
       /**
@@ -9223,6 +9710,8 @@ export interface components {
       workspace: components['schemas']['Workspace']
       /** File Shares */
       file_shares: components['schemas']['FileShareStorefront'][]
+      /** Secrets */
+      secrets?: components['schemas']['SecretStorefront'][]
       customers: components['schemas']['StorefrontCustomers']
     }
     /** StorefrontCustomer */
@@ -11681,6 +12170,41 @@ export interface operations {
       }
     }
   }
+  'workspaces:switch_account': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['Body_workspaces_switch_account']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Account']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   'workspaces:get_payment_status': {
     parameters: {
       query?: {
@@ -12544,7 +13068,10 @@ export interface operations {
   }
   'accounts:create': {
     parameters: {
-      query?: never
+      query?: {
+        /** @description Disconnect existing account and create a new one */
+        force_new?: boolean
+      }
       header?: never
       path?: never
       cookie?: never
@@ -13651,7 +14178,10 @@ export interface operations {
   }
   'file-sharing:get_stats': {
     parameters: {
-      query?: never
+      query?: {
+        /** @description Optional workspace ID for workspace-scoped counts. */
+        workspace_id?: string | null
+      }
       header?: never
       path?: never
       cookie?: never
@@ -13665,6 +14195,15 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['FileShareStatsResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
         }
       }
     }
@@ -13841,10 +14380,43 @@ export interface operations {
       }
     }
   }
-  'file-sharing:fetch_secret': {
+  'file-sharing:get_secret_metadata': {
     parameters: {
       query?: never
       header?: never
+      path: {
+        secret_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SecretMetadataResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'file-sharing:fetch_secret': {
+    parameters: {
+      query?: never
+      header?: {
+        'x-payment-token'?: string | null
+      }
       path: {
         secret_id: string
       }
@@ -13908,7 +14480,9 @@ export interface operations {
   'file-sharing:fetch_file_secret': {
     parameters: {
       query?: never
-      header?: never
+      header?: {
+        'x-payment-token'?: string | null
+      }
       path: {
         file_id: string
       }
@@ -13923,6 +14497,74 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['SecretFetchResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'file-sharing:create_secret_checkout': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        secret_id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['SecretCheckoutResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'file-sharing:claim_secret_payment_token': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        secret_id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ClaimPaymentTokenRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': {
+            [key: string]: boolean
+          }
         }
       }
       /** @description Validation Error */
@@ -14012,7 +14654,13 @@ export interface operations {
       }
       cookie?: never
     }
-    requestBody?: never
+    requestBody?: {
+      content: {
+        'application/json':
+          | components['schemas']['ChannelCheckoutRequest']
+          | null
+      }
+    }
     responses: {
       /** @description Successful Response */
       201: {
@@ -14020,7 +14668,9 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['ChannelCheckoutResponse']
+          'application/json':
+            | components['schemas']['ChannelCheckoutResponse']
+            | components['schemas']['DirectPaymentResponse']
         }
       }
       /** @description Validation Error */
@@ -14125,7 +14775,9 @@ export interface operations {
           [name: string]: unknown
         }
         content: {
-          'application/json': components['schemas']['ClaimPaymentTokenResponse']
+          'application/json': {
+            [key: string]: boolean
+          }
         }
       }
       /** @description Validation Error */
@@ -15471,6 +16123,156 @@ export interface operations {
       }
     }
   }
+  'customer_portal:list_payment_methods': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaymentMethodSchema'][]
+        }
+      }
+    }
+  }
+  'customer_portal:add_payment_method': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PaymentMethodCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json':
+            | components['schemas']['PaymentMethodCreateSucceededResponse']
+            | components['schemas']['PaymentMethodCreateRequiresActionResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'customer_portal:confirm_payment_method': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['PaymentMethodConfirm']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json':
+            | components['schemas']['PaymentMethodCreateSucceededResponse']
+            | components['schemas']['PaymentMethodCreateRequiresActionResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'customer_portal:delete_payment_method': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'customer_portal:set_default_payment_method': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaymentMethodSchema']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   'customer_portal:get_workspace': {
     parameters: {
       query?: never
@@ -15743,7 +16545,6 @@ export interface operations {
   'integrations_microsoft:integrations.microsoft.login.authorize': {
     parameters: {
       query?: {
-        payment_intent_id?: string | null
         return_to?: string | null
         attribution?: string | null
       }

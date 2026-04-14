@@ -19,10 +19,14 @@ from dramatiq import Retry
 from rapidly.analytics.external_event import actions as external_event_service
 from rapidly.billing.account import actions as account_service
 from rapidly.billing.payment_method import actions as pm_actions
+from rapidly.billing.stripe_connect.capabilities import (
+    invalidate_supported_currencies,
+)
 from rapidly.logging import Logger
 from rapidly.platform.user import actions as user_service
 from rapidly.worker import (
     AsyncSessionMaker,
+    RedisMiddleware,
     TaskPriority,
     actor,
     get_retries,
@@ -62,9 +66,10 @@ async def account_updated(event_id: uuid.UUID) -> None:
         async with external_event_service.handle_stripe(session, event_id) as event:
             stripe_account = cast(stripe_lib.Account, event.stripe_data.data.object)
             _log.info(f"Processing Stripe Account {stripe_account.id}")
-            await account_service.update_account_from_stripe(
+            account = await account_service.update_account_from_stripe(
                 session, stripe_account=stripe_account
             )
+            await invalidate_supported_currencies(RedisMiddleware.get(), account.id)
 
 
 # ── Payment sync ──
