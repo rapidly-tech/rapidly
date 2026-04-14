@@ -35,11 +35,15 @@ def _account(
 class TestComputeSupportedCurrencies:
     def test_active_us_merchant_accepts_universal_baseline(self) -> None:
         account = _account(currency="usd", capability_status="active")
-        assert _compute_supported_currencies(account) == frozenset({"usd", "eur", "gbp"})
+        assert _compute_supported_currencies(account) == frozenset(
+            {"usd", "eur", "gbp"}
+        )
 
     def test_active_uk_merchant_accepts_universal_baseline(self) -> None:
         account = _account(currency="gbp", capability_status="active")
-        assert _compute_supported_currencies(account) == frozenset({"usd", "eur", "gbp"})
+        assert _compute_supported_currencies(account) == frozenset(
+            {"usd", "eur", "gbp"}
+        )
 
     def test_active_local_currency_outside_baseline_is_added(self) -> None:
         account = _account(currency="inr", capability_status="active")
@@ -58,7 +62,9 @@ class TestComputeSupportedCurrencies:
 
         monkeypatch.setattr(settings, "STRIPE_ACCEPT_PENDING_CAPABILITIES", True)
         account = _account(currency="usd", capability_status="pending")
-        assert _compute_supported_currencies(account) == frozenset({"usd", "eur", "gbp"})
+        assert _compute_supported_currencies(account) == frozenset(
+            {"usd", "eur", "gbp"}
+        )
 
     def test_inactive_capability_still_rejected_when_pending_flag_enabled(
         self, monkeypatch: pytest.MonkeyPatch
@@ -112,7 +118,9 @@ class TestRedisCache:
     async def test_cache_hit_returns_cached_value_without_recompute(self) -> None:
         redis = AsyncMock()
         redis.get.return_value = "aud,usd"
-        account = _account(currency="usd", capability_status="inactive")  # would compute to empty
+        account = _account(
+            currency="usd", capability_status="inactive"
+        )  # would compute to empty
 
         result = await get_supported_currencies(redis, account)
 

@@ -315,8 +315,11 @@ async def create_secret(
         SECRET_CREATE_RATE_WINDOW,
     )
     try:
-        currency = request.currency or await file_sharing_service.resolve_workspace_currency(
-            session, request.workspace_id
+        currency = (
+            request.currency
+            or await file_sharing_service.resolve_workspace_currency(
+                session, request.workspace_id
+            )
         )
         return await file_sharing_service.create_secret_or_file(
             redis=redis,
@@ -421,8 +424,11 @@ async def create_file_secret(
         SECRET_CREATE_RATE_WINDOW,
     )
     try:
-        currency = request.currency or await file_sharing_service.resolve_workspace_currency(
-            session, request.workspace_id
+        currency = (
+            request.currency
+            or await file_sharing_service.resolve_workspace_currency(
+                session, request.workspace_id
+            )
         )
         return await file_sharing_service.create_secret_or_file(
             redis=redis,
@@ -590,8 +596,11 @@ async def create_channel(
         detail="Too many channels created. Try again later.",
     )
 
-    currency = request.currency or await file_sharing_service.resolve_workspace_currency(
-        read_session, request.workspace_id
+    currency = (
+        request.currency
+        or await file_sharing_service.resolve_workspace_currency(
+            read_session, request.workspace_id
+        )
     )
 
     try:

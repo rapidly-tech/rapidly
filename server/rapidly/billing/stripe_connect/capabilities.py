@@ -37,7 +37,11 @@ def _compute_supported_currencies(account: Account) -> frozenset[str]:
         return frozenset()
 
     status = card_payments.get("status")
-    accepted = {"active", "pending"} if settings.STRIPE_ACCEPT_PENDING_CAPABILITIES else {"active"}
+    accepted = (
+        {"active", "pending"}
+        if settings.STRIPE_ACCEPT_PENDING_CAPABILITIES
+        else {"active"}
+    )
     if status not in accepted:
         return frozenset()
 
