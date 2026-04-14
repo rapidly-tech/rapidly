@@ -393,12 +393,21 @@ async def create_secret_or_file(
 
         # Look up Stripe account
         from rapidly.billing.account.queries import AccountRepository
+        from rapidly.billing.stripe_connect.capabilities import (
+            get_supported_currencies,
+        )
 
         account_repo = AccountRepository.from_session(read_session)
         account = await account_repo.get_by_workspace(workspace_id)
         if account is None or not account.stripe_id or not account.is_charges_enabled:
             raise ChannelCreationError(
                 "Your Stripe account setup is incomplete. Please finish onboarding in your account settings to accept payments."
+            )
+        supported = await get_supported_currencies(redis, account)
+        if currency.lower() not in supported:
+            raise ChannelCreationError(
+                f"Your Stripe account cannot accept {currency.upper()}. "
+                f"Supported currencies: {', '.join(c.upper() for c in sorted(supported)) or 'none — complete Stripe onboarding'}."
             )
         seller_stripe_id = account.stripe_id
 
@@ -580,6 +589,33 @@ async def claim_secret_checkout_payment_token(
     )
 
 
+# ── Currency Resolution ──
+
+
+async def resolve_workspace_currency(
+    read_session: AsyncReadSession,
+    workspace_id: UUID | str | None,
+) -> str:
+    """Return the workspace's default presentment currency, or ``usd``.
+
+    Used when an API caller omits ``currency`` on a create request so that
+    paid items inherit the workspace's configured default rather than
+    silently falling back to USD.
+    """
+    if workspace_id is None:
+        return "usd"
+
+    from rapidly.platform.workspace.queries import WorkspaceRepository
+
+    repo = WorkspaceRepository.from_session(read_session)
+    workspace = await repo.get_by_id(
+        UUID(workspace_id) if isinstance(workspace_id, str) else workspace_id
+    )
+    if workspace is None:
+        return "usd"
+    return workspace.default_presentment_currency
+
+
 # ── Channel Creation Validation ──
 
 
@@ -598,11 +634,16 @@ async def resolve_channel_creation_context(
     *,
     workspace_id_input: UUID | None = None,
     price_cents: int | None = None,
+    currency: str | None = None,
+    redis: Redis | None = None,
 ) -> tuple[str | None, str | None, str | None, str | None]:
     """Validate and resolve context for channel creation.
 
     Returns (user_id, workspace_id, seller_stripe_id, seller_account_id).
-    Raises ChannelCreationError on validation failure.
+    Raises ChannelCreationError on validation failure. When ``price_cents``
+    indicates a paid channel, ``currency`` and ``redis`` must be provided so
+    the selected presentment currency can be validated against the seller's
+    Stripe capability set.
     """
     from rapidly.identity.auth.models import is_user_principal
 
@@ -635,12 +676,25 @@ async def resolve_channel_creation_context(
         if not workspace_id_input:
             raise ChannelCreationError("workspaceId is required for paid channels")
         from rapidly.billing.account.queries import AccountRepository
+        from rapidly.billing.stripe_connect.capabilities import (
+            get_supported_currencies,
+        )
 
         account_repo = AccountRepository.from_session(read_session)
         account = await account_repo.get_by_workspace(workspace_id_input)
         if account is None or not account.stripe_id or not account.is_charges_enabled:
             raise ChannelCreationError(
                 "Active Stripe account with charges enabled is required for paid channels"
+            )
+        if currency is None or redis is None:
+            raise ChannelCreationError(
+                "Internal error: currency and redis must be provided for paid channels"
+            )
+        supported = await get_supported_currencies(redis, account)
+        if currency.lower() not in supported:
+            raise ChannelCreationError(
+                f"Your Stripe account cannot accept {currency.upper()}. "
+                f"Supported currencies: {', '.join(c.upper() for c in sorted(supported)) or 'none — complete Stripe onboarding'}."
             )
         seller_stripe_id = account.stripe_id
         seller_account_id = str(account.id)

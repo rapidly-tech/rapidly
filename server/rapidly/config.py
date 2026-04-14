@@ -326,6 +326,11 @@ class Settings(BaseSettings):
     STRIPE_PUBLISHABLE_KEY: str = ""
     STRIPE_WEBHOOK_SECRET: str = ""
     STRIPE_CONNECT_WEBHOOK_SECRET: str = ""
+    # When ``True``, accept merchants whose ``card_payments`` capability is
+    # in the ``pending`` verification window as if it were ``active``. Off by
+    # default — stricter payment gating avoids silently charging buyers
+    # against an account that may be rejected by Stripe within hours.
+    STRIPE_ACCEPT_PENDING_CAPABILITIES: bool = False
 
     # -- Email delivery ----------------------------------------------------
     EMAIL_RENDERER_BINARY_PATH: Annotated[

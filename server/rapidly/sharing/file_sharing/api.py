@@ -315,6 +315,12 @@ async def create_secret(
         SECRET_CREATE_RATE_WINDOW,
     )
     try:
+        currency = (
+            request.currency
+            or await file_sharing_service.resolve_workspace_currency(
+                session, request.workspace_id
+            )
+        )
         return await file_sharing_service.create_secret_or_file(
             redis=redis,
             kind="secret",
@@ -322,7 +328,7 @@ async def create_secret(
             expiration=request.expiration,
             workspace_id=request.workspace_id,
             price_cents=request.price_cents,
-            currency=request.currency,
+            currency=currency,
             title=request.title,
             auth_subject=auth_subject,
             read_session=session,
@@ -418,6 +424,12 @@ async def create_file_secret(
         SECRET_CREATE_RATE_WINDOW,
     )
     try:
+        currency = (
+            request.currency
+            or await file_sharing_service.resolve_workspace_currency(
+                session, request.workspace_id
+            )
+        )
         return await file_sharing_service.create_secret_or_file(
             redis=redis,
             kind="file",
@@ -425,7 +437,7 @@ async def create_file_secret(
             expiration=request.expiration,
             workspace_id=request.workspace_id,
             price_cents=request.price_cents,
-            currency=request.currency,
+            currency=currency,
             title=request.title,
             auth_subject=auth_subject,
             read_session=session,
@@ -584,6 +596,13 @@ async def create_channel(
         detail="Too many channels created. Try again later.",
     )
 
+    currency = (
+        request.currency
+        or await file_sharing_service.resolve_workspace_currency(
+            read_session, request.workspace_id
+        )
+    )
+
     try:
         (
             user_id,
@@ -595,6 +614,8 @@ async def create_channel(
             auth_subject,
             workspace_id_input=request.workspace_id,
             price_cents=request.price_cents,
+            currency=currency,
+            redis=redis,
         )
     except file_sharing_service.ChannelCreationError as e:
         _raise_creation_error(e)
@@ -607,7 +628,7 @@ async def create_channel(
         redis=redis,
         max_downloads=request.max_downloads,
         price_cents=request.price_cents,
-        currency=request.currency,
+        currency=currency,
         seller_stripe_id=seller_stripe_id,
         seller_account_id=seller_account_id,
         user_id=user_id,

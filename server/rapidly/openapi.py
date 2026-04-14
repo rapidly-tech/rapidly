@@ -130,6 +130,7 @@ def set_openapi_generator(app: FastAPI) -> None:
 
         schema = _build_base_schema(app)
         schema = _apply_transformers(schema, transformers)
+        app.openapi_schema = schema
         return schema
 
     app.openapi = _generate  # type: ignore[method-assign]

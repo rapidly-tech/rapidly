@@ -1,19 +1,17 @@
 """Pydantic schemas for file sharing channel, ICE, and secret sharing operations."""
 
 from datetime import datetime
-from typing import Literal
 
 from pydantic import UUID4, Field, field_validator
 
 from rapidly.config import settings
+from rapidly.core.currency import PresentmentCurrency
 from rapidly.core.types import AuditableSchema, IdentifiableSchema, Schema
 from rapidly.models.file_share_payment import FileSharePaymentStatus
 from rapidly.models.file_share_report import FileShareReportStatus
 from rapidly.models.file_share_session import FileShareSessionStatus
 
 # ── Shared Validators ──
-
-SUPPORTED_CURRENCIES = ("usd", "eur", "gbp", "cad", "aud")
 
 
 def _validate_price_cents(v: int | None) -> int | None:
@@ -57,9 +55,13 @@ class SecretCreateRequest(Schema):
         ge=0,
         description="Price in cents (None = free)",
     )
-    currency: Literal["usd", "eur", "gbp", "cad", "aud"] = Field(
-        default="usd",
-        description="ISO 4217 currency code",
+    currency: PresentmentCurrency | None = Field(
+        default=None,
+        description=(
+            "ISO 4217 currency code. When omitted, the workspace's default "
+            "presentment currency is used (falls back to ``usd`` if no "
+            "workspace is provided)."
+        ),
     )
     title: str | None = Field(
         default=None,
@@ -147,9 +149,13 @@ class ChannelCreateRequest(Schema):
         ge=0,
         description="Price in cents (None = free)",
     )
-    currency: Literal["usd", "eur", "gbp", "cad", "aud"] = Field(
-        default="usd",
-        description="ISO 4217 currency code",
+    currency: PresentmentCurrency | None = Field(
+        default=None,
+        description=(
+            "ISO 4217 currency code. When omitted, the workspace's default "
+            "presentment currency is used (falls back to ``usd`` if no "
+            "workspace is provided)."
+        ),
     )
     title: str | None = Field(
         default=None,
