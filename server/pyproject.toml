@@ -9,7 +9,7 @@ dependencies = [
   "uvicorn[standard]>=0.31.1",
   "sse-starlette>=2.0.0",
   "httpx>=0.23.0",
-  "python-multipart>=0.0.12",
+  "python-multipart>=0.0.26",
   "asgi-ratelimit>=0.10.0",
   # ── Database & migrations ────────────────────────────────────
   "sqlalchemy[asyncio]>=2.0.34",
