@@ -15,7 +15,7 @@
 <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
 <a href="https://docs.rapidly.tech/api-reference">API</a>
 <span>&nbsp;&nbsp;|&nbsp;&nbsp;</span>
-<a href="https://reddit.com/r/Rapidly">Community</a>
+<a href="https://reddit.com/r/rapidly_">Community</a>
 
 </div>
 
@@ -125,7 +125,7 @@ Found a vulnerability? Please disclose it responsibly: see [`SECURITY.md`](./SEC
 
 ## Community
 
-- [Reddit](https://reddit.com/r/Rapidly): questions, ideas, and chat
+- [Reddit](https://reddit.com/r/rapidly_): questions, ideas, and chat
 - [GitHub Discussions](https://github.com/rapidly-tech/rapidly/discussions): longer-form conversations
 - [X](https://x.com/rapidly_tech_): announcements
 
