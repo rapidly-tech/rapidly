@@ -21,12 +21,13 @@ jobs:
     steps:
       - name: Extract issue number from branch name
         id: extract-ticket
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
         run: |
-          BRANCH_NAME="${{ github.head_ref }}"
           echo "Branch name: $BRANCH_NAME"
 
           # Extract the numeric issue ID following the ticket prefix
-          TICKET_NUMBER=$(echo $BRANCH_NAME | sed -nE "s/^${TICKET_PREFIX}([0-9]+).*/\1/p")
+          TICKET_NUMBER=$(echo "$BRANCH_NAME" | sed -nE "s/^${TICKET_PREFIX}([0-9]+).*/\1/p")
           echo "ticket_number=$TICKET_NUMBER" >> $GITHUB_OUTPUT
 
           if [ -z "$TICKET_NUMBER" ]; then

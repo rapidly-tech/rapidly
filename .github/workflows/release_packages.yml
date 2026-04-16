@@ -24,7 +24,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - uses: pnpm/action-setup@v4
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
         with:
           package_json_file: clients/package.json
 
@@ -42,7 +42,7 @@ jobs:
       - name: Create Release Pull Request or Publish to npm
         id: changesets
         # Pin to last known working version (see: https://github.com/changesets/action/issues/501)
-        uses: changesets/action@v1.5.1
+        uses: changesets/action@001cd79f0a536e733315164543a727bdf2d70aff # v1.5.1
         with:
           # This expects you to have a script called release which does a build for your packages and calls changeset publish
           publish: pnpm release-packages

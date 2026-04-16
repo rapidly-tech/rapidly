@@ -42,12 +42,13 @@ RUN pnpm run build
 
 # ── 3. IP geolocation data (optional) ───────────────────────────────
 # Downloads the IPInfo Country+ASN database at build time.
-# Pass --build-arg IPINFO_TOKEN=<your-token> or use a Docker secret.
+# Pass the token via BuildKit secret: --secret id=ipinfo_token,env=IPINFO_TOKEN
 # If no token is provided, the stage creates an empty /data directory
 # and the app runs without geolocation (graceful fallback).
 FROM alpine:3.21 AS ipinfo
-ARG IPINFO_TOKEN=""
-RUN mkdir -p /data && \
+RUN --mount=type=secret,id=ipinfo_token \
+    mkdir -p /data && \
+    IPINFO_TOKEN=$(cat /run/secrets/ipinfo_token 2>/dev/null || true) && \
     if [ -n "$IPINFO_TOKEN" ]; then \
       wget -q -O /data/country_asn.mmdb \
         "https://ipinfo.io/data/free/country_asn.mmdb?token=${IPINFO_TOKEN}" && \
