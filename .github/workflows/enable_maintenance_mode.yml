@@ -13,6 +13,7 @@ jobs:
   enable_maintenance:
     name: Enable Maintenance Mode
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     environment: maintenance
     steps:
       - name: Checkout repository

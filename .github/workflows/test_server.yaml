@@ -56,7 +56,7 @@ jobs:
       #       mypy-
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           enable-cache: true
 
@@ -82,6 +82,7 @@ jobs:
     name: "Server: Tinybird Schema 🐦"
     needs: changes
     if: needs.changes.outputs.tinybird == 'true'
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     services:
       tinybird:
@@ -114,6 +115,7 @@ jobs:
     name: "Server: Migration Check 📚"
     needs: changes
     if: needs.changes.outputs.migrations == 'true' && github.event_name == 'pull_request'
+    timeout-minutes: 5
     runs-on: ubuntu-latest
     steps:
       - name: Check for disallowed files
@@ -178,7 +180,7 @@ jobs:
 
       - name: Delete resolved comment
         if: steps.check.outputs.has_disallowed == 'false' && steps.fc.outputs.comment-id != ''
-        uses: actions/github-script@v8
+        uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8
         with:
           script: |
             github.rest.issues.deleteComment({
@@ -280,7 +282,7 @@ jobs:
         run: pnpm install --frozen-lockfile && pnpm build
 
       - name: Install uv
-        uses: astral-sh/setup-uv@v7
+        uses: astral-sh/setup-uv@37802adc94f370d6bfd71619e3f0bf239e1f3b78 # v7
         with:
           enable-cache: true
 

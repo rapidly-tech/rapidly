@@ -27,6 +27,7 @@ jobs:
   sync:
     name: Push dashboards to Grafana Cloud
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment: production
     steps:
       - uses: actions/checkout@v6

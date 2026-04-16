@@ -50,6 +50,7 @@ jobs:
       group: deploy-backend-${{ inputs.environment }}
       cancel-in-progress: false
     if: inputs.skip-backend != true
+    timeout-minutes: 15
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:
@@ -108,6 +109,7 @@ jobs:
       group: deploy-frontend-${{ inputs.environment }}
       cancel-in-progress: true
     if: inputs.skip-frontend != true
+    timeout-minutes: 10
     runs-on: ubuntu-latest
     environment: ${{ inputs.environment }}
     steps:

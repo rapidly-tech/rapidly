@@ -26,14 +26,17 @@ jobs:
       TF_VAR_ssh_public_key: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJGrMtYaJUqbHwhuusiqLHjYEzvwQNEaBJiCEEJJiX2o"
     steps:
       - uses: actions/checkout@v6
-      - uses: hashicorp/setup-terraform@v4
+      - uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4
 
       - name: Init
         working-directory: ./terraform
+        env:
+          R2_BUCKET_NAME: ${{ secrets.R2_BUCKET_NAME }}
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
         run: |
           terraform init -input=false \
-            -backend-config="bucket=${{ secrets.R2_BUCKET_NAME }}" \
-            -backend-config="endpoints={s3=\"https://${{ secrets.R2_ACCOUNT_ID }}.r2.cloudflarestorage.com\"}"
+            -backend-config="bucket=${R2_BUCKET_NAME}" \
+            -backend-config="endpoints={s3=\"https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com\"}"
 
       - name: Plan
         working-directory: ./terraform
