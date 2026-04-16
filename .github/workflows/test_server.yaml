@@ -98,7 +98,7 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
 
       - name: 🐦 Install Tinybird CLI
-        run: pipx install tinybird-cli==6.4.0
+        run: pipx install tinybird-cli==5.22.2
 
       - name: 🐦 Validate Tinybird schema
         working-directory: ./server/tinybird
@@ -298,7 +298,7 @@ jobs:
           uv run task generate_dev_jwks
 
       - name: 🐦 Install Tinybird CLI
-        run: pipx install tinybird-cli==6.4.0
+        run: pipx install tinybird-cli==5.22.2
 
       # Apply all pending Alembic migrations to the test database
       - name: ⚗️ alembic migrate
