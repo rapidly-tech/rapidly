@@ -154,8 +154,6 @@ export const FeaturePage = ({
         <motion.div variants={itemVariants}>
           <Link
             href={docsHref}
-            target="_blank"
-            rel="noopener noreferrer"
             className="rp-text-secondary hover:rp-text-primary text-sm font-medium transition-colors"
           >
             Read the docs
