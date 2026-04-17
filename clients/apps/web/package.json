@@ -94,6 +94,7 @@
   },
   "devDependencies": {
     "@next/bundle-analyzer": "^16.1.5",
+    "@playwright/test": "^1.59.1",
     "@rapidly-tech/eslint-config": "workspace:*",
     "@rapidly-tech/typescript-config": "workspace:*",
     "@types/dom-to-image": "^2.6.7",
