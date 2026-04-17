@@ -102,6 +102,8 @@ CLAUDE.md
 # ── Rapidly-specific ─────────────────────────────────────────────────
 *.mmdb
 supervisord.pid
+# Internal planning doc — must never be committed to the public repo.
+PLATFORM_PLAN.md
 server/.minio/*
 !server/.minio/*.sh
 !server/.minio/*.json
