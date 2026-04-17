@@ -34,7 +34,7 @@ import json
 import os
 import time
 import uuid
-from collections.abc import Awaitable, Callable, MutableMapping
+from collections.abc import Awaitable, Callable, Mapping, MutableMapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -254,6 +254,62 @@ class SignalingManager:
                 _log.debug("Failed to close peer %s during room close", peer.peer_id)
         return True
 
+    # ── RoomTransport — messaging ──
+
+    async def send_to_peer(
+        self, slug: str, peer_id: str, payload: Mapping[str, Any] | bytes
+    ) -> bool:
+        """Deliver ``payload`` to a peer in a room.
+
+        Returns True if the peer was reachable from this worker; False when
+        the room or peer is unknown. WebSocket failures on ``send_*`` are
+        logged and swallowed — a single dead peer must never cause the
+        caller to block, and the handler layer already closes misbehaving
+        connections via its own exception handling.
+
+        In the in-memory backend (this class) "reachable" means "lives on
+        this worker" and is always true when the peer exists in the room.
+        The Redis-backed backend in PR 4b will extend this to fan out
+        across workers via PUBSUB while preserving the same True/False
+        semantics.
+        """
+        room = self._rooms.get(slug)
+        if room is None:
+            return False
+        peer = room.peers.get(peer_id)
+        if peer is None:
+            return False
+        try:
+            if isinstance(payload, (bytes, bytearray, memoryview)):
+                await peer.ws.send_bytes(bytes(payload))
+            else:
+                # dict-shaped payload — JSON encode once at the transport
+                # boundary rather than inside every caller.
+                await peer.ws.send_text(json.dumps(dict(payload)))
+        except Exception:
+            _log.debug("Failed to send to peer %s in room %s", peer_id, slug)
+        return True
+
+    async def broadcast_peer_left(self, slug: str, departed_id: str) -> None:
+        """Notify remaining peers in ``slug`` that ``departed_id`` left.
+
+        Errors from individual peers are logged and swallowed — one
+        unreachable peer must not block notification of the rest.
+        """
+        room = self._rooms.get(slug)
+        if room is None:
+            return
+        msg = json.dumps({"type": "peer-left", "peerId": departed_id})
+        for peer in list(room.peers.values()):
+            try:
+                await peer.ws.send_text(msg)
+            except Exception:
+                _log.debug(
+                    "Failed to notify peer %s of departure %s",
+                    peer.peer_id,
+                    departed_id,
+                )
+
 
 # Singleton instance
 signaling_manager = SignalingManager()
@@ -288,20 +344,6 @@ async def close_room(slug: str) -> bool:
     Preserves the existing import used by ``service.py``.
     """
     return await signaling_manager.close_room(slug)
-
-
-async def _notify_peer_left(room: Room, departed_id: str) -> None:
-    """Tell remaining peers that one disconnected."""
-    msg = json.dumps({"type": "peer-left", "peerId": departed_id})
-    for peer in list(room.peers.values()):
-        try:
-            await peer.ws.send_text(msg)
-        except Exception:
-            _log.debug(
-                "Failed to notify peer %s of departure %s",
-                peer.peer_id,
-                departed_id,
-            )
 
 
 async def _send_json(ws: WebSocket, data: dict[str, Any]) -> None:
@@ -527,7 +569,10 @@ async def _authenticate(
 
 
 async def _handle_binary_relay(
-    ws: WebSocket, room: Room, message: MutableMapping[str, Any]
+    ws: WebSocket,
+    room: Room,
+    message: MutableMapping[str, Any],
+    canonical_slug: str,
 ) -> bool | None:
     """Handle a binary relay frame (relay:chunk).
 
@@ -553,8 +598,11 @@ async def _handle_binary_relay(
     relay_target_id = relay_header.get("targetId")
     if not relay_target_id:
         return True
-    target = room.peers.get(relay_target_id)
-    if not target:
+    # Existence check: avoid rate-limit accounting for sends to absent peers.
+    # The actual delivery happens through signaling_manager.send_to_peer below
+    # so a future Redis-backed transport can route to a peer on another worker
+    # without this handler caring.
+    if relay_target_id not in room.peers:
         return True
     # Rate limit and size cap — check before incrementing to prevent bypass
     binary_payload = binary_data[4 + header_len :]
@@ -574,11 +622,10 @@ async def _handle_binary_relay(
         return None
     room._relay_window_bytes += payload_len
     room.relay_bytes += payload_len
-    # Forward binary frame directly to target
-    try:
-        await target.ws.send_bytes(binary_payload)
-    except Exception:
-        _log.debug("Failed to relay binary to %s", relay_target_id)
+    # Forward via the transport — WebSocket write errors are logged internally.
+    await signaling_manager.send_to_peer(
+        canonical_slug, relay_target_id, binary_payload
+    )
     return True
 
 
@@ -597,8 +644,7 @@ async def _handle_relay_control(
     if not target_id:
         await _send_error(ws, "Missing targetId for relay")
         return True
-    target = room.peers.get(target_id)
-    if not target:
+    if target_id not in room.peers:
         await _send_error(ws, "Relay target not found")
         return True
 
@@ -611,7 +657,7 @@ async def _handle_relay_control(
             canonical_slug,
         )
 
-    # Forward relay control messages
+    # Forward relay control messages via the transport.
     relay_msg: dict[str, Any] = {
         "type": msg_type,
         "fromId": peer.peer_id,
@@ -620,17 +666,22 @@ async def _handle_relay_control(
         data_val = msg["data"]
         if isinstance(data_val, str) and len(data_val) <= MAX_SIGNALING_MESSAGE_SIZE:
             relay_msg["data"] = data_val
-    await _send_json(target.ws, relay_msg)
+    await signaling_manager.send_to_peer(canonical_slug, target_id, relay_msg)
     return True
 
 
 async def _handle_webrtc_signaling(
-    ws: WebSocket, peer: Peer, room: Room, msg: dict[str, Any]
+    ws: WebSocket,
+    peer: Peer,
+    room: Room,
+    msg: dict[str, Any],
+    canonical_slug: str,
 ) -> bool:
     """Handle WebRTC signaling messages (offer/answer/ice-candidate/connect-request).
 
     Validates fields, builds an allowlisted relay payload, and forwards to the
-    target peer. Returns True if the message was handled, False otherwise.
+    target peer via the transport. Returns True if the message was handled,
+    False otherwise.
     """
     msg_type = msg.get("type")
     if msg_type not in ("offer", "answer", "ice-candidate", "connect-request"):
@@ -645,8 +696,7 @@ async def _handle_webrtc_signaling(
             await _send_error(ws, "Missing targetId")
             return True
 
-    target = room.peers.get(target_id)
-    if not target:
+    if target_id not in room.peers:
         await _send_error(ws, "Target peer not found")
         return True
 
@@ -687,7 +737,7 @@ async def _handle_webrtc_signaling(
             meta_str = json.dumps(meta)
             if len(meta_str) <= 4096:
                 relay["metadata"] = meta
-    await _send_json(target.ws, relay)
+    await signaling_manager.send_to_peer(canonical_slug, target_id, relay)
     return True
 
 
@@ -795,7 +845,9 @@ async def handle_signaling(ws: WebSocket, slug: str, redis: Redis) -> None:
                 continue
 
             # Handle binary relay frames
-            binary_result = await _handle_binary_relay(ws, room, message)
+            binary_result = await _handle_binary_relay(
+                ws, room, message, canonical_slug
+            )
             if binary_result is True:
                 continue
             if binary_result is None:
@@ -831,7 +883,7 @@ async def handle_signaling(ws: WebSocket, slug: str, redis: Redis) -> None:
             # Dispatch to message type handlers
             if await _handle_relay_control(ws, peer, room, msg, canonical_slug):
                 continue
-            if await _handle_webrtc_signaling(ws, peer, room, msg):
+            if await _handle_webrtc_signaling(ws, peer, room, msg, canonical_slug):
                 continue
             await _send_error(ws, "Unknown message type")
     except WebSocketDisconnect:
@@ -844,6 +896,5 @@ async def handle_signaling(ws: WebSocket, slug: str, redis: Redis) -> None:
         )
     finally:
         signaling_manager.remove_peer(canonical_slug, peer.peer_id)
-        room_after = signaling_manager.get_room(canonical_slug)
-        if room_after:
-            await _notify_peer_left(room_after, peer.peer_id)
+        # broadcast_peer_left is a no-op if the room is already gone.
+        await signaling_manager.broadcast_peer_left(canonical_slug, peer.peer_id)
