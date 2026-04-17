@@ -74,3 +74,43 @@ end
 redis.call('SETEX', KEYS[2], ARGV[1], ARGV[2])
 return 1
 """
+
+
+# Atomic peer registration for the Redis-backed RoomTransport (PR 4c).
+#
+# Consolidates the three admission checks (HOST_TAKEN, ROOM_FULL, write) into
+# one round-trip so two workers can't both succeed at host-registration for the
+# same slug.
+#
+# KEYS: [peers_hash_key, host_string_key]
+# ARGV: [peer_id, role ("host"|"guest"), peer_meta_json, max_peers_per_room, ttl_seconds]
+# Returns: "OK" | "HOST_TAKEN" | "ROOM_FULL"
+ATOMIC_REGISTER_PEER_LUA = """
+local peer_id   = ARGV[1]
+local role      = ARGV[2]
+local meta      = ARGV[3]
+local max_peers = tonumber(ARGV[4])
+local ttl       = tonumber(ARGV[5])
+
+-- one-host-per-room check
+if role == "host" then
+    local existing_host = redis.call('GET', KEYS[2])
+    if existing_host and existing_host ~= '' then
+        return "HOST_TAKEN"
+    end
+end
+
+-- per-room peer cap
+local current = redis.call('HLEN', KEYS[1])
+if current >= max_peers then
+    return "ROOM_FULL"
+end
+
+-- write
+redis.call('HSET', KEYS[1], peer_id, meta)
+redis.call('EXPIRE', KEYS[1], ttl)
+if role == "host" then
+    redis.call('SET', KEYS[2], peer_id, 'EX', ttl)
+end
+return "OK"
+"""
