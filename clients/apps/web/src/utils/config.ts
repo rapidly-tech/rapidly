@@ -18,6 +18,10 @@ const defaults = {
     process.env.NEXT_PUBLIC_APPLE_DOMAIN_ASSOCIATION ||
     '<Replace with Apple Pay Domain Association from Stripe>',
   ADMIN_EMAIL: process.env.NEXT_PUBLIC_ADMIN_EMAIL || '',
+  // When ``true`` (string), the root ``/`` landing renders the 6-chamber
+  // Revolver instead of the file-sharing hero. Default off so production
+  // traffic keeps the existing landing until the revolver ships.
+  REVOLVER_LANDING_ENABLED: process.env.NEXT_PUBLIC_REVOLVER_LANDING === 'true',
 }
 
 export const CONFIG = {
