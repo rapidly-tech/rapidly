@@ -233,7 +233,7 @@
 
 @layer base {
   :root {
-    /* ── Warm beige palette (claude.ai-inspired) ── */
+    /* ── Warm beige palette ── */
     --background: oklch(0.97 0.01 75);
     --foreground: var(--color-slate-900);
 

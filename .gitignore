@@ -119,7 +119,7 @@ server/.tinyb
 # Playwright MCP
 .playwright-mcp/
 
-# Claude Code
+# Agent workspaces & local agent settings
 .claude/worktrees
 .claude/settings.local.json
 **/.claude/settings.local.json
