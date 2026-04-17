@@ -1,12 +1,15 @@
 /**
- * WebSocket signaling client for P2P file sharing.
+ * WebSocket signaling client for P2P sessions.
  *
  * Replaces PeerJS signaling (0.peerjs.com) with a self-hosted WebSocket
  * endpoint. The client authenticates, receives ICE servers and a peer ID,
  * then relays SDP offers/answers and ICE candidates between peers.
+ *
+ * The signal path is provided by the caller at construction time rather than
+ * hardcoded — each consumer (file-sharing, screen, etc.) supplies its own
+ * endpoint so this class is not tied to any single chamber.
  */
 
-import { FILE_SHARING_SIGNAL_PATH } from './constants'
 import { logger } from './logger'
 
 // ── Types ──
@@ -24,6 +27,16 @@ export interface WelcomeMessage {
 
 export type SignalingMessageHandler = (msg: SignalingMessage) => void
 
+/**
+ * Canonical role names recognised by the signaling server.
+ *
+ * `'uploader'` and `'downloader'` are legacy aliases kept during the
+ * deprecation window — the server normalises them to `'host'` / `'guest'`
+ * before any downstream dispatch. New chambers should pass `'host'` /
+ * `'guest'` directly.
+ */
+export type SignalingRole = 'host' | 'guest' | 'uploader' | 'downloader'
+
 // ── SignalingClient ──
 
 export class SignalingClient {
@@ -34,6 +47,15 @@ export class SignalingClient {
   private _onClose: (() => void) | null = null
   private _connectTimeout: ReturnType<typeof setTimeout> | null = null
   private _pendingReject: ((reason: Error) => void) | null = null
+  private readonly signalPath: string
+
+  /**
+   * @param signalPath Server-side WebSocket route for this session kind,
+   *   e.g. `/api/file-sharing/signal`. The slug is appended at connect time.
+   */
+  constructor(signalPath: string) {
+    this.signalPath = signalPath
+  }
 
   get peerId(): string | null {
     return this._peerId
@@ -59,19 +81,21 @@ export class SignalingClient {
    * Connect to the signaling server and authenticate.
    *
    * @param slug Channel slug
-   * @param role "uploader" or "downloader"
-   * @param credential Channel secret (for uploader) or reader token (for downloader)
+   * @param role Canonical `'host'` / `'guest'`, or legacy `'uploader'` /
+   *   `'downloader'` (accepted as aliases by the server during the
+   *   deprecation window). See {@link SignalingRole}.
+   * @param credential Channel secret (host) or reader token (guest)
    */
   async connect(
     slug: string,
-    role: 'uploader' | 'downloader',
+    role: SignalingRole,
     credential: string,
     options?: { paymentToken?: string },
   ): Promise<WelcomeMessage> {
-    // Build WebSocket URL from current origin
+    // Build WebSocket URL from current origin + caller-supplied path.
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
-    const url = `${protocol}//${host}${FILE_SHARING_SIGNAL_PATH}/${slug}`
+    const url = `${protocol}//${host}${this.signalPath}/${slug}`
 
     logger.log('[Signaling] connecting to', url)
 
@@ -101,7 +125,11 @@ export class SignalingClient {
       ws.onopen = () => {
         logger.log('[Signaling] connected, authenticating as', role)
         const authMsg: Record<string, string> = { type: 'auth', role }
-        if (role === 'uploader') {
+        // Host-ish roles carry the channel secret; guest-ish roles carry
+        // the reader token. Legacy names are accepted here so this client
+        // remains valid while file-sharing code still passes 'uploader'.
+        const isHost = role === 'host' || role === 'uploader'
+        if (isHost) {
           authMsg.secret = credential
         } else {
           authMsg.token = credential

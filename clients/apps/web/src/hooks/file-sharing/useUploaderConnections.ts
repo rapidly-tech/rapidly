@@ -18,17 +18,14 @@ import {
   Message,
   MessageType,
 } from '@/utils/file-sharing/messages'
-import { PeerDataConnection } from '@/utils/file-sharing/peer-connection'
-import {
-  SignalingClient,
-  SignalingMessage,
-} from '@/utils/file-sharing/signaling'
 import { parseIceCandidate } from '@/utils/file-sharing/signaling-helpers'
 import {
   UploadedFile,
   UploaderConnection,
   UploaderConnectionStatus,
 } from '@/utils/file-sharing/types'
+import { PeerDataConnection } from '@/utils/p2p/peer-connection'
+import { SignalingClient, SignalingMessage } from '@/utils/p2p/signaling'
 import { useEffect, useRef, useState } from 'react'
 import { z } from 'zod'
 
