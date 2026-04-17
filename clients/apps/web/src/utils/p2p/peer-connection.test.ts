@@ -79,7 +79,10 @@ class FakePeerConnection {
     this.setLocalCalls.push(desc)
   }
 
-  createDataChannel(_label: string, _opts?: unknown): {
+  createDataChannel(
+    _label: string,
+    _opts?: unknown,
+  ): {
     close(): void
   } {
     return { close() {} }
@@ -151,11 +154,7 @@ describe('PeerDataConnection: media track surface (PR 6)', () => {
   it('exposes the documented media-track API', async () => {
     const { PeerDataConnection } = await importWrapper()
     const sig = makeSignaling()
-    const conn = new PeerDataConnection(
-      sig as never,
-      [],
-      'remote-peer',
-    )
+    const conn = new PeerDataConnection(sig as never, [], 'remote-peer')
     expect(typeof conn.addTrack).toBe('function')
     expect(typeof conn.removeTrack).toBe('function')
     expect(typeof conn.getLocalSenders).toBe('function')
@@ -267,7 +266,9 @@ describe('PeerDataConnection: renegotiation gating (PR 6)', () => {
     // gate without running the whole SDP dance.
     // (The stub's setRemoteDescription is not implemented; we simulate by
     // poking the private flag directly. Intentional test-only escape hatch.)
-    ;(conn as unknown as { _hasRemoteDescription: boolean })._hasRemoteDescription = true
+    ;(
+      conn as unknown as { _hasRemoteDescription: boolean }
+    )._hasRemoteDescription = true
 
     conn.addTrack(makeTrack(), makeStream())
     // Drain the microtask queue enough times for the async _renegotiate
