@@ -313,6 +313,11 @@ class Settings(BaseSettings):
     FILE_SHARING_MAX_PRICE_CENTS: int = 100_000_000
     FILE_SHARING_PAID_CHANNEL_TTL: int = 86400
 
+    # Enables the Screen chamber API (/api/v1/screen/*). Default False so
+    # the endpoints don't appear in the surface until a staging rollout
+    # gates production exposure. See specs/screen-session-backend.md.
+    FILE_SHARING_SCREEN_ENABLED: bool = False
+
     # -- ClamAV (malware scanning) -----------------------------------------
     CLAMAV_ENABLED: bool = False
     CLAMAV_SOCKET_PATH: str | None = "/var/run/clamav/clamd.sock"
