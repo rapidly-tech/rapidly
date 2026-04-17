@@ -104,6 +104,8 @@ CLAUDE.md
 supervisord.pid
 # Internal planning doc — must never be committed to the public repo.
 PLATFORM_PLAN.md
+# Local-first verify script — kept local per-developer, not tracked.
+verify.sh
 server/.minio/*
 !server/.minio/*.sh
 !server/.minio/*.json
