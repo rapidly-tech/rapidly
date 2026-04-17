@@ -356,8 +356,34 @@ class SignalingManager:
                 )
 
 
-# Singleton instance
-signaling_manager = SignalingManager()
+# Signaling transport singleton — picked by config at import time.
+#
+# The name ``signaling_manager`` is preserved across backends so every
+# existing import keeps working unchanged. Both ``SignalingManager`` (the
+# in-memory default) and ``RedisRoomTransport`` (the Redis-backed
+# alternative, PR 4c) satisfy the ``RoomTransport`` protocol.
+#
+# Default is "memory", so every deployment gets the pre-PR-4c behaviour
+# until someone flips FILE_SHARING_SIGNALING_BACKEND=redis in config.
+def _build_signaling_manager() -> "SignalingManager | Any":
+    """Return the signaling transport selected by config.
+
+    Kept inside a function so tests can override the env var before the
+    module is reloaded — otherwise the class selection is frozen at the
+    first import.
+    """
+    from rapidly.config import settings
+
+    if settings.FILE_SHARING_SIGNALING_BACKEND == "redis":
+        # Local import to avoid paying the redis-py import cost unless
+        # the Redis backend is actually in use.
+        from .signaling_redis_transport import RedisRoomTransport
+
+        return RedisRoomTransport()
+    return SignalingManager()
+
+
+signaling_manager = _build_signaling_manager()
 
 
 # ── Rate Limiting ──
