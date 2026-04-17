@@ -276,7 +276,7 @@
     }
   },
   "contextual": {
-    "options": ["copy", "view", "chatgpt", "claude"]
+    "options": ["copy", "view"]
   },
   "footer": {
     "socials": {
