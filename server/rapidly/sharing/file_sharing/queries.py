@@ -67,6 +67,25 @@ def _hash_secret(raw_secret: str) -> str:
 # This gives uploaders time to detect abuse and cancel the destruction
 CHANNEL_DESTRUCTION_DELAY = 30
 
+# Registry of supported session kinds. Future chambers (Screen, Watch, etc.)
+# extend this set. Kept as a single source of truth so validation at call
+# sites can fail closed on typos or malicious input.
+SESSION_KINDS: set[str] = {"file"}
+
+
+def validate_session_kind(kind: str) -> None:
+    """Raise ``ValueError`` if ``kind`` is not a registered session kind.
+
+    Deliberately NOT called from ``ChannelData.from_dict`` — that method must
+    always succeed on any payload we previously wrote to Redis. Validation
+    belongs at construction sites (API handlers, actions) so unknown kinds
+    are rejected at the boundary, not when reading storage.
+    """
+    if kind not in SESSION_KINDS:
+        raise ValueError(
+            f"Unknown session_kind {kind!r} (valid: {sorted(SESSION_KINDS)})"
+        )
+
 
 # ── Data Structures ──
 
@@ -120,6 +139,11 @@ class ChannelData:
     share_id: str | None = None
     creator_country: str = ""
     creator_continent: str = ""
+    # Kind of P2P session this channel hosts. Defaults to "file" so every
+    # pre-existing Redis entry and every current create_channel call continues
+    # to behave identically. Future chambers (screen, watch, ...) register new
+    # values in SESSION_KINDS.
+    session_kind: str = "file"
 
     @property
     def is_paid(self) -> bool:
@@ -146,6 +170,9 @@ class ChannelData:
             share_id=data.get("share_id"),
             creator_country=data.get("creator_country", ""),
             creator_continent=data.get("creator_continent", ""),
+            # Backward-compatible: entries written before session_kind existed
+            # read back as "file". No migration required.
+            session_kind=data.get("session_kind", "file"),
         )
 
 

@@ -4,7 +4,12 @@ import pytest
 import pytest_asyncio
 
 from rapidly.redis import Redis
-from rapidly.sharing.file_sharing.queries import ChannelData, ChannelRepository
+from rapidly.sharing.file_sharing.queries import (
+    SESSION_KINDS,
+    ChannelData,
+    ChannelRepository,
+    validate_session_kind,
+)
 
 
 @pytest.mark.asyncio
@@ -92,3 +97,61 @@ class TestChecksumStorage:
         repo = ChannelRepository(redis)
         result = await repo.fetch_checksums("nonexistent", "some-token")
         assert result is None
+
+
+class TestSessionKind:
+    """Tests for the session_kind field on ChannelData (PR 1)."""
+
+    def _base_fields(self) -> dict[str, str | int]:
+        """Minimum fields required by ChannelData / from_dict."""
+        return {
+            "secret": "hashed-secret",
+            "long_slug": "long-slug-abc",
+            "short_slug": "short-abc",
+        }
+
+    def test_defaults_to_file(self) -> None:
+        """A ChannelData built without specifying session_kind is a file session."""
+        channel = ChannelData(secret="s", long_slug="l", short_slug="sh")
+        assert channel.session_kind == "file"
+
+    def test_roundtrip_preserves_explicit_kind(self) -> None:
+        """to_dict() → from_dict() preserves session_kind."""
+        channel = ChannelData(
+            secret="s", long_slug="l", short_slug="sh", session_kind="file"
+        )
+        reloaded = ChannelData.from_dict(channel.to_dict())
+        assert reloaded.session_kind == "file"
+
+    def test_from_dict_missing_key_defaults_to_file(self) -> None:
+        """Redis entries written before this field existed read back as 'file'.
+
+        This is the backward-compatibility guarantee — no migration needed.
+        """
+        # Simulate a legacy payload: no 'session_kind' key present.
+        legacy_payload = self._base_fields()
+        assert "session_kind" not in legacy_payload
+
+        channel = ChannelData.from_dict(legacy_payload)
+        assert channel.session_kind == "file"
+
+    def test_from_dict_accepts_unknown_kind_without_raising(self) -> None:
+        """from_dict must not validate — it must always succeed on stored data.
+
+        Validation belongs at construction sites (API handlers), not at the
+        storage-read boundary. If we ever store a bogus kind, we want the
+        row to still be readable so an operator can investigate and fix it.
+        """
+        payload = {**self._base_fields(), "session_kind": "bogus-kind"}
+        channel = ChannelData.from_dict(payload)
+        assert channel.session_kind == "bogus-kind"
+
+    def test_session_kinds_contains_file(self) -> None:
+        assert "file" in SESSION_KINDS
+
+    def test_validate_session_kind_accepts_file(self) -> None:
+        validate_session_kind("file")  # must not raise
+
+    def test_validate_session_kind_rejects_unknown(self) -> None:
+        with pytest.raises(ValueError, match="Unknown session_kind"):
+            validate_session_kind("bogus-kind")

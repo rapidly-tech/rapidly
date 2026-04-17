@@ -1,4 +1,4 @@
-import type { PeerDataConnection } from './peer-connection'
+import type { PeerDataConnection } from '@/utils/p2p/peer-connection'
 
 export type UploadedFile = File & { entryFullPath?: string }
 

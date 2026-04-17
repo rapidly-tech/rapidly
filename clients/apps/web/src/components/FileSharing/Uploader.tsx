@@ -4,6 +4,7 @@ import { useUploaderChannel } from '@/hooks/file-sharing/useUploaderChannel'
 import { useUploaderConnections } from '@/hooks/file-sharing/useUploaderConnections'
 import {
   FILE_SHARING_API,
+  FILE_SHARING_SIGNAL_PATH,
   buildFileShareURL,
 } from '@/utils/file-sharing/constants'
 import { hashPassword } from '@/utils/file-sharing/crypto'
@@ -15,11 +16,11 @@ import {
   generateSalt,
 } from '@/utils/file-sharing/encryption'
 import { logger } from '@/utils/file-sharing/logger'
-import { SignalingClient } from '@/utils/file-sharing/signaling'
 import {
   UploadedFile,
   UploaderConnectionStatus,
 } from '@/utils/file-sharing/types'
+import { SignalingClient } from '@/utils/p2p/signaling'
 import { JSX, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import QRCode from 'react-qr-code'
 import { ConnectionListItem } from './ConnectionListItem'
@@ -151,7 +152,7 @@ export default function Uploader({
     if (!shortSlug || !channelSecret) return
     let cancelled = false
     setSignalingError(false)
-    const client = new SignalingClient()
+    const client = new SignalingClient(FILE_SHARING_SIGNAL_PATH)
     signalingRef.current = client
 
     client
