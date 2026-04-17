@@ -1,12 +1,15 @@
 /**
- * WebSocket signaling client for P2P file sharing.
+ * WebSocket signaling client for P2P sessions.
  *
  * Replaces PeerJS signaling (0.peerjs.com) with a self-hosted WebSocket
  * endpoint. The client authenticates, receives ICE servers and a peer ID,
  * then relays SDP offers/answers and ICE candidates between peers.
+ *
+ * The signal path is provided by the caller at construction time rather than
+ * hardcoded — each consumer (file-sharing, screen, etc.) supplies its own
+ * endpoint so this class is not tied to any single chamber.
  */
 
-import { FILE_SHARING_SIGNAL_PATH } from './constants'
 import { logger } from './logger'
 
 // ── Types ──
@@ -34,6 +37,15 @@ export class SignalingClient {
   private _onClose: (() => void) | null = null
   private _connectTimeout: ReturnType<typeof setTimeout> | null = null
   private _pendingReject: ((reason: Error) => void) | null = null
+  private readonly signalPath: string
+
+  /**
+   * @param signalPath Server-side WebSocket route for this session kind,
+   *   e.g. `/api/file-sharing/signal`. The slug is appended at connect time.
+   */
+  constructor(signalPath: string) {
+    this.signalPath = signalPath
+  }
 
   get peerId(): string | null {
     return this._peerId
@@ -68,10 +80,10 @@ export class SignalingClient {
     credential: string,
     options?: { paymentToken?: string },
   ): Promise<WelcomeMessage> {
-    // Build WebSocket URL from current origin
+    // Build WebSocket URL from current origin + caller-supplied path.
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const host = window.location.host
-    const url = `${protocol}//${host}${FILE_SHARING_SIGNAL_PATH}/${slug}`
+    const url = `${protocol}//${host}${this.signalPath}/${slug}`
 
     logger.log('[Signaling] connecting to', url)
 
