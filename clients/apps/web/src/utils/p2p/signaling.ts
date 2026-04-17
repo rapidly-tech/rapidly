@@ -27,6 +27,16 @@ export interface WelcomeMessage {
 
 export type SignalingMessageHandler = (msg: SignalingMessage) => void
 
+/**
+ * Canonical role names recognised by the signaling server.
+ *
+ * `'uploader'` and `'downloader'` are legacy aliases kept during the
+ * deprecation window — the server normalises them to `'host'` / `'guest'`
+ * before any downstream dispatch. New chambers should pass `'host'` /
+ * `'guest'` directly.
+ */
+export type SignalingRole = 'host' | 'guest' | 'uploader' | 'downloader'
+
 // ── SignalingClient ──
 
 export class SignalingClient {
@@ -71,12 +81,14 @@ export class SignalingClient {
    * Connect to the signaling server and authenticate.
    *
    * @param slug Channel slug
-   * @param role "uploader" or "downloader"
-   * @param credential Channel secret (for uploader) or reader token (for downloader)
+   * @param role Canonical `'host'` / `'guest'`, or legacy `'uploader'` /
+   *   `'downloader'` (accepted as aliases by the server during the
+   *   deprecation window). See {@link SignalingRole}.
+   * @param credential Channel secret (host) or reader token (guest)
    */
   async connect(
     slug: string,
-    role: 'uploader' | 'downloader',
+    role: SignalingRole,
     credential: string,
     options?: { paymentToken?: string },
   ): Promise<WelcomeMessage> {
@@ -113,7 +125,11 @@ export class SignalingClient {
       ws.onopen = () => {
         logger.log('[Signaling] connected, authenticating as', role)
         const authMsg: Record<string, string> = { type: 'auth', role }
-        if (role === 'uploader') {
+        // Host-ish roles carry the channel secret; guest-ish roles carry
+        // the reader token. Legacy names are accepted here so this client
+        // remains valid while file-sharing code still passes 'uploader'.
+        const isHost = role === 'host' || role === 'uploader'
+        if (isHost) {
           authMsg.secret = credential
         } else {
           authMsg.token = credential

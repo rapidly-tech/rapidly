@@ -34,7 +34,7 @@ import json
 import os
 import time
 import uuid
-from collections.abc import MutableMapping
+from collections.abc import Awaitable, Callable, MutableMapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -45,7 +45,7 @@ from redis import RedisError
 from rapidly.redis import Redis
 
 from . import actions as file_sharing_service
-from .queries import ChannelRepository, _hash_secret
+from .queries import ChannelData, ChannelRepository, _hash_secret
 from .redis_scripts import ATOMIC_INCR_EXPIRE_LUA
 from .utils import hash_ip
 
@@ -95,7 +95,8 @@ class Peer:
 
     peer_id: str
     ws: WebSocket
-    role: str  # "uploader" or "downloader"
+    role: str  # canonical "host" or "guest"; "uploader"/"downloader" are accepted
+    # at auth time as aliases and normalized to the canonical forms.
     relay_mode: bool = False  # True when peer has switched to relay mode
 
 
@@ -104,7 +105,7 @@ class Room:
     """A signaling room for one channel."""
 
     peers: dict[str, Peer] = field(default_factory=dict)
-    uploader_id: str | None = None
+    host_id: str | None = None  # canonical name; previously uploader_id.
     created_at: float = field(default_factory=time.monotonic)
     last_emptied_at: float = field(default_factory=time.monotonic)
     relay_bytes: int = 0  # Total bytes relayed for this room
@@ -232,8 +233,8 @@ class SignalingManager:
         if not room:
             return
         room.peers.pop(peer_id, None)
-        if room.uploader_id == peer_id:
-            room.uploader_id = None
+        if room.host_id == peer_id:
+            room.host_id = None
         if not room.peers:
             room.last_emptied_at = time.monotonic()
 
@@ -313,6 +314,133 @@ async def _send_error(ws: WebSocket, message: str) -> None:
 
 # ── Authentication ──
 
+# Canonical role names on the wire. "uploader" / "downloader" are accepted
+# as aliases for one release window and normalized before any downstream
+# code touches them. New session kinds should only ever emit "host" / "guest".
+ROLE_ALIASES: dict[str, str] = {"uploader": "host", "downloader": "guest"}
+CANONICAL_ROLES: frozenset[str] = frozenset({"host", "guest"})
+
+
+@dataclass
+class AuthContext:
+    """Arguments passed to every auth validator.
+
+    Bundling into a dataclass (rather than long positional signatures) means
+    future session kinds can add their own helpers without forcing every
+    existing validator to grow matching parameters.
+    """
+
+    ws: WebSocket
+    slug: str
+    role: str  # canonical "host" or "guest"
+    channel: ChannelData
+    msg: dict[str, Any]  # the auth message body
+    repo: ChannelRepository
+    client_ip: str
+
+
+AuthValidator = Callable[[AuthContext], Awaitable[bool]]
+
+# Registry keyed by (session_kind, role). File-sharing registers its two
+# validators below; future chambers (screen, watch, ...) register their own
+# via @register_auth_validator decorators on module import.
+_AUTH_VALIDATORS: dict[tuple[str, str], AuthValidator] = {}
+
+
+def register_auth_validator(
+    session_kind: str, role: str
+) -> Callable[[AuthValidator], AuthValidator]:
+    """Register a WebSocket auth validator for a (session_kind, role) pair.
+
+    Fails loudly at import time on duplicate registration so we never silently
+    shadow an existing validator.
+
+    The validator itself is responsible for sending the specific error message
+    and closing the WebSocket before returning False; this preserves the
+    existing error-semantics (e.g. "Payment required" vs generic
+    "Authentication failed") that downstream UIs already depend on.
+    """
+    if role not in CANONICAL_ROLES:
+        raise RuntimeError(
+            f"register_auth_validator: role must be canonical ({CANONICAL_ROLES}), "
+            f"got {role!r}"
+        )
+
+    def decorator(fn: AuthValidator) -> AuthValidator:
+        key = (session_kind, role)
+        if key in _AUTH_VALIDATORS:
+            raise RuntimeError(f"Duplicate auth validator registration for {key}")
+        _AUTH_VALIDATORS[key] = fn
+        return fn
+
+    return decorator
+
+
+# ── File-sharing auth validators ──
+#
+# Verbatim extractions of the inline logic that previously lived in
+# _authenticate(). Behaviour is bit-for-bit identical — error strings and
+# WebSocket close codes are preserved so any client relying on them keeps
+# working across the deploy.
+
+
+@register_auth_validator("file", "host")
+async def _validate_file_host(ctx: AuthContext) -> bool:
+    """Host (uploader) of a file channel authenticates with the channel secret."""
+    secret = ctx.msg.get("secret", "")
+    if not secret or not hmac.compare_digest(ctx.channel.secret, _hash_secret(secret)):
+        await _send_error(ctx.ws, "Authentication failed")
+        await ctx.ws.close(code=4003, reason="Forbidden")
+        return False
+    return True
+
+
+@register_auth_validator("file", "guest")
+async def _validate_file_guest(ctx: AuthContext) -> bool:
+    """Guest (downloader) of a file channel — reader token + optional payment."""
+    # Reader token: required if one is stored OR if a token is still pending
+    # registration (uploader hasn't yet set it).
+    token = ctx.msg.get("token", "")
+    if token:
+        valid = await ctx.repo.validate_reader_token(
+            ctx.slug, token, channel=ctx.channel
+        )
+        if not valid:
+            await _send_error(ctx.ws, "Authentication failed")
+            await ctx.ws.close(code=4003, reason="Forbidden")
+            return False
+    else:
+        if await ctx.repo.has_reader_token(
+            ctx.slug, channel=ctx.channel
+        ) or await ctx.repo.is_pending_token(ctx.slug, channel=ctx.channel):
+            await _send_error(ctx.ws, "Authentication failed")
+            await ctx.ws.close(code=4003, reason="Forbidden")
+            return False
+
+    # Payment gate: paid channels require a valid payment token.
+    # Accept from the auth message OR an httpOnly cookie (preferred).
+    if ctx.channel.is_paid:
+        from .queries import _decrypt_token
+
+        raw_cookie = ctx.ws.cookies.get("rapidly_pt", "")
+        try:
+            decrypted_cookie = _decrypt_token(raw_cookie) if raw_cookie else ""
+        except Exception:
+            decrypted_cookie = ""
+        payment_token = ctx.msg.get("paymentToken", "") or decrypted_cookie
+        buyer_fingerprint = hash_ip(ctx.client_ip)
+        if not payment_token or not await ctx.repo.validate_payment_token(
+            ctx.slug,
+            payment_token,
+            channel=ctx.channel,
+            buyer_fingerprint=buyer_fingerprint,
+        ):
+            await _send_error(ctx.ws, "Payment required")
+            await ctx.ws.close(code=4003, reason="Payment required")
+            return False
+
+    return True
+
 
 async def _authenticate(
     ws: WebSocket, slug: str, redis: Redis, *, client_ip: str = "unknown"
@@ -351,8 +479,12 @@ async def _authenticate(
         await ws.close(code=4001, reason="Expected auth message")
         return None
 
-    role = msg.get("role")
-    if role not in ("uploader", "downloader"):
+    # Normalize role: accept legacy "uploader"/"downloader" as aliases for
+    # "host"/"guest" during the deprecation window. New chambers only emit
+    # the canonical forms.
+    raw_role = msg.get("role")
+    role = ROLE_ALIASES.get(raw_role, raw_role) if isinstance(raw_role, str) else None
+    if role not in CANONICAL_ROLES:
         await _send_error(ws, "Invalid role")
         await ws.close(code=4001, reason="Invalid role")
         return None
@@ -365,52 +497,27 @@ async def _authenticate(
         await ws.close(code=4003, reason="Forbidden")
         return None
 
-    if role == "uploader":
-        secret = msg.get("secret", "")
-        if not secret or not hmac.compare_digest(channel.secret, _hash_secret(secret)):
-            await _send_error(ws, "Authentication failed")
-            await ws.close(code=4003, reason="Forbidden")
-            return None
-    else:
-        # Downloader: validate reader token
-        # Pass channel= to avoid redundant Redis lookups (channel already fetched above)
-        token = msg.get("token", "")
-        if token:
-            valid = await repo.validate_reader_token(slug, token, channel=channel)
-            if not valid:
-                await _send_error(ws, "Authentication failed")
-                await ws.close(code=4003, reason="Forbidden")
-                return None
-        else:
-            # Check if a reader token is required or registration is pending
-            if await repo.has_reader_token(
-                slug, channel=channel
-            ) or await repo.is_pending_token(slug, channel=channel):
-                await _send_error(ws, "Authentication failed")
-                await ws.close(code=4003, reason="Forbidden")
-                return None
+    # Dispatch to the validator for this (session_kind, role) pair. If no
+    # validator is registered we fail closed with a generic error — never
+    # leak which axis is wrong.
+    validator = _AUTH_VALIDATORS.get((channel.session_kind, role))
+    if validator is None:
+        await _send_error(ws, "Authentication failed")
+        await ws.close(code=4003, reason="Forbidden")
+        return None
 
-        # Payment gate: paid channels require a valid payment token.
-        # Accept from message payload OR httpOnly cookie (preferred).
-        if channel.is_paid:
-            from .queries import _decrypt_token
-
-            raw_cookie = ws.cookies.get("rapidly_pt", "")
-            try:
-                decrypted_cookie = _decrypt_token(raw_cookie) if raw_cookie else ""
-            except Exception:
-                decrypted_cookie = ""
-            payment_token = msg.get("paymentToken", "") or decrypted_cookie
-            buyer_fingerprint = hash_ip(client_ip)
-            if not payment_token or not await repo.validate_payment_token(
-                slug,
-                payment_token,
-                channel=channel,
-                buyer_fingerprint=buyer_fingerprint,
-            ):
-                await _send_error(ws, "Payment required")
-                await ws.close(code=4003, reason="Payment required")
-                return None
+    ctx = AuthContext(
+        ws=ws,
+        slug=slug,
+        role=role,
+        channel=channel,
+        msg=msg,
+        repo=repo,
+        client_ip=client_ip,
+    )
+    if not await validator(ctx):
+        # Validator has already sent its specific error + close code.
+        return None
 
     peer_id = str(uuid.uuid4())
     return (Peer(peer_id=peer_id, ws=ws, role=role), channel.short_slug)
@@ -531,9 +638,9 @@ async def _handle_webrtc_signaling(
 
     target_id = msg.get("targetId")
     if not target_id:
-        # For connect-request from downloader, route to uploader
-        if msg_type == "connect-request" and room.uploader_id:
-            target_id = room.uploader_id
+        # For connect-request from guest, route to the room's host.
+        if msg_type == "connect-request" and room.host_id:
+            target_id = room.host_id
         else:
             await _send_error(ws, "Missing targetId")
             return True
@@ -569,9 +676,9 @@ async def _handle_webrtc_signaling(
         val = msg["sdpMLineIndex"]
         if val is None or isinstance(val, int):
             relay["sdpMLineIndex"] = val
-    # Relay metadata only from uploader (role-based restriction)
+    # Relay metadata only from the host (role-based restriction)
     # with size cap (4KB) and flat-dict validation to prevent abuse
-    if "metadata" in msg and peer.role == "uploader":
+    if "metadata" in msg and peer.role == "host":
         meta = msg["metadata"]
         if isinstance(meta, dict) and all(
             isinstance(k, str) and isinstance(v, (str, int, float, bool, type(None)))
@@ -620,11 +727,11 @@ async def handle_signaling(ws: WebSocket, slug: str, redis: Redis) -> None:
         await ws.close(code=4029, reason="Too many rooms")
         return
 
-    # Enforce one uploader per room
-    if peer.role == "uploader":
-        if room.uploader_id is not None:
-            await _send_error(ws, "Room already has an uploader")
-            await ws.close(code=4009, reason="Uploader already connected")
+    # Enforce one host per room.
+    if peer.role == "host":
+        if room.host_id is not None:
+            await _send_error(ws, "Room already has a host")
+            await ws.close(code=4009, reason="Host already connected")
             # Clean up empty room if we just created it
             if not room.peers:
                 signaling_manager.remove_room(canonical_slug)
@@ -639,9 +746,9 @@ async def handle_signaling(ws: WebSocket, slug: str, redis: Redis) -> None:
             signaling_manager._rooms.pop(canonical_slug, None)
         return
 
-    # Set uploader_id AFTER the peer cap check to avoid orphaning it on early return
-    if peer.role == "uploader":
-        room.uploader_id = peer.peer_id
+    # Set host_id AFTER the peer cap check to avoid orphaning it on early return.
+    if peer.role == "host":
+        room.host_id = peer.peer_id
 
     room.peers[peer.peer_id] = peer
 
