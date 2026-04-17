@@ -5,7 +5,7 @@
  * message routing from useUploaderConnections and useDownloader.
  */
 
-import { SignalingMessage } from './signaling'
+import { SignalingMessage } from '@/utils/p2p/signaling'
 
 /**
  * Parse an ICE candidate from a signaling relay message

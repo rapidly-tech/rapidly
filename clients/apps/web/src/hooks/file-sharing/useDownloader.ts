@@ -2,6 +2,7 @@
 
 import {
   FILE_SHARING_API,
+  FILE_SHARING_SIGNAL_PATH,
   ZIP64_THRESHOLD,
 } from '@/utils/file-sharing/constants'
 import { hashPassword } from '@/utils/file-sharing/crypto'
@@ -27,7 +28,6 @@ import {
   Message,
   MessageType,
 } from '@/utils/file-sharing/messages'
-import { PeerDataConnection } from '@/utils/file-sharing/peer-connection'
 import {
   cleanExpired,
   deleteProgress,
@@ -35,13 +35,11 @@ import {
   loadProgress,
   saveProgress,
 } from '@/utils/file-sharing/resume-store'
-import {
-  SignalingClient,
-  SignalingMessage,
-} from '@/utils/file-sharing/signaling'
 import { parseIceCandidate } from '@/utils/file-sharing/signaling-helpers'
 import { StreamingSHA256 } from '@/utils/file-sharing/streaming-hash'
-import { WebSocketRelay } from '@/utils/file-sharing/ws-relay'
+import { PeerDataConnection } from '@/utils/p2p/peer-connection'
+import { SignalingClient, SignalingMessage } from '@/utils/p2p/signaling'
+import { WebSocketRelay } from '@/utils/p2p/ws-relay'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   browserName,
@@ -170,7 +168,7 @@ export function useDownloader(
 
     stoppedRef.current = false
     let cancelled = false
-    const signaling = new SignalingClient()
+    const signaling = new SignalingClient(FILE_SHARING_SIGNAL_PATH)
     signalingRef.current = signaling
 
     // Clean up expired resume entries on mount (non-blocking)
