@@ -102,6 +102,10 @@ CLAUDE.md
 # ── Rapidly-specific ─────────────────────────────────────────────────
 *.mmdb
 supervisord.pid
+# Internal planning doc — must never be committed to the public repo.
+PLATFORM_PLAN.md
+# Local-first verify script — kept local per-developer, not tracked.
+verify.sh
 server/.minio/*
 !server/.minio/*.sh
 !server/.minio/*.json
@@ -115,7 +119,7 @@ server/.tinyb
 # Playwright MCP
 .playwright-mcp/
 
-# Claude Code
+# Agent workspaces & local agent settings
 .claude/worktrees
 .claude/settings.local.json
 **/.claude/settings.local.json

@@ -44,7 +44,7 @@ pnpm lint && pnpm test
 
 ## Policy on AI-Assisted Contributions
 
-Using AI coding assistants (Copilot, ChatGPT, Claude, etc.) is perfectly fine. What is not acceptable is submitting code you have never executed. Every change must be built, run, and tested in your local environment before you open a pull request. Pull requests that appear to be untested machine output will be closed without review.
+Using AI coding assistants is perfectly fine. What is not acceptable is submitting code you have never executed. Every change must be built, run, and tested in your local environment before you open a pull request. Pull requests that appear to be untested machine output will be closed without review.
 
 ## Coding Standards
 

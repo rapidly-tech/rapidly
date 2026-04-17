@@ -67,10 +67,12 @@ def _hash_secret(raw_secret: str) -> str:
 # This gives uploaders time to detect abuse and cancel the destruction
 CHANNEL_DESTRUCTION_DELAY = 30
 
-# Registry of supported session kinds. Future chambers (Screen, Watch, etc.)
-# extend this set. Kept as a single source of truth so validation at call
-# sites can fail closed on typos or malicious input.
-SESSION_KINDS: set[str] = {"file"}
+# Registry of supported session kinds. Extended by each chamber. Kept as
+# a single source of truth so validation at call sites can fail closed on
+# typos or malicious input.
+#   "file"   — file sharing (Phase A).
+#   "screen" — Screen chamber (Phase B, PR 5).
+SESSION_KINDS: set[str] = {"file", "screen"}
 
 
 def validate_session_kind(kind: str) -> None:
@@ -144,6 +146,10 @@ class ChannelData:
     # to behave identically. Future chambers (screen, watch, ...) register new
     # values in SESSION_KINDS.
     session_kind: str = "file"
+    # Screen-chamber fields (session_kind="screen"). Optional at the storage
+    # layer so file-sharing rows continue to round-trip unchanged.
+    max_viewers: int = 0  # 0 = unlimited; screen API caps at 10 in v1.
+    screen_started_at: str | None = None  # ISO-8601, informational only.
 
     @property
     def is_paid(self) -> bool:
@@ -173,6 +179,10 @@ class ChannelData:
             # Backward-compatible: entries written before session_kind existed
             # read back as "file". No migration required.
             session_kind=data.get("session_kind", "file"),
+            # Screen-chamber fields default to their "absent" values so every
+            # pre-existing file-sharing row continues to round-trip intact.
+            max_viewers=data.get("max_viewers", 0),
+            screen_started_at=data.get("screen_started_at"),
         )
 
 

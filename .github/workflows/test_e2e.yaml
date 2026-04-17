@@ -68,7 +68,15 @@ jobs:
 
       - name: Get Playwright version
         id: playwright-version
-        run: echo "version=$(pnpm exec playwright --version | awk '{print $2}')" >> $GITHUB_OUTPUT
+        # ``pnpm exec`` emits warnings to stdout in this workspace
+        # (``pnpm.overrides`` in nested package.json files). Those lines
+        # poison ``$GITHUB_OUTPUT``, which expects strict ``key=value``
+        # entries, yielding "Invalid format 'Command'" step failures.
+        # Silence pnpm and extract only the version-shaped string to
+        # harden the step against future warning noise.
+        run: |
+          version=$(pnpm --silent exec playwright --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Cache Playwright browsers
         id: playwright-cache

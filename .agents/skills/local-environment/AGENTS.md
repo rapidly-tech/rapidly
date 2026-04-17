@@ -1,6 +1,6 @@
 # Local Environment Management - Complete Guide
 
-This document provides comprehensive instructions for Claude to manage the Rapidly local development environment using Docker.
+This document provides comprehensive instructions for AI coding agents to manage the Rapidly local development environment using Docker.
 
 ## Instance Auto-Detection
 
