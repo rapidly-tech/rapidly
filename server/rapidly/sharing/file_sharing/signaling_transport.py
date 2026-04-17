@@ -17,12 +17,29 @@ Redis keys. That's the whole point of introducing the Protocol.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from enum import Enum
 from typing import TYPE_CHECKING, Any, Protocol, runtime_checkable
 
 if TYPE_CHECKING:
     # Avoid a circular import at module-load time: signaling.py imports this
-    # module, and the types it needs (Room) live in signaling.py itself.
-    from .signaling import Room
+    # module, and the types it needs (Peer, Room) live in signaling.py itself.
+    from .signaling import Peer, Room
+
+
+class RegisterResult(Enum):
+    """Outcome of ``RoomTransport.register_peer``.
+
+    Collapses the three checks that ``handle_signaling`` used to do
+    inline (global room cap, one-host-per-room, per-room peer cap) into
+    a single atomic-by-contract operation. PR 4c implements this as a
+    Lua script against Redis; for today the in-memory backend serialises
+    via the asyncio event loop.
+    """
+
+    OK = "ok"
+    ROOM_LIMIT_REACHED = "room_limit_reached"
+    HOST_TAKEN = "host_taken"
+    ROOM_FULL = "room_full"
 
 
 @runtime_checkable
@@ -65,11 +82,37 @@ class RoomTransport(Protocol):
 
     # ── Peer lifecycle ──
 
+    async def register_peer(self, slug: str, peer: Peer) -> RegisterResult:
+        """Atomically create the room if needed and register a peer in it.
+
+        Enforces all three admission checks in a single call so the Redis
+        backend (PR 4c) can express them as one Lua script:
+
+        - ``ROOM_LIMIT_REACHED`` if the global room cap is full and the
+          slug doesn't already have a room.
+        - ``HOST_TAKEN`` if the peer's role is ``host`` and the room
+          already has one.
+        - ``ROOM_FULL`` if the per-room peer cap is hit.
+        - ``OK`` on success.
+
+        On every failure path, any empty room this call may have just
+        created is cleaned up — callers never see a stale empty room.
+        """
+        ...
+
     def remove_peer(self, slug: str, peer_id: str) -> None:
         """Unregister ``peer_id`` from ``slug``.
 
         Updates the host-index if the departing peer was the host.
         """
+        ...
+
+    async def peer_exists(self, slug: str, peer_id: str) -> bool:
+        """Return True if ``peer_id`` is registered in ``slug``."""
+        ...
+
+    async def host_id_for(self, slug: str) -> str | None:
+        """Return the host peer's id for ``slug``, or None if no host yet."""
         ...
 
     # ── Messaging ──

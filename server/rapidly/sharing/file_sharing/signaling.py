@@ -47,6 +47,7 @@ from rapidly.redis import Redis
 from . import actions as file_sharing_service
 from .queries import ChannelData, ChannelRepository, _hash_secret
 from .redis_scripts import ATOMIC_INCR_EXPIRE_LUA
+from .signaling_transport import RegisterResult
 from .utils import hash_ip
 
 _log = structlog.get_logger(__name__)
@@ -237,6 +238,50 @@ class SignalingManager:
             room.host_id = None
         if not room.peers:
             room.last_emptied_at = time.monotonic()
+
+    # ── RoomTransport — peer lifecycle ──
+
+    async def register_peer(self, slug: str, peer: Peer) -> RegisterResult:
+        """Atomically admit a peer into its room.
+
+        Replaces the previously-inlined block in ``handle_signaling`` that
+        interleaved room creation, one-host enforcement, and peer-cap
+        enforcement with cleanup of empty rooms on early returns. Keeping
+        them together here means the Redis backend (PR 4c) can express
+        them as a single Lua script.
+        """
+        room = self.get_or_create_room(slug)
+        if room is None:
+            return RegisterResult.ROOM_LIMIT_REACHED
+        # Host admission check happens before the peer-cap check so we
+        # return the most-specific reason ("host taken" trumps "room full").
+        if peer.role == "host" and room.host_id is not None:
+            # Clean up the room if we just created it for this rejected peer.
+            if not room.peers:
+                self.remove_room(slug)
+            return RegisterResult.HOST_TAKEN
+        if len(room.peers) >= MAX_PEERS_PER_ROOM:
+            if not room.peers:
+                self.remove_room(slug)
+            return RegisterResult.ROOM_FULL
+        # All admission checks passed — set host-index then add the peer.
+        # Order matters: setting host_id first matches the pre-refactor
+        # "set uploader_id AFTER the peer cap check to avoid orphaning it
+        # on early return" invariant.
+        if peer.role == "host":
+            room.host_id = peer.peer_id
+        room.peers[peer.peer_id] = peer
+        return RegisterResult.OK
+
+    async def peer_exists(self, slug: str, peer_id: str) -> bool:
+        """Return True if ``peer_id`` is registered in ``slug``."""
+        room = self._rooms.get(slug)
+        return room is not None and peer_id in room.peers
+
+    async def host_id_for(self, slug: str) -> str | None:
+        """Return the current host's peer_id for ``slug``, or None."""
+        room = self._rooms.get(slug)
+        return room.host_id if room is not None else None
 
     async def close_room(self, slug: str) -> bool:
         """Close a signaling room, disconnecting all peers.
@@ -599,10 +644,10 @@ async def _handle_binary_relay(
     if not relay_target_id:
         return True
     # Existence check: avoid rate-limit accounting for sends to absent peers.
-    # The actual delivery happens through signaling_manager.send_to_peer below
-    # so a future Redis-backed transport can route to a peer on another worker
-    # without this handler caring.
-    if relay_target_id not in room.peers:
+    # Dispatched through the transport so a Redis-backed implementation
+    # (PR 4c) can check membership across workers without changing this
+    # handler. The rate-limit counters below stay per-worker by design.
+    if not await signaling_manager.peer_exists(canonical_slug, relay_target_id):
         return True
     # Rate limit and size cap — check before incrementing to prevent bypass
     binary_payload = binary_data[4 + header_len :]
@@ -630,7 +675,7 @@ async def _handle_binary_relay(
 
 
 async def _handle_relay_control(
-    ws: WebSocket, peer: Peer, room: Room, msg: dict[str, Any], canonical_slug: str
+    ws: WebSocket, peer: Peer, msg: dict[str, Any], canonical_slug: str
 ) -> bool:
     """Handle relay control messages (relay:start/ack/done/data).
 
@@ -644,7 +689,7 @@ async def _handle_relay_control(
     if not target_id:
         await _send_error(ws, "Missing targetId for relay")
         return True
-    if target_id not in room.peers:
+    if not await signaling_manager.peer_exists(canonical_slug, target_id):
         await _send_error(ws, "Relay target not found")
         return True
 
@@ -673,7 +718,6 @@ async def _handle_relay_control(
 async def _handle_webrtc_signaling(
     ws: WebSocket,
     peer: Peer,
-    room: Room,
     msg: dict[str, Any],
     canonical_slug: str,
 ) -> bool:
@@ -690,13 +734,13 @@ async def _handle_webrtc_signaling(
     target_id = msg.get("targetId")
     if not target_id:
         # For connect-request from guest, route to the room's host.
-        if msg_type == "connect-request" and room.host_id:
-            target_id = room.host_id
-        else:
+        if msg_type == "connect-request":
+            target_id = await signaling_manager.host_id_for(canonical_slug)
+        if not target_id:
             await _send_error(ws, "Missing targetId")
             return True
 
-    if target_id not in room.peers:
+    if not await signaling_manager.peer_exists(canonical_slug, target_id):
         await _send_error(ws, "Target peer not found")
         return True
 
@@ -771,36 +815,36 @@ async def handle_signaling(ws: WebSocket, slug: str, redis: Redis) -> None:
         return
     peer, canonical_slug = auth_result
 
-    room = signaling_manager.get_or_create_room(canonical_slug)
-    if room is None:
+    # Atomically admit the peer. register_peer consolidates the previous
+    # inline sequence (get_or_create_room / one-host check / peer-cap check /
+    # host_id assignment / peers dict insert) into one call. Error messages
+    # and WebSocket close codes match the pre-refactor inline versions byte
+    # for byte so existing clients don't see any change.
+    result = await signaling_manager.register_peer(canonical_slug, peer)
+    if result is RegisterResult.ROOM_LIMIT_REACHED:
         await _send_error(ws, "Server room limit reached")
         await ws.close(code=4029, reason="Too many rooms")
         return
-
-    # Enforce one host per room.
-    if peer.role == "host":
-        if room.host_id is not None:
-            await _send_error(ws, "Room already has a host")
-            await ws.close(code=4009, reason="Host already connected")
-            # Clean up empty room if we just created it
-            if not room.peers:
-                signaling_manager.remove_room(canonical_slug)
-            return
-
-    # Enforce per-room peer cap (prevents single-room DoS)
-    if len(room.peers) >= MAX_PEERS_PER_ROOM:
+    if result is RegisterResult.HOST_TAKEN:
+        await _send_error(ws, "Room already has a host")
+        await ws.close(code=4009, reason="Host already connected")
+        return
+    if result is RegisterResult.ROOM_FULL:
         await _send_error(ws, "Room is full")
         await ws.close(code=4029, reason="Room peer limit reached")
-        # Clean up empty room if we just created it
-        if not room.peers:
-            signaling_manager._rooms.pop(canonical_slug, None)
         return
 
-    # Set host_id AFTER the peer cap check to avoid orphaning it on early return.
-    if peer.role == "host":
-        room.host_id = peer.peer_id
-
-    room.peers[peer.peer_id] = peer
+    # register_peer returned OK — fetch the room to satisfy _handle_binary_relay
+    # which still needs direct access to the per-worker rate-limit counters
+    # (room.relay_bytes, room._relay_window_*). Those stay local by design
+    # in this PR; PR 4c decides whether to promote them into Redis.
+    room = signaling_manager.get_room(canonical_slug)
+    if room is None:
+        # Should be unreachable: register_peer.OK implies the room exists.
+        # Fail safe rather than crash on the unlikely race.
+        await _send_error(ws, "Internal error")
+        await ws.close(code=1011, reason="Internal error")
+        return
 
     # From here, all exits go through the finally block for cleanup
     msg_count = 0
@@ -880,10 +924,14 @@ async def handle_signaling(ws: WebSocket, slug: str, redis: Redis) -> None:
                 await _send_error(ws, "Invalid JSON")
                 continue
 
-            # Dispatch to message type handlers
-            if await _handle_relay_control(ws, peer, room, msg, canonical_slug):
+            # Dispatch to message type handlers.
+            # _handle_relay_control and _handle_webrtc_signaling no longer
+            # take `room` — they go through the transport instead. Only
+            # _handle_binary_relay keeps `room` (above) because rate-limit
+            # accounting is per-worker in this PR.
+            if await _handle_relay_control(ws, peer, msg, canonical_slug):
                 continue
-            if await _handle_webrtc_signaling(ws, peer, room, msg, canonical_slug):
+            if await _handle_webrtc_signaling(ws, peer, msg, canonical_slug):
                 continue
             await _send_error(ws, "Unknown message type")
     except WebSocketDisconnect:
