@@ -30,7 +30,7 @@ dependencies = [
   "python-dateutil>=2.9.0.post0",
   # ── Auth & security ──────────────────────────────────────────
   "pyjwt>=2.12.0",
-  "authlib>=1.6.0",
+  "authlib>=1.6.11",
   "httpx-oauth>=0.16.0",
   "cryptography>=46.0.7",
   "itsdangerous>=2.2.0",
