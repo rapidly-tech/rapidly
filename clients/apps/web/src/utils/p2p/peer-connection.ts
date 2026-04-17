@@ -69,6 +69,9 @@ export class PeerDataConnection {
   onOpen: (() => void) | null = null
   onClose: (() => void) | null = null
   onError: ((err: Error) => void) | null = null
+  onTrack:
+    | ((track: MediaStreamTrack, streams: readonly MediaStream[]) => void)
+    | null = null
 
   get open(): boolean {
     return this._open
@@ -123,6 +126,19 @@ export class PeerDataConnection {
         // TURN allocations and prevent resource leaks (not just fire onClose)
         this.close()
       }
+    }
+
+    this.pc.ontrack = (event) => {
+      this.onTrack?.(event.track, event.streams)
+    }
+
+    // Mid-session renegotiation. Fires when addTrack / removeTrack mutates
+    // the local SDP after the initial offer was already answered. We must
+    // early-return for the initial handshake otherwise createOffer() would
+    // race with this path and send two offers back-to-back.
+    this.pc.onnegotiationneeded = () => {
+      if (!this._hasRemoteDescription) return
+      void this._renegotiate()
     }
   }
 
@@ -197,6 +213,62 @@ export class PeerDataConnection {
       return
     }
     await this.pc.addIceCandidate(candidate)
+  }
+
+  // ── Media tracks ──
+  //
+  // Screen chamber (and future video-capable chambers) attach tracks here.
+  // File-sharing flows never call addTrack, so the data-channel path is
+  // unaffected.
+
+  /**
+   * Attach a local track. Call before createOffer() on the initial handshake;
+   * calling after the connection is up triggers onnegotiationneeded which
+   * re-runs the offer/answer exchange through the existing signaling channel.
+   */
+  addTrack(track: MediaStreamTrack, stream: MediaStream): RTCRtpSender {
+    return this.pc.addTrack(track, stream)
+  }
+
+  /**
+   * Detach a previously added track. If the peer connection is already
+   * established, removal triggers onnegotiationneeded and a fresh SDP
+   * exchange.
+   */
+  removeTrack(sender: RTCRtpSender): void {
+    this.pc.removeTrack(sender)
+  }
+
+  /** Current local senders — useful for building a local-preview MediaStream
+   *  at the call site or for iterating during teardown. */
+  getLocalSenders(): readonly RTCRtpSender[] {
+    return this.pc.getSenders()
+  }
+
+  /**
+   * Re-run the offer/answer handshake over signaling after a track change.
+   * Only called from the onnegotiationneeded handler, and only after the
+   * initial remote description is set (the handler enforces that gate).
+   */
+  private async _renegotiate(): Promise<void> {
+    try {
+      const offer = await this.pc.createOffer()
+      await this.pc.setLocalDescription(offer)
+      const sdp = this.pc.localDescription?.sdp
+      if (!sdp) {
+        throw new Error('Failed to get local SDP during renegotiation')
+      }
+      this.signaling.send({
+        type: 'offer',
+        targetId: this.remotePeerId,
+        sdp,
+      })
+    } catch (err) {
+      logger.error('[PeerDataConnection] renegotiation failed:', err)
+      this.onError?.(
+        err instanceof Error ? err : new Error('Renegotiation failed'),
+      )
+    }
   }
 
   /** Flush any buffered ICE candidates after remoteDescription is set. */
@@ -365,6 +437,16 @@ export class PeerDataConnection {
       clearTimeout(entry.timer)
     }
     this._fragBuf.clear()
+    // Stop every locally-attached track so the browser's capture indicator
+    // (red dot for camera/screen share) clears immediately on teardown —
+    // pc.close() alone does not stop MediaStreamTracks.
+    for (const sender of this.pc.getSenders()) {
+      try {
+        sender.track?.stop()
+      } catch {
+        /* ignore — track may already be ended */
+      }
+    }
     // Save onClose before nulling so timers/state get cleaned up after teardown
     const alreadyFired = this._closeFired
     this._closeFired = true
@@ -373,6 +455,7 @@ export class PeerDataConnection {
     this.onOpen = null
     this.onClose = null
     this.onError = null
+    this.onTrack = null
     if (this.dc) {
       try {
         this.dc.close()
