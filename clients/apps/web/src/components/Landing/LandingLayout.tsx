@@ -93,6 +93,7 @@ interface NavigationItem {
 const mobileFeatureItems: NavigationItem[] = [
   { title: 'Secure Sharing', href: '/features/shares' },
   { title: 'Secret Messages', href: '/features/secret-messages' },
+  { title: 'Screen Share', href: '/features/screen-share' },
   { title: 'Payments', href: '/features/payments' },
   { title: 'Finance', href: '/features/finance' },
 ]
@@ -211,6 +212,11 @@ const LandingPageDesktopNavigation = () => {
           href: '/features/secret-messages',
           label: 'Secret Messages',
           subtitle: 'Encrypted text sharing',
+        },
+        {
+          href: '/features/screen-share',
+          label: 'Screen Share',
+          subtitle: 'End-to-end encrypted P2P screen sharing',
         },
         {
           href: '/features/payments',

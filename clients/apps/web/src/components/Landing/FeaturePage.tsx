@@ -23,6 +23,9 @@ const iconMap: Record<string, string> = {
   TrendingUp: 'solar:graph-up-linear',
   FileText: 'solar:document-text-linear',
   GitHub: 'mdi:github',
+  Monitor: 'solar:monitor-linear',
+  Users: 'solar:users-group-rounded-linear',
+  Wifi: 'solar:wi-fi-router-linear',
 }
 
 // ── Animation ──
