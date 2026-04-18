@@ -151,25 +151,33 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
     const bytes =
       msg.bytes instanceof Uint8Array ? msg.bytes : new Uint8Array(msg.bytes)
 
-    if (msg.t === 'y-sync-1') {
-      // Peer sent us their state vector — reply with the diff they lack.
-      const diff = Y.encodeStateAsUpdate(doc, bytes)
-      void transport.send({ t: 'y-sync-2', bytes: diff }).catch(() => {
-        /* swallowed */
-      })
-      return
-    }
+    // Yjs's decoders throw on malformed input. A malformed frame from
+    // any peer (a hostile peer, a bug, an AES-GCM auth-tag failure
+    // once E2EE lands — see specs/collab-e2ee.md) must not take down
+    // the inbound handler for every other peer. Log-and-drop.
+    try {
+      if (msg.t === 'y-sync-1') {
+        const diff = Y.encodeStateAsUpdate(doc, bytes)
+        void transport.send({ t: 'y-sync-2', bytes: diff }).catch(() => {
+          /* swallowed */
+        })
+        return
+      }
 
-    if (msg.t === 'y-sync-2') {
-      // An update — apply with ``'remote'`` origin so our update
-      // handler does not re-broadcast and cause a ping-pong.
-      Y.applyUpdate(doc, bytes, 'remote')
-      return
-    }
+      if (msg.t === 'y-sync-2') {
+        // An update — apply with ``'remote'`` origin so our update
+        // handler does not re-broadcast and cause a ping-pong.
+        Y.applyUpdate(doc, bytes, 'remote')
+        return
+      }
 
-    if (msg.t === 'y-awareness') {
-      applyAwarenessUpdate(awareness, bytes, 'remote')
-      return
+      if (msg.t === 'y-awareness') {
+        applyAwarenessUpdate(awareness, bytes, 'remote')
+        return
+      }
+    } catch {
+      /* malformed frame — drop silently. Safer than surfacing a
+       * stack trace that might echo peer-controlled bytes. */
     }
   }
 
