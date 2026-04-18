@@ -260,6 +260,58 @@ describe('createCollabRoom — peer lifecycle', () => {
   })
 })
 
+describe('createCollabRoom — malformed-frame resilience', () => {
+  it('drops a malformed y-sync-2 without crashing subsequent updates', async () => {
+    // Pins the "log-and-drop" contract in the provider's handleInbound.
+    // A hostile peer could inject arbitrary bytes; a buggy client could
+    // double-encode; once E2EE lands (specs/collab-e2ee.md), AES-GCM
+    // auth-tag failures produce the same shape. None of those paths
+    // should break room state.
+    const roomA = createCollabRoom({ selfPeerId: 'a' })
+    const roomB = createCollabRoom({ selfPeerId: 'b' })
+    const { a, b } = makeTransportPair('a', 'b')
+    roomA.addPeer(a)
+    roomB.addPeer(b)
+    await flush()
+
+    // Inject a fake y-sync-2 with garbage bytes via the transport B
+    // sees inbound (we reach into the pair by sending from A's side).
+    await a.send({ t: 'y-sync-2', bytes: new Uint8Array([0xff, 0xff, 0xff]) })
+    await flush()
+
+    // Room B is still alive and subsequent legitimate edits still sync.
+    roomA.doc.getText('t').insert(0, 'after')
+    await flush()
+    expect(roomB.doc.getText('t').toString()).toBe('after')
+
+    roomA.close()
+    roomB.close()
+  })
+
+  it('drops a malformed y-awareness without crashing subsequent updates', async () => {
+    const roomA = createCollabRoom({ selfPeerId: 'a' })
+    const roomB = createCollabRoom({ selfPeerId: 'b' })
+    const { a, b } = makeTransportPair('a', 'b')
+    roomA.addPeer(a)
+    roomB.addPeer(b)
+    await flush()
+
+    await a.send({
+      t: 'y-awareness',
+      bytes: new Uint8Array([0x00, 0x01, 0x02, 0x03]),
+    })
+    await flush()
+
+    roomA.awareness.setLocalState({ name: 'still-works' })
+    await flush()
+    const entry = roomB.awareness.getStates().get(roomA.awareness.clientID)
+    expect(entry).toEqual({ name: 'still-works' })
+
+    roomA.close()
+    roomB.close()
+  })
+})
+
 describe('createCollabRoom — Y.Map and Y.Array shapes', () => {
   it('syncs Y.Map edits', async () => {
     const doc = new Y.Doc()
