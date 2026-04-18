@@ -11,6 +11,7 @@ from fastapi import APIRouter
 # ("screen", "host") and ("screen", "guest") at import time — before any
 # WebSocket can dispatch to the registry. The import is a side-effect
 # (registration via decorator); the name itself is unused here.
+import rapidly.sharing.call.signaling_validators
 import rapidly.sharing.screen.signaling_validators
 import rapidly.sharing.watch.signaling_validators  # noqa: F401
 from rapidly.analytics.event.api import router as event_router
@@ -58,6 +59,7 @@ from rapidly.platform.workspace.api import router as workspace_router
 from rapidly.platform.workspace_access_token.api import (
     router as workspace_access_token_router,
 )
+from rapidly.sharing.call.api import router as call_router
 from rapidly.sharing.file_sharing.api import router as file_sharing_router
 from rapidly.sharing.screen.api import router as screen_router
 from rapidly.sharing.storefront.api import router as storefront_router
@@ -108,6 +110,8 @@ router.include_router(file_sharing_router)
 router.include_router(screen_router)
 # watch-together sessions (gated by FILE_SHARING_WATCH_ENABLED)
 router.include_router(watch_router)
+# call sessions (gated by FILE_SHARING_CALL_ENABLED)
+router.include_router(call_router)
 
 # ── Customer lifecycle ──
 

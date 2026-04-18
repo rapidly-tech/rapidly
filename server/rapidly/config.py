@@ -323,6 +323,10 @@ class Settings(BaseSettings):
     # specs/watch-chamber-plan.md.
     FILE_SHARING_WATCH_ENABLED: bool = False
 
+    # Enables the Call chamber API (/api/v1/call/*). Default False. See
+    # specs/call-chamber-plan.md. v1 is a 4-participant mesh.
+    FILE_SHARING_CALL_ENABLED: bool = False
+
     # Signaling backend. "memory" keeps room state in-process (requires a
     # single worker); "redis" uses Redis hashes + pub/sub for cross-worker
     # signaling. Default stays on "memory" so existing deployments keep
