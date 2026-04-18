@@ -3,22 +3,31 @@
 Phase B is merged. This doc is the operator playbook for flipping the two flags and validating the stack end-to-end on Hetzner staging. Keep this next to the Hetzner terminal when you roll.
 
 ## Prerequisites
-- SSH to the Hetzner staging box.
+- SSH to the staging box. Hostname + SSH host alias + compose-file
+  path live in an uncommitted operator-local env file:
+
+  ```bash
+  # ~/.rapidly/staging.env (not committed; chmod 600)
+  STAGING_SSH_HOST=<ssh-config-alias>
+  STAGING_HTTP_URL=https://<staging-hostname>
+  STAGING_COMPOSE_FILE=<path-to-compose-file>
+  ```
+  Source it: `source ~/.rapidly/staging.env`.
 - Access to the staging frontend build environment (so you can set `NEXT_PUBLIC_REVOLVER_LANDING`).
 - Two browsers (Chrome + Firefox, or two Chrome profiles) on the same machine or different networks.
 
 ## 1. Flip the backend flag
 
 ```bash
-# On the Hetzner staging host
-ssh staging
+# On the staging host
+ssh "$STAGING_SSH_HOST"
 sudo -i
 cd /opt/rapidly
 # Edit the server env file, find or add:
 #   RAPIDLY_FILE_SHARING_SCREEN_ENABLED=true
 # Then restart only the API container to pick up the change:
-docker compose -f docker-compose.staging.yml up -d api
-docker compose -f docker-compose.staging.yml logs -f api --tail=50
+docker compose -f "$STAGING_COMPOSE_FILE" up -d api
+docker compose -f "$STAGING_COMPOSE_FILE" logs -f api --tail=50
 ```
 
 The API should log `[INFO] screen_session_created` events once you run step 4. If you see `AttributeError: ... FILE_SHARING_SCREEN_ENABLED` on boot, the env var did not reach the container — check `docker compose config | grep SCREEN`.
@@ -38,7 +47,7 @@ The revolver replaces the current landing once the new build ships. **This flag 
 ## 3. Smoke-test the API from your laptop
 
 ```bash
-export STAGING=https://staging.rapidly.tech   # adjust to your staging domain
+export STAGING="$STAGING_HTTP_URL"
 
 # Create a screen session. Response should include short_slug + secret.
 curl -sS -X POST "$STAGING/api/v1/screen/session" \

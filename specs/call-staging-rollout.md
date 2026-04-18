@@ -5,7 +5,16 @@ Phase D v1 (1:1 calls) is merged. Operator playbook for flipping
 two-browser call validation.
 
 ## Prerequisites
-- SSH to the Hetzner staging box.
+- SSH to the staging box. Hostname + SSH host alias + compose-file
+  path live in an uncommitted operator-local env file:
+
+  ```bash
+  # ~/.rapidly/staging.env (not committed; chmod 600)
+  STAGING_SSH_HOST=<ssh-config-alias>
+  STAGING_HTTP_URL=https://<staging-hostname>
+  STAGING_COMPOSE_FILE=<path-to-compose-file>
+  ```
+  Source it: `source ~/.rapidly/staging.env`.
 - Two browsers with different cameras/mics available (two laptops, or
   two tabs on the same laptop with separate virtual devices). Chrome +
   Firefox is the easiest.
@@ -15,13 +24,13 @@ two-browser call validation.
 ## 1. Flip the backend flag
 
 ```bash
-ssh staging
+ssh "$STAGING_SSH_HOST"
 sudo -i
 cd /opt/rapidly
 # Edit the server env file, add / uncomment:
 #   RAPIDLY_FILE_SHARING_CALL_ENABLED=true
-docker compose -f docker-compose.staging.yml up -d api
-docker compose -f docker-compose.staging.yml logs -f api --tail=50
+docker compose -f "$STAGING_COMPOSE_FILE" up -d api
+docker compose -f "$STAGING_COMPOSE_FILE" logs -f api --tail=50
 ```
 
 Expect `call_session_created` log entries once step 4 runs.
@@ -39,7 +48,7 @@ backend is enabled the pages just work.
 ## 3. API smoke
 
 ```bash
-export STAGING=https://staging.rapidly.tech
+export STAGING="$STAGING_HTTP_URL"
 
 curl -sS -X POST "$STAGING/api/v1/call/session" \
   -H 'Content-Type: application/json' \
