@@ -34,29 +34,27 @@ type BusFrame = {
   msg: { t: string; bytes: Uint8Array }
 }
 
-/** A tiny bus that routes ``{from, to, msg}`` frames to per-peer handlers.
- *
- *  Messages are delivered synchronously in FIFO order. That's stronger
- *  than a real DataChannel but enough to prove the invariants we care
- *  about; a timing-sensitive test would be flaky and not buy anything. */
+/** A tiny bus that routes ``{from, to, msg}`` frames to per-PAIR
+ *  handlers. The pair key is ``"from->to"`` so each directional edge
+ *  has its own handler slot — without this, a room with two
+ *  transports (one per peer) would deliver every inbound frame to
+ *  BOTH transport handlers and confuse any per-peer state the
+ *  provider tracks (PR 35's awareness counters notably). */
 class Bus {
   private handlers = new Map<
     string,
-    Array<(msg: { t: string; bytes: Uint8Array }) => void>
+    (msg: { t: string; bytes: Uint8Array }) => void
   >()
 
   subscribe(
-    peerId: string,
+    fromId: string,
+    toId: string,
     handler: (msg: { t: string; bytes: Uint8Array }) => void,
   ): () => void {
-    const arr = this.handlers.get(peerId) ?? []
-    arr.push(handler)
-    this.handlers.set(peerId, arr)
+    const key = `${fromId}->${toId}`
+    this.handlers.set(key, handler)
     return () => {
-      const current = this.handlers.get(peerId)
-      if (!current) return
-      const idx = current.indexOf(handler)
-      if (idx >= 0) current.splice(idx, 1)
+      this.handlers.delete(key)
     }
   }
 
@@ -64,16 +62,15 @@ class Bus {
     // Deliver on a microtask — matches real-DC async behaviour and
     // gives other peers a chance to subscribe before the hello fires.
     queueMicrotask(() => {
-      const arr = this.handlers.get(frame.to)
-      if (!arr) return
-      for (const h of arr) h(frame.msg)
+      const h = this.handlers.get(`${frame.from}->${frame.to}`)
+      if (h) h(frame.msg)
     })
   }
 }
 
-/** Build a ``CollabTransport`` on ``ownerId`` that ships messages to
- *  ``remoteId`` via the shared bus. The returned transport is what the
- *  room sees — it does not know about the bus. */
+/** Build a ``CollabTransport`` for the directional edge
+ *  ``ownerId → remoteId``. Inbound frames are those with
+ *  ``from=remoteId, to=ownerId``. */
 function makeTransport(
   bus: Bus,
   ownerId: string,
@@ -85,18 +82,17 @@ function makeTransport(
       bus.send({ from: ownerId, to: remoteId, msg })
     },
     onMessage(h) {
-      // Subscribe on behalf of ``ownerId``. The bus only delivers
-      // messages addressed to us.
-      return bus.subscribe(ownerId, h)
+      return bus.subscribe(remoteId, ownerId, h)
     },
   }
 }
 
 async function flush(): Promise<void> {
-  // N-peer mesh (PR 21) + handshake (PR 24) means more round-trips
-  // per message than the 2-peer tests. Four cycles keeps the harness
-  // deterministic even with concurrent test workers.
-  for (let i = 0; i < 4; i += 1) {
+  // N-peer mesh (PR 21) + handshake (PR 24) + per-frame counter
+  // stamping (PR 35) means more async hops per message than the
+  // 2-peer tests. 8 cycles keeps the harness deterministic even
+  // under concurrent test workers.
+  for (let i = 0; i < 8; i += 1) {
     await new Promise((r) => setTimeout(r, 0))
   }
 }

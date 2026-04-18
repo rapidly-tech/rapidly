@@ -61,12 +61,18 @@ export interface CollabTransport {
   onMessage(handler: (msg: CollabWireMessage) => void): () => void
 }
 
-/** Every message on the wire. ``iv`` is present when the message was
- *  encrypted; absent for plaintext + for the hello handshake itself. */
+/** Every message on the wire.
+ *  - ``iv`` is present when the message was encrypted; absent for
+ *    plaintext + for the hello handshake itself.
+ *  - ``c`` is the per-sender monotonic counter for replay protection
+ *    on ``y-awareness``. Present only on v1.1.1+ awareness frames;
+ *    receivers tolerate missing ``c`` for back-compat with v1.1.
+ *    See specs/collab-e2ee-security-review.md Concern §2. */
 export type CollabWireMessage = {
   t: string
   bytes: Uint8Array
   iv?: Uint8Array
+  c?: number
 }
 
 const KNOWN_TYPES = new Set([
@@ -89,6 +95,7 @@ export function isCollabMessage(x: unknown): x is CollabWireMessage {
       return false
     }
   }
+  if (obj.c !== undefined && typeof obj.c !== 'number') return false
   return true
 }
 
@@ -153,6 +160,15 @@ type PeerState = {
   useE2ee: boolean
   /** Messages queued while the handshake is in flight. */
   pendingOut: CollabWireMessage[]
+  /** Monotonic counter for outbound ``y-awareness`` frames to this
+   *  peer. Starts at 0, increments per send. Receiver uses it to
+   *  drop replayed awareness frames. */
+  outboundAwarenessC: number
+  /** Highest ``c`` value seen on an inbound ``y-awareness`` from this
+   *  peer. Frames with ``c <= awarenessMaxC`` are dropped as replays.
+   *  Frames missing ``c`` (from v1.1 clients) bypass the check for
+   *  backward compatibility. */
+  awarenessMaxC: number
 }
 
 export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
@@ -167,10 +183,18 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
     t: 'y-sync-1' | 'y-sync-2' | 'y-awareness',
     plaintext: Uint8Array,
   ): Promise<CollabWireMessage> {
-    if (!peer.useE2ee || !opts.keys) return { t, bytes: plaintext }
+    // Stamp an outbound counter on every awareness frame so the
+    // receiver can drop replays. Sync frames don't need it — Yjs's
+    // applyUpdate is idempotent and stale updates are harmless.
+    const c = t === 'y-awareness' ? ++peer.outboundAwarenessC : undefined
+    if (!peer.useE2ee || !opts.keys) {
+      return c !== undefined
+        ? { t, bytes: plaintext, c }
+        : { t, bytes: plaintext }
+    }
     const key = t === 'y-awareness' ? opts.keys.awareness : opts.keys.sync
     const { iv, bytes } = await encryptGcm(key, plaintext)
-    return { t, iv, bytes }
+    return c !== undefined ? { t, iv, bytes, c } : { t, iv, bytes }
   }
 
   async function decryptIfNeeded(
@@ -312,6 +336,13 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
         } else if (msg.t === 'y-sync-2') {
           Y.applyUpdate(doc, plaintext, 'remote')
         } else if (msg.t === 'y-awareness') {
+          // Replay protection — drop frames with a non-increasing
+          // counter. Frames missing ``c`` pass through for back-compat
+          // with v1.1 clients (which predate this protection).
+          if (typeof msg.c === 'number') {
+            if (msg.c <= peer.awarenessMaxC) return
+            peer.awarenessMaxC = msg.c
+          }
           applyAwarenessUpdate(awareness, plaintext, 'remote')
         }
       } catch {
@@ -333,6 +364,8 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
       settled: false,
       useE2ee: false,
       pendingOut: [],
+      outboundAwarenessC: 0,
+      awarenessMaxC: 0,
     }
     state.unsubscribe = transport.onMessage((m) => handleInbound(transport, m))
     peers.set(transport.peerId, state)
