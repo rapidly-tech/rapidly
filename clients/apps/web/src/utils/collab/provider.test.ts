@@ -23,8 +23,9 @@ interface TransportPair {
 }
 
 /** Build an A↔B transport pair. ``a.send`` delivers to every handler
- *  registered on ``b`` and vice versa, synchronously — Yjs update
- *  delivery doesn't need async ordering for these tests. */
+ *  registered on ``b`` and vice versa on the next microtask — matching
+ *  the DC's real async behaviour. A synchronous deliver would break
+ *  the handshake: A's hello fires before B's addPeer subscribes. */
 function makeTransportPair(idA = 'peer-a', idB = 'peer-b'): TransportPair {
   const handlersA: Array<(msg: { t: string; bytes: Uint8Array }) => void> = []
   const handlersB: Array<(msg: { t: string; bytes: Uint8Array }) => void> = []
@@ -32,6 +33,7 @@ function makeTransportPair(idA = 'peer-a', idB = 'peer-b'): TransportPair {
   const a: CollabTransport = {
     peerId: idB, // from A's perspective the remote is B
     async send(msg) {
+      await Promise.resolve()
       for (const h of handlersB) h(msg)
     },
     onMessage(h) {
@@ -45,6 +47,7 @@ function makeTransportPair(idA = 'peer-a', idB = 'peer-b'): TransportPair {
   const b: CollabTransport = {
     peerId: idA,
     async send(msg) {
+      await Promise.resolve()
       for (const h of handlersA) h(msg)
     },
     onMessage(h) {
@@ -58,13 +61,14 @@ function makeTransportPair(idA = 'peer-a', idB = 'peer-b'): TransportPair {
   return { a, b }
 }
 
-// Yjs updates propagate through the transport synchronously in this
-// harness, but the provider uses ``void transport.send(...).catch(...)``
-// which resolves on the microtask queue. Flushing lets assertions see
-// the converged state.
+// The handshake (PR 24) + sync-1/2 round-trip + async encrypt/decrypt
+// (when E2EE is on) can take several microtask cycles to settle.
+// Four cycles is the budget where even under parallel-test load the
+// harness reliably delivers.
 async function flush(): Promise<void> {
-  await new Promise((r) => setTimeout(r, 0))
-  await new Promise((r) => setTimeout(r, 0))
+  for (let i = 0; i < 4; i += 1) {
+    await new Promise((r) => setTimeout(r, 0))
+  }
 }
 
 // ── Tests ──
