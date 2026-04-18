@@ -61,9 +61,13 @@ class Bus {
   }
 
   send(frame: BusFrame): void {
-    const arr = this.handlers.get(frame.to)
-    if (!arr) return
-    for (const h of arr) h(frame.msg)
+    // Deliver on a microtask — matches real-DC async behaviour and
+    // gives other peers a chance to subscribe before the hello fires.
+    queueMicrotask(() => {
+      const arr = this.handlers.get(frame.to)
+      if (!arr) return
+      for (const h of arr) h(frame.msg)
+    })
   }
 }
 
@@ -89,8 +93,12 @@ function makeTransport(
 }
 
 async function flush(): Promise<void> {
-  await new Promise((r) => setTimeout(r, 0))
-  await new Promise((r) => setTimeout(r, 0))
+  // N-peer mesh (PR 21) + handshake (PR 24) means more round-trips
+  // per message than the 2-peer tests. Four cycles keeps the harness
+  // deterministic even with concurrent test workers.
+  for (let i = 0; i < 4; i += 1) {
+    await new Promise((r) => setTimeout(r, 0))
+  }
 }
 
 // ── Tests ──
@@ -158,11 +166,16 @@ describe('CollabRoom — 3-peer mesh', () => {
     const a = createCollabRoom({ selfPeerId: 'a' })
     const b = createCollabRoom({ selfPeerId: 'b' })
 
-    // A and B establish first, edit together.
+    // A and B establish first, edit together. Sequenced inserts + a
+    // flush between them so each peer has seen the other's update
+    // before its own next insert — otherwise the second insert races
+    // against the first's in-flight propagation and Yjs clamps the
+    // offset to the remote-visible length.
     a.addPeer(makeTransport(bus, 'a', 'b'))
     b.addPeer(makeTransport(bus, 'b', 'a'))
     await flush()
     a.doc.getText('t').insert(0, 'early ')
+    await flush()
     b.doc.getText('t').insert(6, 'edits')
     await flush()
     expect(a.doc.getText('t').toString()).toBe('early edits')
