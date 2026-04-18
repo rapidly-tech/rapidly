@@ -16,6 +16,41 @@ from rapidly.sharing.file_sharing.queries import (
 from rapidly.sharing.file_sharing.signaling import _AUTH_VALIDATORS
 
 
+async def _make_sibling_channel(redis: Redis, kind: str) -> tuple[ChannelData, str]:
+    """Create a channel for a non-Collab chamber using its own service.
+
+    Routing through each chamber's ``create_*`` function (instead of
+    hand-rolling ``ChannelData``) keeps the tests honest: if a sibling
+    chamber changes its constructor shape the helper breaks loudly,
+    and our invariant stays pinned against the chamber as actually
+    shipped.
+    """
+    if kind == "file":
+        return await ChannelRepository(redis).create_channel(ttl=600)
+    if kind == "screen":
+        from rapidly.sharing.screen import actions as screen_service
+
+        return await screen_service.create_screen_session(
+            redis, title=None, max_viewers=2
+        )
+    if kind == "watch":
+        from rapidly.sharing.watch import actions as watch_service
+
+        return await watch_service.create_watch_session(
+            redis,
+            title=None,
+            max_viewers=2,
+            source_url="https://example.com/video.mp4",
+        )
+    if kind == "call":
+        from rapidly.sharing.call import actions as call_service
+
+        return await call_service.create_call_session(
+            redis, title=None, max_participants=2
+        )
+    raise ValueError(f"unknown sibling kind {kind!r}")
+
+
 class TestSessionKindExtension:
     def test_collab_is_a_registered_kind(self) -> None:
         assert "collab" in SESSION_KINDS
@@ -141,6 +176,25 @@ class TestInviteTokens:
             is None
         )
 
+    @pytest.mark.parametrize(
+        "sibling_kind",
+        ["file", "screen", "watch", "call"],
+    )
+    async def test_mint_refuses_every_sibling_kind(
+        self, redis: Redis, sibling_kind: str
+    ) -> None:
+        """Defense-in-depth: mint must refuse every existing chamber kind.
+
+        Pinning the invariant once per sibling means adding a new
+        session_kind in a future PR cannot silently widen the surface
+        area — the test must be updated explicitly.
+        """
+        channel, secret = await _make_sibling_channel(redis, sibling_kind)
+        assert (
+            await collab_service.mint_invite_token(redis, channel.short_slug, secret)
+            is None
+        )
+
 
 @pytest.mark.asyncio
 class TestGetPublicView:
@@ -201,3 +255,19 @@ class TestCloseCollabSession:
             is False
         )
         assert await repo.fetch_channel(channel.short_slug) is not None
+
+    @pytest.mark.parametrize(
+        "sibling_kind",
+        ["file", "screen", "watch", "call"],
+    )
+    async def test_close_refuses_every_sibling_kind(
+        self, redis: Redis, sibling_kind: str
+    ) -> None:
+        """Defense-in-depth: close must refuse every existing chamber kind."""
+        channel, secret = await _make_sibling_channel(redis, sibling_kind)
+        assert (
+            await collab_service.close_collab_session(redis, channel.short_slug, secret)
+            is False
+        )
+        # Channel must still exist — close refused, nothing destroyed.
+        assert await ChannelRepository(redis).fetch_channel(channel.short_slug)
