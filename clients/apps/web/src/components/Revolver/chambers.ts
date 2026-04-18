@@ -57,7 +57,7 @@ export const CHAMBERS: readonly Chamber[] = [
     label: 'Call',
     icon: 'lucide:phone',
     href: '/call',
-    status: 'soon',
+    status: 'live',
     tagline: 'Encrypted voice + video for 1:1 and small groups.',
   },
   {
