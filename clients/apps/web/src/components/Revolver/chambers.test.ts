@@ -70,13 +70,19 @@ describe('Revolver chamber registry', () => {
     },
   )
 
-  it('ships Files, Secret, Screen, and Watch as live', () => {
+  it('ships Files, Secret, Screen, Watch, and Call as live', () => {
     const liveIds = CHAMBERS.filter((c) => c.status === 'live').map((c) => c.id)
-    expect(liveIds.sort()).toEqual(['files', 'screen', 'secret', 'watch'])
+    expect(liveIds.sort()).toEqual([
+      'call',
+      'files',
+      'screen',
+      'secret',
+      'watch',
+    ])
   })
 
-  it('ships Call and Collab as soon', () => {
+  it('ships only Collab as soon', () => {
     const soonIds = CHAMBERS.filter((c) => c.status === 'soon').map((c) => c.id)
-    expect(soonIds.sort()).toEqual(['call', 'collab'])
+    expect(soonIds.sort()).toEqual(['collab'])
   })
 })
