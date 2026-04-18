@@ -6,8 +6,12 @@ import Link from 'next/link'
 import { useMemo } from 'react'
 
 // ── Icon Registry ──
-
-const iconMap: Record<string, string> = {
+//
+// Exported so tests can assert every icon name used on a feature page
+// is actually mapped. An unmapped name silently renders nothing — an
+// easy regression to miss because the page still lays out correctly
+// without the glyph.
+export const iconMap: Record<string, string> = {
   Lock: 'solar:lock-linear',
   ArrowLeftRight: 'solar:transfer-horizontal-linear',
   Infinity: 'solar:infinity-linear',
@@ -31,6 +35,7 @@ const iconMap: Record<string, string> = {
   Phone: 'solar:phone-linear',
   Mic: 'solar:microphone-linear',
   Video: 'solar:videocamera-linear',
+  Link: 'solar:link-linear',
 }
 
 // ── Animation ──
