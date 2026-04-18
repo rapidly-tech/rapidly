@@ -111,27 +111,29 @@ distinguish a v1 client from a v1.1 client from the signaling layer.
 - **Backend:** no changes. The invite-token model, channel state, and
   validator registry are all transport-level and agnostic to payload
   encryption.
-- **Client:** v1.1 clients must handshake a small `y-sync-hello`
-  message that advertises `{"e": "v1"}`. If either side does not
-  present this, both fall back to plaintext (v1 behaviour). This
-  keeps a rolling deployment safe: staging can run v1.1 clients while
-  a single outdated tab on the network stays functional.
+- **Client rolling deploy (PRs B + C):** v1.1 clients handshake a
+  small `y-sync-hello` message advertising `{"e": "v1"}`. During
+  rolling deploy the keyed side fell back to plaintext if the peer
+  had no keys — kept a single stale tab functional.
+- **Post-PR D (no-downgrade):** the keyed side **never** speaks
+  plaintext. A peer without keys either receives ciphertext it can't
+  decode (and the session quietly stops converging), or — if it's a
+  first-party client on the current version — the guest page blocks
+  join at the UI with a clear error before calling `joinAsGuest`.
+  This prevents a link-stripping attacker from forcing plaintext.
 
 ## Implementation PR shape
 
-1. **PR A — primitives**: promote `utils/file-sharing/encryption.ts`
-   to `utils/crypto/aes-gcm.ts` (or re-export from a shared path) so
-   the Collab provider can import without pulling the whole
-   file-sharing module.
-2. **PR B — envelope**: add `{iv, bytes}` framing + `y-sync-hello`
-   handshake to the Collab provider. Feature-gated behind
-   `NEXT_PUBLIC_COLLAB_E2EE=true` for staging rollout.
-3. **PR C — URL fragment**: host puts master key in `#k=...`, guest
-   parses it on page load. Gracefully fail to v1 plaintext when
-   fragment missing.
-4. **PR D — enable + remove fallback**: once all reachable clients
-   are v1.1, drop the plaintext fallback. Flag flipped to `true` by
-   default.
+1. **PR A — primitives** ✅ (#78): `utils/crypto/aes-gcm.ts`,
+   `hkdf.ts`, `master-key.ts`.
+2. **PR B — envelope** ✅ (#79): `{iv, bytes}` framing +
+   `y-sync-hello` handshake. Per-peer E2EE state machine.
+3. **PR C — URL fragment** ✅ (#80): `utils/collab/invite-fragment.ts`.
+   Host mints, guest parses.
+4. **PR D — enable + remove fallback** ✅ (#81): provider refuses to
+   downgrade when the local side has keys. Guest surfaces a clear
+   error on missing fragment. `NEXT_PUBLIC_COLLAB_E2EE` defaults on
+   (opt-out with `=false`).
 
 ## Testing
 
