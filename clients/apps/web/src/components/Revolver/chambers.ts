@@ -49,7 +49,7 @@ export const CHAMBERS: readonly Chamber[] = [
     label: 'Watch',
     icon: 'lucide:play',
     href: '/watch',
-    status: 'soon',
+    status: 'live',
     tagline: 'Watch together, perfectly synced.',
   },
   {
