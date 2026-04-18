@@ -26,6 +26,16 @@ export default defineConfig({
     baseURL: 'http://127.0.0.1:3000',
     trace: 'on-first-retry',
   },
+  // Boot the Next.js dev server for the duration of the test run so
+  // devs can just ``pnpm test:e2e`` without a second terminal. CI
+  // reuses an already-running server if one is up (rare), otherwise
+  // starts one.
+  webServer: {
+    command: 'pnpm dev',
+    url: 'http://127.0.0.1:3000',
+    reuseExistingServer: !process.env.CI,
+    timeout: 120_000,
+  },
   projects: [
     {
       name: 'chromium',

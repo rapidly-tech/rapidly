@@ -8,5 +8,10 @@ export default defineConfig({
   test: {
     environment: 'jsdom',
     passWithNoTests: true,
+    // Playwright owns the e2e/ folder; vitest must ignore it otherwise
+    // both runners would try to parse the same ``.spec.ts`` files with
+    // conflicting globals (vitest ``expect`` vs @playwright/test
+    // ``expect``).
+    exclude: ['node_modules', 'dist', '.next', 'e2e'],
   },
 })
