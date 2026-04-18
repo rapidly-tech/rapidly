@@ -13,6 +13,7 @@ import { useEffect } from 'react'
 import { useCollabRoom } from '@/hooks/collab/useCollabRoom'
 import { CollabDisabledError } from '@/utils/collab/api'
 
+import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
 import { PresenceStrip } from './PresenceStrip'
 
@@ -92,7 +93,11 @@ export function CollabGuestClient({ slug, token }: Props) {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       <PresenceStrip peers={room.peers} selfLabel="You" />
 
-      <CollabEditor doc={room.doc} />
+      {room.view?.kind === 'canvas' && room.clientID !== null ? (
+        <CollabCanvas doc={room.doc} clientID={room.clientID} />
+      ) : (
+        <CollabEditor doc={room.doc} />
+      )}
 
       <div className="flex items-center justify-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow dark:border-slate-800 dark:bg-slate-900">
         <button

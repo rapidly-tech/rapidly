@@ -3,21 +3,24 @@
 /**
  * Host-side Collab chamber UI.
  *
- * "Start a doc" → session created → editor with a copy-invite button
- * and a live presence strip. No camera / mic — this chamber is text.
+ * "Start a doc" → pick kind (text or canvas) → session created →
+ * editor with a copy-invite button and a live presence strip. No
+ * camera / mic.
  */
 
 import { Icon } from '@iconify/react'
 import { useState } from 'react'
 
 import { useCollabRoom } from '@/hooks/collab/useCollabRoom'
-import { CollabDisabledError } from '@/utils/collab/api'
+import { CollabDisabledError, type CollabKind } from '@/utils/collab/api'
 
+import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
 import { PresenceStrip } from './PresenceStrip'
 
 export function CollabHostClient() {
-  const room = useCollabRoom({ options: { kind: 'text', maxParticipants: 4 } })
+  const [kind, setKind] = useState<CollabKind>('text')
+  const room = useCollabRoom({ options: { kind, maxParticipants: 4 } })
   const [lastInvite, setLastInvite] = useState<string | null>(null)
 
   if (room.error instanceof CollabDisabledError) {
@@ -33,7 +36,7 @@ export function CollabHostClient() {
 
   if (room.status === 'idle' || room.status === 'closed') {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="mx-auto flex max-w-lg flex-col items-center gap-5 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-md dark:border-slate-800 dark:bg-slate-900">
         <Icon
           icon="lucide:users"
           width={48}
@@ -41,17 +44,39 @@ export function CollabHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="text-xl font-semibold">Start a collaborative doc</h1>
+        <h1 className="text-xl font-semibold">Start a collaborative session</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400">
-          Realtime text, peer-to-peer. Up to 4 people today; nothing is saved on
-          our servers.
+          Realtime, peer-to-peer. Up to 4 people today; nothing is saved on our
+          servers.
         </p>
+
+        <div
+          className="flex w-full items-center gap-2"
+          role="radiogroup"
+          aria-label="Session kind"
+        >
+          <KindButton
+            active={kind === 'text'}
+            onClick={() => setKind('text')}
+            icon="lucide:file-text"
+            label="Document"
+            hint="Textarea bound to a CRDT"
+          />
+          <KindButton
+            active={kind === 'canvas'}
+            onClick={() => setKind('canvas')}
+            icon="lucide:pen-tool"
+            label="Whiteboard"
+            hint="Freehand canvas"
+          />
+        </div>
+
         <button
           type="button"
           onClick={() => void room.startAsHost()}
           className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none"
         >
-          Start doc
+          Start session
         </button>
         {room.status === 'closed' && (
           <p className="text-xs text-slate-400">Session ended.</p>
@@ -82,7 +107,12 @@ export function CollabHostClient() {
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
       <PresenceStrip peers={room.peers} selfLabel="You (host)" />
 
-      {room.doc && <CollabEditor doc={room.doc} />}
+      {room.doc &&
+        (kind === 'canvas' && room.clientID !== null ? (
+          <CollabCanvas doc={room.doc} clientID={room.clientID} />
+        ) : (
+          <CollabEditor doc={room.doc} />
+        ))}
 
       <div className="flex flex-wrap items-center justify-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow dark:border-slate-800 dark:bg-slate-900">
         <button
@@ -113,5 +143,34 @@ export function CollabHostClient() {
         </p>
       )}
     </div>
+  )
+}
+
+interface KindButtonProps {
+  active: boolean
+  onClick: () => void
+  icon: string
+  label: string
+  hint: string
+}
+
+function KindButton({ active, onClick, icon, label, hint }: KindButtonProps) {
+  return (
+    <button
+      type="button"
+      role="radio"
+      aria-checked={active}
+      onClick={onClick}
+      className={
+        'flex flex-1 flex-col items-center gap-1 rounded-lg border px-3 py-3 text-sm transition ' +
+        (active
+          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100'
+          : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800')
+      }
+    >
+      <Icon icon={icon} width={22} height={22} aria-hidden />
+      <span className="font-medium">{label}</span>
+      <span className="text-xs text-slate-500 dark:text-slate-400">{hint}</span>
+    </button>
   )
 }
