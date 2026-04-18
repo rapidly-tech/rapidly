@@ -12,6 +12,18 @@ import { useCallback } from 'react'
 
 import { useWatchGuest } from '@/hooks/watch/useWatchGuest'
 
+/** Mirror the host-side guard: the session's source_url comes from the
+ *  host via the Rapidly backend, but we still refuse anything that
+ *  isn't plain http(s) before handing it to the browser. */
+function isSafeVideoUrl(input: string): boolean {
+  try {
+    const parsed = new URL(input)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 interface WatchGuestClientProps {
   slug: string
   token: string | null
@@ -94,7 +106,7 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-3">
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-black shadow dark:border-slate-800">
-        {guest.view?.source_url ? (
+        {guest.view?.source_url && isSafeVideoUrl(guest.view.source_url) ? (
           <video
             ref={attachVideoRef}
             src={guest.view.source_url}
@@ -105,7 +117,9 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
           />
         ) : (
           <div className="flex aspect-video items-center justify-center text-slate-400">
-            Host has not set a video URL yet.
+            {guest.view?.source_url
+              ? 'Host sent an unsupported URL.'
+              : 'Host has not set a video URL yet.'}
           </div>
         )}
       </div>

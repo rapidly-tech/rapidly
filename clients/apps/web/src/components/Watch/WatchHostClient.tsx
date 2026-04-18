@@ -14,6 +14,18 @@ import { useEffect, useRef, useState } from 'react'
 import { useWatchHost } from '@/hooks/watch/useWatchHost'
 import { WatchDisabledError } from '@/utils/watch/api'
 
+/** Accept only http(s) URLs as video sources. Without this guard a
+ *  ``javascript:`` URL pasted into the input would execute the moment
+ *  we assigned it to ``video.src`` — a classic XSS-through-DOM sink. */
+function isSafeVideoUrl(input: string): boolean {
+  try {
+    const parsed = new URL(input)
+    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+  } catch {
+    return false
+  }
+}
+
 export function WatchHostClient() {
   const host = useWatchHost()
   const videoRef = useRef<HTMLVideoElement | null>(null)
@@ -22,7 +34,12 @@ export function WatchHostClient() {
 
   // Assign src once the video element is mounted + a URL is present.
   useEffect(() => {
-    if (videoRef.current && host.status === 'active' && url) {
+    if (
+      videoRef.current &&
+      host.status === 'active' &&
+      url &&
+      isSafeVideoUrl(url)
+    ) {
       if (videoRef.current.src !== url) videoRef.current.src = url
     }
   }, [host.status, url])
