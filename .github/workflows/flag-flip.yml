@@ -1,0 +1,133 @@
+# Toggle a FILE_SHARING_*_ENABLED feature flag on a Rapidly environment
+# without an SSH session. Reuses the same Hetzner credentials the
+# deploy workflow already uses; all actions are recorded in the
+# GitHub Actions log (who, when, which flag, which value).
+#
+# Safety:
+#   - The ``flag`` input is constrained to the 4 known chamber flags
+#     plus the NEXT_PUBLIC_REVOLVER_LANDING frontend gate. Anything
+#     else is rejected. No free-form command execution.
+#   - GitHub environment protection rules on `production` / `sandbox`
+#     add approval gates for sensitive flips.
+#   - The sed invocation is bounded to matching ``^KEY=``; no partial
+#     matches, no file creation, no line injection.
+#   - Current value is printed before + after so the operator sees
+#     the change in the workflow log.
+#
+# Rollback:
+#   - Re-run with value=false. Takes ~30s.
+
+name: Flag Flip
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment"
+        required: true
+        type: choice
+        options:
+          - sandbox
+          - production
+      flag:
+        description: "Feature flag name"
+        required: true
+        type: choice
+        options:
+          - RAPIDLY_FILE_SHARING_SCREEN_ENABLED
+          - RAPIDLY_FILE_SHARING_WATCH_ENABLED
+          - RAPIDLY_FILE_SHARING_CALL_ENABLED
+          - RAPIDLY_FILE_SHARING_COLLAB_ENABLED
+      value:
+        description: "New value"
+        required: true
+        type: choice
+        options:
+          - "true"
+          - "false"
+
+permissions:
+  contents: read
+
+jobs:
+  flip:
+    name: "Flip ${{ inputs.flag }}=${{ inputs.value }} on ${{ inputs.environment }}"
+    runs-on: ubuntu-latest
+    # Re-use the same GitHub Environment protection the deploy
+    # workflow uses — reviewers can gate flag flips per env.
+    environment: ${{ inputs.environment }}
+    timeout-minutes: 5
+    concurrency:
+      # Prevent two flips from racing on the same env.
+      group: flag-flip-${{ inputs.environment }}
+      cancel-in-progress: false
+
+    steps:
+      - name: Echo inputs
+        run: |
+          echo "Operator:     ${{ github.actor }}"
+          echo "Environment:  ${{ inputs.environment }}"
+          echo "Flag:         ${{ inputs.flag }}"
+          echo "New value:    ${{ inputs.value }}"
+
+      - name: Flip on Hetzner via SSH
+        uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
+        env:
+          FLAG: ${{ inputs.flag }}
+          VALUE: ${{ inputs.value }}
+        with:
+          host: ${{ secrets.HETZNER_HOST }}
+          username: ${{ secrets.HETZNER_USER }}
+          key: ${{ secrets.HETZNER_SSH_KEY }}
+          port: 22
+          envs: FLAG,VALUE
+          script: |
+            set -euo pipefail
+            cd /opt/rapidly
+
+            ENV_FILE=".env"
+            if [[ ! -f "$ENV_FILE" ]]; then
+              echo "::error::$ENV_FILE not found at /opt/rapidly/.env" >&2
+              exit 1
+            fi
+
+            # Defensive re-check of the flag name (workflow input is
+            # already constrained, but belt-and-braces in case someone
+            # edits the workflow in the future and loosens it).
+            case "$FLAG" in
+              RAPIDLY_FILE_SHARING_SCREEN_ENABLED|RAPIDLY_FILE_SHARING_WATCH_ENABLED|RAPIDLY_FILE_SHARING_CALL_ENABLED|RAPIDLY_FILE_SHARING_COLLAB_ENABLED) ;;
+              *) echo "::error::Refusing to flip unknown flag $FLAG" >&2; exit 1 ;;
+            esac
+            case "$VALUE" in
+              true|false) ;;
+              *) echo "::error::Refusing to set non-boolean value $VALUE" >&2; exit 1 ;;
+            esac
+
+            echo "==> Current value in $ENV_FILE:"
+            grep -E "^${FLAG}=" "$ENV_FILE" || echo "  (not set; will be appended)"
+
+            # Back up once per day — not per flip — so the operator
+            # can diff against this morning's state.
+            BACKUP=".env.bak.$(date -u +%Y%m%d)"
+            if [[ ! -f "$BACKUP" ]]; then
+              cp -a "$ENV_FILE" "$BACKUP"
+            fi
+
+            if grep -qE "^${FLAG}=" "$ENV_FILE"; then
+              # Match only whole lines starting with KEY=. Uses '|' as
+              # the sed delimiter so = in the replacement never
+              # conflicts. No value of $FLAG or $VALUE ever reaches
+              # shell/regex metachar territory because both are
+              # constrained by the case guards above.
+              sed -i "s|^${FLAG}=.*|${FLAG}=${VALUE}|" "$ENV_FILE"
+            else
+              echo "${FLAG}=${VALUE}" >> "$ENV_FILE"
+            fi
+
+            echo "==> New value in $ENV_FILE:"
+            grep -E "^${FLAG}=" "$ENV_FILE"
+
+            echo "==> Restarting api to pick up the change..."
+            docker compose -f docker-compose.production.yml up -d --no-deps api
+            echo "==> Done. Verify the API is healthy:"
+            docker compose -f docker-compose.production.yml ps api
