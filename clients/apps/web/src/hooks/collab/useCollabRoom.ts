@@ -62,6 +62,9 @@ export interface UseCollabRoomReturn {
   /** The Y.Doc — ``undefined`` until ``active``. Bind editors / observers
    *  to the returned reference (stable for the hook's lifetime once set). */
   doc: Y.Doc | null
+  /** Our local Yjs ``clientID`` — used for stroke author tagging in the
+   *  whiteboard editor. ``null`` until the room exists. */
+  clientID: number | null
   /** Live awareness state per remote client (keyed by Yjs clientID). */
   peers: ReadonlyArray<{ clientID: number; state: Record<string, unknown> }>
   /** Host-only: the session metadata after create. */
@@ -135,6 +138,7 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
   const [status, setStatus] = useState<RoomStatus>('idle')
   const [error, setError] = useState<Error | null>(null)
   const [doc, setDoc] = useState<Y.Doc | null>(null)
+  const [clientID, setClientID] = useState<number | null>(null)
   const [peers, setPeers] = useState<
     ReadonlyArray<{ clientID: number; state: Record<string, unknown> }>
   >([])
@@ -168,6 +172,7 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     signalingRef.current?.close()
     signalingRef.current = null
     setDoc(null)
+    setClientID(null)
     setPeers([])
     if (sessionRef.current) {
       try {
@@ -193,6 +198,7 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     const room = createCollabRoom({ selfPeerId: selfId })
     roomRef.current = room
     setDoc(room.doc)
+    setClientID(room.awareness.clientID)
     room.awareness.on('change', refreshPeers)
 
     const mesh = createMesh(
@@ -376,6 +382,7 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     status,
     error,
     doc,
+    clientID,
     peers,
     session,
     view,
