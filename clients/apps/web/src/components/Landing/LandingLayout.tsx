@@ -96,6 +96,7 @@ const mobileFeatureItems: NavigationItem[] = [
   { title: 'Screen Share', href: '/features/screen-share' },
   { title: 'Watch Together', href: '/features/watch-together' },
   { title: 'Call', href: '/features/call' },
+  { title: 'Collab', href: '/features/collab' },
   { title: 'Payments', href: '/features/payments' },
   { title: 'Finance', href: '/features/finance' },
 ]
@@ -229,6 +230,11 @@ const LandingPageDesktopNavigation = () => {
           href: '/features/call',
           label: 'Call',
           subtitle: 'E2E-encrypted P2P voice & video',
+        },
+        {
+          href: '/features/collab',
+          label: 'Collab',
+          subtitle: 'Realtime peer-to-peer docs',
         },
         {
           href: '/features/payments',

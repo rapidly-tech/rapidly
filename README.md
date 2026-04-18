@@ -1,5 +1,5 @@
 <h1 align="center">Rapidly</h1>
-<p align="center"><strong>Secure P2P File-Sharing Platform</strong></p>
+<p align="center"><strong>Secure P2P Platform — Files, Secret, Screen, Watch, Call, Collab</strong></p>
 
 <p align="center">
   <a href="https://rapidly.tech">
@@ -23,12 +23,18 @@
 
 ## What is Rapidly?
 
-Rapidly is an open-source platform for **secure peer-to-peer file sharing**, **paid digital content distribution**, and **encrypted secret exchange**. Files transfer directly between browsers using WebRTC: no server ever sees your data.
+Rapidly is an open-source P2P platform. Everything runs directly between browsers over WebRTC — no Rapidly server ever sees your data, and every session is end-to-end encrypted.
 
-- **Share files peer-to-peer**: encrypted transfers happen directly in your browser, with no size limits and zero server storage
-- **Monetise shares** with built-in Stripe Connect payments: set a price and get paid instantly
-- **Exchange secrets** (API keys, credentials, tokens) via encrypted, self-destructing links
-- **Manage access** with organisation-level controls, customer portals, and webhook delivery
+### Six chambers
+
+- **Files** — encrypted P2P file transfer with no size limits, expiring links, and download quotas
+- **Secret** — one-time-view encrypted text: API keys, credentials, tokens
+- **Screen** — peer-to-peer screen share with no video ever relayed through a server
+- **Watch** — synchronised video watch parties; host clock, drift bands, peer-to-peer
+- **Call** — E2E-encrypted voice and video for 1:1 and small groups
+- **Collab** — real-time documents + whiteboards, Yjs CRDT over the P2P data channel
+
+Plus: Stripe Connect payments on top of Files, organisation-level controls, customer portals, and webhook delivery.
 
 ### Why Rapidly?
 
@@ -36,6 +42,8 @@ Rapidly is an open-source platform for **secure peer-to-peer file sharing**, **p
 |---|---|---|
 | File sharing | Upload → paste link → hope for the best | P2P in your browser: AES-256 encrypted, no server storage, expiring links, download quotas |
 | Sharing secrets | Slack DM / email (!) | Encrypted, one-time-view links with audit trail |
+| Screen / video call | Install a desktop app; stream relayed | Pure P2P in the browser; DTLS + TURN fallback |
+| Collaborative editing | SaaS with server-side doc storage | Yjs CRDT over P2P, end-to-end encrypted, nothing on our servers |
 
 ## Getting Started
 

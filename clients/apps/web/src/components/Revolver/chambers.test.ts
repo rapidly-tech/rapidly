@@ -70,10 +70,15 @@ describe('Revolver chamber registry', () => {
     },
   )
 
-  it('ships Files, Secret, Screen, Watch, and Call as live', () => {
+  it('ships all six chambers as live', () => {
+    // Phase E (Collab) landed — the full revolver is now live with no
+    // remaining ``soon`` tiles. If a future chamber is added in
+    // preview, explicitly update this assertion instead of silently
+    // letting it drift.
     const liveIds = CHAMBERS.filter((c) => c.status === 'live').map((c) => c.id)
     expect(liveIds.sort()).toEqual([
       'call',
+      'collab',
       'files',
       'screen',
       'secret',
@@ -81,8 +86,8 @@ describe('Revolver chamber registry', () => {
     ])
   })
 
-  it('ships only Collab as soon', () => {
+  it('has no soon chambers', () => {
     const soonIds = CHAMBERS.filter((c) => c.status === 'soon').map((c) => c.id)
-    expect(soonIds.sort()).toEqual(['collab'])
+    expect(soonIds).toEqual([])
   })
 })
