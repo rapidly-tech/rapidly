@@ -29,6 +29,11 @@ import {
   type CreateSessionResponse,
 } from '@/utils/collab/api'
 import {
+  aggregateEncryptionState,
+  type PeerStatus,
+  type RoomEncryptionState,
+} from '@/utils/collab/encryption-state'
+import {
   createCollabRoom,
   deriveCollabKeys,
   isCollabMessage,
@@ -74,6 +79,10 @@ export interface UseCollabRoomReturn {
   clientID: number | null
   /** Live awareness state per remote client (keyed by Yjs clientID). */
   peers: ReadonlyArray<{ clientID: number; state: Record<string, unknown> }>
+  /** Aggregate E2EE state across every connected peer. UI renders a
+   *  badge from this; see utils/collab/encryption-state.ts for the
+   *  aggregation rules. */
+  encryption: RoomEncryptionState
   /** Host-only: the session metadata after create. */
   session: CreateSessionResponse | null
   /** Guest-only: public view fetched on mount. */
@@ -149,6 +158,7 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
   const [peers, setPeers] = useState<
     ReadonlyArray<{ clientID: number; state: Record<string, unknown> }>
   >([])
+  const [encryption, setEncryption] = useState<RoomEncryptionState>('solo')
   const [session, setSession] = useState<CreateSessionResponse | null>(null)
   const [view, setView] = useState<CollabSessionPublicView | null>(null)
 
@@ -157,6 +167,7 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
   const roomRef = useRef<CollabRoom | null>(null)
   const sessionRef = useRef<CreateSessionResponse | null>(null)
   const detachersRef = useRef<Map<string, () => void>>(new Map())
+  const encryptionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const refreshPeers = useCallback(() => {
     const room = roomRef.current
@@ -178,9 +189,14 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     meshRef.current = null
     signalingRef.current?.close()
     signalingRef.current = null
+    if (encryptionTimerRef.current !== null) {
+      clearInterval(encryptionTimerRef.current)
+      encryptionTimerRef.current = null
+    }
     setDoc(null)
     setClientID(null)
     setPeers([])
+    setEncryption('solo')
     if (sessionRef.current) {
       try {
         await closeSession(
@@ -214,6 +230,22 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     setDoc(room.doc)
     setClientID(room.awareness.clientID)
     room.awareness.on('change', refreshPeers)
+
+    // Re-aggregate encryption state periodically. The handshake
+    // resolves asynchronously and without a dedicated event, so a
+    // light poll is the simplest path to a correct-eventually UI
+    // indicator. 500 ms is fast enough that a user never reads the
+    // "pending" pill unless the network is genuinely slow.
+    encryptionTimerRef.current = setInterval(() => {
+      const r = roomRef.current
+      if (!r) return
+      const statuses: PeerStatus[] = []
+      for (const peerId of detachersRef.current.keys()) {
+        const s = r.peerEncryptionStatus(peerId)
+        if (s) statuses.push(s)
+      }
+      setEncryption(aggregateEncryptionState(statuses))
+    }, 500)
 
     const mesh = createMesh(
       selfId,
@@ -400,6 +432,7 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     peers,
     session,
     view,
+    encryption,
     startAsHost,
     joinAsGuest,
     copyInvite,

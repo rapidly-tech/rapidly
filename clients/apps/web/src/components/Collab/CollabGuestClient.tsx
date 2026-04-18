@@ -19,6 +19,7 @@ import {
 
 import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
+import { EncryptionBadge } from './EncryptionBadge'
 import { PresenceStrip } from './PresenceStrip'
 
 // v1.1 E2EE is on by default (PR D). When on, guests must land with
@@ -149,6 +150,9 @@ export function CollabGuestClient({ slug, token }: Props) {
 
   return (
     <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
+      <div className="flex items-center justify-end">
+        <EncryptionBadge state={room.encryption} />
+      </div>
       <PresenceStrip peers={room.peers} selfLabel="You" />
 
       {room.view?.kind === 'canvas' && room.clientID !== null ? (
