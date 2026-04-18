@@ -12,15 +12,17 @@ import { useCallback } from 'react'
 
 import { useWatchGuest } from '@/hooks/watch/useWatchGuest'
 
-/** Mirror the host-side guard: the session's source_url comes from the
- *  host via the Rapidly backend, but we still refuse anything that
- *  isn't plain http(s) before handing it to the browser. */
-function isSafeVideoUrl(input: string): boolean {
+/** Mirror the host-side guard. Return the normalized URL or ``null`` so
+ *  the render path hands only a sanitized value to ``<video src>``. */
+function sanitizeVideoUrl(input: string): string | null {
   try {
     const parsed = new URL(input)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+    return parsed.toString()
   } catch {
-    return false
+    return null
   }
 }
 
@@ -103,13 +105,16 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
   }
 
   // connecting / active — render the <video> so the controller attaches.
+  const safeSrc = guest.view?.source_url
+    ? sanitizeVideoUrl(guest.view.source_url)
+    : null
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-3">
       <div className="overflow-hidden rounded-xl border border-slate-200 bg-black shadow dark:border-slate-800">
-        {guest.view?.source_url && isSafeVideoUrl(guest.view.source_url) ? (
+        {safeSrc ? (
           <video
             ref={attachVideoRef}
-            src={guest.view.source_url}
+            src={safeSrc}
             playsInline
             // No ``controls`` — the guest cannot steer playback; that's
             // the whole product promise of a synced watch party.

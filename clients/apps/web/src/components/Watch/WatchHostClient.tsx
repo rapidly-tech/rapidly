@@ -14,15 +14,20 @@ import { useEffect, useRef, useState } from 'react'
 import { useWatchHost } from '@/hooks/watch/useWatchHost'
 import { WatchDisabledError } from '@/utils/watch/api'
 
-/** Accept only http(s) URLs as video sources. Without this guard a
- *  ``javascript:`` URL pasted into the input would execute the moment
- *  we assigned it to ``video.src`` — a classic XSS-through-DOM sink. */
-function isSafeVideoUrl(input: string): boolean {
+/** Accept only http(s) URLs as video sources, and return the normalized
+ *  form so the caller can assign the sanitized value (not the raw input)
+ *  to ``video.src``. ``javascript:`` / ``data:`` / relative / malformed
+ *  inputs all resolve to ``null``. Returning the sanitized string
+ *  instead of a boolean gives static analysers a clear taint boundary. */
+function sanitizeVideoUrl(input: string): string | null {
   try {
     const parsed = new URL(input)
-    return parsed.protocol === 'http:' || parsed.protocol === 'https:'
+    if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+      return null
+    }
+    return parsed.toString()
   } catch {
-    return false
+    return null
   }
 }
 
@@ -34,13 +39,10 @@ export function WatchHostClient() {
 
   // Assign src once the video element is mounted + a URL is present.
   useEffect(() => {
-    if (
-      videoRef.current &&
-      host.status === 'active' &&
-      url &&
-      isSafeVideoUrl(url)
-    ) {
-      if (videoRef.current.src !== url) videoRef.current.src = url
+    if (!videoRef.current || host.status !== 'active' || !url) return
+    const safe = sanitizeVideoUrl(url)
+    if (safe && videoRef.current.src !== safe) {
+      videoRef.current.src = safe
     }
   }, [host.status, url])
 
