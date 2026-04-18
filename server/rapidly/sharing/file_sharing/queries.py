@@ -73,7 +73,8 @@ CHANNEL_DESTRUCTION_DELAY = 30
 #   "file"   — file sharing (Phase A).
 #   "screen" — Screen chamber (Phase B, PR 5).
 #   "watch"  — Watch chamber (Phase C, PR 9).
-SESSION_KINDS: set[str] = {"file", "screen", "watch"}
+#   "call"   — Call chamber (Phase D, PR 13).
+SESSION_KINDS: set[str] = {"file", "screen", "watch", "call"}
 
 
 def validate_session_kind(kind: str) -> None:
@@ -156,6 +157,12 @@ class ChannelData:
     watch_source_url: str | None = None  # http(s) URL the host plays
     watch_source_kind: str = "url"  # "url" | "local" (local = DC-streamed)
     watch_started_at: str | None = None  # ISO-8601, informational only.
+    # Call-chamber fields (session_kind="call"). Separate from
+    # ``max_viewers`` because Call is symmetric (every participant
+    # publishes) whereas Screen/Watch have one authoritative host.
+    call_mode: str = "audio_video"  # "audio_only" | "audio_video"
+    max_participants: int = 0  # 0 = unlimited; call API caps at 4 in v1.
+    call_started_at: str | None = None
 
     @property
     def is_paid(self) -> bool:
@@ -193,6 +200,10 @@ class ChannelData:
             watch_source_url=data.get("watch_source_url"),
             watch_source_kind=data.get("watch_source_kind", "url"),
             watch_started_at=data.get("watch_started_at"),
+            # Call-chamber fields — same round-trip-safe pattern.
+            call_mode=data.get("call_mode", "audio_video"),
+            max_participants=data.get("max_participants", 0),
+            call_started_at=data.get("call_started_at"),
         )
 
 
