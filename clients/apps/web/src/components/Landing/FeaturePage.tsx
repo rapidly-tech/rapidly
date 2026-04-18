@@ -28,6 +28,9 @@ const iconMap: Record<string, string> = {
   Wifi: 'solar:wi-fi-router-linear',
   Play: 'solar:play-linear',
   Clock: 'solar:clock-circle-linear',
+  Phone: 'solar:phone-linear',
+  Mic: 'solar:microphone-linear',
+  Video: 'solar:videocamera-linear',
 }
 
 // ── Animation ──
