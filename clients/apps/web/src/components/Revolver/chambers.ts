@@ -65,7 +65,7 @@ export const CHAMBERS: readonly Chamber[] = [
     label: 'Collab',
     icon: 'lucide:users',
     href: '/collab',
-    status: 'soon',
+    status: 'live',
     tagline: 'Realtime docs and whiteboards, locally-first.',
   },
 ]
