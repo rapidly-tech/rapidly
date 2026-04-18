@@ -12,6 +12,7 @@
     "lint": "pnpm format:check && pnpm lint:only",
     "lint:changed": "eslint $(git diff --name-only --relative --diff-filter=ACMR HEAD | grep -E '\\.(js|jsx|ts|tsx)$')",
     "test": "vitest run",
+    "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "audit": "pnpm audit --prod",
     "analyze": "ANALYZE=true next build"
