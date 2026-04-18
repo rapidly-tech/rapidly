@@ -327,6 +327,11 @@ class Settings(BaseSettings):
     # specs/call-chamber-plan.md. v1 is a 4-participant mesh.
     FILE_SHARING_CALL_ENABLED: bool = False
 
+    # Enables the Collab chamber API (/api/v1/collab/*). Default False.
+    # See specs/collab-chamber-plan.md. Backed by a Yjs CRDT synced
+    # over the existing PeerDataConnection.
+    FILE_SHARING_COLLAB_ENABLED: bool = False
+
     # Signaling backend. "memory" keeps room state in-process (requires a
     # single worker); "redis" uses Redis hashes + pub/sub for cross-worker
     # signaling. Default stays on "memory" so existing deployments keep

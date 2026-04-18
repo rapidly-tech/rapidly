@@ -74,7 +74,8 @@ CHANNEL_DESTRUCTION_DELAY = 30
 #   "screen" — Screen chamber (Phase B, PR 5).
 #   "watch"  — Watch chamber (Phase C, PR 9).
 #   "call"   — Call chamber (Phase D, PR 13).
-SESSION_KINDS: set[str] = {"file", "screen", "watch", "call"}
+#   "collab" — Collab chamber (Phase E, PR 16).
+SESSION_KINDS: set[str] = {"file", "screen", "watch", "call", "collab"}
 
 
 def validate_session_kind(kind: str) -> None:
@@ -161,8 +162,12 @@ class ChannelData:
     # ``max_viewers`` because Call is symmetric (every participant
     # publishes) whereas Screen/Watch have one authoritative host.
     call_mode: str = "audio_video"  # "audio_only" | "audio_video"
-    max_participants: int = 0  # 0 = unlimited; call API caps at 4 in v1.
+    max_participants: int = 0  # 0 = unlimited; call caps at 4, collab at 8.
     call_started_at: str | None = None
+    # Collab-chamber fields (session_kind="collab"). max_participants is
+    # shared with Call — per-chamber API validators cap it differently.
+    collab_kind: str = "text"  # "text" | "canvas"
+    collab_started_at: str | None = None
 
     @property
     def is_paid(self) -> bool:
@@ -204,6 +209,9 @@ class ChannelData:
             call_mode=data.get("call_mode", "audio_video"),
             max_participants=data.get("max_participants", 0),
             call_started_at=data.get("call_started_at"),
+            # Collab-chamber fields.
+            collab_kind=data.get("collab_kind", "text"),
+            collab_started_at=data.get("collab_started_at"),
         )
 
 
