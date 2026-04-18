@@ -136,34 +136,58 @@ fi
 echo
 echo -e "${grn}All pre-flight checks passed.${rst}"
 echo
-echo "Next steps (copy-paste, adjust hostname):"
+
+# Hostnames + SSH host aliases are operator-local, not repo-committed.
+# Source them from an uncommitted ~/.rapidly/staging.env so this
+# script + the printed commands stay infra-agnostic.
+STAGING_ENV_FILE="${RAPIDLY_STAGING_ENV:-$HOME/.rapidly/staging.env}"
+if [[ -f "$STAGING_ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$STAGING_ENV_FILE"
+  pass "Staging env sourced from $STAGING_ENV_FILE"
+else
+  warn "No staging env at $STAGING_ENV_FILE — the printed commands will use placeholders."
+  info "Create it with:"
+  info "  mkdir -p ~/.rapidly && cat > $STAGING_ENV_FILE <<EOSENV"
+  info "  STAGING_SSH_HOST=<ssh-config-alias>"
+  info "  STAGING_HTTP_URL=https://<your-staging-host>"
+  info "  STAGING_COMPOSE_FILE=/opt/rapidly/docker-compose.staging.yml"
+  info "  EOSENV"
+fi
+
+: "${STAGING_SSH_HOST:=<STAGING_SSH_HOST>}"
+: "${STAGING_HTTP_URL:=<STAGING_HTTP_URL>}"
+: "${STAGING_COMPOSE_FILE:=/opt/rapidly/docker-compose.staging.yml}"
+
 echo
-cat <<'EOF'
-  # 1. SSH to staging
-  ssh staging
+echo "Next steps (copy-paste):"
+echo
+cat <<EOF
+  # 1. SSH to staging (resolves via your local ~/.ssh/config)
+  ssh $STAGING_SSH_HOST
 
   # 2. Flip the backend flag
   sudo -i
   cd /opt/rapidly
   # Edit /opt/rapidly/.env — add or uncomment:
   #   RAPIDLY_FILE_SHARING_COLLAB_ENABLED=true
-  docker compose -f docker-compose.staging.yml up -d api
-  docker compose -f docker-compose.staging.yml logs -f api --tail=50
+  docker compose -f $STAGING_COMPOSE_FILE up -d api
+  docker compose -f $STAGING_COMPOSE_FILE logs -f api --tail=50
   #
-  # Leave the logs open — expect `collab_session_created` entries
+  # Leave the logs open — expect \`collab_session_created\` entries
   # once step 4 runs.
 
   # 3. From local — API smoke
-  export STAGING=https://staging.rapidly.tech
-  curl -sS -X POST "$STAGING/api/v1/collab/session" \
-    -H 'Content-Type: application/json' \
+  export STAGING=$STAGING_HTTP_URL
+  curl -sS -X POST "\$STAGING/api/v1/collab/session" \\
+    -H 'Content-Type: application/json' \\
     -d '{"title":"smoke","max_participants":4,"kind":"text"}' | jq .
 
   # Expect: 200 with { short_slug, long_slug, secret, invite_template }
   # 404 = flag still false. 422 = body invalid.
 
   # 4. Two-browser smoke
-  #    Browser A (host): https://staging.rapidly.tech/collab  → Start session → Copy invite
+  #    Browser A (host): \$STAGING/collab  → Start session → Copy invite
   #    Browser B (guest): paste the invite URL → guest auto-joins
   #    Type on A → appears on B. Type on B → appears on A.
   #    Both show the emerald "End-to-end encrypted" badge.
