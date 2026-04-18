@@ -111,29 +111,38 @@ describe('CollabRoom — E2EE two-peer', () => {
     roomB.close()
   })
 
-  it('mixed peers (one with keys, one without) converge in plaintext', async () => {
-    // Rolling-deploy safety: a v1.1 client talking to a v1 client
-    // must still function. Handshake falls back to plaintext.
+  it('mixed peers refuse to downgrade — keyed side stays encrypted, other side drops', async () => {
+    // v1.1 PR D no-downgrade stance: a keyed peer always speaks
+    // ciphertext. A peer with no keys cannot decrypt; the two sides
+    // stop converging, deliberately. This prevents a link-stripping
+    // attacker from forcing plaintext.
     const master = await generateMasterKey()
     const salt = generateSalt()
     const keys = await deriveCollabKeys(master, salt)
 
     const roomA = createCollabRoom({ selfPeerId: 'a', keys }) // v1.1
-    const roomB = createCollabRoom({ selfPeerId: 'b' }) // v1
+    const roomB = createCollabRoom({ selfPeerId: 'b' }) // v1 / no fragment
     const { a, b, aToB } = makeTransportPair()
     roomA.addPeer(a)
     roomB.addPeer(b)
     await flush()
 
-    expect(roomA.peerEncryptionStatus('b')).toBe('plaintext')
+    // A settled as e2ee because A has keys. B settled as plaintext
+    // because B has no keys.
+    expect(roomA.peerEncryptionStatus('b')).toBe('e2ee')
     expect(roomB.peerEncryptionStatus('a')).toBe('plaintext')
 
-    roomA.doc.getText('t').insert(0, 'mixed')
+    roomA.doc.getText('t').insert(0, 'should-not-leak')
     await flush()
-    expect(roomB.doc.getText('t').toString()).toBe('mixed')
 
-    // No iv anywhere on the wire once we fell back.
-    for (const m of aToB) expect(m.iv).toBeUndefined()
+    // B cannot decrypt A's ciphertext — session does not converge.
+    expect(roomB.doc.getText('t').toString()).toBe('')
+
+    // Every sync frame on the wire from A carries an iv. No plaintext
+    // leaked despite B asking for plaintext.
+    const syncFrames = aToB.filter((m) => m.t === 'y-sync-2')
+    expect(syncFrames.length).toBeGreaterThan(0)
+    expect(syncFrames.every((m) => m.iv instanceof Uint8Array)).toBe(true)
 
     roomA.close()
     roomB.close()

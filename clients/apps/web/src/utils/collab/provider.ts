@@ -233,8 +233,18 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
   awareness.on('update', awarenessHandler)
 
   async function onHelloReceived(peer: PeerState): Promise<void> {
-    // Decide outcome: encrypted only if BOTH sides advertised v1.
-    peer.useE2ee = selfHasE2ee && peer.theirE2ee
+    // Decide outcome:
+    //   - If WE have keys, we will ONLY speak ciphertext. A peer who
+    //     didn't present keys gets ciphertext they can't decrypt; no
+    //     plaintext downgrade. This is the v1.1 PR D no-downgrade
+    //     stance — it replaces PR B's "both need keys" fallback.
+    //     See specs/collab-e2ee.md §4.
+    //   - If WE have no keys, we can only speak plaintext. A peer who
+    //     has keys will refuse to accept our plaintext frames, so the
+    //     session quietly stops converging. The guest-side page gates
+    //     on fragment presence (components/Collab/CollabGuestClient)
+    //     so this only happens when a user force-edits a URL.
+    peer.useE2ee = selfHasE2ee
     peer.settled = true
 
     // Send sync-1 now that we know the ciphertext vs plaintext shape.

@@ -23,11 +23,12 @@ import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
 import { PresenceStrip } from './PresenceStrip'
 
-// v1.1 feature flag. Turn on to make hosts mint master keys and
-// embed them in invite fragments — the PR 24 handshake still falls
-// back to plaintext if a guest lands without a fragment (old client
-// or stripped link), so enabling this is safe during a rolling deploy.
-const E2EE_ENABLED = process.env.NEXT_PUBLIC_COLLAB_E2EE === 'true'
+// v1.1 E2EE is on by default (PR D). Set NEXT_PUBLIC_COLLAB_E2EE=false
+// to opt out — e.g., for a narrow debugging session or to accommodate
+// a known-stale tab. The provider's no-downgrade stance (PR 24 +
+// PR 26) means opting out is a per-deployment choice; individual
+// guests cannot force a downgrade.
+const E2EE_ENABLED = process.env.NEXT_PUBLIC_COLLAB_E2EE !== 'false'
 
 export function CollabHostClient() {
   const [kind, setKind] = useState<CollabKind>('text')
