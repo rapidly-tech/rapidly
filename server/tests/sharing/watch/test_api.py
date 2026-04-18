@@ -48,6 +48,24 @@ class TestCreateWatchSessionEndpoint:
         )
         assert response.status_code == 422
 
+    async def test_rejects_non_http_scheme_source_url(
+        self, client: AsyncClient
+    ) -> None:
+        """Defense-in-depth: Pydantic's AnyUrl alone accepts
+        ``javascript:`` / ``data:`` URIs — a crafted session could
+        persist a malicious source_url that bypasses the client-side
+        sanitiser. Backend rejects these at the boundary."""
+        for bad in [
+            "javascript:alert(1)",
+            "data:text/html,<script>alert(1)</script>",
+            "ftp://example.com/vid.mp4",
+        ]:
+            response = await client.post(
+                "/api/v1/watch/session",
+                json={"source_url": bad},
+            )
+            assert response.status_code == 422, f"Expected 422 for {bad}"
+
     async def test_404_when_feature_disabled(
         self, client: AsyncClient, monkeypatch: pytest.MonkeyPatch
     ) -> None:

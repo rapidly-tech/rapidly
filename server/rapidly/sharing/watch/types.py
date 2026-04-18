@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import AnyUrl, BaseModel, Field
+from pydantic import AnyUrl, BaseModel, Field, field_validator
 
 # ── Request bodies ──
 
@@ -42,6 +42,21 @@ class CreateWatchSessionRequest(BaseModel):
             "local file over the DataChannel (PR 12). v1 ships ``url``."
         ),
     )
+
+    @field_validator("source_url")
+    @classmethod
+    def _scheme_must_be_http(cls, v: AnyUrl | None) -> AnyUrl | None:
+        """Defense-in-depth: Pydantic's ``AnyUrl`` accepts any well-formed
+        URI including ``javascript:`` and ``data:`` schemes. The client
+        already refuses those before assignment to ``<video src>``, but
+        the backend should reject them at the API boundary so a
+        crafted-URL session can't be persisted and echoed back to
+        unsuspecting clients that skip the client-side validator."""
+        if v is None:
+            return v
+        if v.scheme not in ("http", "https"):
+            raise ValueError("source_url must use http or https scheme")
+        return v
 
 
 class MintInviteRequest(BaseModel):
