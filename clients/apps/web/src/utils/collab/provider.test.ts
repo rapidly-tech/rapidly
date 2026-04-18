@@ -23,8 +23,9 @@ interface TransportPair {
 }
 
 /** Build an A↔B transport pair. ``a.send`` delivers to every handler
- *  registered on ``b`` and vice versa, synchronously — Yjs update
- *  delivery doesn't need async ordering for these tests. */
+ *  registered on ``b`` and vice versa on the next microtask — matching
+ *  the DC's real async behaviour. A synchronous deliver would break
+ *  the handshake: A's hello fires before B's addPeer subscribes. */
 function makeTransportPair(idA = 'peer-a', idB = 'peer-b'): TransportPair {
   const handlersA: Array<(msg: { t: string; bytes: Uint8Array }) => void> = []
   const handlersB: Array<(msg: { t: string; bytes: Uint8Array }) => void> = []
@@ -32,6 +33,7 @@ function makeTransportPair(idA = 'peer-a', idB = 'peer-b'): TransportPair {
   const a: CollabTransport = {
     peerId: idB, // from A's perspective the remote is B
     async send(msg) {
+      await Promise.resolve()
       for (const h of handlersB) h(msg)
     },
     onMessage(h) {
@@ -45,6 +47,7 @@ function makeTransportPair(idA = 'peer-a', idB = 'peer-b'): TransportPair {
   const b: CollabTransport = {
     peerId: idA,
     async send(msg) {
+      await Promise.resolve()
       for (const h of handlersA) h(msg)
     },
     onMessage(h) {
@@ -58,13 +61,14 @@ function makeTransportPair(idA = 'peer-a', idB = 'peer-b'): TransportPair {
   return { a, b }
 }
 
-// Yjs updates propagate through the transport synchronously in this
-// harness, but the provider uses ``void transport.send(...).catch(...)``
-// which resolves on the microtask queue. Flushing lets assertions see
-// the converged state.
+// The handshake (PR 24) + sync-1/2 round-trip + async encrypt/decrypt
+// (when E2EE is on) can take several microtask cycles to settle.
+// Four cycles is the budget where even under parallel-test load the
+// harness reliably delivers.
 async function flush(): Promise<void> {
-  await new Promise((r) => setTimeout(r, 0))
-  await new Promise((r) => setTimeout(r, 0))
+  for (let i = 0; i < 4; i += 1) {
+    await new Promise((r) => setTimeout(r, 0))
+  }
 }
 
 // ── Tests ──
@@ -254,6 +258,58 @@ describe('createCollabRoom — peer lifecycle', () => {
     await flush()
     // Text landed exactly once on B — not doubled up.
     expect(roomB.doc.getText('t').toString()).toBe('once')
+
+    roomA.close()
+    roomB.close()
+  })
+})
+
+describe('createCollabRoom — malformed-frame resilience', () => {
+  it('drops a malformed y-sync-2 without crashing subsequent updates', async () => {
+    // Pins the "log-and-drop" contract in the provider's handleInbound.
+    // A hostile peer could inject arbitrary bytes; a buggy client could
+    // double-encode; once E2EE lands (specs/collab-e2ee.md), AES-GCM
+    // auth-tag failures produce the same shape. None of those paths
+    // should break room state.
+    const roomA = createCollabRoom({ selfPeerId: 'a' })
+    const roomB = createCollabRoom({ selfPeerId: 'b' })
+    const { a, b } = makeTransportPair('a', 'b')
+    roomA.addPeer(a)
+    roomB.addPeer(b)
+    await flush()
+
+    // Inject a fake y-sync-2 with garbage bytes via the transport B
+    // sees inbound (we reach into the pair by sending from A's side).
+    await a.send({ t: 'y-sync-2', bytes: new Uint8Array([0xff, 0xff, 0xff]) })
+    await flush()
+
+    // Room B is still alive and subsequent legitimate edits still sync.
+    roomA.doc.getText('t').insert(0, 'after')
+    await flush()
+    expect(roomB.doc.getText('t').toString()).toBe('after')
+
+    roomA.close()
+    roomB.close()
+  })
+
+  it('drops a malformed y-awareness without crashing subsequent updates', async () => {
+    const roomA = createCollabRoom({ selfPeerId: 'a' })
+    const roomB = createCollabRoom({ selfPeerId: 'b' })
+    const { a, b } = makeTransportPair('a', 'b')
+    roomA.addPeer(a)
+    roomB.addPeer(b)
+    await flush()
+
+    await a.send({
+      t: 'y-awareness',
+      bytes: new Uint8Array([0x00, 0x01, 0x02, 0x03]),
+    })
+    await flush()
+
+    roomA.awareness.setLocalState({ name: 'still-works' })
+    await flush()
+    const entry = roomB.awareness.getStates().get(roomA.awareness.clientID)
+    expect(entry).toEqual({ name: 'still-works' })
 
     roomA.close()
     roomB.close()
