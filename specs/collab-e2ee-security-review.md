@@ -18,7 +18,7 @@ time on the concerns most likely to break.
 | 3 | Link-stripping attacker (intermediary removes `#k=...`) | No-downgrade stance (PR #81) |
 | 4 | Garbage / malformed frame from a real peer | Log-and-drop (PR #77 + decrypt-null return) |
 | 5 | Tampered ciphertext (bit-flip in transit) | AES-GCM auth tag |
-| 6 | Replay of a stored ciphertext frame | **Not protected.** Yjs CRDT merge is idempotent so replay is harmless for the doc body, but a replayed awareness frame could briefly resurrect a stale cursor. See Concerns §6. |
+| 6 | Replay of a stored ciphertext frame | **Partially protected (v1.1.1).** Yjs CRDT merge is idempotent so replay is harmless for the doc body. `y-awareness` now carries a per-peer monotonic counter (PR #90) so replayed awareness frames are dropped. Replay across a peer reconnect remains possible for the heartbeat window — see Concerns §2. |
 
 **Explicitly out of scope** (documented in `specs/collab-e2ee.md`):
 
@@ -106,18 +106,24 @@ via their respective round-trip tests.
 padding + URL-safe substitutions. If they ever diverge, a cross-
 module key import would fail silently.
 
-### 2. Awareness replay
+### 2. Awareness replay — **RESOLVED in v1.1.1 (PR #90)**
 A ciphertext `y-awareness` frame replayed by an attacker who saw the
-wire (DTLS compromised, or a logging sidecar) would briefly re-
-surface the frame's cursor state on every peer. Yjs's Awareness
-module overwrites on newer entries, so the effect is limited to the
-heartbeat interval — but a UX confusion is possible.
+wire would briefly re-surface the frame's cursor state on every peer.
 
-**Mitigation not yet implemented:** add a monotonic counter in the
-frame + drop out-of-order counters.
+**Mitigation shipped in PR #90:** every outbound `y-awareness` frame
+carries a per-peer monotonic counter (`c`). Receivers track the max
+seen per peer and drop frames with non-increasing `c`. Back-compat
+preserved by accepting frames missing `c` (from v1.1 clients).
+Tested via `provider.replay.test.ts` (5 tests) + the integration
+harness's 3-peer awareness test.
 
-**Action for reviewer:** is this worth fixing in v1.1 or can it wait
-for the v1.2 ratchet?
+**Residual concern:** a receiver whose peer drops mid-session and
+reconnects with a new PeerState loses its counter history. A
+replayed frame from the pre-reconnect period would be accepted
+because `awarenessMaxC` is back to 0. Acceptable for v1.1.1 — the
+window is bounded by the reconnect latency and the Awareness module
+re-broadcasts on heartbeat, so the stale state is corrected within
+a second.
 
 ### 3. Non-extractable sub-keys
 `deriveSubKey` sets the sub-key non-extractable. Callers cannot

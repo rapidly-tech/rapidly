@@ -135,6 +135,14 @@ distinguish a v1 client from a v1.1 client from the signaling layer.
    error on missing fragment. `NEXT_PUBLIC_COLLAB_E2EE` defaults on
    (opt-out with `=false`).
 
+## v1.1.1 — awareness replay protection
+
+**PR #90**: added a per-peer monotonic counter (`c`) to every
+outbound `y-awareness` frame. Receivers drop frames with
+non-increasing `c`, blocking replay of captured ciphertext frames.
+Back-compat with v1.1 clients (frames missing `c` accepted).
+Documented in `specs/collab-e2ee-security-review.md` Concern §2.
+
 ## Testing
 
 - Reuse the existing `utils/collab/provider.test.ts` shared-memory
