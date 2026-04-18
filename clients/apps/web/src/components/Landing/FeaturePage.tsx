@@ -26,6 +26,8 @@ const iconMap: Record<string, string> = {
   Monitor: 'solar:monitor-linear',
   Users: 'solar:users-group-rounded-linear',
   Wifi: 'solar:wi-fi-router-linear',
+  Play: 'solar:play-linear',
+  Clock: 'solar:clock-circle-linear',
 }
 
 // ── Animation ──
