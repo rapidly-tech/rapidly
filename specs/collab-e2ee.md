@@ -143,6 +143,15 @@ non-increasing `c`, blocking replay of captured ciphertext frames.
 Back-compat with v1.1 clients (frames missing `c` accepted).
 Documented in `specs/collab-e2ee-security-review.md` Concern §2.
 
+## v1.1.2 — per-peer inbound drop rate-limit
+
+**PR #92**: added a per-peer rolling drop counter (30 drops / 10 s
+window). Once tripped, `handleInbound` short-circuits further
+inbound for that peer until the window rolls. Bounds CPU against a
+garbage-frame pump; legitimate frames from other peers are
+unaffected. Documented in
+`specs/collab-e2ee-security-review.md` Concern §6.
+
 ## Testing
 
 - Reuse the existing `utils/collab/provider.test.ts` shared-memory

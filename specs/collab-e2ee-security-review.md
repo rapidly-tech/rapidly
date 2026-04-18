@@ -155,18 +155,21 @@ the host's WebSocket closed.
 **Not a v1.1 E2EE concern**, just a lifecycle observation — the E2EE
 layer doesn't introduce this, the base session model did.
 
-### 6. No server-side cap on per-peer decrypt failures
+### 6. No server-side cap on per-peer decrypt failures — **RESOLVED in v1.1.2 (PR #92)**
 A hostile peer could pump garbage frames at us. Our decrypt-null
-drop is O(ciphertext length); cheap, but unbounded. A peer sending
-100 MB/s of garbage is a DoS vector.
+drop is O(ciphertext length); cheap, but was previously unbounded.
 
-**Mitigation not yet implemented:** rate-limit inbound bytes per
-peer in `useCollabRoom`'s transport adapter.
+**Mitigation shipped in PR #92:** per-peer rolling drop counter
+(30 drops / 10 s window). Once tripped, `handleInbound` short-
+circuits at entry for that peer until the window rolls; legitimate
+frames from other peers are unaffected (counter is per-peer).
+Tested via `provider.ratelimit.test.ts`.
 
-**Action for reviewer:** plausible attack vector or overthinking?
-The signaling + WebRTC layer already has its own rate limits; the
-Collab layer trusting them is consistent with how Screen/Watch/Call
-operate.
+**Residual concern:** the counter is client-side; the signaling +
+WebRTC layer still delivers the bytes to us at the transport layer.
+A true bandwidth-exhaustion DoS would require a lower-layer limit,
+which is the signaling server's job (not this layer's). The client-
+side limit bounds CPU, not bandwidth.
 
 ## Test coverage summary
 
