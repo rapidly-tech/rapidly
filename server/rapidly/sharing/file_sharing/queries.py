@@ -72,7 +72,8 @@ CHANNEL_DESTRUCTION_DELAY = 30
 # typos or malicious input.
 #   "file"   — file sharing (Phase A).
 #   "screen" — Screen chamber (Phase B, PR 5).
-SESSION_KINDS: set[str] = {"file", "screen"}
+#   "watch"  — Watch chamber (Phase C, PR 9).
+SESSION_KINDS: set[str] = {"file", "screen", "watch"}
 
 
 def validate_session_kind(kind: str) -> None:
@@ -150,6 +151,11 @@ class ChannelData:
     # layer so file-sharing rows continue to round-trip unchanged.
     max_viewers: int = 0  # 0 = unlimited; screen API caps at 10 in v1.
     screen_started_at: str | None = None  # ISO-8601, informational only.
+    # Watch-chamber fields (session_kind="watch"). Same shape as Screen's
+    # optional fields — absent defaults keep every older row round-tripping.
+    watch_source_url: str | None = None  # http(s) URL the host plays
+    watch_source_kind: str = "url"  # "url" | "local" (local = DC-streamed)
+    watch_started_at: str | None = None  # ISO-8601, informational only.
 
     @property
     def is_paid(self) -> bool:
@@ -183,6 +189,10 @@ class ChannelData:
             # pre-existing file-sharing row continues to round-trip intact.
             max_viewers=data.get("max_viewers", 0),
             screen_started_at=data.get("screen_started_at"),
+            # Watch-chamber fields — same round-trip-safe pattern.
+            watch_source_url=data.get("watch_source_url"),
+            watch_source_kind=data.get("watch_source_kind", "url"),
+            watch_started_at=data.get("watch_started_at"),
         )
 
 

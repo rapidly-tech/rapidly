@@ -318,6 +318,11 @@ class Settings(BaseSettings):
     # gates production exposure. See specs/screen-session-backend.md.
     FILE_SHARING_SCREEN_ENABLED: bool = False
 
+    # Enables the Watch chamber API (/api/v1/watch/*). Same rollout posture
+    # as Screen — default False; flip in staging before production. See
+    # specs/watch-chamber-plan.md.
+    FILE_SHARING_WATCH_ENABLED: bool = False
+
     # Signaling backend. "memory" keeps room state in-process (requires a
     # single worker); "redis" uses Redis hashes + pub/sub for cross-worker
     # signaling. Default stays on "memory" so existing deployments keep
