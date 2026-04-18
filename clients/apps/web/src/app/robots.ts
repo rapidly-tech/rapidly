@@ -1,11 +1,21 @@
 import { CONFIG } from '@/utils/config'
 import { MetadataRoute } from 'next'
 
-const DISALLOWED_PATHS = [
+// Per-session ephemeral URLs. Every chamber has a ``/<chamber>/<slug>``
+// guest route whose slug expires with the Redis channel TTL; indexing
+// them just parks soon-to-404 entries in the search index (and leaks
+// session slugs into crawler logs). The chamber host pages themselves
+// (``/screen``, ``/watch``, etc.) remain indexable — those are the
+// "Start a session" landings.
+export const DISALLOWED_PATHS = [
   '/dashboard/',
   '/login/',
   '/verify-email/',
   '/file-sharing/',
+  '/screen/',
+  '/watch/',
+  '/call/',
+  '/collab/',
 ]
 
 const ALL_AGENTS = '*'
