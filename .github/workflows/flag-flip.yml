@@ -23,11 +23,16 @@ on:
   workflow_dispatch:
     inputs:
       environment:
+        # Currently production-only. Rapidly's scale doesn't justify a
+        # parallel sandbox Hetzner box yet — CI + feature flags +
+        # 30-second rollback via this workflow are the safety net. If
+        # sandbox secrets (HETZNER_HOST/USER/SSH_KEY) get wired up on
+        # the sandbox GitHub Environment, add "sandbox" back to the
+        # choice list below.
         description: "Target environment"
         required: true
         type: choice
         options:
-          - sandbox
           - production
       flag:
         description: "Feature flag name"
@@ -69,6 +74,27 @@ jobs:
           echo "Environment:  ${{ inputs.environment }}"
           echo "Flag:         ${{ inputs.flag }}"
           echo "New value:    ${{ inputs.value }}"
+
+      # Fast-fail if the environment's Hetzner secrets aren't wired.
+      # The appleboy/ssh-action otherwise takes ~7s before reporting
+      # "missing server host" in a way that looks like a plain SSH
+      # failure. This check surfaces the real cause in <1s.
+      - name: Verify required secrets
+        env:
+          HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+          HETZNER_USER: ${{ secrets.HETZNER_USER }}
+          HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+        run: |
+          missing=()
+          [[ -z "${HETZNER_HOST:-}" ]] && missing+=("HETZNER_HOST")
+          [[ -z "${HETZNER_USER:-}" ]] && missing+=("HETZNER_USER")
+          [[ -z "${HETZNER_SSH_KEY:-}" ]] && missing+=("HETZNER_SSH_KEY")
+          if (( ${#missing[@]} > 0 )); then
+            echo "::error::Missing secret(s) on environment '${{ inputs.environment }}': ${missing[*]}"
+            echo "::error::Add them under Settings → Environments → ${{ inputs.environment }} → Environment secrets."
+            exit 1
+          fi
+          echo "All Hetzner secrets present for ${{ inputs.environment }}."
 
       - name: Flip on Hetzner via SSH
         uses: appleboy/ssh-action@0ff4204d59e8e51228ff73bce53f80d53301dee2 # v1
