@@ -169,7 +169,33 @@ type PeerState = {
    *  Frames missing ``c`` (from v1.1 clients) bypass the check for
    *  backward compatibility. */
   awarenessMaxC: number
+  /** Tracks inbound drop rate. If a peer floods us with garbage
+   *  frames (malformed, wrong-key ciphertext, replays), we don't
+   *  want to spend unbounded CPU on ``decrypt → null → drop``.
+   *  After ``INBOUND_DROP_THRESHOLD`` drops within a window, we
+   *  flag the peer as misbehaving and short-circuit further inbound
+   *  at the transport boundary until the window rolls.
+   *
+   *  This is a client-side belt over the signaling + WebRTC rate
+   *  limits the transport already has. See
+   *  specs/collab-e2ee-security-review.md Concern §6. */
+  dropCount: number
+  dropWindowStart: number
 }
+
+// ── Rate-limit constants ──
+
+/** A peer may drop up to this many frames in a rolling window
+ *  before we stop accepting any frames from them for the rest of
+ *  the window. Chosen to tolerate ~1 invalid frame/sec during a
+ *  clock-skew scenario while still throttling a pump at 1 MB/s of
+ *  garbage. */
+const INBOUND_DROP_THRESHOLD = 30
+
+/** Rolling drop-window length in ms. 10 s keeps the check coarse
+ *  enough to be cheap; fine enough that a recovered peer starts
+ *  fresh quickly. */
+const INBOUND_DROP_WINDOW_MS = 10_000
 
 export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
   const doc = opts.doc ?? new Y.Doc()
@@ -299,6 +325,29 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
     }
   }
 
+  /** Track a drop; return true if the peer is currently rate-limited
+   *  and we should short-circuit further processing. */
+  function noteDropAndCheck(peer: PeerState): boolean {
+    const now = Date.now()
+    if (now - peer.dropWindowStart > INBOUND_DROP_WINDOW_MS) {
+      peer.dropCount = 0
+      peer.dropWindowStart = now
+    }
+    peer.dropCount += 1
+    return peer.dropCount > INBOUND_DROP_THRESHOLD
+  }
+
+  /** True if the peer has been muted for the current drop window. */
+  function isRateLimited(peer: PeerState): boolean {
+    const now = Date.now()
+    if (now - peer.dropWindowStart > INBOUND_DROP_WINDOW_MS) {
+      peer.dropCount = 0
+      peer.dropWindowStart = now
+      return false
+    }
+    return peer.dropCount > INBOUND_DROP_THRESHOLD
+  }
+
   function handleInbound(
     transport: CollabTransport,
     msg: CollabWireMessage,
@@ -323,9 +372,17 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
     // arriving before hello would be un-decodable anyway.
     if (!peer.settled) return
 
+    // Short-circuit if the peer has exceeded the drop threshold for
+    // this window. Avoids spending CPU on decrypt attempts for a peer
+    // that's been established as misbehaving.
+    if (isRateLimited(peer)) return
+
     void (async () => {
       const plaintext = await decryptIfNeeded(peer, msg)
-      if (plaintext === null) return
+      if (plaintext === null) {
+        noteDropAndCheck(peer)
+        return
+      }
       try {
         if (msg.t === 'y-sync-1') {
           const diff = Y.encodeStateAsUpdate(doc, plaintext)
@@ -340,13 +397,17 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
           // counter. Frames missing ``c`` pass through for back-compat
           // with v1.1 clients (which predate this protection).
           if (typeof msg.c === 'number') {
-            if (msg.c <= peer.awarenessMaxC) return
+            if (msg.c <= peer.awarenessMaxC) {
+              noteDropAndCheck(peer)
+              return
+            }
             peer.awarenessMaxC = msg.c
           }
           applyAwarenessUpdate(awareness, plaintext, 'remote')
         }
       } catch {
         /* malformed plaintext after decrypt — drop silently */
+        noteDropAndCheck(peer)
       }
     })()
   }
@@ -366,6 +427,8 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
       pendingOut: [],
       outboundAwarenessC: 0,
       awarenessMaxC: 0,
+      dropCount: 0,
+      dropWindowStart: Date.now(),
     }
     state.unsubscribe = transport.onMessage((m) => handleInbound(transport, m))
     peers.set(transport.peerId, state)
