@@ -9,18 +9,55 @@
  */
 
 import { Icon } from '@iconify/react'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useCollabRoom } from '@/hooks/collab/useCollabRoom'
 import { CollabDisabledError, type CollabKind } from '@/utils/collab/api'
+import {
+  encodeInviteFragment,
+  generateFragmentKeys,
+  type CollabFragmentKeys,
+} from '@/utils/collab/invite-fragment'
 
 import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
 import { PresenceStrip } from './PresenceStrip'
 
+// v1.1 feature flag. Turn on to make hosts mint master keys and
+// embed them in invite fragments — the PR 24 handshake still falls
+// back to plaintext if a guest lands without a fragment (old client
+// or stripped link), so enabling this is safe during a rolling deploy.
+const E2EE_ENABLED = process.env.NEXT_PUBLIC_COLLAB_E2EE === 'true'
+
 export function CollabHostClient() {
   const [kind, setKind] = useState<CollabKind>('text')
-  const room = useCollabRoom({ options: { kind, maxParticipants: 4 } })
+  const [fragmentKeys, setFragmentKeys] = useState<CollabFragmentKeys | null>(
+    null,
+  )
+
+  // Generate one master/salt pair per host-client mount (fresh session →
+  // fresh keys). Web Crypto is browser-only; the effect runs after
+  // mount so SSR is unaffected.
+  useEffect(() => {
+    if (!E2EE_ENABLED) return
+    let cancelled = false
+    void (async () => {
+      const keys = await generateFragmentKeys()
+      if (!cancelled) setFragmentKeys(keys)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const room = useCollabRoom({
+    options: {
+      kind,
+      maxParticipants: 4,
+      masterKey: fragmentKeys?.masterKey,
+      salt: fragmentKeys?.salt,
+    },
+  })
   const [lastInvite, setLastInvite] = useState<string | null>(null)
 
   if (room.error instanceof CollabDisabledError) {
@@ -119,7 +156,23 @@ export function CollabHostClient() {
           type="button"
           onClick={async () => {
             const url = await room.copyInvite()
-            if (url) setLastInvite(url)
+            if (!url) return
+            // Append the E2EE fragment so the guest can decrypt. The
+            // fragment is not sent in the HTTP GET when the guest
+            // loads the page — browsers strip it from the request.
+            let full = url
+            if (fragmentKeys) {
+              const fragment = await encodeInviteFragment(fragmentKeys)
+              full = `${url}#${fragment}`
+              // copyInvite already wrote ``url`` to the clipboard;
+              // overwrite with the fragment-bearing version.
+              try {
+                await navigator.clipboard.writeText(full)
+              } catch {
+                /* ignore — UI still shows the URL below */
+              }
+            }
+            setLastInvite(full)
           }}
           className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
         >

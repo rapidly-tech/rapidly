@@ -30,8 +30,10 @@ import {
 } from '@/utils/collab/api'
 import {
   createCollabRoom,
+  deriveCollabKeys,
   isCollabMessage,
   type CollabRoom,
+  type CollabSessionKeys,
   type CollabTransport,
 } from '@/utils/collab/provider'
 import { FILE_SHARING_SIGNAL_PATH } from '@/utils/file-sharing/constants'
@@ -54,6 +56,11 @@ export interface UseCollabRoomOptions {
   kind?: CollabKind
   /** Host-only: mesh ceiling. Server accepts [2, 8]. */
   maxParticipants?: number
+  /** E2EE master key + salt. Host generates fresh pair on
+   *  ``startAsHost``; guest receives via URL fragment. Omitted →
+   *  plaintext (v1). See specs/collab-e2ee.md. */
+  masterKey?: CryptoKey
+  salt?: Uint8Array
 }
 
 export interface UseCollabRoomReturn {
@@ -195,7 +202,14 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     selfId: string,
     iceServers: RTCIceServer[],
   ): Promise<void> {
-    const room = createCollabRoom({ selfPeerId: selfId })
+    // Derive E2EE sub-keys if both master + salt are present. Missing
+    // either → plaintext fallback (handshake negotiates).
+    let keys: CollabSessionKeys | undefined
+    if (options?.masterKey && options?.salt) {
+      keys = await deriveCollabKeys(options.masterKey, options.salt)
+    }
+
+    const room = createCollabRoom({ selfPeerId: selfId, keys })
     roomRef.current = room
     setDoc(room.doc)
     setClientID(room.awareness.clientID)

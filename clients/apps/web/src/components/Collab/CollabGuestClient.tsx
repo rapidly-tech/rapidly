@@ -8,10 +8,14 @@
  */
 
 import { Icon } from '@iconify/react'
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 
 import { useCollabRoom } from '@/hooks/collab/useCollabRoom'
 import { CollabDisabledError } from '@/utils/collab/api'
+import {
+  decodeInviteFragment,
+  type CollabFragmentKeys,
+} from '@/utils/collab/invite-fragment'
 
 import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
@@ -23,7 +27,33 @@ interface Props {
 }
 
 export function CollabGuestClient({ slug, token }: Props) {
-  const room = useCollabRoom({ slug, token, options: {} })
+  const [fragmentKeys, setFragmentKeys] = useState<CollabFragmentKeys | null>(
+    null,
+  )
+
+  // Parse the ``#k=...&s=...`` fragment on mount. If absent or
+  // malformed the PR 24 handshake gracefully falls back to plaintext
+  // on both sides — nothing fails here.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    let cancelled = false
+    void (async () => {
+      const keys = await decodeInviteFragment(window.location.hash)
+      if (!cancelled) setFragmentKeys(keys)
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
+  const room = useCollabRoom({
+    slug,
+    token,
+    options: {
+      masterKey: fragmentKeys?.masterKey,
+      salt: fragmentKeys?.salt,
+    },
+  })
 
   // Auto-join as soon as we know we have both slug + token and the
   // public view has resolved. Matches Call's join-on-click policy —
