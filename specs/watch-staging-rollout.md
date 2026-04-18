@@ -6,7 +6,16 @@ two-browser sync validation. Stay next to the Hetzner terminal with
 this open.
 
 ## Prerequisites
-- SSH to the Hetzner staging box.
+- SSH to the staging box. Hostname + SSH host alias + compose-file
+  path live in an uncommitted operator-local env file:
+
+  ```bash
+  # ~/.rapidly/staging.env (not committed; chmod 600)
+  STAGING_SSH_HOST=<ssh-config-alias>
+  STAGING_HTTP_URL=https://<staging-hostname>
+  STAGING_COMPOSE_FILE=<path-to-compose-file>
+  ```
+  Source it: `source ~/.rapidly/staging.env`.
 - Access to the staging frontend build environment.
 - Two browsers (Chrome + Firefox, or two Chrome profiles) on the same
   machine or different networks. At least one public video URL to test
@@ -16,13 +25,13 @@ this open.
 ## 1. Flip the backend flag
 
 ```bash
-ssh staging
+ssh "$STAGING_SSH_HOST"
 sudo -i
 cd /opt/rapidly
 # Edit server env file, add or uncomment:
 #   RAPIDLY_FILE_SHARING_WATCH_ENABLED=true
-docker compose -f docker-compose.staging.yml up -d api
-docker compose -f docker-compose.staging.yml logs -f api --tail=50
+docker compose -f "$STAGING_COMPOSE_FILE" up -d api
+docker compose -f "$STAGING_COMPOSE_FILE" logs -f api --tail=50
 ```
 
 Expect `watch_session_created` events in the log once you run step 4.
@@ -45,7 +54,7 @@ If you also want the 6-chamber revolver at `/`, flip
 ## 3. Smoke-test the API from your laptop
 
 ```bash
-export STAGING=https://staging.rapidly.tech
+export STAGING="$STAGING_HTTP_URL"
 
 # Create a watch session (URL-only v1).
 curl -sS -X POST "$STAGING/api/v1/watch/session" \

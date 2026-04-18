@@ -6,7 +6,18 @@ Hetzner staging and running the two-browser Collab validation.
 
 ## Prerequisites
 
-- SSH to the Hetzner staging box.
+- SSH to the staging box. Hostname + SSH host alias + compose-file
+  path live in an uncommitted operator-local env file (same one
+  `dev/preflight-collab-staging` reads):
+
+  ```bash
+  # ~/.rapidly/staging.env (not committed; chmod 600)
+  STAGING_SSH_HOST=<ssh-config-alias>
+  STAGING_HTTP_URL=https://<staging-hostname>
+  STAGING_COMPOSE_FILE=<path-to-compose-file>
+  ```
+  Source it in the shell you're running the commands from:
+  `source ~/.rapidly/staging.env`.
 - Two browsers on separate machines, or two profiles on one box. Any
   modern Chrome / Firefox / Safari works — no camera or mic needed
   (this chamber is text + canvas, not A/V).
@@ -17,13 +28,13 @@ Hetzner staging and running the two-browser Collab validation.
 ## 1. Flip the backend flag
 
 ```bash
-ssh staging
+ssh "$STAGING_SSH_HOST"
 sudo -i
 cd /opt/rapidly
 # Edit the server env file, add / uncomment:
 #   RAPIDLY_FILE_SHARING_COLLAB_ENABLED=true
-docker compose -f docker-compose.staging.yml up -d api
-docker compose -f docker-compose.staging.yml logs -f api --tail=50
+docker compose -f "$STAGING_COMPOSE_FILE" up -d api
+docker compose -f "$STAGING_COMPOSE_FILE" logs -f api --tail=50
 ```
 
 Expect `collab_session_created` log entries once step 4 runs.
@@ -43,7 +54,7 @@ pages just work.
 ## 3. API smoke
 
 ```bash
-export STAGING=https://staging.rapidly.tech
+export STAGING="$STAGING_HTTP_URL"
 
 curl -sS -X POST "$STAGING/api/v1/collab/session" \
   -H 'Content-Type: application/json' \
