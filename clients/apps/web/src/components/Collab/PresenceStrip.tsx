@@ -20,10 +20,8 @@ function hueFor(clientID: number): number {
 
 export function PresenceStrip({ peers, selfLabel }: PresenceStripProps) {
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-xl border border-slate-200 bg-white p-3 text-sm dark:border-slate-800 dark:bg-slate-900">
-      <span className="text-xs text-slate-500 dark:text-slate-400">
-        In this doc:
-      </span>
+    <div className="glass-elevated flex flex-wrap items-center gap-2 rounded-2xl bg-slate-50 p-3 text-sm shadow-xs dark:bg-slate-900">
+      <span className="rp-text-muted text-xs">In this doc:</span>
 
       <span
         className="inline-flex items-center gap-1.5 rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-medium text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-200"
@@ -34,7 +32,7 @@ export function PresenceStrip({ peers, selfLabel }: PresenceStripProps) {
       </span>
 
       {peers.length === 0 && (
-        <span className="text-xs text-slate-400">
+        <span className="rp-text-muted text-xs">
           No one else yet — share the invite link to bring someone in.
         </span>
       )}
@@ -48,7 +46,7 @@ export function PresenceStrip({ peers, selfLabel }: PresenceStripProps) {
         return (
           <span
             key={clientID}
-            className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-800 dark:bg-slate-800 dark:text-slate-100"
+            className="rp-text-primary inline-flex items-center gap-1.5 rounded-full bg-white px-2.5 py-1 text-xs font-medium dark:bg-white/5"
           >
             <span
               className="h-2 w-2 rounded-full"

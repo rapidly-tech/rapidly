@@ -102,7 +102,7 @@ export function CollabEditor({ doc, onSelectionChange }: CollabEditorProps) {
       onChange={onChange}
       onSelect={onSelect}
       placeholder="Start typing — every participant sees edits appear in real time…"
-      className="min-h-[400px] w-full resize-y rounded-lg border border-slate-200 bg-white p-4 font-mono text-sm leading-relaxed text-slate-900 shadow-inner focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+      className="rp-text-primary placeholder:rp-text-muted glass-elevated min-h-[400px] w-full resize-y rounded-2xl border border-(--beige-border)/30 bg-white p-4 font-mono text-sm leading-relaxed shadow-xs focus:border-emerald-500 focus:ring-2 focus:ring-emerald-500/30 focus:outline-none dark:border-white/6 dark:bg-white/3"
       spellCheck={false}
     />
   )

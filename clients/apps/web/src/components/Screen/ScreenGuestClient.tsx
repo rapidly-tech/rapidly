@@ -66,7 +66,7 @@ export function ScreenGuestClient({ slug, token }: ScreenGuestClientProps) {
 
   if (guest.status === 'ready') {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-4 rounded-2xl bg-slate-50 p-8 text-center shadow-xs dark:bg-slate-900">
         <Icon
           icon="lucide:monitor"
           width={40}
@@ -77,7 +77,7 @@ export function ScreenGuestClient({ slug, token }: ScreenGuestClientProps) {
         <h1 className="text-xl font-semibold">
           {guest.view?.title ?? 'Screen share'}
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="rp-text-secondary text-sm">
           Up to {guest.view?.max_viewers ?? 10} viewers · hosted on rapidly.tech
         </p>
         <button
@@ -108,7 +108,7 @@ export function ScreenGuestClient({ slug, token }: ScreenGuestClientProps) {
           </div>
         )}
       </div>
-      <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+      <p className="rp-text-muted text-center text-xs">
         Connected peer-to-peer.
       </p>
     </div>

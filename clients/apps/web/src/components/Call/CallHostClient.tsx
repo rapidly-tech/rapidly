@@ -22,7 +22,7 @@ export function CallHostClient() {
 
   if (room.error instanceof CallDisabledError) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+      <div className="mx-auto max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
         <p className="font-medium">Call is not enabled here.</p>
         <p className="mt-2 text-sm">
           Ask your operator to flip <code>FILE_SHARING_CALL_ENABLED</code> on.
@@ -33,7 +33,7 @@ export function CallHostClient() {
 
   if (room.status === 'idle' || room.status === 'closed') {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-4 rounded-2xl bg-slate-50 p-8 text-center shadow-xs dark:bg-slate-900">
         <Icon
           icon="lucide:phone"
           width={48}
@@ -42,7 +42,7 @@ export function CallHostClient() {
           aria-hidden
         />
         <h1 className="text-xl font-semibold">Start a call</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="rp-text-secondary text-sm">
           End-to-end encrypted, peer-to-peer. 1:1 today; small-group mesh coming
           soon.
         </p>
@@ -54,7 +54,7 @@ export function CallHostClient() {
           Start call
         </button>
         {room.status === 'closed' && (
-          <p className="text-xs text-slate-400">Call ended.</p>
+          <p className="rp-text-muted text-xs">Call ended.</p>
         )}
       </div>
     )
@@ -62,7 +62,7 @@ export function CallHostClient() {
 
   if (room.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+      <div className="mx-auto max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
         <p className="font-medium">Could not start the call.</p>
         <p className="mt-2 text-sm">
           {room.error?.message ??
@@ -106,7 +106,7 @@ export function CallHostClient() {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-slate-50 p-3 shadow-xs dark:bg-slate-900">
         <button
           type="button"
           onClick={room.toggleAudio}
