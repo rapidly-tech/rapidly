@@ -8,6 +8,7 @@ import { useAuth } from '@/hooks/auth'
 import { Icon } from '@iconify/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChamberStrip } from './ChamberStrip'
 import { SecretSharingForm, type SecretFormState } from './SecretSharingForm'
 import { ShareCounter } from './ShareCounter'
 
@@ -219,6 +220,9 @@ export const FileSharingLandingPage = ({
       <div className="relative z-20 flex items-center justify-center py-8">
         <ShareCounter workspaceId={workspaceId} />
       </div>
+
+      {/* Other chambers */}
+      <ChamberStrip />
 
       {/* Trust badges */}
       <AnimatePresence mode="wait" initial={false}>
