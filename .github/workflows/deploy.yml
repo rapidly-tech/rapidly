@@ -157,7 +157,11 @@ jobs:
             NEXT_PUBLIC_FRONTEND_BASE_URL=https://rapidly.tech
             NEXT_PUBLIC_POSTHOG_TOKEN=${{ secrets.NEXT_PUBLIC_POSTHOG_TOKEN }}
             NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
-            NEXT_PUBLIC_REVOLVER_LANDING=true
+            # NEXT_PUBLIC_REVOLVER_LANDING intentionally OFF on
+            # production right now — the radial layout is visually
+            # cramped compared to the file-sharing landing. Re-enable
+            # after the Revolver component gets a visual polish pass.
+            NEXT_PUBLIC_REVOLVER_LANDING=false
             NEXT_PUBLIC_COLLAB_E2EE=true
 
   # Deploy to Hetzner via SSH
