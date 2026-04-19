@@ -59,8 +59,18 @@ ARG NEXT_PUBLIC_API_URL=https://api.rapidly.tech
 ARG NEXT_PUBLIC_FRONTEND_BASE_URL=https://rapidly.tech
 ARG NEXT_PUBLIC_POSTHOG_TOKEN=
 ARG NEXT_PUBLIC_SENTRY_DSN=
-RUN printf 'NEXT_PUBLIC_API_URL=%s\nNEXT_PUBLIC_FRONTEND_BASE_URL=%s\nNEXT_PUBLIC_POSTHOG_TOKEN=%s\nNEXT_PUBLIC_SENTRY_DSN=%s\n' \
-  "${NEXT_PUBLIC_API_URL}" "${NEXT_PUBLIC_FRONTEND_BASE_URL}" "${NEXT_PUBLIC_POSTHOG_TOKEN}" "${NEXT_PUBLIC_SENTRY_DSN}" \
+# Gates the 6-chamber revolver landing at /. Baked in at build time
+# (Next.js can't read env at request time for static pages). Default
+# false so a local/dev build without the arg matches the historical
+# file-sharing landing.
+ARG NEXT_PUBLIC_REVOLVER_LANDING=false
+# Gates the Collab E2EE UI (default-on behaviour lives in
+# components/Collab/CollabHostClient + CollabGuestClient). Default
+# true so production-style builds get E2EE without requiring an
+# explicit build-arg; set to false only for a deliberate opt-out.
+ARG NEXT_PUBLIC_COLLAB_E2EE=true
+RUN printf 'NEXT_PUBLIC_API_URL=%s\nNEXT_PUBLIC_FRONTEND_BASE_URL=%s\nNEXT_PUBLIC_POSTHOG_TOKEN=%s\nNEXT_PUBLIC_SENTRY_DSN=%s\nNEXT_PUBLIC_REVOLVER_LANDING=%s\nNEXT_PUBLIC_COLLAB_E2EE=%s\n' \
+  "${NEXT_PUBLIC_API_URL}" "${NEXT_PUBLIC_FRONTEND_BASE_URL}" "${NEXT_PUBLIC_POSTHOG_TOKEN}" "${NEXT_PUBLIC_SENTRY_DSN}" "${NEXT_PUBLIC_REVOLVER_LANDING}" "${NEXT_PUBLIC_COLLAB_E2EE}" \
   > apps/web/.env.production
 ENV NEXT_TELEMETRY_DISABLED=1
 
