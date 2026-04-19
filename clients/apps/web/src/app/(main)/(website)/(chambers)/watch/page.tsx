@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { ChamberPageShell } from '@/components/Revolver/ChamberPageShell'
 import { WatchHostClient } from '@/components/Watch/WatchHostClient'
 
 export const metadata: Metadata = {
@@ -10,8 +11,12 @@ export const metadata: Metadata = {
 
 export default function WatchHostPage() {
   return (
-    <div className="flex min-h-[calc(100vh-200px)] items-center justify-center px-4 py-12">
+    <ChamberPageShell
+      title="Watch together"
+      subtitle="Synced peer-to-peer — every play, pause, and seek stays in lockstep"
+      currentId="watch"
+    >
       <WatchHostClient />
-    </div>
+    </ChamberPageShell>
   )
 }

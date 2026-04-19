@@ -7,14 +7,13 @@ import Link from 'next/link'
 import { CHAMBERS } from '@/components/Revolver/chambers'
 
 /**
- * Horizontal pill strip advertising the other chambers from the file-sharing
- * landing page. Matches the trust-badge visual language (glass-subtle +
- * rounded-full) so it feels native to the hero, not bolted on.
- *
- * "Files" itself is omitted — this strip renders *on* the Files chamber.
+ * Horizontal pill strip advertising the other chambers. Matches the
+ * trust-badge visual language (glass-subtle + rounded-full) so it reads
+ * as part of the hero, not bolted on. Pass ``currentId`` on chamber
+ * pages so we omit the chamber the visitor is already on.
  */
-export function ChamberStrip() {
-  const others = CHAMBERS.filter((c) => c.id !== 'files')
+export function ChamberStrip({ currentId = 'files' }: { currentId?: string }) {
+  const others = CHAMBERS.filter((c) => c.id !== currentId)
 
   return (
     <motion.nav

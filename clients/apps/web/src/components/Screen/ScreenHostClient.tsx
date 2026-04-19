@@ -49,9 +49,6 @@ export function ScreenHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="rp-text-primary text-xl font-semibold">
-          Share your screen
-        </h1>
         <p className="rp-text-secondary text-sm">
           End-to-end encrypted P2P. Up to 10 viewers per session.
         </p>

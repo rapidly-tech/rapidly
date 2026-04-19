@@ -75,9 +75,6 @@ export function WatchHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="rp-text-primary text-xl font-semibold">
-          Watch together
-        </h1>
         <p className="rp-text-secondary text-sm">
           Paste a video URL. Up to 10 viewers, perfectly synced.
         </p>

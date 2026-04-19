@@ -42,7 +42,6 @@ export function CallHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="rp-text-primary text-xl font-semibold">Start a call</h1>
         <p className="rp-text-secondary text-sm">
           End-to-end encrypted, peer-to-peer. 1:1 today; small-group mesh coming
           soon.
