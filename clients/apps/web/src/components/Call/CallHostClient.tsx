@@ -9,6 +9,7 @@
  */
 
 import { Icon } from '@iconify/react'
+import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useState } from 'react'
 
 import { useCallRoom } from '@/hooks/call/useCallRoom'
@@ -41,18 +42,14 @@ export function CallHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="text-xl font-semibold">Start a call</h1>
+        <h1 className="rp-text-primary text-xl font-semibold">Start a call</h1>
         <p className="rp-text-secondary text-sm">
           End-to-end encrypted, peer-to-peer. 1:1 today; small-group mesh coming
           soon.
         </p>
-        <button
-          type="button"
-          onClick={() => void room.startAsHost()}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none"
-        >
+        <Button size="lg" onClick={() => void room.startAsHost()}>
           Start call
-        </button>
+        </Button>
         {room.status === 'closed' && (
           <p className="rp-text-muted text-xs">Call ended.</p>
         )}
@@ -68,13 +65,14 @@ export function CallHostClient() {
           {room.error?.message ??
             "Couldn't access camera/mic. Check browser permissions."}
         </p>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
           onClick={() => void room.startAsHost()}
-          className="mt-4 rounded-lg border border-red-300 px-3 py-1.5 text-sm hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
         >
           Try again
-        </button>
+        </Button>
       </div>
     )
   }
@@ -92,7 +90,7 @@ export function CallHostClient() {
           videoOff={room.videoOff}
         />
         {remoteEntries.length === 0 ? (
-          <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+          <div className="rp-text-muted flex aspect-video w-full items-center justify-center rounded-2xl border border-dashed border-(--beige-border)/30 bg-slate-50 text-sm dark:bg-slate-900">
             Waiting for someone to join…
           </div>
         ) : (
@@ -107,70 +105,59 @@ export function CallHostClient() {
       </div>
 
       <div className="glass-elevated flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-slate-50 p-3 shadow-xs dark:bg-slate-900">
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant={room.audioMuted ? 'destructive' : 'outline'}
           onClick={room.toggleAudio}
-          className={
-            'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ' +
-            (room.audioMuted
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800')
-          }
           aria-pressed={room.audioMuted}
         >
           <Icon
             icon={room.audioMuted ? 'lucide:mic-off' : 'lucide:mic'}
-            width={18}
-            height={18}
+            width={16}
+            height={16}
             aria-hidden
           />
           {room.audioMuted ? 'Unmute' : 'Mute'}
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant={room.videoOff ? 'destructive' : 'outline'}
           onClick={room.toggleVideo}
-          className={
-            'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ' +
-            (room.videoOff
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800')
-          }
           aria-pressed={room.videoOff}
         >
           <Icon
             icon={room.videoOff ? 'lucide:video-off' : 'lucide:video'}
-            width={18}
-            height={18}
+            width={16}
+            height={16}
             aria-hidden
           />
           {room.videoOff ? 'Camera on' : 'Camera off'}
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          size="sm"
           onClick={async () => {
             const url = await room.copyInvite()
             if (url) setLastInvite(url)
           }}
-          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
         >
-          <Icon icon="lucide:link" width={18} height={18} aria-hidden />
+          <Icon icon="lucide:link" width={16} height={16} aria-hidden />
           Copy invite
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="destructive"
           onClick={() => void room.leave()}
-          className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          <Icon icon="lucide:phone-off" width={18} height={18} aria-hidden />
+          <Icon icon="lucide:phone-off" width={16} height={16} aria-hidden />
           End call
-        </button>
+        </Button>
       </div>
 
       {lastInvite && (
-        <p className="truncate rounded bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <p className="rp-text-secondary truncate rounded-xl bg-slate-100 px-3 py-2 font-mono text-xs dark:bg-slate-800">
           {lastInvite}
         </p>
       )}

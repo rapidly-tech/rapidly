@@ -9,6 +9,7 @@
  */
 
 import { Icon } from '@iconify/react'
+import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useRef, useState } from 'react'
 
 import { useWatchHost } from '@/hooks/watch/useWatchHost'
@@ -74,7 +75,9 @@ export function WatchHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="text-xl font-semibold">Watch together</h1>
+        <h1 className="rp-text-primary text-xl font-semibold">
+          Watch together
+        </h1>
         <p className="rp-text-secondary text-sm">
           Paste a video URL. Up to 10 viewers, perfectly synced.
         </p>
@@ -84,7 +87,7 @@ export function WatchHostClient() {
           value={url}
           onChange={(e) => setUrl(e.target.value)}
           placeholder="https://example.com/video.mp4"
-          className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-800"
+          className="rp-text-primary placeholder:rp-text-muted w-full rounded-xl border border-(--beige-border)/30 bg-white px-3 py-2 text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none dark:border-white/6 dark:bg-white/3"
         />
         {/* The <video> exists even before Start so the host hook has a
          *  ref to attach a controller to when start() fires. */}
@@ -94,13 +97,9 @@ export function WatchHostClient() {
           preload="metadata"
           playsInline
         />
-        <button
-          type="submit"
-          disabled={!url}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none disabled:opacity-50"
-        >
+        <Button type="submit" size="lg" disabled={!url}>
           Start watching
-        </button>
+        </Button>
         {host.status === 'closed' && (
           <p className="rp-text-muted text-xs">Session ended.</p>
         )}
@@ -119,7 +118,7 @@ export function WatchHostClient() {
 
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-black shadow dark:border-slate-800">
+      <div className="glass-elevated overflow-hidden rounded-2xl bg-black shadow-xs">
         <video
           ref={videoRef}
           controls
@@ -129,33 +128,28 @@ export function WatchHostClient() {
         />
       </div>
 
-      <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated flex flex-col gap-2 rounded-2xl bg-slate-50 p-4 shadow-xs dark:bg-slate-900">
         <p className="rp-text-secondary text-sm">
           {host.viewerCount === 0
             ? 'Invite someone to join.'
             : `${host.viewerCount} viewer${host.viewerCount === 1 ? '' : 's'} connected`}
         </p>
         <div className="flex gap-2">
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={async () => {
               const inviteUrl = await host.copyInvite()
               if (inviteUrl) setLastInvite(inviteUrl)
             }}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
             Copy invite link
-          </button>
-          <button
-            type="button"
-            onClick={() => void host.stop()}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void host.stop()}>
             End session
-          </button>
+          </Button>
         </div>
         {lastInvite && (
-          <p className="truncate rounded bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          <p className="rp-text-secondary truncate rounded-xl bg-slate-100 px-3 py-2 font-mono text-xs dark:bg-slate-800">
             {lastInvite}
           </p>
         )}
