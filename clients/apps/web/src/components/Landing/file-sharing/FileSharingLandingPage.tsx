@@ -205,8 +205,9 @@ export const FileSharingLandingPage = ({
         <ShareCounter workspaceId={workspaceId} />
       </div>
 
-      {/* Chamber badges */}
-      <ChamberStrip />
+      {/* Chamber badges — Secret is omitted because the card above
+          already surfaces the secret entry point via "or type a secret...". */}
+      <ChamberStrip excludeIds={['secret']} />
     </div>
   )
 }
