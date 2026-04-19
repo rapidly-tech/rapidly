@@ -22,6 +22,7 @@
  * demo warrants it.
  */
 
+import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useRef, useState } from 'react'
 import type * as Y from 'yjs'
 
@@ -147,17 +148,13 @@ export function CollabCanvas({ doc, clientID }: CollabCanvasProps) {
   return (
     <div className="flex w-full flex-col gap-3">
       <div className="flex items-center justify-between">
-        <p className="text-xs text-slate-500 dark:text-slate-400">
+        <p className="rp-text-muted text-xs">
           Draw anywhere. Every stroke appears on every peer&apos;s canvas as
           soon as you lift the pointer.
         </p>
-        <button
-          type="button"
-          onClick={onClear}
-          className="rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-        >
+        <Button variant="outline" size="sm" onClick={onClear}>
           Clear
-        </button>
+        </Button>
       </div>
       <canvas
         ref={canvasRef}
@@ -168,7 +165,7 @@ export function CollabCanvas({ doc, clientID }: CollabCanvasProps) {
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerUp}
         onPointerLeave={onPointerUp}
-        className="h-auto w-full touch-none rounded-lg border border-slate-200 bg-white shadow-inner dark:border-slate-800 dark:bg-slate-950"
+        className="glass-elevated h-auto w-full touch-none rounded-2xl border border-(--beige-border)/30 bg-white shadow-xs dark:border-white/6 dark:bg-white/3"
         style={{ aspectRatio: `${CANVAS_WIDTH} / ${CANVAS_HEIGHT}` }}
       />
     </div>

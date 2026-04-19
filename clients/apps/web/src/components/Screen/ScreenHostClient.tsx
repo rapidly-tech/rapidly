@@ -9,6 +9,7 @@
  */
 
 import { Icon } from '@iconify/react'
+import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useRef, useState } from 'react'
 
 import { useScreenHost } from '@/hooks/screen/useScreenHost'
@@ -48,17 +49,15 @@ export function ScreenHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="text-xl font-semibold">Share your screen</h1>
+        <h1 className="rp-text-primary text-xl font-semibold">
+          Share your screen
+        </h1>
         <p className="rp-text-secondary text-sm">
           End-to-end encrypted P2P. Up to 10 viewers per session.
         </p>
-        <button
-          type="button"
-          onClick={() => void host.startSharing()}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none"
-        >
+        <Button size="lg" onClick={() => void host.startSharing()}>
           Start sharing
-        </button>
+        </Button>
         {host.status === 'closed' && (
           <p className="rp-text-muted text-xs">Session ended.</p>
         )}
@@ -71,13 +70,14 @@ export function ScreenHostClient() {
       <div className="mx-auto max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
         <p className="font-medium">Could not start the session.</p>
         <p className="mt-2 text-sm">{host.error?.message ?? 'Unknown error'}</p>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
           onClick={() => void host.startSharing()}
-          className="mt-4 rounded-lg border border-red-300 px-3 py-1.5 text-sm hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
         >
           Try again
-        </button>
+        </Button>
       </div>
     )
   }
@@ -85,7 +85,7 @@ export function ScreenHostClient() {
   // Active / in-flight: show a preview and the invite URL.
   return (
     <div className="mx-auto flex max-w-3xl flex-col gap-4">
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-black shadow dark:border-slate-800">
+      <div className="glass-elevated overflow-hidden rounded-2xl bg-black shadow-xs">
         {host.stream ? (
           <video
             ref={videoRef}
@@ -95,7 +95,7 @@ export function ScreenHostClient() {
             className="aspect-video w-full bg-black"
           />
         ) : (
-          <div className="flex aspect-video items-center justify-center text-slate-500">
+          <div className="rp-text-muted flex aspect-video items-center justify-center">
             {host.status === 'requesting-display'
               ? 'Choose a screen or window…'
               : 'Starting up…'}
@@ -103,33 +103,28 @@ export function ScreenHostClient() {
         )}
       </div>
 
-      <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated flex flex-col gap-2 rounded-2xl bg-slate-50 p-4 shadow-xs dark:bg-slate-900">
         <p className="rp-text-secondary text-sm">
           {host.viewerCount === 0
             ? 'Invite someone to watch.'
             : `${host.viewerCount} viewer${host.viewerCount === 1 ? '' : 's'} connected`}
         </p>
         <div className="flex gap-2">
-          <button
-            type="button"
+          <Button
+            size="sm"
             onClick={async () => {
               const url = await host.copyInvite()
               if (url) setLastInvite(url)
             }}
-            className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
           >
             Copy invite link
-          </button>
-          <button
-            type="button"
-            onClick={() => void host.stop()}
-            className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => void host.stop()}>
             Stop sharing
-          </button>
+          </Button>
         </div>
         {lastInvite && (
-          <p className="truncate rounded bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+          <p className="rp-text-secondary truncate rounded-xl bg-slate-100 px-3 py-2 font-mono text-xs dark:bg-slate-800">
             {lastInvite}
           </p>
         )}

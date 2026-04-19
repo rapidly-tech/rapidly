@@ -8,6 +8,7 @@
  */
 
 import { Icon } from '@iconify/react'
+import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useCallback } from 'react'
 
 import { useWatchGuest } from '@/hooks/watch/useWatchGuest'
@@ -87,19 +88,15 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="text-xl font-semibold">
+        <h1 className="rp-text-primary text-xl font-semibold">
           {guest.view?.title ?? 'Watch together'}
         </h1>
         <p className="rp-text-secondary text-sm">
           Up to {guest.view?.max_viewers ?? 10} viewers · synced to the host
         </p>
-        <button
-          type="button"
-          onClick={() => void guest.join()}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none"
-        >
+        <Button size="lg" onClick={() => void guest.join()}>
           Join now
-        </button>
+        </Button>
       </div>
     )
   }
@@ -110,7 +107,7 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
     : null
   return (
     <div className="mx-auto flex max-w-4xl flex-col gap-3">
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-black shadow dark:border-slate-800">
+      <div className="glass-elevated overflow-hidden rounded-2xl bg-black shadow-xs">
         {safeSrc ? (
           <video
             ref={attachVideoRef}
@@ -121,7 +118,7 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
             className="aspect-video w-full bg-black"
           />
         ) : (
-          <div className="flex aspect-video items-center justify-center text-slate-400">
+          <div className="rp-text-muted flex aspect-video items-center justify-center">
             {guest.view?.source_url
               ? 'Host sent an unsupported URL.'
               : 'Host has not set a video URL yet.'}
@@ -145,13 +142,13 @@ interface MessageProps {
 function Message({ icon, title, body, tone = 'info' }: MessageProps) {
   const toneClass =
     tone === 'warn'
-      ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
+      ? 'border border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
       : tone === 'error'
-        ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200'
-        : 'border-slate-200 bg-white text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200'
+        ? 'border border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200'
+        : 'glass-elevated rp-text-primary bg-slate-50 dark:bg-slate-900'
   return (
     <div
-      className={`mx-auto flex max-w-lg flex-col items-center gap-3 rounded-xl border p-6 text-center shadow-sm ${toneClass}`}
+      className={`mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl p-6 text-center shadow-xs ${toneClass}`}
     >
       <Icon icon={icon} width={32} height={32} aria-hidden />
       <p className="font-medium">{title}</p>

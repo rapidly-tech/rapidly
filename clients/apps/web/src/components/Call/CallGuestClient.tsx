@@ -9,6 +9,7 @@
  */
 
 import { Icon } from '@iconify/react'
+import Button from '@rapidly-tech/ui/components/forms/Button'
 
 import { useCallRoom } from '@/hooks/call/useCallRoom'
 
@@ -65,19 +66,15 @@ export function CallGuestClient({ slug, token }: CallGuestClientProps) {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="text-xl font-semibold">
+        <h1 className="rp-text-primary text-xl font-semibold">
           {room.view?.title ?? 'Join call'}
         </h1>
         <p className="rp-text-secondary text-sm">
           End-to-end encrypted, peer-to-peer.
         </p>
-        <button
-          type="button"
-          onClick={() => void room.joinAsGuest()}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none"
-        >
+        <Button size="lg" onClick={() => void room.joinAsGuest()}>
           Join now
-        </button>
+        </Button>
       </div>
     )
   }
@@ -93,7 +90,7 @@ export function CallGuestClient({ slug, token }: CallGuestClientProps) {
           videoOff={room.videoOff}
         />
         {remoteEntries.length === 0 ? (
-          <div className="flex aspect-video w-full items-center justify-center rounded-xl border border-dashed border-slate-300 bg-slate-50 text-sm text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+          <div className="rp-text-muted flex aspect-video w-full items-center justify-center rounded-2xl border border-dashed border-(--beige-border)/30 bg-slate-50 text-sm dark:bg-slate-900">
             Connecting…
           </div>
         ) : (
@@ -108,54 +105,44 @@ export function CallGuestClient({ slug, token }: CallGuestClientProps) {
       </div>
 
       <div className="glass-elevated flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-slate-50 p-3 shadow-xs dark:bg-slate-900">
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant={room.audioMuted ? 'destructive' : 'outline'}
           onClick={room.toggleAudio}
-          className={
-            'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ' +
-            (room.audioMuted
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800')
-          }
           aria-pressed={room.audioMuted}
         >
           <Icon
             icon={room.audioMuted ? 'lucide:mic-off' : 'lucide:mic'}
-            width={18}
-            height={18}
+            width={16}
+            height={16}
             aria-hidden
           />
           {room.audioMuted ? 'Unmute' : 'Mute'}
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant={room.videoOff ? 'destructive' : 'outline'}
           onClick={room.toggleVideo}
-          className={
-            'flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ' +
-            (room.videoOff
-              ? 'bg-red-600 text-white hover:bg-red-700'
-              : 'border border-slate-300 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800')
-          }
           aria-pressed={room.videoOff}
         >
           <Icon
             icon={room.videoOff ? 'lucide:video-off' : 'lucide:video'}
-            width={18}
-            height={18}
+            width={16}
+            height={16}
             aria-hidden
           />
           {room.videoOff ? 'Camera on' : 'Camera off'}
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="destructive"
           onClick={() => void room.leave()}
-          className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          <Icon icon="lucide:phone-off" width={18} height={18} aria-hidden />
+          <Icon icon="lucide:phone-off" width={16} height={16} aria-hidden />
           Leave
-        </button>
+        </Button>
       </div>
     </div>
   )
@@ -171,13 +158,13 @@ interface MessageProps {
 function Message({ icon, title, body, tone = 'info' }: MessageProps) {
   const toneClass =
     tone === 'warn'
-      ? 'border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
+      ? 'border border-amber-200 bg-amber-50 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200'
       : tone === 'error'
-        ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200'
-        : 'border-slate-200 bg-white text-slate-800 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200'
+        ? 'border border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200'
+        : 'glass-elevated rp-text-primary bg-slate-50 dark:bg-slate-900'
   return (
     <div
-      className={`mx-auto flex max-w-lg flex-col items-center gap-3 rounded-xl border p-6 text-center shadow-sm ${toneClass}`}
+      className={`mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl p-6 text-center shadow-xs ${toneClass}`}
     >
       <Icon icon={icon} width={32} height={32} aria-hidden />
       <p className="font-medium">{title}</p>
