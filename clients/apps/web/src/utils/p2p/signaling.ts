@@ -92,10 +92,19 @@ export class SignalingClient {
     credential: string,
     options?: { paymentToken?: string },
   ): Promise<WelcomeMessage> {
-    // Build WebSocket URL from current origin + caller-supplied path.
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    const host = window.location.host
-    const url = `${protocol}//${host}${this.signalPath}/${slug}`
+    // Build WebSocket URL from the configured API origin + caller-
+    // supplied path. We explicitly point at ``NEXT_PUBLIC_API_URL``
+    // instead of ``window.location.host`` because Next.js rewrites
+    // don't proxy WebSocket upgrades to a cross-origin destination —
+    // in prod the frontend is ``rapidly.tech`` and the backend is
+    // ``api.rapidly.tech``, and a same-origin connect would upgrade
+    // against the Next server and stall. Falling back to the current
+    // origin keeps local dev happy (``pnpm dev`` serves the API on
+    // the same host via the Next rewrite).
+    const apiUrl = process.env.NEXT_PUBLIC_API_URL
+    const base = apiUrl ? new URL(apiUrl) : new URL(window.location.origin)
+    const protocol = base.protocol === 'https:' ? 'wss:' : 'ws:'
+    const url = `${protocol}//${base.host}${this.signalPath}/${slug}`
 
     logger.log('[Signaling] connecting to', url)
 
