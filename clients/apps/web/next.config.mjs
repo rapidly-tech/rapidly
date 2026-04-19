@@ -161,6 +161,15 @@ const nextConfig = {
         source: '/api/file-sharing/:path*',
         destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/file-sharing/:path*`,
       },
+      // Chamber API rewrites — Screen / Watch / Call / Collab session + signaling
+      // endpoints live under /api/v1/{chamber}/* on the backend. Without these
+      // same-origin proxies the useScreenHost / useWatchHost / useCallRoom /
+      // useCollabRoom clients hit the Next.js app, which 404s every request
+      // and surfaces as "<Chamber> is not enabled here".
+      {
+        source: '/api/v1/:chamber(screen|watch|call|collab)/:path*',
+        destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/:chamber/:path*`,
+      },
       // Mintlify docs rewrite
       {
         source: '/docs/:path*',
