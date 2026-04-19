@@ -1,5 +1,6 @@
 import type { Metadata } from 'next'
 
+import { ChamberPageShell } from '@/components/Revolver/ChamberPageShell'
 import { ScreenHostClient } from '@/components/Screen/ScreenHostClient'
 
 export const metadata: Metadata = {
@@ -10,8 +11,12 @@ export const metadata: Metadata = {
 
 export default function ScreenHostPage() {
   return (
-    <div className="flex min-h-[calc(100vh-200px)] items-center justify-center px-4 py-12">
+    <ChamberPageShell
+      title="Share your screen"
+      subtitle="Encrypted peer-to-peer — no uploads, no relays, up to 10 viewers"
+      currentId="screen"
+    >
       <ScreenHostClient />
-    </div>
+    </ChamberPageShell>
   )
 }

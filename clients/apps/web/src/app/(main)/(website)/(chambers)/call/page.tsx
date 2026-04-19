@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 
 import { CallHostClient } from '@/components/Call/CallHostClient'
+import { ChamberPageShell } from '@/components/Revolver/ChamberPageShell'
 
 export const metadata: Metadata = {
   title: 'Call — Rapidly',
@@ -10,8 +11,12 @@ export const metadata: Metadata = {
 
 export default function CallHostPage() {
   return (
-    <div className="flex min-h-[calc(100vh-200px)] items-center justify-center px-4 py-12">
+    <ChamberPageShell
+      title="Start a call"
+      subtitle="Encrypted voice and video, peer-to-peer — no accounts, no relays"
+      currentId="call"
+    >
       <CallHostClient />
-    </div>
+    </ChamberPageShell>
   )
 }

@@ -69,12 +69,8 @@ export function CollabHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="rp-text-primary text-xl font-semibold">
-          Start a collaborative session
-        </h1>
         <p className="rp-text-secondary text-sm">
-          Realtime, peer-to-peer. Up to 4 people today; nothing is saved on our
-          servers.
+          Up to 4 people today; nothing is saved on our servers.
         </p>
 
         <div

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 
 import { SecretSharingForm } from '@/components/Landing/file-sharing/SecretSharingForm'
+import { ChamberPageShell } from '@/components/Revolver/ChamberPageShell'
 
 export const metadata: Metadata = {
   title: 'Secret — Rapidly',
@@ -13,8 +14,12 @@ export const metadata: Metadata = {
 // route /secret/[key] is only the recipient view.
 export default function SecretCreatePage() {
   return (
-    <div className="mx-auto flex min-h-[calc(100vh-200px)] w-full max-w-3xl flex-col items-center justify-center px-4 py-12">
+    <ChamberPageShell
+      title="Send a secret"
+      subtitle="Encrypted one-time share — self-destructs on open, no account needed"
+      currentId="secret"
+    >
       <SecretSharingForm />
-    </div>
+    </ChamberPageShell>
   )
 }
