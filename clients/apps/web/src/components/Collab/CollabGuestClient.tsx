@@ -3,11 +3,12 @@
 /**
  * Guest-side Collab chamber UI.
  *
- * Fetches public view on mount; shows the session title and a Join
- * button. After join, the editor + presence strip identical to host.
+ * Styled with the Rapidly design tokens (glass-elevated cards,
+ * rp-text-*, UI-package Button) to match /features/* + file-sharing.
  */
 
 import { Icon } from '@iconify/react'
+import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useState } from 'react'
 
 import { useCollabRoom } from '@/hooks/collab/useCollabRoom'
@@ -22,10 +23,6 @@ import { CollabEditor } from './CollabEditor'
 import { EncryptionBadge } from './EncryptionBadge'
 import { PresenceStrip } from './PresenceStrip'
 
-// v1.1 E2EE is on by default (PR D). When on, guests must land with
-// an invite fragment; no fragment → clear error rather than a silent
-// downgrade. Set NEXT_PUBLIC_COLLAB_E2EE=false to opt out per the
-// host-side flag.
 const E2EE_ENABLED = process.env.NEXT_PUBLIC_COLLAB_E2EE !== 'false'
 
 interface Props {
@@ -39,9 +36,6 @@ export function CollabGuestClient({ slug, token }: Props) {
   )
   const [fragmentChecked, setFragmentChecked] = useState(false)
 
-  // Parse the ``#k=...&s=...`` fragment on mount. If absent or
-  // malformed the PR 24 handshake gracefully falls back to plaintext
-  // on both sides — nothing fails here.
   useEffect(() => {
     if (typeof window === 'undefined') return
     let cancelled = false
@@ -65,10 +59,6 @@ export function CollabGuestClient({ slug, token }: Props) {
     },
   })
 
-  // Auto-join as soon as we know we have both slug + token and the
-  // public view has resolved. Matches Call's join-on-click policy —
-  // but here we have no media permission to gate, so we skip the
-  // "Join" click and drop straight into the editor.
   useEffect(() => {
     if (!token) return
     if (room.status !== 'idle') return
@@ -79,46 +69,41 @@ export function CollabGuestClient({ slug, token }: Props) {
 
   if (!token) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-        <p className="font-medium">Missing invite token.</p>
-        <p className="mt-2 text-sm">
-          The link you opened is missing the <code>?t=...</code> parameter. Ask
-          the host to resend.
-        </p>
-      </div>
+      <WarnCard
+        title="Missing invite token."
+        body={
+          <>
+            The link you opened is missing the <code>?t=...</code> parameter.
+            Ask the host to resend.
+          </>
+        }
+      />
     )
   }
 
-  // Gate joining on fragment presence when E2EE is required. If the
-  // fragment was dropped (forwarded via a tool that stripped ``#...``,
-  // or the link was edited) the guest would otherwise try to decrypt
-  // with no keys and join a non-converging session. Surface that up
-  // front so the host knows to resend.
   if (E2EE_ENABLED && fragmentChecked && !fragmentKeys) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-        <p className="font-medium">Missing encryption key.</p>
-        <p className="mt-2 text-sm">
-          This invite link is missing the <code>#k=...</code> fragment the
-          session needs to stay end-to-end encrypted. Ask the host to copy the
-          invite again — some messaging tools strip everything after{' '}
-          <code>#</code>.
-        </p>
-      </div>
+      <WarnCard
+        title="Missing encryption key."
+        body={
+          <>
+            This invite link is missing the <code>#k=...</code> fragment the
+            session needs to stay end-to-end encrypted. Ask the host to copy the
+            invite again — some messaging tools strip everything after{' '}
+            <code>#</code>.
+          </>
+        }
+      />
     )
   }
 
   if (room.error instanceof CollabDisabledError) {
-    return (
-      <div className="mx-auto max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-        <p className="font-medium">Collab is not enabled here.</p>
-      </div>
-    )
+    return <WarnCard title="Collab is not enabled here." />
   }
 
   if (room.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+      <div className="mx-auto max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
         <p className="font-medium">Couldn&apos;t join this session.</p>
         <p className="mt-2 text-sm">
           {room.error?.message ??
@@ -130,7 +115,7 @@ export function CollabGuestClient({ slug, token }: Props) {
 
   if (room.status !== 'active' || !room.doc) {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-8 text-center shadow dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl bg-slate-50 p-8 text-center shadow-xs dark:bg-slate-900">
         <Icon
           icon="lucide:users"
           width={40}
@@ -138,12 +123,10 @@ export function CollabGuestClient({ slug, token }: Props) {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="text-lg font-semibold">
+        <h1 className="rp-text-primary text-lg font-semibold">
           {room.view?.title ?? 'Collaborative doc'}
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
-          Connecting to peer…
-        </p>
+        <p className="rp-text-secondary text-sm">Connecting to peer…</p>
       </div>
     )
   }
@@ -161,16 +144,25 @@ export function CollabGuestClient({ slug, token }: Props) {
         <CollabEditor doc={room.doc} />
       )}
 
-      <div className="flex items-center justify-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow dark:border-slate-800 dark:bg-slate-900">
-        <button
-          type="button"
+      <div className="glass-elevated flex items-center justify-end gap-2 rounded-2xl bg-slate-50 p-3 shadow-xs dark:bg-slate-900">
+        <Button
+          size="sm"
+          variant="destructive"
           onClick={() => void room.leave()}
-          className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          <Icon icon="lucide:log-out" width={18} height={18} aria-hidden />
+          <Icon icon="lucide:log-out" width={16} height={16} aria-hidden />
           Leave
-        </button>
+        </Button>
       </div>
+    </div>
+  )
+}
+
+function WarnCard({ title, body }: { title: string; body?: React.ReactNode }) {
+  return (
+    <div className="mx-auto max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+      <p className="font-medium">{title}</p>
+      {body && <p className="mt-2 text-sm">{body}</p>}
     </div>
   )
 }

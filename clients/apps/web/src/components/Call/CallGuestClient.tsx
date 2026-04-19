@@ -57,7 +57,7 @@ export function CallGuestClient({ slug, token }: CallGuestClientProps) {
   // Show join screen only when we haven't attempted yet.
   if (room.status === 'idle') {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-4 rounded-2xl bg-slate-50 p-8 text-center shadow-xs dark:bg-slate-900">
         <Icon
           icon="lucide:phone-incoming"
           width={40}
@@ -68,7 +68,7 @@ export function CallGuestClient({ slug, token }: CallGuestClientProps) {
         <h1 className="text-xl font-semibold">
           {room.view?.title ?? 'Join call'}
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="rp-text-secondary text-sm">
           End-to-end encrypted, peer-to-peer.
         </p>
         <button
@@ -107,7 +107,7 @@ export function CallGuestClient({ slug, token }: CallGuestClientProps) {
         )}
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated flex flex-wrap items-center justify-center gap-2 rounded-2xl bg-slate-50 p-3 shadow-xs dark:bg-slate-900">
         <button
           type="button"
           onClick={room.toggleAudio}

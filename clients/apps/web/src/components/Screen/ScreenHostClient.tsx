@@ -28,7 +28,7 @@ export function ScreenHostClient() {
 
   if (host.error instanceof ScreenDisabledError) {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+      <div className="mx-auto max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
         <p className="font-medium">Screen sharing is not enabled here.</p>
         <p className="mt-2 text-sm">
           Ask your operator to flip <code>FILE_SHARING_SCREEN_ENABLED</code> on,
@@ -40,7 +40,7 @@ export function ScreenHostClient() {
 
   if (host.status === 'idle' || host.status === 'closed') {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-4 rounded-2xl bg-slate-50 p-8 text-center shadow-xs dark:bg-slate-900">
         <Icon
           icon="lucide:monitor-play"
           width={48}
@@ -49,7 +49,7 @@ export function ScreenHostClient() {
           aria-hidden
         />
         <h1 className="text-xl font-semibold">Share your screen</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="rp-text-secondary text-sm">
           End-to-end encrypted P2P. Up to 10 viewers per session.
         </p>
         <button
@@ -60,7 +60,7 @@ export function ScreenHostClient() {
           Start sharing
         </button>
         {host.status === 'closed' && (
-          <p className="text-xs text-slate-400">Session ended.</p>
+          <p className="rp-text-muted text-xs">Session ended.</p>
         )}
       </div>
     )
@@ -68,7 +68,7 @@ export function ScreenHostClient() {
 
   if (host.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+      <div className="mx-auto max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
         <p className="font-medium">Could not start the session.</p>
         <p className="mt-2 text-sm">{host.error?.message ?? 'Unknown error'}</p>
         <button
@@ -104,7 +104,7 @@ export function ScreenHostClient() {
       </div>
 
       <div className="flex flex-col gap-2 rounded-xl border border-slate-200 bg-white p-4 shadow dark:border-slate-800 dark:bg-slate-900">
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="rp-text-secondary text-sm">
           {host.viewerCount === 0
             ? 'Invite someone to watch.'
             : `${host.viewerCount} viewer${host.viewerCount === 1 ? '' : 's'} connected`}

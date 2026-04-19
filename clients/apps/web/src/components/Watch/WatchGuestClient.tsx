@@ -79,7 +79,7 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
 
   if (guest.status === 'ready') {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-4 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-4 rounded-2xl bg-slate-50 p-8 text-center shadow-xs dark:bg-slate-900">
         <Icon
           icon="lucide:play"
           width={40}
@@ -90,7 +90,7 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
         <h1 className="text-xl font-semibold">
           {guest.view?.title ?? 'Watch together'}
         </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <p className="rp-text-secondary text-sm">
           Up to {guest.view?.max_viewers ?? 10} viewers · synced to the host
         </p>
         <button
@@ -128,7 +128,7 @@ export function WatchGuestClient({ slug, token }: WatchGuestClientProps) {
           </div>
         )}
       </div>
-      <p className="text-center text-xs text-slate-500 dark:text-slate-400">
+      <p className="rp-text-muted text-center text-xs">
         {guest.status === 'active' ? 'Synced to the host.' : 'Connecting…'}
       </p>
     </div>

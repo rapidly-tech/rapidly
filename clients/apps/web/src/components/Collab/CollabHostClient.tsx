@@ -3,12 +3,13 @@
 /**
  * Host-side Collab chamber UI.
  *
- * "Start a doc" → pick kind (text or canvas) → session created →
- * editor with a copy-invite button and a live presence strip. No
- * camera / mic.
+ * Styled with the Rapidly design tokens (glass-elevated cards,
+ * rp-text-*, UI-package Button) so this surface looks the same as
+ * the file-sharing landing + /features/* pages.
  */
 
 import { Icon } from '@iconify/react'
+import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useState } from 'react'
 
 import { useCollabRoom } from '@/hooks/collab/useCollabRoom'
@@ -24,11 +25,6 @@ import { CollabEditor } from './CollabEditor'
 import { EncryptionBadge } from './EncryptionBadge'
 import { PresenceStrip } from './PresenceStrip'
 
-// v1.1 E2EE is on by default (PR D). Set NEXT_PUBLIC_COLLAB_E2EE=false
-// to opt out — e.g., for a narrow debugging session or to accommodate
-// a known-stale tab. The provider's no-downgrade stance (PR 24 +
-// PR 26) means opting out is a per-deployment choice; individual
-// guests cannot force a downgrade.
 const E2EE_ENABLED = process.env.NEXT_PUBLIC_COLLAB_E2EE !== 'false'
 
 export function CollabHostClient() {
@@ -37,9 +33,6 @@ export function CollabHostClient() {
     null,
   )
 
-  // Generate one master/salt pair per host-client mount (fresh session →
-  // fresh keys). Web Crypto is browser-only; the effect runs after
-  // mount so SSR is unaffected.
   useEffect(() => {
     if (!E2EE_ENABLED) return
     let cancelled = false
@@ -63,19 +56,12 @@ export function CollabHostClient() {
   const [lastInvite, setLastInvite] = useState<string | null>(null)
 
   if (room.error instanceof CollabDisabledError) {
-    return (
-      <div className="mx-auto max-w-lg rounded-xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
-        <p className="font-medium">Collab is not enabled here.</p>
-        <p className="mt-2 text-sm">
-          Ask your operator to flip <code>FILE_SHARING_COLLAB_ENABLED</code> on.
-        </p>
-      </div>
-    )
+    return <DisabledCard />
   }
 
   if (room.status === 'idle' || room.status === 'closed') {
     return (
-      <div className="mx-auto flex max-w-lg flex-col items-center gap-5 rounded-xl border border-slate-200 bg-white p-8 text-center shadow-md dark:border-slate-800 dark:bg-slate-900">
+      <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-5 rounded-2xl bg-slate-50 p-7 text-center shadow-xs dark:bg-slate-900">
         <Icon
           icon="lucide:users"
           width={48}
@@ -83,8 +69,10 @@ export function CollabHostClient() {
           className="text-emerald-600"
           aria-hidden
         />
-        <h1 className="text-xl font-semibold">Start a collaborative session</h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400">
+        <h1 className="rp-text-primary text-xl font-semibold">
+          Start a collaborative session
+        </h1>
+        <p className="rp-text-secondary text-sm">
           Realtime, peer-to-peer. Up to 4 people today; nothing is saved on our
           servers.
         </p>
@@ -110,15 +98,11 @@ export function CollabHostClient() {
           />
         </div>
 
-        <button
-          type="button"
-          onClick={() => void room.startAsHost()}
-          className="rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-medium text-white shadow transition hover:bg-emerald-700 focus:ring-2 focus:ring-emerald-500 focus:ring-offset-2 focus:outline-none"
-        >
+        <Button size="lg" onClick={() => void room.startAsHost()}>
           Start session
-        </button>
+        </Button>
         {room.status === 'closed' && (
-          <p className="text-xs text-slate-400">Session ended.</p>
+          <p className="rp-text-muted text-xs">Session ended.</p>
         )}
       </div>
     )
@@ -126,18 +110,19 @@ export function CollabHostClient() {
 
   if (room.status === 'error') {
     return (
-      <div className="mx-auto max-w-lg rounded-xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+      <div className="mx-auto max-w-lg rounded-2xl border border-red-200 bg-red-50 p-6 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
         <p className="font-medium">Could not start the session.</p>
         <p className="mt-2 text-sm">
           {room.error?.message ?? 'Unknown error.'}
         </p>
-        <button
-          type="button"
+        <Button
+          variant="outline"
+          size="sm"
+          className="mt-4"
           onClick={() => void room.startAsHost()}
-          className="mt-4 rounded-lg border border-red-300 px-3 py-1.5 text-sm hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-900/40"
         >
           Try again
-        </button>
+        </Button>
       </div>
     )
   }
@@ -156,50 +141,57 @@ export function CollabHostClient() {
           <CollabEditor doc={room.doc} />
         ))}
 
-      <div className="flex flex-wrap items-center justify-end gap-2 rounded-xl border border-slate-200 bg-white p-3 shadow dark:border-slate-800 dark:bg-slate-900">
-        <button
-          type="button"
+      <div className="glass-elevated flex flex-wrap items-center justify-end gap-2 rounded-2xl bg-slate-50 p-3 shadow-xs dark:bg-slate-900">
+        <Button
+          size="sm"
           onClick={async () => {
             const url = await room.copyInvite()
             if (!url) return
-            // Append the E2EE fragment so the guest can decrypt. The
-            // fragment is not sent in the HTTP GET when the guest
-            // loads the page — browsers strip it from the request.
+            // Append the E2EE fragment. Browsers strip ``#...`` from
+            // HTTP requests, so the server never sees the key.
             let full = url
             if (fragmentKeys) {
               const fragment = await encodeInviteFragment(fragmentKeys)
               full = `${url}#${fragment}`
-              // copyInvite already wrote ``url`` to the clipboard;
-              // overwrite with the fragment-bearing version.
               try {
                 await navigator.clipboard.writeText(full)
               } catch {
-                /* ignore — UI still shows the URL below */
+                /* ignore — the pill below still shows the URL */
               }
             }
             setLastInvite(full)
           }}
-          className="flex items-center gap-1.5 rounded-lg bg-emerald-600 px-3 py-2 text-sm font-medium text-white hover:bg-emerald-700"
         >
-          <Icon icon="lucide:link" width={18} height={18} aria-hidden />
+          <Icon icon="lucide:link" width={16} height={16} aria-hidden />
           Copy invite
-        </button>
+        </Button>
 
-        <button
-          type="button"
+        <Button
+          size="sm"
+          variant="destructive"
           onClick={() => void room.leave()}
-          className="flex items-center gap-1.5 rounded-lg bg-red-600 px-3 py-2 text-sm font-medium text-white hover:bg-red-700"
         >
-          <Icon icon="lucide:log-out" width={18} height={18} aria-hidden />
+          <Icon icon="lucide:log-out" width={16} height={16} aria-hidden />
           End session
-        </button>
+        </Button>
       </div>
 
       {lastInvite && (
-        <p className="truncate rounded bg-slate-50 px-3 py-2 font-mono text-xs text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+        <p className="rp-text-secondary truncate rounded-xl bg-slate-50 px-3 py-2 font-mono text-xs dark:bg-slate-800">
           {lastInvite}
         </p>
       )}
+    </div>
+  )
+}
+
+function DisabledCard() {
+  return (
+    <div className="mx-auto max-w-lg rounded-2xl border border-amber-200 bg-amber-50 p-6 text-amber-900 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+      <p className="font-medium">Collab is not enabled here.</p>
+      <p className="mt-2 text-sm">
+        Ask your operator to flip <code>FILE_SHARING_COLLAB_ENABLED</code> on.
+      </p>
     </div>
   )
 }
@@ -220,15 +212,15 @@ function KindButton({ active, onClick, icon, label, hint }: KindButtonProps) {
       aria-checked={active}
       onClick={onClick}
       className={
-        'flex flex-1 flex-col items-center gap-1 rounded-lg border px-3 py-3 text-sm transition ' +
+        'flex flex-1 flex-col items-center gap-1 rounded-2xl border px-3 py-3 text-sm transition ' +
         (active
           ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100'
-          : 'border-slate-200 text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800')
+          : 'rp-text-secondary hover:rp-text-primary border-(--beige-border)/30 bg-white hover:bg-slate-50 dark:border-white/6 dark:bg-white/3 dark:hover:bg-(--beige-item-hover)')
       }
     >
       <Icon icon={icon} width={22} height={22} aria-hidden />
-      <span className="font-medium">{label}</span>
-      <span className="text-xs text-slate-500 dark:text-slate-400">{hint}</span>
+      <span className="rp-text-primary font-medium">{label}</span>
+      <span className="rp-text-muted text-xs">{hint}</span>
     </button>
   )
 }
