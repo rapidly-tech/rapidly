@@ -18,20 +18,6 @@ type Mode = 'direct' | 'secret'
 
 // ── Constants ──
 
-const directBadges = [
-  { icon: 'solar:lock-linear', label: 'AES-256 Encrypted' },
-  { icon: 'solar:shield-check-linear', label: 'Zero Knowledge' },
-  { icon: 'solar:infinity-linear', label: 'No Size Limits' },
-  { icon: 'solar:transfer-horizontal-linear', label: 'Peer-to-Peer' },
-]
-
-const secretBadges = [
-  { icon: 'solar:lock-linear', label: 'OpenPGP Encrypted' },
-  { icon: 'solar:cloud-linear', label: 'Server-Stored' },
-  { icon: 'solar:eye-linear', label: 'One-Time View' },
-  { icon: 'solar:trash-bin-trash-linear', label: 'Auto-Delete' },
-]
-
 const directTitleContent: Record<
   FileSharingFlowState,
   { title: string; subtitle: string }
@@ -142,8 +128,6 @@ export const FileSharingLandingPage = ({
       ? directTitleContent[flowState]
       : secretTitleContent[secretFlowState]
 
-  const activeBadges = mode === 'direct' ? directBadges : secretBadges
-
   // Track whether the user has switched modes at least once.
   // On first render: CSS fade-in (no JS wait = fast LCP).
   // On mode switches: framer-motion handles the enter/exit animation.
@@ -221,40 +205,8 @@ export const FileSharingLandingPage = ({
         <ShareCounter workspaceId={workspaceId} />
       </div>
 
-      {/* Other chambers */}
+      {/* Chamber badges */}
       <ChamberStrip />
-
-      {/* Trust badges */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={mode}
-          className={`relative z-10 mx-auto grid grid-cols-2 gap-3 pt-4 pb-4 md:flex md:flex-wrap md:items-center md:justify-center ${!shouldAnimate && entranceAnimation ? 'animate-fade-in-up delay-100' : ''}`}
-          initial={shouldAnimate ? { opacity: 0, y: 8 } : false}
-          animate={{
-            opacity: 1,
-            y: 0,
-            transition: { duration: 0.3, delay: 0.1 },
-          }}
-          exit={{ opacity: 0, y: 8, transition: { duration: 0.2 } }}
-        >
-          {activeBadges.map((badge) => (
-            <motion.div
-              key={badge.label}
-              className="glass-subtle flex items-center justify-center gap-x-2 rounded-full px-4 py-2"
-              whileHover={{ scale: 1.06, y: -2 }}
-              transition={{ type: 'spring', stiffness: 400, damping: 17 }}
-            >
-              <Icon
-                icon={badge.icon}
-                className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400"
-              />
-              <span className="rp-text-secondary text-xs font-medium">
-                {badge.label}
-              </span>
-            </motion.div>
-          ))}
-        </motion.div>
-      </AnimatePresence>
     </div>
   )
 }
