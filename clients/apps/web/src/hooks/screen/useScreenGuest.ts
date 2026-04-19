@@ -65,12 +65,10 @@ export function useScreenGuest(
       signalingRef.current = signaling
       const welcome = await signaling.connect(slug, 'guest', token)
 
-      // Create a PeerDataConnection pinned to the host's peer id (learned
-      // from the first 'host-available' or 'offer' message — the file
-      // sharing protocol sends a 'host' or 'welcome' payload that points
-      // at the host's peer id. For the minimum UI we lazily create the
-      // connection on the first signaling message and remember whom we're
-      // talking to.
+      // The guest learns the host's peer id from the first incoming
+      // signaling message (``fromId`` on the relayed offer / ice /
+      // answer). We pin it lazily so the PeerDataConnection is only
+      // built once the host has actually started the WebRTC dance.
       let hostPeerId: string | null = null
 
       const ensureConn = (peerId: string): PeerDataConnection => {
@@ -100,8 +98,7 @@ export function useScreenGuest(
       signaling.onMessage = async (msg: SignalingMessage) => {
         const fromId = msg.fromId as string | undefined
 
-        // Host announces presence with a 'host-available' or arrives via
-        // first offer. Either way, pin the host peer id on first sight.
+        // Pin the host peer id on first sight.
         if (fromId && !hostPeerId) hostPeerId = fromId
 
         if (msg.type === 'offer' && fromId) {
@@ -117,13 +114,16 @@ export function useScreenGuest(
             sdpMid: msg.sdpMid as string | null,
             sdpMLineIndex: msg.sdpMLineIndex as number | null,
           })
-        } else if (msg.type === 'host-available' && fromId) {
-          // Host is online — initiate the offer from our side by creating a
-          // connection and calling createOffer(). The host will answer.
-          const conn = ensureConn(fromId)
-          await conn.createOffer()
         }
       }
+
+      // Kick off the handshake. The signaling server forwards a
+      // ``connect-request`` with no targetId straight to the room's
+      // host, who responds with an ``offer`` pointed at us — that's
+      // what the onMessage branches above consume. Without this
+      // message both sides would sit waiting for each other and the
+      // UI would stay on "Connecting…" forever.
+      signaling.send({ type: 'connect-request' })
 
       signaling.onClose = () => {
         setStatus((prev) => (prev === 'active' ? 'ended' : prev))
