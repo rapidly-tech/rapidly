@@ -24,7 +24,9 @@ export const CHAMBERS: readonly Chamber[] = [
     id: 'files',
     label: 'Files',
     icon: 'lucide:file',
-    href: '/dashboard',
+    // Public share flow at /files. NOT /dashboard — that's
+    // auth-gated and bounces visitors to /login.
+    href: '/files',
     status: 'live',
     tagline: 'End-to-end encrypted P2P file transfer.',
   },
