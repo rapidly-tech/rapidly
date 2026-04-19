@@ -151,8 +151,13 @@ export function useScreenHost(options?: {
     const fromId = msg.fromId as string | undefined
     if (!fromId) return
 
-    if (msg.type === 'offer') {
-      // New guest joined. Build a fresh peer connection, add tracks, answer.
+    if (msg.type === 'connect-request') {
+      // Guest wants in. Build a fresh peer connection, attach the
+      // live tracks, and initiate the offer from our side. The shared
+      // signaling server only relays the four WebRTC messages +
+      // ``connect-request``; there is no server-side ``host-available``
+      // notification, so the guest bootstrapping path is always a
+      // ``connect-request`` from the new peer.
       const conn = new PeerDataConnection(
         signalingRef.current!,
         iceServers,
@@ -165,7 +170,7 @@ export function useScreenHost(options?: {
         connsRef.current.delete(fromId)
         setViewerCount(connsRef.current.size)
       }
-      await conn.handleOffer(msg.sdp as string)
+      await conn.createOffer()
       return
     }
 

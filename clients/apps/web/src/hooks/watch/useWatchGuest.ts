@@ -131,11 +131,16 @@ export function useWatchGuest(
             sdpMid: msg.sdpMid as string | null,
             sdpMLineIndex: msg.sdpMLineIndex as number | null,
           })
-        } else if (msg.type === 'host-available') {
-          // Host is online — we initiate the offer.
-          await ensureConn(fromId).createOffer()
         }
       }
+
+      // Kick the host into sending us an offer. Without this the host
+      // side has no idea we exist — the shared signaling server does
+      // not emit a ``host-available`` message on peer-join; the only
+      // bootstrap it relays is ``connect-request`` (no targetId ==
+      // route to the room's host).
+      signaling.send({ type: 'connect-request' })
+
       signaling.onClose = () => {
         setStatus((prev) => (prev === 'active' ? 'ended' : prev))
       }

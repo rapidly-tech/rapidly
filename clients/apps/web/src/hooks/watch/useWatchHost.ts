@@ -159,7 +159,11 @@ export function useWatchHost(): UseWatchHostReturn {
     const fromId = msg.fromId as string | undefined
     if (!fromId) return
 
-    if (msg.type === 'offer') {
+    if (msg.type === 'connect-request') {
+      // Guest joined. We initiate the WebRTC offer from the host side
+      // — the shared signaling server only relays the four WebRTC
+      // messages + ``connect-request``, so the guest sends that to
+      // kick off the handshake and we answer with an ``offer``.
       const conn = new PeerDataConnection(
         signalingRef.current!,
         iceServers,
@@ -176,7 +180,7 @@ export function useWatchHost(): UseWatchHostReturn {
         connsRef.current.delete(fromId)
         setViewerCount(connsRef.current.size)
       }
-      await conn.handleOffer(msg.sdp as string)
+      await conn.createOffer()
       return
     }
 
