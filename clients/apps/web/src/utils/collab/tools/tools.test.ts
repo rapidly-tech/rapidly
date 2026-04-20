@@ -13,8 +13,10 @@ import * as Y from 'yjs'
 import { createElementStore, type ElementStore } from '../element-store'
 import { makeViewport, type Viewport } from '../viewport'
 import {
+  arrowTool,
   diamondTool,
   ellipseTool,
+  freedrawTool,
   handTool,
   lineTool,
   rectTool,
@@ -68,9 +70,13 @@ describe('toolFor registry', () => {
   })
 
   it('returns null for unimplemented tools', () => {
-    expect(toolFor('freedraw')).toBeNull()
-    expect(toolFor('arrow')).toBeNull()
     expect(toolFor('text')).toBeNull()
+    expect(toolFor('eraser')).toBeNull()
+  })
+
+  it('has arrow + freedraw wired up', () => {
+    expect(toolFor('arrow')).toBe(arrowTool)
+    expect(toolFor('freedraw')).toBe(freedrawTool)
   })
 })
 
@@ -261,6 +267,109 @@ describe('lineTool', () => {
     expect(el.width).toBe(50)
     expect(el.height).toBe(70)
     lineTool.onPointerUp(ctx, makeEvent(50, 30))
+  })
+})
+
+describe('arrowTool', () => {
+  it('creates an arrow with a default end triangle head', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    arrowTool.onPointerDown(ctx, makeEvent(10, 20))
+    arrowTool.onPointerMove(ctx, makeEvent(110, 70))
+    arrowTool.onPointerUp(ctx, makeEvent(110, 70))
+    const el = store.list()[0] as {
+      type: string
+      points: number[]
+      startArrowhead: string | null
+      endArrowhead: string | null
+    }
+    expect(el.type).toBe('arrow')
+    expect(el.points).toEqual([0, 0, 100, 50])
+    expect(el.startArrowhead).toBeNull()
+    expect(el.endArrowhead).toBe('triangle')
+  })
+
+  it('drops an arrow below the min-length threshold', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    arrowTool.onPointerDown(ctx, makeEvent(0, 0))
+    arrowTool.onPointerMove(ctx, makeEvent(2, 2))
+    arrowTool.onPointerUp(ctx, makeEvent(2, 2))
+    expect(store.size).toBe(0)
+  })
+})
+
+describe('freedrawTool', () => {
+  function freedrawEvent(x: number, y: number, pressure = 0.5): PointerEvent {
+    return {
+      clientX: x,
+      clientY: y,
+      shiftKey: false,
+      altKey: false,
+      pressure,
+      target: {
+        getBoundingClientRect: () => ({ left: 0, top: 0 }),
+      },
+    } as unknown as PointerEvent
+  }
+
+  it('creates a freedraw element and appends (x, y, p) per sample', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    freedrawTool.onPointerDown(ctx, freedrawEvent(10, 10, 0.7))
+    freedrawTool.onPointerMove(ctx, freedrawEvent(30, 20, 0.8))
+    freedrawTool.onPointerMove(ctx, freedrawEvent(50, 30, 0.9))
+    freedrawTool.onPointerUp(ctx, freedrawEvent(50, 30))
+    const el = store.list()[0] as {
+      type: string
+      points: number[]
+      width: number
+      height: number
+      simulatePressure: boolean
+    }
+    expect(el.type).toBe('freedraw')
+    // 3 samples × 3 values per sample.
+    expect(el.points.length).toBe(9)
+    expect(el.width).toBe(40)
+    expect(el.height).toBe(20)
+    // Real pressure was provided → simulatePressure is false.
+    expect(el.simulatePressure).toBe(false)
+  })
+
+  it('sets simulatePressure when the device reports no pressure', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    freedrawTool.onPointerDown(ctx, freedrawEvent(0, 0, 0))
+    freedrawTool.onPointerMove(ctx, freedrawEvent(10, 10, 0))
+    freedrawTool.onPointerUp(ctx, freedrawEvent(10, 10))
+    const el = store.list()[0] as { simulatePressure: boolean }
+    expect(el.simulatePressure).toBe(true)
+  })
+
+  it('discards a single-sample stroke (accidental tap)', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    freedrawTool.onPointerDown(ctx, freedrawEvent(0, 0))
+    // No moves — just tap and release.
+    freedrawTool.onPointerUp(ctx, freedrawEvent(0, 0))
+    expect(store.size).toBe(0)
+  })
+
+  it('ignores sub-pixel samples (under MIN_POINTER_DELTA)', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    freedrawTool.onPointerDown(ctx, freedrawEvent(0, 0))
+    // Move by 0.1 — below the threshold.
+    freedrawTool.onPointerMove(ctx, freedrawEvent(0.1, 0))
+    freedrawTool.onPointerUp(ctx, freedrawEvent(0.1, 0))
+    // Single-sample stroke → discarded.
+    expect(store.size).toBe(0)
   })
 })
 

@@ -70,6 +70,8 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
   { id: 'ellipse', label: 'Ellipse', hint: 'Drag to draw an ellipse' },
   { id: 'diamond', label: 'Diamond', hint: 'Drag to draw a diamond' },
   { id: 'line', label: 'Line', hint: 'Drag; shift snaps to 45°' },
+  { id: 'arrow', label: 'Arrow', hint: 'Drag; shift snaps to 45°' },
+  { id: 'freedraw', label: 'Pen', hint: 'Freehand stroke with pressure' },
 ]
 
 export function CollabRenderDemo() {
