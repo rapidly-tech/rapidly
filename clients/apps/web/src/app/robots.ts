@@ -16,6 +16,10 @@ export const DISALLOWED_PATHS = [
   '/watch/',
   '/call/',
   '/collab/',
+  // Internal dev harnesses (e.g. /dev/collab-perf). The pages
+  // themselves carry ``robots: {index: false}`` metadata; this is
+  // defence-in-depth so crawlers skip the prefix entirely.
+  '/dev/',
 ]
 
 const ALL_AGENTS = '*'
