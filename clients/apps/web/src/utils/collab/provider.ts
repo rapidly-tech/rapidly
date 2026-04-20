@@ -46,6 +46,12 @@ import * as Y from 'yjs'
 
 import { decryptGcm, encryptGcm } from '@/utils/crypto/aes-gcm'
 import { deriveSubKey, infoFor } from '@/utils/crypto/hkdf'
+import {
+  compress,
+  compressionAvailable,
+  decompress,
+  shouldCompress,
+} from './compression'
 
 // ── Transport port ──
 
@@ -67,12 +73,17 @@ export interface CollabTransport {
  *  - ``c`` is the per-sender monotonic counter for replay protection
  *    on ``y-awareness``. Present only on v1.1.1+ awareness frames;
  *    receivers tolerate missing ``c`` for back-compat with v1.1.
- *    See specs/collab-e2ee-security-review.md Concern §2. */
+ *    See specs/collab-e2ee-security-review.md Concern §2.
+ *  - ``z`` is ``true`` when the payload inside ``bytes`` was gzip-
+ *    compressed before encryption. Receivers MUST decompress after
+ *    decrypt when this flag is set. Absent = not compressed
+ *    (back-compat with pre-Phase-0b senders). */
 export type CollabWireMessage = {
   t: string
   bytes: Uint8Array
   iv?: Uint8Array
   c?: number
+  z?: boolean
 }
 
 const KNOWN_TYPES = new Set([
@@ -96,6 +107,7 @@ export function isCollabMessage(x: unknown): x is CollabWireMessage {
     }
   }
   if (obj.c !== undefined && typeof obj.c !== 'number') return false
+  if (obj.z !== undefined && typeof obj.z !== 'boolean') return false
   return true
 }
 
@@ -213,14 +225,34 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
     // receiver can drop replays. Sync frames don't need it — Yjs's
     // applyUpdate is idempotent and stale updates are harmless.
     const c = t === 'y-awareness' ? ++peer.outboundAwarenessC : undefined
+
+    // Compress large payloads before encryption. Must be pre-encrypt:
+    // ciphertext looks random to any compressor, so the reverse order
+    // gives zero gain and wastes CPU.
+    let payload = plaintext
+    let z: boolean | undefined
+    if (shouldCompress(plaintext)) {
+      const compressed = await compress(plaintext)
+      if (compressed.byteLength < plaintext.byteLength) {
+        payload = compressed
+        z = true
+      }
+      // If the compressed payload isn't smaller (already-random Yjs
+      // updates on small docs), send uncompressed — no flag.
+    }
+
     if (!peer.useE2ee || !opts.keys) {
-      return c !== undefined
-        ? { t, bytes: plaintext, c }
-        : { t, bytes: plaintext }
+      const msg: CollabWireMessage = { t, bytes: payload }
+      if (c !== undefined) msg.c = c
+      if (z) msg.z = true
+      return msg
     }
     const key = t === 'y-awareness' ? opts.keys.awareness : opts.keys.sync
-    const { iv, bytes } = await encryptGcm(key, plaintext)
-    return c !== undefined ? { t, iv, bytes, c } : { t, iv, bytes }
+    const { iv, bytes } = await encryptGcm(key, payload)
+    const msg: CollabWireMessage = { t, iv, bytes }
+    if (c !== undefined) msg.c = c
+    if (z) msg.z = true
+    return msg
   }
 
   async function decryptIfNeeded(
@@ -234,19 +266,34 @@ export function createCollabRoom(opts: CollabRoomOptions): CollabRoom {
     // attack). If we settled on plaintext, frames WITH ``iv`` are
     // dropped (we can't decrypt anyway, and accepting them would
     // hide a misconfiguration).
+    let plaintext: Uint8Array | null
     if (peer.useE2ee) {
       if (!msg.iv || !opts.keys) return null
       const iv = msg.iv instanceof Uint8Array ? msg.iv : new Uint8Array(msg.iv)
       const key = msg.t === 'y-awareness' ? opts.keys.awareness : opts.keys.sync
       try {
-        return await decryptGcm(key, { iv, bytes })
+        plaintext = await decryptGcm(key, { iv, bytes })
       } catch {
         // Auth-tag failure or key mismatch — drop.
         return null
       }
+    } else {
+      if (msg.iv) return null
+      plaintext = bytes
     }
-    if (msg.iv) return null
-    return bytes
+
+    // Decompress after authentication — we must never decompress
+    // attacker-controlled bytes before verifying the GCM tag, or
+    // we'd be exposing the gzip parser to untrusted input.
+    if (msg.z) {
+      if (!compressionAvailable()) return null
+      try {
+        plaintext = await decompress(plaintext)
+      } catch {
+        return null
+      }
+    }
+    return plaintext
   }
 
   async function broadcast(
