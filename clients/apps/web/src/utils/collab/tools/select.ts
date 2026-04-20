@@ -15,7 +15,9 @@
  * Phase 4b.
  */
 
-import { isArrow, isFreeDraw } from '../elements'
+// Every element now has a rendered adapter, so marquee can include
+// all of them. Future unimplemented types (text/sticky/image/frame/
+// embed) will be filtered here when they land.
 import {
   anchorFrom,
   applyResize,
@@ -352,10 +354,6 @@ function elementsInRect(
     const ex2 = el.x + el.width
     const ey2 = el.y + el.height
     if (ex2 < rect.x || ey2 < rect.y || ex1 > rx2 || ey1 > ry2) continue
-    // Skip element types the renderer doesn't support yet — their
-    // AABB is still accurate for marquee selection but resize /
-    // drag-move semantics aren't fully wired, so don't pretend.
-    if (isArrow(el) || isFreeDraw(el)) continue
     out.push(el.id)
   }
   return out
