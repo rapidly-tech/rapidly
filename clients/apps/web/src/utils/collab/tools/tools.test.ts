@@ -375,50 +375,24 @@ describe('freedrawTool', () => {
 })
 
 describe('textTool', () => {
-  it('creates a text element with the promp()ed string', () => {
+  it('creates an empty text element at the cursor and requests edit', async () => {
     const doc = new Y.Doc()
     const store = createElementStore(doc)
     const ctx = stubCtx(store)
-    const originalPrompt = window.prompt
-    window.prompt = () => 'Hello world'
-    try {
-      textTool.onPointerDown(ctx, makeEvent(20, 30))
-    } finally {
-      window.prompt = originalPrompt
-    }
+    const { _resetEditBroker, onEditRequest } = await import('../text-editing')
+    _resetEditBroker()
+    let requested: string | null = null
+    onEditRequest((id) => {
+      requested = id
+    })
+
+    textTool.onPointerDown(ctx, makeEvent(20, 30))
     const el = store.list()[0]
     expect(el.type).toBe('text')
-    expect((el as { text: string }).text).toBe('Hello world')
+    expect((el as { text: string }).text).toBe('')
     expect(el.x).toBe(20)
     expect(el.y).toBe(30)
-  })
-
-  it('creates nothing when the user cancels the prompt', () => {
-    const doc = new Y.Doc()
-    const store = createElementStore(doc)
-    const ctx = stubCtx(store)
-    const originalPrompt = window.prompt
-    window.prompt = () => null
-    try {
-      textTool.onPointerDown(ctx, makeEvent(0, 0))
-    } finally {
-      window.prompt = originalPrompt
-    }
-    expect(store.size).toBe(0)
-  })
-
-  it('creates nothing for an empty string', () => {
-    const doc = new Y.Doc()
-    const store = createElementStore(doc)
-    const ctx = stubCtx(store)
-    const originalPrompt = window.prompt
-    window.prompt = () => '   '
-    try {
-      textTool.onPointerDown(ctx, makeEvent(0, 0))
-    } finally {
-      window.prompt = originalPrompt
-    }
-    expect(store.size).toBe(0)
+    expect(requested).toBe(el.id)
   })
 })
 
