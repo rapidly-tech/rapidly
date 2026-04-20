@@ -29,10 +29,26 @@
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 import type { ElementStore } from '@/utils/collab/element-store'
-import { type FontFamily, type TextAlign } from '@/utils/collab/elements'
+import {
+  type CollabElement,
+  type FontFamily,
+  type TextAlign,
+} from '@/utils/collab/elements'
 import type { Renderer } from '@/utils/collab/renderer'
 import { fontCssFor, measureText } from '@/utils/collab/shapes/text'
 import { requestEdit } from '@/utils/collab/text-editing'
+
+/** The editor works with any element type that has ``text`` + font
+ *  fields. Text and Sticky both qualify; future typed shapes with
+ *  text (flowchart nodes?) can opt in by carrying the same fields. */
+function isEditable(el: CollabElement | null): el is CollabElement & {
+  text: string
+  fontFamily: FontFamily
+  fontSize: number
+  textAlign: TextAlign
+} {
+  return el?.type === 'text' || el?.type === 'sticky'
+}
 
 interface TextEditorProps {
   id: string
@@ -51,7 +67,7 @@ export function TextEditor({ id, store, renderer, onDone }: TextEditorProps) {
   const measureCanvasRef = useRef<HTMLCanvasElement | null>(null)
   const [draft, setDraft] = useState<string>(() => {
     const el = store.get(id)
-    return el?.type === 'text' ? el.text : ''
+    return isEditable(el) ? el.text : ''
   })
 
   // Focus + select-all on mount so typing replaces the placeholder.
@@ -70,7 +86,7 @@ export function TextEditor({ id, store, renderer, onDone }: TextEditorProps) {
   })
 
   const element = store.get(id)
-  if (!element || element.type !== 'text') {
+  if (!isEditable(element)) {
     // Element was deleted out from under us — close on the next tick
     // so we don't setState during render.
     void queueMicrotask(onDone)
@@ -103,10 +119,17 @@ export function TextEditor({ id, store, renderer, onDone }: TextEditorProps) {
   }
 
   // Update store on every keystroke so other peers see the text grow
-  // live (matches Excalidraw's "watch me type" feel).
+  // live (matches Excalidraw's "watch me type" feel). Text elements
+  // auto-resize to the string; stickies keep their fixed size and
+  // let the wrapper inside ``shapes/sticky.ts`` word-wrap.
   const onInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     const next = e.target.value
     setDraft(next)
+
+    if (textEl.type === 'sticky') {
+      store.update(id, { text: next })
+      return
+    }
 
     const measureCanvas =
       measureCanvasRef.current ??

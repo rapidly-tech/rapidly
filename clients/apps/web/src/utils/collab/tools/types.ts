@@ -34,6 +34,7 @@ export type ToolId =
   | 'line'
   | 'freedraw'
   | 'text'
+  | 'sticky'
   | 'eraser'
 
 export interface ToolCtx {
