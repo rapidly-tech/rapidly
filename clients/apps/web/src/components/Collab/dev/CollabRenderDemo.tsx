@@ -33,6 +33,12 @@ import {
   type ToolId,
 } from '@/utils/collab/tools'
 import { makeViewport, zoomAt, type Viewport } from '@/utils/collab/viewport'
+import {
+  bringForward,
+  bringToFront,
+  sendBackward,
+  sendToBack,
+} from '@/utils/collab/z-order'
 
 import { TextEditor } from './TextEditor'
 
@@ -317,6 +323,29 @@ export function CollabRenderDemo() {
         if (tool && ctx) tool.onCancel?.(ctx)
         gestureToolRef.current = null
         selectionRef.current.clear()
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === ']' || e.key === '[')) {
+        // Cmd/Ctrl+] / [ → z-order controls. Shift modifier jumps
+        // to front / back; plain is forward / backward one step.
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        e.preventDefault()
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        if (e.key === ']') {
+          if (e.shiftKey) bringToFront(store, selection.snapshot)
+          else bringForward(store, selection.snapshot)
+        } else {
+          if (e.shiftKey) sendToBack(store, selection.snapshot)
+          else sendBackward(store, selection.snapshot)
+        }
       }
     }
     window.addEventListener('keydown', onKeyDown)
