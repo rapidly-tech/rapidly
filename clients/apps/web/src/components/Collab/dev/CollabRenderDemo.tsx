@@ -64,10 +64,12 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
   {
     id: 'select',
     label: 'Select',
-    hint: 'Click or marquee — Delete to remove',
+    hint: 'Click, drag-move, handle-resize, marquee — Delete to remove',
   },
   { id: 'rect', label: 'Rect', hint: 'Drag to draw a rectangle' },
   { id: 'ellipse', label: 'Ellipse', hint: 'Drag to draw an ellipse' },
+  { id: 'diamond', label: 'Diamond', hint: 'Drag to draw a diamond' },
+  { id: 'line', label: 'Line', hint: 'Drag; shift snaps to 45°' },
 ]
 
 export function CollabRenderDemo() {

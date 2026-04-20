@@ -12,7 +12,14 @@ import * as Y from 'yjs'
 
 import { createElementStore, type ElementStore } from '../element-store'
 import { makeViewport, type Viewport } from '../viewport'
-import { ellipseTool, handTool, rectTool, toolFor } from './index'
+import {
+  diamondTool,
+  ellipseTool,
+  handTool,
+  lineTool,
+  rectTool,
+  toolFor,
+} from './index'
 import type { Tool, ToolCtx } from './types'
 
 function stubCtx(store: ElementStore): ToolCtx {
@@ -56,11 +63,14 @@ describe('toolFor registry', () => {
     expect(toolFor('hand')).toBe(handTool)
     expect(toolFor('rect')).toBe(rectTool)
     expect(toolFor('ellipse')).toBe(ellipseTool)
+    expect(toolFor('diamond')).toBe(diamondTool)
+    expect(toolFor('line')).toBe(lineTool)
   })
 
   it('returns null for unimplemented tools', () => {
     expect(toolFor('freedraw')).toBeNull()
     expect(toolFor('arrow')).toBeNull()
+    expect(toolFor('text')).toBeNull()
   })
 })
 
@@ -171,6 +181,86 @@ describe('ellipseTool', () => {
     ellipseTool.onPointerMove(ctx, makeEvent(1, 1))
     ellipseTool.onPointerUp(ctx, makeEvent(1, 1))
     expect(store.size).toBe(0)
+  })
+})
+
+describe('diamondTool', () => {
+  it('creates a diamond on drag', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    diamondTool.onPointerDown(ctx, makeEvent(0, 0))
+    diamondTool.onPointerMove(ctx, makeEvent(120, 80))
+    diamondTool.onPointerUp(ctx, makeEvent(120, 80))
+    const el = store.list()[0]
+    expect(el.type).toBe('diamond')
+    expect(el.width).toBe(120)
+    expect(el.height).toBe(80)
+  })
+
+  it('drops a sub-pixel diamond', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    diamondTool.onPointerDown(ctx, makeEvent(0, 0))
+    diamondTool.onPointerMove(ctx, makeEvent(1, 1))
+    diamondTool.onPointerUp(ctx, makeEvent(1, 1))
+    expect(store.size).toBe(0)
+  })
+})
+
+describe('lineTool', () => {
+  it('creates a line with world-local points and AABB', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    lineTool.onPointerDown(ctx, makeEvent(10, 20))
+    lineTool.onPointerMove(ctx, makeEvent(110, 70))
+    lineTool.onPointerUp(ctx, makeEvent(110, 70))
+    const el = store.list()[0]
+    expect(el.type).toBe('line')
+    expect(el.x).toBe(10)
+    expect(el.y).toBe(20)
+    expect(el.width).toBe(100)
+    expect(el.height).toBe(50)
+    expect((el as { points: number[] }).points).toEqual([0, 0, 100, 50])
+  })
+
+  it('shift snaps to 45°', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    // Drag something close to horizontal with shift — should snap to 0°.
+    lineTool.onPointerDown(ctx, makeEvent(0, 0))
+    lineTool.onPointerMove(ctx, makeEvent(100, 5, { shift: true }))
+    const pts = (store.list()[0] as { points: number[] }).points
+    // Snapped to 0° → second point's y should be at or extremely close to 0.
+    expect(Math.abs(pts[3])).toBeLessThan(0.001)
+    lineTool.onPointerUp(ctx, makeEvent(100, 5))
+  })
+
+  it('drops a line below the min-length threshold', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    lineTool.onPointerDown(ctx, makeEvent(0, 0))
+    lineTool.onPointerMove(ctx, makeEvent(2, 2))
+    lineTool.onPointerUp(ctx, makeEvent(2, 2))
+    expect(store.size).toBe(0)
+  })
+
+  it('handles dragging up-left by producing positive AABB', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    lineTool.onPointerDown(ctx, makeEvent(100, 100))
+    lineTool.onPointerMove(ctx, makeEvent(50, 30))
+    const el = store.list()[0]
+    expect(el.x).toBe(50)
+    expect(el.y).toBe(30)
+    expect(el.width).toBe(50)
+    expect(el.height).toBe(70)
+    lineTool.onPointerUp(ctx, makeEvent(50, 30))
   })
 })
 
