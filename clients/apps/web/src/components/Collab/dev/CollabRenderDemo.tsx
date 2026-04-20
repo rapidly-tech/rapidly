@@ -19,6 +19,7 @@ import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
+import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
 import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
@@ -346,6 +347,37 @@ export function CollabRenderDemo() {
         } else {
           if (e.shiftKey) sendToBack(store, selection.snapshot)
           else sendBackward(store, selection.snapshot)
+        }
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'g' || e.key === 'G')) {
+        // Cmd/Ctrl+G → group. Cmd/Ctrl+Shift+G → ungroup.
+        // Swallow the browser default (View > Find Next on some
+        // browsers) and the inline-edit case — typing G in a textarea
+        // must not group anything.
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        if (e.shiftKey) {
+          ungroup(store, selection.snapshot)
+        } else {
+          const newGroup = group(store, selection.snapshot)
+          // After grouping, expand the selection to the whole group so
+          // any subsequent action (drag, style, layer) treats it as a
+          // unit. With the new group id on every selected element, the
+          // expansion is effectively a no-op but keeps semantics
+          // explicit for readers.
+          if (newGroup) {
+            selection.set(expandToGroups(store, selection.snapshot))
+          }
         }
       }
     }

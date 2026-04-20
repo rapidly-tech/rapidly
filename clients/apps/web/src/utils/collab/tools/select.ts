@@ -16,6 +16,7 @@
  */
 
 import { collectBoundArrowPatches } from '../arrow-bindings'
+import { expandToGroups } from '../groups'
 
 // Every element now has a rendered adapter, so marquee can include
 // all of them. Future unimplemented types (text/sticky/image/frame/
@@ -117,19 +118,32 @@ export const selectTool = {
     const hitId = sctx.renderer.hitTest(x, y)
 
     if (hitId) {
-      // Shift-click: toggle membership and stay in click state (no
-      // move) — shift-drag-move is useful but out of scope for 4a.
+      // Click semantics treat the hit element's outermost group as
+      // the selection unit — a click on any group member picks up
+      // the whole group so move/resize/delete operate on it.
+      const expanded = expandToGroups(ctx.store, new Set([hitId]))
+
+      // Shift-click: toggle the whole group's membership. If every
+      // member is already selected we remove them all; otherwise we
+      // add the missing ones. Keeps "select many groups by shift-
+      // clicking each" intuitive.
       if (e.shiftKey) {
-        sctx.selection.toggle(hitId)
+        const allIn = [...expanded].every((id) => sctx.selection.has(id))
+        const next = new Set(sctx.selection.snapshot)
+        for (const id of expanded) {
+          if (allIn) next.delete(id)
+          else next.add(id)
+        }
+        sctx.selection.set(next)
         state = clickState(x, y, true, sctx.selection.snapshot)
         return
       }
 
-      // Plain click / plain click-drag: if the hit element isn't yet
-      // selected, replace the selection with it first. Then arm a
-      // move gesture — promoted on drag threshold.
+      // Plain click / plain click-drag: if the hit isn't already in
+      // the current selection, replace the selection with the whole
+      // group. Then arm a move gesture — promoted on drag threshold.
       if (!sctx.selection.has(hitId)) {
-        sctx.selection.set([hitId])
+        sctx.selection.set(expanded)
       }
       state = clickState(x, y, false, sctx.selection.snapshot)
       return
@@ -181,7 +195,9 @@ export const selectTool = {
       const hits = elementsInRect(ctx, rect)
       const next = new Set(state.baseIds)
       for (const id of hits) next.add(id)
-      sctx.selection.set(next)
+      // A group is atomic — if the marquee catches any member, bring
+      // the rest of the group along.
+      sctx.selection.set(expandToGroups(ctx.store, next))
       sctx.invalidate()
       return
     }
