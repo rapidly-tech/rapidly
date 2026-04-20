@@ -15,10 +15,31 @@ import { useEffect, useRef, useState } from 'react'
 import { useScreenHost } from '@/hooks/screen/useScreenHost'
 import { ScreenDisabledError } from '@/utils/screen/api'
 
+/** Screen capture is only possible on browsers that ship getDisplayMedia.
+ *  iOS Safari does not — Apple restricts tab/window capture on iPhone +
+ *  iPad. We check the capability up-front so we can render an honest
+ *  "not supported on this device" panel instead of silently failing
+ *  into "session ended" when the user taps Start sharing. */
+function canCaptureDisplay(): boolean {
+  if (typeof navigator === 'undefined') return false
+  const md = navigator.mediaDevices as
+    | (MediaDevices & { getDisplayMedia?: unknown })
+    | undefined
+  return typeof md?.getDisplayMedia === 'function'
+}
+
 export function ScreenHostClient() {
   const host = useScreenHost()
   const videoRef = useRef<HTMLVideoElement | null>(null)
   const [lastInvite, setLastInvite] = useState<string | null>(null)
+  const [supported, setSupported] = useState(true)
+
+  // Capability probe runs after hydration so SSR output doesn't depend
+  // on a browser-only API (and we can still render the "unsupported"
+  // card without mismatching the server render).
+  useEffect(() => {
+    setSupported(canCaptureDisplay())
+  }, [])
 
   // Attach the captured stream to the preview <video> whenever it changes.
   useEffect(() => {
@@ -40,6 +61,28 @@ export function ScreenHostClient() {
   }
 
   if (host.status === 'idle' || host.status === 'closed') {
+    if (!supported) {
+      return (
+        <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-3 rounded-2xl bg-slate-50 p-8 text-center shadow-xs dark:bg-slate-900">
+          <Icon
+            icon="lucide:smartphone-off"
+            width={48}
+            height={48}
+            className="text-amber-500"
+            aria-hidden
+          />
+          <p className="rp-text-primary text-base font-semibold">
+            Screen sharing isn&apos;t supported here
+          </p>
+          <p className="rp-text-secondary text-sm">
+            iOS Safari and older browsers don&apos;t expose a screen-capture
+            API. Start the share from a desktop browser (Chrome, Firefox, Edge,
+            Safari on macOS) — people on iPhone / iPad can still{' '}
+            <strong>join as viewers</strong>.
+          </p>
+        </div>
+      )
+    }
     return (
       <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-4 rounded-2xl bg-slate-50 p-8 text-center shadow-xs dark:bg-slate-900">
         <Icon
