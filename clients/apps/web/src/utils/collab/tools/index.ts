@@ -15,6 +15,7 @@ import { handTool } from './hand'
 import { lineTool } from './line'
 import { rectTool } from './rect'
 import { selectTool } from './select'
+import { stickyTool } from './sticky'
 import { textTool } from './text'
 import type { Tool, ToolId } from './types'
 
@@ -28,6 +29,7 @@ const TOOLS: Partial<Record<ToolId, Tool>> = {
   arrow: arrowTool,
   freedraw: freedrawTool,
   text: textTool,
+  sticky: stickyTool,
   // Remaining tools (eraser) land later.
 }
 
@@ -47,5 +49,6 @@ export {
   lineTool,
   rectTool,
   selectTool,
+  stickyTool,
   textTool,
 }

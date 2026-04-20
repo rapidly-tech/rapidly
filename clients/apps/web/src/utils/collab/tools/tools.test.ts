@@ -20,6 +20,7 @@ import {
   handTool,
   lineTool,
   rectTool,
+  stickyTool,
   textTool,
   toolFor,
 } from './index'
@@ -74,10 +75,36 @@ describe('toolFor registry', () => {
     expect(toolFor('eraser')).toBeNull()
   })
 
-  it('has arrow + freedraw + text wired up', () => {
+  it('has arrow + freedraw + text + sticky wired up', () => {
     expect(toolFor('arrow')).toBe(arrowTool)
     expect(toolFor('freedraw')).toBe(freedrawTool)
     expect(toolFor('text')).toBe(textTool)
+    expect(toolFor('sticky')).toBe(stickyTool)
+  })
+})
+
+describe('stickyTool', () => {
+  it('creates a fixed-size sticky at the cursor and requests edit', async () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    const { _resetEditBroker, onEditRequest } = await import('../text-editing')
+    _resetEditBroker()
+    let requested: string | null = null
+    onEditRequest((id) => {
+      requested = id
+    })
+
+    stickyTool.onPointerDown(ctx, makeEvent(40, 50))
+    const el = store.list()[0]
+    expect(el.type).toBe('sticky')
+    expect((el as { text: string }).text).toBe('')
+    expect(el.x).toBe(40)
+    expect(el.y).toBe(50)
+    // Fixed-size — 160×160.
+    expect(el.width).toBe(160)
+    expect(el.height).toBe(160)
+    expect(requested).toBe(el.id)
   })
 })
 

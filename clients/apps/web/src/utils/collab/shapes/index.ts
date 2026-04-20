@@ -20,6 +20,7 @@ import { pathFor as ellipsePath, paintEllipse } from './ellipse'
 import { pathFor as freeDrawPath, paintFreeDraw } from './freedraw'
 import { pathFor as linePath, paintLine } from './line'
 import { paintRect, pathFor as rectPath } from './rect'
+import { paintSticky, pathFor as stickyPath } from './sticky'
 import { paintText, pathFor as textPath } from './text'
 
 type PaintFn = (
@@ -71,7 +72,12 @@ const REGISTRY: Partial<Record<ElementType, ShapeAdapter>> = {
     paint: (ctx, el, path) =>
       paintText(ctx, el as Parameters<typeof paintText>[1], path),
   },
-  // Remaining types (sticky, image, frame, embed) land later.
+  sticky: {
+    pathFor: (el) => stickyPath(el as Parameters<typeof stickyPath>[0]),
+    paint: (ctx, el, path) =>
+      paintSticky(ctx, el as Parameters<typeof paintSticky>[1], path),
+  },
+  // Remaining types (image, frame, embed) land later.
 }
 
 export function adapterFor(el: CollabElement): ShapeAdapter | null {
@@ -90,7 +96,9 @@ export {
   paintFreeDraw,
   paintLine,
   paintRect,
+  paintSticky,
   paintText,
   rectPath,
+  stickyPath,
   textPath,
 }

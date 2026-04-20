@@ -78,7 +78,12 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
   {
     id: 'text',
     label: 'Text',
-    hint: 'Click to add text (inline editor is Phase 7b)',
+    hint: 'Click to add text — inline editor, Enter to commit',
+  },
+  {
+    id: 'sticky',
+    label: 'Sticky',
+    hint: 'Click to add a sticky note; Enter commits',
   },
 ]
 
