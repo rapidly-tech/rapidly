@@ -114,6 +114,102 @@ export function findBinding(
   return best?.binding ?? null
 }
 
+/** Given an updated map of element states, find every arrow whose
+ *  start or end binding references one of the supplied ids and
+ *  return the patches needed to keep the arrow anchored.
+ *
+ *  Called by the select tool inside a move/resize transaction so the
+ *  bound arrows update in the same atomic frame — remote peers never
+ *  observe a half-moved state. */
+export function collectBoundArrowPatches(
+  elements: readonly CollabElement[],
+  changedIds: ReadonlySet<string>,
+): Array<{
+  id: string
+  patch: {
+    x: number
+    y: number
+    width: number
+    height: number
+    points: number[]
+  }
+}> {
+  if (changedIds.size === 0) return []
+  const byId = new Map<string, CollabElement>()
+  for (const el of elements) byId.set(el.id, el)
+  const out: Array<{
+    id: string
+    patch: {
+      x: number
+      y: number
+      width: number
+      height: number
+      points: number[]
+    }
+  }> = []
+
+  for (const el of elements) {
+    if (el.type !== 'arrow') continue
+    const startBinding = el.startBinding
+    const endBinding = el.endBinding
+    const startAffected = !!(
+      startBinding && changedIds.has(startBinding.elementId)
+    )
+    const endAffected = !!(endBinding && changedIds.has(endBinding.elementId))
+    if (!startAffected && !endAffected) continue
+
+    // Compute the new absolute start + end points. When a binding
+    // exists, resolve against the *current* state of the target. If
+    // the binding doesn't exist on that end, translate the existing
+    // element-local points back to world space.
+    const p = el.points
+    if (p.length < 4) continue
+    const curStartWorldX = el.x + p[0]
+    const curStartWorldY = el.y + p[1]
+    const curEndWorldX = el.x + p[p.length - 2]
+    const curEndWorldY = el.y + p[p.length - 1]
+
+    let startX = curStartWorldX
+    let startY = curStartWorldY
+    let endX = curEndWorldX
+    let endY = curEndWorldY
+
+    if (startBinding) {
+      const target = byId.get(startBinding.elementId)
+      if (target) {
+        const s = resolveBinding(target, startBinding)
+        startX = s.x
+        startY = s.y
+      }
+    }
+    if (endBinding) {
+      const target = byId.get(endBinding.elementId)
+      if (target) {
+        const e = resolveBinding(target, endBinding)
+        endX = e.x
+        endY = e.y
+      }
+    }
+
+    const minX = Math.min(startX, endX)
+    const minY = Math.min(startY, endY)
+    const maxX = Math.max(startX, endX)
+    const maxY = Math.max(startY, endY)
+    out.push({
+      id: el.id,
+      patch: {
+        x: minX,
+        y: minY,
+        width: maxX - minX,
+        height: maxY - minY,
+        points: [startX - minX, startY - minY, endX - minX, endY - minY],
+      },
+    })
+  }
+
+  return out
+}
+
 /** Resolve a binding to a concrete world-space point. Used when a
  *  bound shape moves / resizes and we need to recompute the arrow
  *  endpoint. */
