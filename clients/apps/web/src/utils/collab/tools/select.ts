@@ -6,12 +6,13 @@
  * - Click an element → replace selection with that element.
  * - Shift-click an element → toggle it in the current selection.
  * - Click empty space → clear selection.
+ * - **Drag a selected element → move the whole selection** (Phase 4a).
  * - Drag empty space → marquee. Every element whose AABB intersects
  *   the marquee is added on pointer-up. Shift during marquee appends
  *   to the existing selection; no shift replaces.
  *
- * Not-in-this-phase: drag-move of a selected element, resize handles,
- * rotation handle. Those land in Phase 4.
+ * Not-in-this-phase: resize handles, rotation handle. Those land in
+ * Phase 4b.
  */
 
 import { isArrow, isFreeDraw, isLine } from '../elements'
@@ -25,23 +26,31 @@ export interface SelectToolCtx extends ToolCtx {
   selection: SelectionState
 }
 
+type GestureKind = 'click' | 'marquee' | 'moving'
+
 interface GestureState {
-  kind: 'click' | 'marquee'
+  kind: GestureKind
   shift: boolean
   startWorldX: number
   startWorldY: number
   /** For marquee: current rect in world coords. */
   curX: number
   curY: number
-  /** Selection snapshot at gesture start — used so shift-marquee
-   *  appends without repeatedly re-adding on every pointer-move. */
+  /** Selection snapshot at gesture start. marquee uses it as a base
+   *  so shift-marquee appends; moving uses it to know *which* ids to
+   *  translate. */
   baseIds: ReadonlySet<string>
+  /** For moving: original (x, y) of each selected element at gesture
+   *  start. Drag deltas are applied against these snapshots so a
+   *  micro-drift per pointermove doesn't accumulate floating-point
+   *  error. */
+  moveAnchors?: Map<string, { x: number; y: number }>
 }
 
 let state: GestureState | null = null
 
 /** Minimum pointer travel (world units) to promote a click into a
- *  marquee. Anything below this registers as a plain click. */
+ *  marquee or a move. Anything below this registers as a plain click. */
 const DRAG_THRESHOLD = 4
 
 export const selectTool = {
@@ -54,39 +63,26 @@ export const selectTool = {
     const hitId = sctx.renderer.hitTest(x, y)
 
     if (hitId) {
-      // Click on an element: commit immediately — drag-to-move lands
-      // in Phase 4, and we don't want a laggy "click" that only
-      // registers on pointer-up.
+      // Shift-click: toggle membership and stay in click state (no
+      // move) — shift-drag-move is useful but out of scope for 4a.
       if (e.shiftKey) {
         sctx.selection.toggle(hitId)
-      } else if (!sctx.selection.has(hitId)) {
+        state = clickState(x, y, true, sctx.selection.snapshot)
+        return
+      }
+
+      // Plain click / plain click-drag: if the hit element isn't yet
+      // selected, replace the selection with it first. Then arm a
+      // move gesture — promoted on drag threshold.
+      if (!sctx.selection.has(hitId)) {
         sctx.selection.set([hitId])
       }
-      // Keep a pseudo-gesture open so pointer-up clears it cleanly.
-      state = {
-        kind: 'click',
-        shift: e.shiftKey,
-        startWorldX: x,
-        startWorldY: y,
-        curX: x,
-        curY: y,
-        baseIds: new Set(sctx.selection.snapshot),
-      }
+      state = clickState(x, y, false, sctx.selection.snapshot)
       return
     }
 
-    // Empty-space: start a marquee. Don't clear the existing selection
-    // yet — the user may release without dragging, and that's the
-    // "deselect all" moment, OR they drag and we marquee.
-    state = {
-      kind: 'click',
-      shift: e.shiftKey,
-      startWorldX: x,
-      startWorldY: y,
-      curX: x,
-      curY: y,
-      baseIds: new Set(sctx.selection.snapshot),
-    }
+    // Empty-space: start a click (may promote to marquee).
+    state = clickState(x, y, e.shiftKey, sctx.selection.snapshot)
   },
 
   onPointerMove(ctx, e) {
@@ -100,8 +96,29 @@ export const selectTool = {
       const dx = x - state.startWorldX
       const dy = y - state.startWorldY
       if (Math.hypot(dx, dy) >= DRAG_THRESHOLD) {
-        state.kind = 'marquee'
-        if (!state.shift) sctx.selection.clear()
+        // Decide which gesture we're in: if every base id is in the
+        // live selection AND we started on a hit, promote to move;
+        // otherwise promote to marquee.
+        const startedOnHit = sctx.renderer.hitTest(
+          state.startWorldX,
+          state.startWorldY,
+        )
+        if (
+          startedOnHit &&
+          state.baseIds.size > 0 &&
+          state.baseIds.has(startedOnHit)
+        ) {
+          state.kind = 'moving'
+          const anchors = new Map<string, { x: number; y: number }>()
+          for (const id of state.baseIds) {
+            const el = ctx.store.get(id)
+            if (el) anchors.set(id, { x: el.x, y: el.y })
+          }
+          state.moveAnchors = anchors
+        } else {
+          state.kind = 'marquee'
+          if (!state.shift) sctx.selection.clear()
+        }
       }
     }
 
@@ -112,6 +129,18 @@ export const selectTool = {
       for (const id of hits) next.add(id)
       sctx.selection.set(next)
       sctx.invalidate()
+      return
+    }
+
+    if (state.kind === 'moving' && state.moveAnchors) {
+      const dx = x - state.startWorldX
+      const dy = y - state.startWorldY
+      const patches: { id: string; patch: { x: number; y: number } }[] = []
+      for (const [id, anchor] of state.moveAnchors) {
+        patches.push({ id, patch: { x: anchor.x + dx, y: anchor.y + dy } })
+      }
+      if (patches.length > 0) ctx.store.updateMany(patches)
+      sctx.invalidate()
     }
   },
 
@@ -120,9 +149,9 @@ export const selectTool = {
     if (!state) return
     const sctx = ctx as SelectToolCtx
     if (state.kind === 'click') {
-      // The user clicked (no drag). If we didn't already commit in
-      // onPointerDown (i.e. empty-space click with no shift), clear
-      // the selection.
+      // No drag. If we clicked empty space without shift, clear the
+      // selection — the pointer-down left it intact in case this was
+      // a drag that never drifted past the threshold.
       const hitId = sctx.renderer.hitTest(state.startWorldX, state.startWorldY)
       if (!hitId && !state.shift) {
         sctx.selection.clear()
@@ -133,8 +162,19 @@ export const selectTool = {
   },
 
   onCancel(ctx) {
+    const sctx = ctx as SelectToolCtx
+    if (state?.kind === 'moving' && state.moveAnchors) {
+      // Roll the elements back to their anchors so a cancelled drag
+      // doesn't leave them mid-flight. Cheap — the CRDT sees a single
+      // updateMany reversing the move.
+      const patches: { id: string; patch: { x: number; y: number } }[] = []
+      for (const [id, anchor] of state.moveAnchors) {
+        patches.push({ id, patch: { x: anchor.x, y: anchor.y } })
+      }
+      if (patches.length > 0) ctx.store.updateMany(patches)
+    }
     state = null
-    ;(ctx as SelectToolCtx).invalidate()
+    sctx.invalidate()
   },
 } as const satisfies Tool
 
@@ -148,6 +188,23 @@ export function currentMarqueeRect(): {
 } | null {
   if (!state || state.kind !== 'marquee') return null
   return marqueeRect(state)
+}
+
+function clickState(
+  x: number,
+  y: number,
+  shift: boolean,
+  baseIds: ReadonlySet<string>,
+): GestureState {
+  return {
+    kind: 'click',
+    shift,
+    startWorldX: x,
+    startWorldY: y,
+    curX: x,
+    curY: y,
+    baseIds: new Set(baseIds),
+  }
 }
 
 function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
@@ -183,9 +240,6 @@ function elementsInRect(
   const ry2 = rect.y + rect.height
   const out: string[] = []
   for (const el of ctx.store.list()) {
-    // Arrow/line/freedraw store a start point + local ``points``
-    // array; their AABB comes from width/height set on creation —
-    // adequate for marquee until Phase 5 lands free-form hit testing.
     const ex1 = el.x
     const ey1 = el.y
     const ex2 = el.x + el.width

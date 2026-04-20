@@ -200,4 +200,105 @@ describe('selectTool', () => {
     selectTool.onCancel?.(ctx)
     expect(currentMarqueeRect()).toBeNull()
   })
+
+  it('drag on a selected element moves the whole selection', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const a = store.create({
+      type: 'rect',
+      x: 10,
+      y: 10,
+      width: 100,
+      height: 50,
+      roundness: 0,
+    })
+    const b = store.create({
+      type: 'rect',
+      x: 200,
+      y: 50,
+      width: 40,
+      height: 40,
+      roundness: 0,
+    })
+    const sel = new SelectionState()
+    sel.set([a, b])
+    const ctx = stubCtx(store, sel, a)
+
+    selectTool.onPointerDown(ctx, event(30, 30))
+    // Under the drag threshold — still a click.
+    selectTool.onPointerMove(ctx, event(32, 32))
+    expect(store.get(a)?.x).toBe(10)
+
+    // Promote to move.
+    selectTool.onPointerMove(ctx, event(80, 60))
+    // +50 on x, +30 on y applied to both anchors.
+    expect(store.get(a)?.x).toBe(60)
+    expect(store.get(a)?.y).toBe(40)
+    expect(store.get(b)?.x).toBe(250)
+    expect(store.get(b)?.y).toBe(80)
+
+    selectTool.onPointerUp(ctx, event(80, 60))
+    // Final committed position.
+    expect(store.get(a)?.x).toBe(60)
+    expect(store.get(b)?.y).toBe(80)
+  })
+
+  it('onCancel rolls back an in-progress move', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const a = store.create({
+      type: 'rect',
+      x: 10,
+      y: 20,
+      width: 50,
+      height: 50,
+      roundness: 0,
+    })
+    const sel = new SelectionState()
+    sel.set([a])
+    const ctx = stubCtx(store, sel, a)
+
+    selectTool.onPointerDown(ctx, event(30, 40))
+    selectTool.onPointerMove(ctx, event(80, 90))
+    // Mid-flight: element moved.
+    expect(store.get(a)?.x).not.toBe(10)
+
+    selectTool.onCancel?.(ctx)
+    // Back at the anchor.
+    expect(store.get(a)?.x).toBe(10)
+    expect(store.get(a)?.y).toBe(20)
+  })
+
+  it('click on an unselected element replaces selection before drag-move', () => {
+    // User has A selected; clicks B (not held shift); drags.
+    // Expected: selection becomes just B, drag moves B only.
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const a = store.create({
+      type: 'rect',
+      x: 10,
+      y: 10,
+      width: 50,
+      height: 50,
+      roundness: 0,
+    })
+    const b = store.create({
+      type: 'rect',
+      x: 200,
+      y: 10,
+      width: 50,
+      height: 50,
+      roundness: 0,
+    })
+    const sel = new SelectionState()
+    sel.set([a])
+    const ctx = stubCtx(store, sel, b)
+
+    selectTool.onPointerDown(ctx, event(220, 30))
+    selectTool.onPointerMove(ctx, event(260, 50))
+    expect(Array.from(sel.snapshot)).toEqual([b])
+    expect(store.get(b)?.x).toBe(240)
+    expect(store.get(a)?.x).toBe(10)
+    selectTool.onPointerUp(ctx, event(260, 50))
+  })
 })
