@@ -40,6 +40,7 @@ import {
   sendToBack,
 } from '@/utils/collab/z-order'
 
+import { PropertiesPanel } from './PropertiesPanel'
 import { TextEditor } from './TextEditor'
 
 function seedScene(store: ElementStore): void {
@@ -400,31 +401,39 @@ export function CollabRenderDemo() {
           </span>
         </span>
       </div>
-      <div className="relative flex-1">
-        <canvas
-          ref={staticRef}
-          className="absolute inset-0 h-full w-full"
-          aria-hidden
-        />
-        <canvas
-          ref={interactiveRef}
-          onPointerDown={onPointerDown}
-          onPointerMove={onPointerMove}
-          onPointerUp={onPointerUp}
-          onPointerCancel={onPointerUp}
-          onDoubleClick={onDoubleClick}
-          onWheel={onWheel}
-          className="absolute inset-0 h-full w-full touch-none"
-          style={{ cursor }}
-          aria-label="Renderer demo canvas"
-        />
-        {editingId && storeRef.current && rendererRef.current ? (
-          <TextEditor
-            key={editingId}
-            id={editingId}
+      <div className="flex flex-1">
+        <div className="relative flex-1">
+          <canvas
+            ref={staticRef}
+            className="absolute inset-0 h-full w-full"
+            aria-hidden
+          />
+          <canvas
+            ref={interactiveRef}
+            onPointerDown={onPointerDown}
+            onPointerMove={onPointerMove}
+            onPointerUp={onPointerUp}
+            onPointerCancel={onPointerUp}
+            onDoubleClick={onDoubleClick}
+            onWheel={onWheel}
+            className="absolute inset-0 h-full w-full touch-none"
+            style={{ cursor }}
+            aria-label="Renderer demo canvas"
+          />
+          {editingId && storeRef.current && rendererRef.current ? (
+            <TextEditor
+              key={editingId}
+              id={editingId}
+              store={storeRef.current}
+              renderer={rendererRef.current}
+              onDone={() => setEditingId(null)}
+            />
+          ) : null}
+        </div>
+        {storeRef.current ? (
+          <PropertiesPanel
             store={storeRef.current}
-            renderer={rendererRef.current}
-            onDone={() => setEditingId(null)}
+            selection={selectionRef.current}
           />
         ) : null}
       </div>
