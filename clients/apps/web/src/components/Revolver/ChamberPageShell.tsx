@@ -44,7 +44,12 @@ export function ChamberPageShell({
         </motion.div>
       </AnimatePresence>
 
-      <div className="relative w-full max-w-4xl pb-6">{children}</div>
+      {/* max-w-2xl matches FileSharingLandingPage's card column so every
+          chamber reads the same as Send Secret does from the front page —
+          tight, centred, not stretched to the page's full width. Chamber
+          active states that legitimately need more room (e.g. Screen's
+          video preview) still break out via their own max-width. */}
+      <div className="relative mx-auto w-full max-w-2xl pb-6">{children}</div>
 
       <ChamberStrip currentId={currentId} />
     </div>
