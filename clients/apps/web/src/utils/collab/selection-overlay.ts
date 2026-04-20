@@ -8,11 +8,18 @@
  */
 
 import type { ElementStore } from './element-store'
+import { handleRotatedPositions } from './resize'
 import type { SelectionState } from './selection'
+import type { Viewport } from './viewport'
 
 const SELECTION_STROKE = '#4f46e5' // emerald/indigo pop; matches Excalidraw-ish selection blue
 const MARQUEE_STROKE = '#4f46e5'
 const MARQUEE_FILL = 'rgba(79, 70, 229, 0.08)'
+
+/** Handles stay this many screen pixels wide regardless of zoom.
+ *  Divided by the viewport scale inside the painter so the world-
+ *  space rect we stroke ends up at the right screen size. */
+const HANDLE_SCREEN_SIZE_PX = 8
 
 export interface SelectionOverlayOptions {
   store: ElementStore
@@ -26,6 +33,9 @@ export interface SelectionOverlayOptions {
     width: number
     height: number
   } | null
+  /** Live viewport so the handle painter can scale handle squares
+   *  to a constant screen size regardless of zoom. */
+  getViewport: () => Viewport
 }
 
 /** Build a paint function suitable for ``renderer.setInteractivePaint``.
@@ -36,8 +46,36 @@ export function makeSelectionOverlay(
 ): (ctx: CanvasRenderingContext2D) => void {
   return (ctx) => {
     paintSelectedBounds(ctx, opts)
+    paintHandles(ctx, opts)
     paintMarquee(ctx, opts)
   }
+}
+
+/** Paint the 8 resize handles on a single selected element. Multi-
+ *  selection resize (a shared group bounds) is a Phase 4 follow-up;
+ *  for now we simply don't render handles when more than one is
+ *  selected so the overlay stays clean. */
+function paintHandles(
+  ctx: CanvasRenderingContext2D,
+  { store, selection, getViewport }: SelectionOverlayOptions,
+): void {
+  if (selection.size !== 1) return
+  const [id] = selection.snapshot
+  const el = store.get(id)
+  if (!el) return
+  const vp = getViewport()
+  const worldSize = HANDLE_SCREEN_SIZE_PX / vp.scale
+  const half = worldSize / 2
+  const handles = handleRotatedPositions(el)
+  ctx.save()
+  ctx.lineWidth = 1 / vp.scale
+  for (const h of Object.values(handles)) {
+    ctx.fillStyle = '#ffffff'
+    ctx.strokeStyle = SELECTION_STROKE
+    ctx.fillRect(h.x - half, h.y - half, worldSize, worldSize)
+    ctx.strokeRect(h.x - half, h.y - half, worldSize, worldSize)
+  }
+  ctx.restore()
 }
 
 function paintSelectedBounds(

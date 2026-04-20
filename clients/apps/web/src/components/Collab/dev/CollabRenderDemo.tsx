@@ -24,6 +24,7 @@ import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
 import {
   currentMarqueeRect,
+  hoverCursor,
   toolFor,
   type SelectToolCtx,
   type Tool,
@@ -130,6 +131,7 @@ export function CollabRenderDemo() {
         store,
         selection,
         getMarquee: () => currentMarqueeRect(),
+        getViewport: () => r.getViewport(),
       }),
     )
 
@@ -174,14 +176,39 @@ export function CollabRenderDemo() {
     [toolCtx],
   )
 
+  const [hoverCursorStyle, setHoverCursorStyle] = useState<string | null>(null)
+
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
+      const canvas = interactiveRef.current
       const tool = gestureToolRef.current
       const ctx = toolCtx()
-      if (!tool || !ctx) return
+      if (!tool || !ctx) {
+        // No active gesture — if the select tool is active, see whether
+        // the cursor sits over a handle so we can swap its cursor.
+        if (canvas && toolId === 'select' && ctx === null) {
+          setHoverCursorStyle(null)
+        }
+        if (toolId === 'select' && canvas) {
+          const active = toolCtx()
+          if (active) {
+            const rect = canvas.getBoundingClientRect()
+            const next = hoverCursor(
+              active as SelectToolCtx,
+              e.clientX - rect.left,
+              e.clientY - rect.top,
+              active.renderer
+                ? (activeToolRef.current?.cursor ?? 'default')
+                : 'default',
+            )
+            setHoverCursorStyle(next)
+          }
+        }
+        return
+      }
       tool.onPointerMove(ctx, e.nativeEvent)
     },
-    [toolCtx],
+    [toolCtx, toolId],
   )
 
   const onPointerUp = useCallback(
@@ -251,7 +278,7 @@ export function CollabRenderDemo() {
   }, [toolCtx])
 
   const activeChoice = TOOL_CHOICES.find((t) => t.id === toolId)
-  const cursor = activeToolRef.current?.cursor ?? 'default'
+  const cursor = hoverCursorStyle ?? activeToolRef.current?.cursor ?? 'default'
 
   return (
     <div className="flex h-screen w-screen flex-col bg-slate-50 dark:bg-slate-950">

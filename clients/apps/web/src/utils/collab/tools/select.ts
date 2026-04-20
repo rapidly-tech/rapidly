@@ -16,6 +16,15 @@
  */
 
 import { isArrow, isFreeDraw, isLine } from '../elements'
+import {
+  anchorFrom,
+  applyResize,
+  cursorForHandle,
+  hitHandle,
+  rotatePoint,
+  type HandleId,
+  type ResizeAnchor,
+} from '../resize'
 import type { SelectionState } from '../selection'
 import type { Tool, ToolCtx } from './types'
 
@@ -26,7 +35,7 @@ export interface SelectToolCtx extends ToolCtx {
   selection: SelectionState
 }
 
-type GestureKind = 'click' | 'marquee' | 'moving'
+type GestureKind = 'click' | 'marquee' | 'moving' | 'resizing'
 
 interface GestureState {
   kind: GestureKind
@@ -45,6 +54,11 @@ interface GestureState {
    *  micro-drift per pointermove doesn't accumulate floating-point
    *  error. */
   moveAnchors?: Map<string, { x: number; y: number }>
+  /** For resizing: the id + bounding-box snapshot + which handle the
+   *  user grabbed. Only set when ``kind === 'resizing'``. */
+  resizeId?: string
+  resizeAnchor?: ResizeAnchor
+  resizeHandle?: HandleId
 }
 
 let state: GestureState | null = null
@@ -60,6 +74,42 @@ export const selectTool = {
   onPointerDown(ctx, e) {
     const sctx = ctx as SelectToolCtx
     const { x, y } = worldPoint(ctx, e)
+
+    // Check resize handles first — handles sit on top of their element
+    // and the user expects clicking one to start a resize, even when
+    // the pointer technically lands outside the element's bounds
+    // (the handle juts out slightly).
+    if (sctx.selection.size === 1) {
+      const [id] = sctx.selection.snapshot
+      const el = ctx.store.get(id)
+      if (el) {
+        const rect = (e.target as HTMLElement).getBoundingClientRect()
+        const screenX = e.clientX - rect.left
+        const screenY = e.clientY - rect.top
+        const handle = hitHandle(
+          el,
+          ctx.renderer.getViewport(),
+          screenX,
+          screenY,
+        )
+        if (handle) {
+          state = {
+            kind: 'resizing',
+            shift: e.shiftKey,
+            startWorldX: x,
+            startWorldY: y,
+            curX: x,
+            curY: y,
+            baseIds: new Set(sctx.selection.snapshot),
+            resizeId: id,
+            resizeAnchor: anchorFrom(el),
+            resizeHandle: handle,
+          }
+          return
+        }
+      }
+    }
+
     const hitId = sctx.renderer.hitTest(x, y)
 
     if (hitId) {
@@ -141,6 +191,34 @@ export const selectTool = {
       }
       if (patches.length > 0) ctx.store.updateMany(patches)
       sctx.invalidate()
+      return
+    }
+
+    if (
+      state.kind === 'resizing' &&
+      state.resizeId &&
+      state.resizeAnchor &&
+      state.resizeHandle
+    ) {
+      // Un-rotate the drag delta around the element's centre before
+      // applying — our applyResize math is in the element's own
+      // axis-aligned frame.
+      const a = state.resizeAnchor
+      const cx = a.x + a.width / 2
+      const cy = a.y + a.height / 2
+      const startLocal = rotatePoint(
+        state.startWorldX,
+        state.startWorldY,
+        cx,
+        cy,
+        -a.angle,
+      )
+      const curLocal = rotatePoint(x, y, cx, cy, -a.angle)
+      const dx = curLocal.x - startLocal.x
+      const dy = curLocal.y - startLocal.y
+      const next = applyResize(a, state.resizeHandle, dx, dy)
+      ctx.store.update(state.resizeId, next)
+      sctx.invalidate()
     }
   },
 
@@ -173,6 +251,15 @@ export const selectTool = {
       }
       if (patches.length > 0) ctx.store.updateMany(patches)
     }
+    if (state?.kind === 'resizing' && state.resizeId && state.resizeAnchor) {
+      const a = state.resizeAnchor
+      ctx.store.update(state.resizeId, {
+        x: a.x,
+        y: a.y,
+        width: a.width,
+        height: a.height,
+      })
+    }
     state = null
     sctx.invalidate()
   },
@@ -188,6 +275,26 @@ export function currentMarqueeRect(): {
 } | null {
   if (!state || state.kind !== 'marquee') return null
   return marqueeRect(state)
+}
+
+/** CSS cursor appropriate for the pointer's current screen location
+ *  over the canvas. Returns the directional resize cursor when over a
+ *  handle on a single-selected element; otherwise the tool's default.
+ *
+ *  The demo page wires this into ``onPointerMove`` so hovering a
+ *  handle swaps the cursor without needing a full mini state machine. */
+export function hoverCursor(
+  ctx: SelectToolCtx,
+  screenX: number,
+  screenY: number,
+  defaultCursor: string,
+): string {
+  if (ctx.selection.size !== 1) return defaultCursor
+  const [id] = ctx.selection.snapshot
+  const el = ctx.store.get(id)
+  if (!el) return defaultCursor
+  const handle = hitHandle(el, ctx.renderer.getViewport(), screenX, screenY)
+  return handle ? cursorForHandle(handle) : defaultCursor
 }
 
 function clickState(
