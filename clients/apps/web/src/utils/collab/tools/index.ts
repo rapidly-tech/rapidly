@@ -7,8 +7,10 @@
  * tests framework-agnostic.
  */
 
+import { diamondTool } from './diamond'
 import { ellipseTool } from './ellipse'
 import { handTool } from './hand'
+import { lineTool } from './line'
 import { rectTool } from './rect'
 import { selectTool } from './select'
 import type { Tool, ToolId } from './types'
@@ -18,8 +20,9 @@ const TOOLS: Partial<Record<ToolId, Tool>> = {
   select: selectTool,
   rect: rectTool,
   ellipse: ellipseTool,
-  // Remaining tools (diamond, arrow, line, freedraw, text, eraser)
-  // land in subsequent phases.
+  diamond: diamondTool,
+  line: lineTool,
+  // Remaining tools (arrow, freedraw, text, eraser) land later.
 }
 
 export function toolFor(id: ToolId): Tool | null {
@@ -29,4 +32,4 @@ export function toolFor(id: ToolId): Tool | null {
 export { currentMarqueeRect, hoverCursor } from './select'
 export type { SelectToolCtx } from './select'
 export type { Tool, ToolCtx, ToolId } from './types'
-export { ellipseTool, handTool, rectTool, selectTool }
+export { diamondTool, ellipseTool, handTool, lineTool, rectTool, selectTool }

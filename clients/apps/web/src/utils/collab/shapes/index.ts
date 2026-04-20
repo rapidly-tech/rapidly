@@ -14,7 +14,9 @@
  */
 
 import type { CollabElement, ElementType } from '../elements'
+import { pathFor as diamondPath, paintDiamond } from './diamond'
 import { pathFor as ellipsePath, paintEllipse } from './ellipse'
+import { pathFor as linePath, paintLine } from './line'
 import { paintRect, pathFor as rectPath } from './rect'
 
 type PaintFn = (
@@ -41,16 +43,31 @@ const REGISTRY: Partial<Record<ElementType, ShapeAdapter>> = {
     paint: (ctx, el, path) =>
       paintEllipse(ctx, el as Parameters<typeof paintEllipse>[1], path),
   },
-  // Remaining element types land in later phases. Their absence here
-  // is intentional — the renderer skips them so nothing crashes in the
-  // meantime.
+  diamond: {
+    pathFor: (el) => diamondPath(el as Parameters<typeof diamondPath>[0]),
+    paint: (ctx, el, path) =>
+      paintDiamond(ctx, el as Parameters<typeof paintDiamond>[1], path),
+  },
+  line: {
+    pathFor: (el) => linePath(el as Parameters<typeof linePath>[0]),
+    paint: (ctx, el, path) =>
+      paintLine(ctx, el as Parameters<typeof paintLine>[1], path),
+  },
+  // Remaining types (arrow, freedraw, text, sticky, image, frame,
+  // embed) land in later phases.
 }
 
-/** Look up the shape adapter for a given element. Returns ``null``
- *  when no adapter is registered (unknown element type, or a type we
- *  haven't implemented yet). Callers should skip rather than throw. */
 export function adapterFor(el: CollabElement): ShapeAdapter | null {
   return REGISTRY[el.type] ?? null
 }
 
-export { ellipsePath, paintEllipse, paintRect, rectPath }
+export {
+  diamondPath,
+  ellipsePath,
+  linePath,
+  paintDiamond,
+  paintEllipse,
+  paintLine,
+  paintRect,
+  rectPath,
+}
