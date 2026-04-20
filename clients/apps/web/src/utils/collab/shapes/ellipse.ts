@@ -8,11 +8,20 @@
  */
 
 import type { EllipseElement } from '../elements'
+import { makeRng, roughEllipse } from '../rough'
 
 export function pathFor(el: EllipseElement): Path2D {
   const path = new Path2D()
   const rx = el.width / 2
   const ry = el.height / 2
+
+  if (el.roughness > 0) {
+    roughEllipse(path, rx, ry, rx, ry, makeRng(el.seed), {
+      roughness: el.roughness,
+    })
+    return path
+  }
+
   // Path2D.ellipse: centre-x, centre-y, rx, ry, rotation, startAngle,
   // endAngle. Element-local origin is top-left, so centre lives at
   // (rx, ry). Rotation stays 0 here; the renderer applies the element
