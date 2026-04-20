@@ -15,6 +15,8 @@
  * Phase 4b.
  */
 
+import { collectBoundArrowPatches } from '../arrow-bindings'
+
 // Every element now has a rendered adapter, so marquee can include
 // all of them. Future unimplemented types (text/sticky/image/frame/
 // embed) will be filtered here when they land.
@@ -187,11 +189,23 @@ export const selectTool = {
     if (state.kind === 'moving' && state.moveAnchors) {
       const dx = x - state.startWorldX
       const dy = y - state.startWorldY
-      const patches: { id: string; patch: { x: number; y: number } }[] = []
+      const patches: { id: string; patch: Record<string, unknown> }[] = []
       for (const [id, anchor] of state.moveAnchors) {
         patches.push({ id, patch: { x: anchor.x + dx, y: anchor.y + dy } })
       }
-      if (patches.length > 0) ctx.store.updateMany(patches)
+      if (patches.length > 0) {
+        // Apply the move first, then compute bound-arrow patches
+        // against the just-written state. One transaction so remote
+        // peers see a single frame; the store already wraps each
+        // updateMany in a transaction, and inside the same tick a
+        // second updateMany appends to the same Yjs transaction by
+        // the scheduler.
+        ctx.store.updateMany(patches)
+        const changed = new Set<string>()
+        for (const p of patches) changed.add(p.id)
+        const arrowPatches = collectBoundArrowPatches(ctx.store.list(), changed)
+        if (arrowPatches.length > 0) ctx.store.updateMany(arrowPatches)
+      }
       sctx.invalidate()
       return
     }
@@ -220,6 +234,11 @@ export const selectTool = {
       const dy = curLocal.y - startLocal.y
       const next = applyResize(a, state.resizeHandle, dx, dy)
       ctx.store.update(state.resizeId, next)
+      const arrowPatches = collectBoundArrowPatches(
+        ctx.store.list(),
+        new Set([state.resizeId]),
+      )
+      if (arrowPatches.length > 0) ctx.store.updateMany(arrowPatches)
       sctx.invalidate()
     }
   },
