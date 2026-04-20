@@ -1,12 +1,18 @@
 /**
  * Arrow drawing tool.
  *
- * Two-point drag like the line tool, but the element ships with a
- * default end arrowhead. Shift snaps to 0°/45°/90°. Arrow bindings
- * (endpoint snap to another shape's anchor) land in Phase 6; this
- * tool leaves the ``startBinding`` / ``endBinding`` fields unset.
+ * Two-point drag like the line tool plus a default end arrowhead.
+ * Shift snaps to 0°/45°/90°.
+ *
+ * Phase 6a adds **snap-on-creation bindings**: if the pointer starts
+ * or ends within ``BIND_RADIUS_PX`` of a bindable shape, the arrow
+ * stores a ``{elementId, focus, gap}`` binding on the corresponding
+ * endpoint. Phase 6b wires the inverse — moving / resizing the bound
+ * shape updates the arrow endpoint in the same transaction.
  */
 
+import type { ArrowBinding } from '../arrow-bindings'
+import { findBinding, resolveBinding } from '../arrow-bindings'
 import type { Tool, ToolCtx } from './types'
 
 const MIN_LENGTH = 4
@@ -15,6 +21,10 @@ interface DrawState {
   id: string
   anchorX: number
   anchorY: number
+  /** Binding the arrow's *start* snapped to at creation. Locked in
+   *  on pointer-down and never re-evaluated — users expect the
+   *  anchor end to stay put once a drag begins. */
+  startBinding: ArrowBinding | null
 }
 
 let state: DrawState | null = null
@@ -25,23 +35,58 @@ export const arrowTool: Tool = {
 
   onPointerDown(ctx, e) {
     const { x, y } = worldPoint(ctx, e)
+    const elements = ctx.store.list()
+    const vp = ctx.renderer.getViewport()
+    const startBinding = findBinding(elements, x, y, vp.scale)
+    // If the start snaps to a shape, move our anchor to the exact
+    // perimeter point so the arrow line doesn't jut inside the shape.
+    let anchorX = x
+    let anchorY = y
+    if (startBinding) {
+      const target = ctx.store.get(startBinding.elementId)
+      if (target) {
+        const p = resolveBinding(target, startBinding)
+        anchorX = p.x
+        anchorY = p.y
+      }
+    }
     const id = ctx.store.create({
       type: 'arrow',
-      x,
-      y,
+      x: anchorX,
+      y: anchorY,
       width: 0,
       height: 0,
       points: [0, 0, 0, 0],
       startArrowhead: null,
       endArrowhead: 'triangle',
+      startBinding: startBinding ?? undefined,
     })
-    state = { id, anchorX: x, anchorY: y }
+    state = { id, anchorX, anchorY, startBinding }
   },
 
   onPointerMove(ctx, e) {
     if (!state) return
     const { x, y } = worldPoint(ctx, e)
-    ctx.store.update(state.id, computePatch(state, x, y, e.shiftKey))
+    const patch = computePatch(state, x, y, e.shiftKey)
+    // Check whether the current cursor snaps to a bindable shape.
+    // If so, pull the endpoint to the exact perimeter point and
+    // record the binding. Exclude the arrow itself to avoid self-
+    // bindings (the arrow IS in the store from pointer-down).
+    const elements = ctx.store.list()
+    const vp = ctx.renderer.getViewport()
+    const endBinding = findBinding(elements, x, y, vp.scale, state.id)
+    if (endBinding) {
+      const target = ctx.store.get(endBinding.elementId)
+      if (target) {
+        const p = resolveBinding(target, endBinding)
+        // Recompute patch so points + AABB reflect the snapped end.
+        Object.assign(patch, computePatch(state, p.x, p.y, e.shiftKey))
+      }
+    }
+    ctx.store.update(state.id, {
+      ...patch,
+      endBinding: endBinding ?? undefined,
+    })
   },
 
   onPointerUp(ctx) {
