@@ -8,12 +8,27 @@
  */
 
 import type { DiamondElement } from '../elements'
+import { makeRng, roughLine } from '../rough'
 
 export function pathFor(el: DiamondElement): Path2D {
   const path = new Path2D()
   const { width, height } = el
   const hw = width / 2
   const hh = height / 2
+
+  if (el.roughness > 0) {
+    // Four rough edges between the diamond's vertices. Same seed +
+    // geometry across peers = identical wobble, so the shape is
+    // reproducible under the CRDT.
+    const rng = makeRng(el.seed)
+    const opts = { roughness: el.roughness }
+    roughLine(path, hw, 0, width, hh, rng, opts)
+    roughLine(path, width, hh, hw, height, rng, opts)
+    roughLine(path, hw, height, 0, hh, rng, opts)
+    roughLine(path, 0, hh, hw, 0, rng, opts)
+    return path
+  }
+
   // Roundness clamped to a safe fraction of the shortest edge so a
   // user pasting 999 doesn't collapse the path.
   const r = Math.max(0, Math.min(el.roundness ?? 0, Math.min(hw, hh) / 2))
