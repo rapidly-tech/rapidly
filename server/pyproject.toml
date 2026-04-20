@@ -102,7 +102,7 @@ dev = [
   "sqlalchemy-utils>=0.41.2",
   "minio>=7.2.9",
   "locust>=2.20.0",
-  "debugpy>=1.8.19",
+  "debugpy>=1.8.20",
 ]
 
 # ── Development tasks (run via `uv run task <name>`) ─────────────────
