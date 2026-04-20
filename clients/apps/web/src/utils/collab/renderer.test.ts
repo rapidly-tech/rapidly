@@ -16,6 +16,8 @@ beforeAll(() => {
       moveTo() {}
       lineTo() {}
       quadraticCurveTo() {}
+      bezierCurveTo() {}
+      arc() {}
       closePath() {}
     }
   }

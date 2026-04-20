@@ -12,12 +12,25 @@
  */
 
 import type { RectElement } from '../elements'
+import { makeRng, roughRect } from '../rough'
 
 /** Build the hit + paint Path2D in the element's own coordinate space.
- *  Caller positions/rotates the context before stroking. */
+ *  Caller positions/rotates the context before stroking.
+ *
+ *  When ``el.roughness`` is 0 we paint a smooth rect (cheap, crisp);
+ *  otherwise ``rough.ts`` builds a seeded-jitter path using the
+ *  element's stored ``seed`` so every peer renders the same wobble. */
 export function pathFor(el: RectElement): Path2D {
   const path = new Path2D()
   const { width, height } = el
+
+  if (el.roughness > 0) {
+    roughRect(path, 0, 0, width, height, makeRng(el.seed), {
+      roughness: el.roughness,
+    })
+    return path
+  }
+
   const r = Math.max(0, Math.min(el.roundness, Math.min(width, height) / 2))
   if (r === 0) {
     path.rect(0, 0, width, height)
