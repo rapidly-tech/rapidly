@@ -20,6 +20,7 @@ import { pathFor as ellipsePath, paintEllipse } from './ellipse'
 import { pathFor as freeDrawPath, paintFreeDraw } from './freedraw'
 import { pathFor as linePath, paintLine } from './line'
 import { paintRect, pathFor as rectPath } from './rect'
+import { paintText, pathFor as textPath } from './text'
 
 type PaintFn = (
   ctx: CanvasRenderingContext2D,
@@ -65,7 +66,12 @@ const REGISTRY: Partial<Record<ElementType, ShapeAdapter>> = {
     paint: (ctx, el, path) =>
       paintFreeDraw(ctx, el as Parameters<typeof paintFreeDraw>[1], path),
   },
-  // Remaining types (text, sticky, image, frame, embed) land later.
+  text: {
+    pathFor: (el) => textPath(el as Parameters<typeof textPath>[0]),
+    paint: (ctx, el, path) =>
+      paintText(ctx, el as Parameters<typeof paintText>[1], path),
+  },
+  // Remaining types (sticky, image, frame, embed) land later.
 }
 
 export function adapterFor(el: CollabElement): ShapeAdapter | null {
@@ -84,5 +90,7 @@ export {
   paintFreeDraw,
   paintLine,
   paintRect,
+  paintText,
   rectPath,
+  textPath,
 }

@@ -15,6 +15,7 @@ import { handTool } from './hand'
 import { lineTool } from './line'
 import { rectTool } from './rect'
 import { selectTool } from './select'
+import { textTool } from './text'
 import type { Tool, ToolId } from './types'
 
 const TOOLS: Partial<Record<ToolId, Tool>> = {
@@ -26,7 +27,8 @@ const TOOLS: Partial<Record<ToolId, Tool>> = {
   line: lineTool,
   arrow: arrowTool,
   freedraw: freedrawTool,
-  // Remaining tools (text, eraser) land later.
+  text: textTool,
+  // Remaining tools (eraser) land later.
 }
 
 export function toolFor(id: ToolId): Tool | null {
@@ -45,4 +47,5 @@ export {
   lineTool,
   rectTool,
   selectTool,
+  textTool,
 }

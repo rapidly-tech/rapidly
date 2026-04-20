@@ -70,9 +70,9 @@ describe('shape adapters', () => {
   })
 
   it('adapterFor returns null for unimplemented element types', () => {
-    // Text / sticky / image / frame / embed aren't wired yet —
-    // rect / ellipse / diamond / line / arrow / freedraw all are.
-    expect(adapterFor({ ...baseRect(), type: 'text' } as never)).toBeNull()
+    // Sticky / image / frame / embed aren't wired yet —
+    // rect / ellipse / diamond / line / arrow / freedraw / text all are.
+    expect(adapterFor({ ...baseRect(), type: 'sticky' } as never)).toBeNull()
     expect(adapterFor({ ...baseRect(), type: 'frame' } as never)).toBeNull()
   })
 
