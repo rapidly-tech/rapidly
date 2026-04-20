@@ -59,8 +59,8 @@ describe('toolFor registry', () => {
   })
 
   it('returns null for unimplemented tools', () => {
-    expect(toolFor('select')).toBeNull()
     expect(toolFor('freedraw')).toBeNull()
+    expect(toolFor('arrow')).toBeNull()
   })
 })
 

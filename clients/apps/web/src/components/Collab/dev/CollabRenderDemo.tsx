@@ -3,11 +3,13 @@
 /**
  * Collab v2 renderer demo page.
  *
- * Phase 1b proved the renderer pipeline. Phase 3a now layers the tool
- * system on top: pick a tool (hand / rect / ellipse), drag, and the
- * canvas reflects the interaction. All mutations ride the
- * ``ElementStore`` → Yjs → renderer observe path the production chambers
- * will use.
+ * Phase 3b adds selection + delete on top of the tool system:
+ *  - Select tool: click / shift-click / marquee
+ *  - Backspace or Delete removes all selected elements
+ *  - Live bounding-box overlay on the interactive canvas
+ *
+ * All mutations still ride the ``ElementStore`` → Yjs → renderer
+ * observe path production chambers will use.
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
@@ -18,8 +20,12 @@ import {
   type ElementStore,
 } from '@/utils/collab/element-store'
 import { Renderer } from '@/utils/collab/renderer'
+import { SelectionState } from '@/utils/collab/selection'
+import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
 import {
+  currentMarqueeRect,
   toolFor,
+  type SelectToolCtx,
   type Tool,
   type ToolCtx,
   type ToolId,
@@ -54,6 +60,11 @@ function seedScene(store: ElementStore): void {
 
 const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
   { id: 'hand', label: 'Hand', hint: 'Drag to pan' },
+  {
+    id: 'select',
+    label: 'Select',
+    hint: 'Click or marquee — Delete to remove',
+  },
   { id: 'rect', label: 'Rect', hint: 'Drag to draw a rectangle' },
   { id: 'ellipse', label: 'Ellipse', hint: 'Drag to draw an ellipse' },
 ]
@@ -63,6 +74,7 @@ export function CollabRenderDemo() {
   const interactiveRef = useRef<HTMLCanvasElement | null>(null)
   const rendererRef = useRef<Renderer | null>(null)
   const storeRef = useRef<ElementStore | null>(null)
+  const selectionRef = useRef<SelectionState>(new SelectionState())
   const activeToolRef = useRef<Tool | null>(null)
   const gestureToolRef = useRef<Tool | null>(null)
   const vpRef = useRef<Viewport>(makeViewport({ scrollX: -20, scrollY: -20 }))
@@ -70,6 +82,7 @@ export function CollabRenderDemo() {
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
   const [elementCount, setElementCount] = useState(0)
+  const [selectionSize, setSelectionSize] = useState(0)
 
   useEffect(() => {
     activeToolRef.current = toolFor(toolId)
@@ -94,17 +107,38 @@ export function CollabRenderDemo() {
     })
     rendererRef.current = r
 
-    // Element count tracking — the observe fires on every add/remove
-    // so we stay honest while the user draws.
-    const unobserve = store.observe(() => {
+    const selection = selectionRef.current
+
+    // Keep the selection pruned to live elements — a remote delete
+    // that clobbers a selected element should drop it from our
+    // selection too (matches §3.4 of the plan).
+    const unobserveStore = store.observe(() => {
       setElementCount(store.size)
+      const liveIds = new Set<string>()
+      for (const el of store.list()) liveIds.add(el.id)
+      selection.reconcile(liveIds)
     })
+
+    const unsubscribeSelection = selection.subscribe((ids) => {
+      setSelectionSize(ids.size)
+      r.invalidate()
+    })
+
+    // Selection overlay paints the dashed bounding box + marquee.
+    r.setInteractivePaint(
+      makeSelectionOverlay({
+        store,
+        selection,
+        getMarquee: () => currentMarqueeRect(),
+      }),
+    )
 
     const onResize = () => r.resize()
     window.addEventListener('resize', onResize)
     return () => {
       window.removeEventListener('resize', onResize)
-      unobserve()
+      unobserveStore()
+      unsubscribeSelection()
       r.destroy()
       rendererRef.current = null
       storeRef.current = null
@@ -112,19 +146,19 @@ export function CollabRenderDemo() {
     }
   }, [])
 
-  /** Build a fresh ``ToolCtx`` per gesture so tools can't retain stale
-   *  renderer/store references across hot-reloads. */
   const toolCtx = useCallback((): ToolCtx | null => {
     const renderer = rendererRef.current
     const store = storeRef.current
     if (!renderer || !store) return null
-    return {
+    const base: SelectToolCtx = {
       store,
       renderer,
       viewport: renderer.getViewport(),
       screenToWorld: (x, y) => renderer.screenToWorld(x, y),
       invalidate: () => renderer.invalidate(),
+      selection: selectionRef.current,
     }
+    return base
   }, [])
 
   const onPointerDown = useCallback(
@@ -161,7 +195,6 @@ export function CollabRenderDemo() {
       }
       if (!tool || !ctx) return
       tool.onPointerUp(ctx, e.nativeEvent)
-      // Reflect scale updates if the hand tool panned.
       setZoom(Math.round(rendererRef.current!.getViewport().scale * 100) / 100)
     },
     [toolCtx],
@@ -186,6 +219,36 @@ export function CollabRenderDemo() {
     renderer.setViewport(next)
     setZoom(Math.round(next.scale * 100) / 100)
   }, [])
+
+  useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        // Avoid deleting form input fields elsewhere on the page —
+        // our demo doesn't have any, but robust defence.
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' || target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        store.deleteMany(Array.from(selection.snapshot))
+        selection.clear()
+      } else if (e.key === 'Escape') {
+        const tool = gestureToolRef.current
+        const ctx = toolCtx()
+        if (tool && ctx) tool.onCancel?.(ctx)
+        gestureToolRef.current = null
+        selectionRef.current.clear()
+      }
+    }
+    window.addEventListener('keydown', onKeyDown)
+    return () => window.removeEventListener('keydown', onKeyDown)
+  }, [toolCtx])
 
   const activeChoice = TOOL_CHOICES.find((t) => t.id === toolId)
   const cursor = activeToolRef.current?.cursor ?? 'default'
@@ -222,6 +285,10 @@ export function CollabRenderDemo() {
           <span className="rp-text-secondary">
             elements:{' '}
             <span className="rp-text-primary font-mono">{elementCount}</span>
+          </span>
+          <span className="rp-text-secondary">
+            selected:{' '}
+            <span className="rp-text-primary font-mono">{selectionSize}</span>
           </span>
           <span className="rp-text-secondary">
             zoom:{' '}

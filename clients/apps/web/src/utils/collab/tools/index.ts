@@ -10,19 +10,23 @@
 import { ellipseTool } from './ellipse'
 import { handTool } from './hand'
 import { rectTool } from './rect'
+import { selectTool } from './select'
 import type { Tool, ToolId } from './types'
 
 const TOOLS: Partial<Record<ToolId, Tool>> = {
   hand: handTool,
+  select: selectTool,
   rect: rectTool,
   ellipse: ellipseTool,
-  // Remaining tools (select, diamond, arrow, line, freedraw, text,
-  // eraser) land in subsequent phases.
+  // Remaining tools (diamond, arrow, line, freedraw, text, eraser)
+  // land in subsequent phases.
 }
 
 export function toolFor(id: ToolId): Tool | null {
   return TOOLS[id] ?? null
 }
 
+export { currentMarqueeRect } from './select'
+export type { SelectToolCtx } from './select'
 export type { Tool, ToolCtx, ToolId } from './types'
-export { ellipseTool, handTool, rectTool }
+export { ellipseTool, handTool, rectTool, selectTool }
