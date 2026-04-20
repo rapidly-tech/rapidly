@@ -1,14 +1,16 @@
 /**
- * Text-placement tool (Phase 7a).
+ * Text-placement tool (Phase 7b).
  *
- * Click creates a new text element at the cursor with a ``prompt()``
- * fallback for the actual string. Hacky by design — Phase 7b
- * replaces the prompt with an inline contenteditable overlay.
+ * Click creates an empty text element at the cursor and fires an edit
+ * request through the ``text-editing`` broker. The host component
+ * picks up the request, mounts a contenteditable overlay, and lets
+ * the user type inline. On blur / Enter / Esc the overlay writes the
+ * final string + AABB back to the store.
  *
- * Why ship it like this now: a text adapter that renders but has no
- * tool to create elements is half a feature; ``prompt`` gets the
- * round-trip working end-to-end (element → store → renderer) before
- * the editor UI lands.
+ * The element is created with an empty ``text`` + placeholder-sized
+ * AABB so something exists in the store during the edit. If the user
+ * cancels with no typing, the overlay deletes the empty element on
+ * teardown to keep the doc clean.
  */
 
 import {
@@ -16,8 +18,14 @@ import {
   DEFAULT_FONT_SIZE,
   DEFAULT_TEXT_ALIGN,
 } from '../elements'
-import { measureText } from '../shapes/text'
+import { requestEdit } from '../text-editing'
 import type { Tool, ToolCtx } from './types'
+
+/** Placeholder AABB for a just-created text element. The overlay
+ *  resizes as the user types; we just need something selectable
+ *  if the user cancels without typing. */
+const PLACEHOLDER_WIDTH = 200
+const PLACEHOLDER_HEIGHT = DEFAULT_FONT_SIZE * 1.2
 
 export const textTool: Tool = {
   id: 'text',
@@ -25,40 +33,21 @@ export const textTool: Tool = {
 
   onPointerDown(ctx, e) {
     const { x, y } = worldPoint(ctx, e)
-    const text = promptForText()
-    if (!text) return
-
-    // Measure against a detached 2D context so we get the same font
-    // metrics the renderer will use.
-    const canvas =
-      typeof document !== 'undefined' ? document.createElement('canvas') : null
-    const measureCtx = canvas?.getContext('2d') ?? null
-    let size = { width: 200, height: DEFAULT_FONT_SIZE * 1.2 }
-    if (measureCtx) {
-      size = measureText(
-        measureCtx,
-        text,
-        DEFAULT_FONT_FAMILY,
-        DEFAULT_FONT_SIZE,
-      )
-    }
-
-    ctx.store.create({
+    const id = ctx.store.create({
       type: 'text',
       x,
       y,
-      width: size.width,
-      height: size.height,
-      text,
+      width: PLACEHOLDER_WIDTH,
+      height: PLACEHOLDER_HEIGHT,
+      text: '',
       fontFamily: DEFAULT_FONT_FAMILY,
       fontSize: DEFAULT_FONT_SIZE,
       textAlign: DEFAULT_TEXT_ALIGN,
     })
+    requestEdit(id)
   },
 
-  // The text tool is single-click only — no drag semantics. We
-  // deliberately no-op pointerMove/pointerUp so dragging across the
-  // canvas doesn't spawn a trail of prompts.
+  // Single-click tool — dragging shouldn't spawn a trail of editors.
   onPointerMove() {},
   onPointerUp() {},
 }
@@ -66,14 +55,4 @@ export const textTool: Tool = {
 function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
   const rect = (e.target as HTMLElement).getBoundingClientRect()
   return ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
-}
-
-function promptForText(): string | null {
-  if (typeof window === 'undefined' || typeof window.prompt !== 'function') {
-    return null
-  }
-  const v = window.prompt('Text:')
-  if (v === null) return null
-  const trimmed = v.trim()
-  return trimmed.length === 0 ? null : v
 }

@@ -22,6 +22,7 @@ import {
 import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
+import { onEditRequest } from '@/utils/collab/text-editing'
 import {
   currentMarqueeRect,
   hoverCursor,
@@ -32,6 +33,8 @@ import {
   type ToolId,
 } from '@/utils/collab/tools'
 import { makeViewport, zoomAt, type Viewport } from '@/utils/collab/viewport'
+
+import { TextEditor } from './TextEditor'
 
 function seedScene(store: ElementStore): void {
   store.transact(() => {
@@ -93,6 +96,17 @@ export function CollabRenderDemo() {
   const [zoom, setZoom] = useState(1)
   const [elementCount, setElementCount] = useState(0)
   const [selectionSize, setSelectionSize] = useState(0)
+  /** When the text tool fires an edit request (or the user double-
+   *  clicks a text element), we mount the TextEditor overlay on
+   *  this id. Null = no editor active. */
+  const [editingId, setEditingId] = useState<string | null>(null)
+
+  // Subscribe to text-edit requests from tools.
+  useEffect(() => {
+    return onEditRequest((id) => {
+      setEditingId(id)
+    })
+  }, [])
 
   useEffect(() => {
     activeToolRef.current = toolFor(toolId)
@@ -236,6 +250,24 @@ export function CollabRenderDemo() {
     [toolCtx],
   )
 
+  const onDoubleClick = useCallback((e: React.MouseEvent) => {
+    const canvas = interactiveRef.current
+    const renderer = rendererRef.current
+    const store = storeRef.current
+    if (!canvas || !renderer || !store) return
+    const rect = canvas.getBoundingClientRect()
+    const world = renderer.screenToWorld(
+      e.clientX - rect.left,
+      e.clientY - rect.top,
+    )
+    const hitId = renderer.hitTest(world.x, world.y)
+    if (!hitId) return
+    const el = store.get(hitId)
+    if (el?.type === 'text') {
+      setEditingId(hitId)
+    }
+  }, [])
+
   const onWheel = useCallback((e: React.WheelEvent) => {
     e.preventDefault()
     const canvas = interactiveRef.current
@@ -346,11 +378,21 @@ export function CollabRenderDemo() {
           onPointerMove={onPointerMove}
           onPointerUp={onPointerUp}
           onPointerCancel={onPointerUp}
+          onDoubleClick={onDoubleClick}
           onWheel={onWheel}
           className="absolute inset-0 h-full w-full touch-none"
           style={{ cursor }}
           aria-label="Renderer demo canvas"
         />
+        {editingId && storeRef.current && rendererRef.current ? (
+          <TextEditor
+            key={editingId}
+            id={editingId}
+            store={storeRef.current}
+            renderer={rendererRef.current}
+            onDone={() => setEditingId(null)}
+          />
+        ) : null}
       </div>
     </div>
   )
