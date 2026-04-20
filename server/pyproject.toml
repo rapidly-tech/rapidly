@@ -7,7 +7,7 @@ dependencies = [
   # ── Web framework & HTTP ─────────────────────────────────────
   "fastapi>=0.120.2",
   "uvicorn[standard]>=0.31.1",
-  "sse-starlette>=2.0.0",
+  "sse-starlette>=3.3.4",
   "httpx>=0.23.0",
   "python-multipart>=0.0.12",
   "asgi-ratelimit>=0.10.0",
