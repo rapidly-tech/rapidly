@@ -11,6 +11,7 @@
  */
 
 import type { ArrowElement, ArrowHead } from '../elements'
+import { makeRng, roughLine } from '../rough'
 
 const HEAD_LENGTH_PX = 14
 const HEAD_WIDTH_PX = 10
@@ -19,9 +20,22 @@ export function pathFor(el: ArrowElement): Path2D {
   const path = new Path2D()
   const pts = el.points
   if (pts.length < 4) return path
-  path.moveTo(pts[0], pts[1])
-  for (let i = 2; i < pts.length; i += 2) {
-    path.lineTo(pts[i], pts[i + 1])
+
+  if (el.roughness > 0) {
+    // Rough polyline between consecutive points, same seed so the
+    // shape wobbles identically across peers. Arrowheads below are
+    // drawn straight — a jittered triangle reads badly at small
+    // sizes.
+    const rng = makeRng(el.seed)
+    const opts = { roughness: el.roughness }
+    for (let i = 0; i < pts.length - 2; i += 2) {
+      roughLine(path, pts[i], pts[i + 1], pts[i + 2], pts[i + 3], rng, opts)
+    }
+  } else {
+    path.moveTo(pts[0], pts[1])
+    for (let i = 2; i < pts.length; i += 2) {
+      path.lineTo(pts[i], pts[i + 1])
+    }
   }
   // Arrowheads are painted as extra sub-paths so fill + stroke can
   // both honour them — a filled triangle reads as an arrow, whereas
