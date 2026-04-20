@@ -72,6 +72,11 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
   { id: 'line', label: 'Line', hint: 'Drag; shift snaps to 45°' },
   { id: 'arrow', label: 'Arrow', hint: 'Drag; shift snaps to 45°' },
   { id: 'freedraw', label: 'Pen', hint: 'Freehand stroke with pressure' },
+  {
+    id: 'text',
+    label: 'Text',
+    hint: 'Click to add text (inline editor is Phase 7b)',
+  },
 ]
 
 export function CollabRenderDemo() {
