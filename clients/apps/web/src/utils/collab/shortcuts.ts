@@ -47,6 +47,8 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
   {
     label: 'Editing',
     entries: [
+      { keys: ['Mod', 'Z'], description: 'Undo' },
+      { keys: ['Mod', 'Shift', 'Z'], description: 'Redo' },
       { keys: ['Backspace'], description: 'Delete selected' },
       { keys: ['Esc'], description: 'Cancel gesture / clear selection' },
       { keys: ['Mod', 'C'], description: 'Copy selection' },
