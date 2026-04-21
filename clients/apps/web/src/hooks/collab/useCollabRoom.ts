@@ -15,6 +15,7 @@
  */
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { Awareness } from 'y-protocols/awareness'
 import * as Y from 'yjs'
 
 import { createMesh, type Mesh, type PeerLike } from '@/utils/call/mesh'
@@ -33,6 +34,10 @@ import {
   type PeerStatus,
   type RoomEncryptionState,
 } from '@/utils/collab/encryption-state'
+import {
+  awarenessPresenceSource,
+  type PresenceSource,
+} from '@/utils/collab/presence'
 import {
   createCollabRoom,
   deriveCollabKeys,
@@ -77,6 +82,15 @@ export interface UseCollabRoomReturn {
   /** Our local Yjs ``clientID`` — used for stroke author tagging in the
    *  whiteboard editor. ``null`` until the room exists. */
   clientID: number | null
+  /** Raw Yjs ``Awareness`` — consumers that need the live handle
+   *  (e.g. to feed ``awarenessPresenceSource`` manually, or to tap
+   *  additional fields beyond the canonical Phase 11 schema) can
+   *  grab it directly. Most UI should use ``presence`` instead. */
+  awareness: Awareness | null
+  /** Phase 11 presence source, prewired over the room's awareness.
+   *  Feed it to ``makeCursorOverlay`` / ``makeRemoteSelectionOverlay``
+   *  / ``makeLaserOverlay`` / ``createFollowMeController``. */
+  presence: PresenceSource | null
   /** Live awareness state per remote client (keyed by Yjs clientID). */
   peers: ReadonlyArray<{ clientID: number; state: Record<string, unknown> }>
   /** Aggregate E2EE state across every connected peer. UI renders a
@@ -155,6 +169,8 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
   const [error, setError] = useState<Error | null>(null)
   const [doc, setDoc] = useState<Y.Doc | null>(null)
   const [clientID, setClientID] = useState<number | null>(null)
+  const [awareness, setAwareness] = useState<Awareness | null>(null)
+  const [presence, setPresence] = useState<PresenceSource | null>(null)
   const [peers, setPeers] = useState<
     ReadonlyArray<{ clientID: number; state: Record<string, unknown> }>
   >([])
@@ -195,6 +211,8 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     }
     setDoc(null)
     setClientID(null)
+    setAwareness(null)
+    setPresence(null)
     setPeers([])
     setEncryption('solo')
     if (sessionRef.current) {
@@ -229,6 +247,10 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     roomRef.current = room
     setDoc(room.doc)
     setClientID(room.awareness.clientID)
+    setAwareness(room.awareness)
+    setPresence(
+      awarenessPresenceSource(room.awareness, room.awareness.clientID),
+    )
     room.awareness.on('change', refreshPeers)
 
     // Re-aggregate encryption state periodically. The handshake
@@ -429,6 +451,8 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
     error,
     doc,
     clientID,
+    awareness,
+    presence,
     peers,
     session,
     view,
