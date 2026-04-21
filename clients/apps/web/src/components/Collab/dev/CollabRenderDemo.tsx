@@ -47,6 +47,11 @@ import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
 } from '@/utils/collab/presence'
+import {
+  advanceFrame,
+  computeFrames,
+  viewportForBounds,
+} from '@/utils/collab/presentation'
 import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
@@ -153,6 +158,8 @@ export function CollabRenderDemo() {
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
   const [laserActive, setLaserActive] = useState(false)
+  const [presentationActive, setPresentationActive] = useState(false)
+  const [presentationIndex, setPresentationIndex] = useState(0)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -343,6 +350,25 @@ export function CollabRenderDemo() {
     if (!ctrl) return
     ctrl.setTarget(followingDemoPeer ? 1 : null)
   }, [followingDemoPeer])
+
+  // Presentation mode: apply the viewport for the current frame so
+  // advancing arrow-keys visibly pans + zooms to each element in z-
+  // order. Cleanup on exit restores the previous viewport.
+  useEffect(() => {
+    if (!presentationActive) return
+    const renderer = rendererRef.current
+    const store = storeRef.current
+    const canvas = interactiveRef.current
+    if (!renderer || !store || !canvas) return
+    const frames = computeFrames(store.list())
+    if (frames.length === 0) return
+    const index = Math.min(presentationIndex, frames.length - 1)
+    const rect = canvas.getBoundingClientRect()
+    const vp = viewportForBounds(frames[index].bounds, rect.width, rect.height)
+    vpRef.current = { ...vp }
+    renderer.setViewport(vpRef.current)
+    setZoom(Math.round(vp.scale * 100) / 100)
+  }, [presentationActive, presentationIndex])
 
   // Laser mode: prune the trail on every RAF while active so the
   // tail fades away even when the user stops moving.
@@ -560,6 +586,46 @@ export function CollabRenderDemo() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Presentation mode: Arrow keys / Space advance the frame,
+      // Shift+Arrow / Backspace / ArrowLeft rewind, Esc exits. Takes
+      // precedence over every other binding while active.
+      if (presentationActive) {
+        if (e.key === 'Escape') {
+          e.preventDefault()
+          setPresentationActive(false)
+          return
+        }
+        if (
+          e.key === 'ArrowRight' ||
+          e.key === 'ArrowDown' ||
+          e.key === ' ' ||
+          e.key === 'PageDown'
+        ) {
+          e.preventDefault()
+          const store = storeRef.current
+          if (!store) return
+          const total = computeFrames(store.list()).length
+          setPresentationIndex((i) => advanceFrame(i, total, 1))
+          return
+        }
+        if (
+          e.key === 'ArrowLeft' ||
+          e.key === 'ArrowUp' ||
+          e.key === 'PageUp' ||
+          e.key === 'Backspace'
+        ) {
+          e.preventDefault()
+          const store = storeRef.current
+          if (!store) return
+          const total = computeFrames(store.list()).length
+          setPresentationIndex((i) => advanceFrame(i, total, -1))
+          return
+        }
+        // Swallow other keys while presenting so the user can't
+        // accidentally trigger a tool / undo during a talk.
+        if (e.key !== 'F11') e.preventDefault()
+        return
+      }
       // Single-letter tool-activation shortcuts (H / V / R / O / D /
       // L / A / P / T / S). Skipped when any modifier is pressed so
       // the Cmd+D etc. bindings below still work, and when focus is
@@ -802,7 +868,7 @@ export function CollabRenderDemo() {
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toolCtx])
+  }, [toolCtx, presentationActive])
 
   const activeChoice = TOOL_CHOICES.find((t) => t.id === toolId)
 
@@ -926,6 +992,16 @@ export function CollabRenderDemo() {
       shortcut: ['?'],
       run: () => setShortcutsOpen(true),
     })
+    list.push({
+      id: 'view.present',
+      label: 'Start presentation mode',
+      category: 'View',
+      keywords: ['slideshow', 'talk', 'frame'],
+      run: () => {
+        setPresentationIndex(0)
+        setPresentationActive(true)
+      },
+    })
     return list
   }, [])
   const cursor = hoverCursorStyle ?? activeToolRef.current?.cursor ?? 'default'
@@ -995,6 +1071,18 @@ export function CollabRenderDemo() {
             className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
           >
             ?
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setPresentationIndex(0)
+              setPresentationActive(true)
+            }}
+            aria-label="Start presentation mode"
+            title="Present (arrow keys, Esc to exit)"
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+          >
+            Present
           </button>
           <button
             type="button"
@@ -1104,6 +1192,15 @@ export function CollabRenderDemo() {
         commands={commands}
         onClose={() => setPaletteOpen(false)}
       />
+      {presentationActive ? (
+        <div
+          role="status"
+          className="pointer-events-none fixed inset-x-0 top-0 z-40 flex items-center justify-between bg-slate-900/70 px-4 py-2 text-xs text-slate-100 backdrop-blur-sm"
+        >
+          <span>Presentation mode — frame {presentationIndex + 1}</span>
+          <span className="rp-text-secondary">← / → arrows · Esc to exit</span>
+        </div>
+      ) : null}
     </div>
   )
 }
