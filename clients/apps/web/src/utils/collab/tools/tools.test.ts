@@ -330,13 +330,19 @@ describe('arrowTool', () => {
 })
 
 describe('freedrawTool', () => {
-  function freedrawEvent(x: number, y: number, pressure = 0.5): PointerEvent {
+  function freedrawEvent(
+    x: number,
+    y: number,
+    pressure = 0.5,
+    pointerType: 'pen' | 'mouse' | 'touch' = 'pen',
+  ): PointerEvent {
     return {
       clientX: x,
       clientY: y,
       shiftKey: false,
       altKey: false,
       pressure,
+      pointerType,
       target: {
         getBoundingClientRect: () => ({ left: 0, top: 0 }),
       },
@@ -371,9 +377,11 @@ describe('freedrawTool', () => {
     const doc = new Y.Doc()
     const store = createElementStore(doc)
     const ctx = stubCtx(store)
-    freedrawTool.onPointerDown(ctx, freedrawEvent(0, 0, 0))
-    freedrawTool.onPointerMove(ctx, freedrawEvent(10, 10, 0))
-    freedrawTool.onPointerUp(ctx, freedrawEvent(10, 10))
+    // Mouse pointer → treated as no reported pressure regardless of
+    // the numeric value, so the tool simulates from velocity.
+    freedrawTool.onPointerDown(ctx, freedrawEvent(0, 0, 0, 'mouse'))
+    freedrawTool.onPointerMove(ctx, freedrawEvent(10, 10, 0, 'mouse'))
+    freedrawTool.onPointerUp(ctx, freedrawEvent(10, 10, 0, 'mouse'))
     const el = store.list()[0] as { simulatePressure: boolean }
     expect(el.simulatePressure).toBe(true)
   })

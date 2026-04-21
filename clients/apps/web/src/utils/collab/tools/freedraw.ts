@@ -14,6 +14,11 @@
  * events most browsers throttle anyway.
  */
 
+import {
+  readReportedPressure,
+  simulatePressureFromVelocity,
+  smoothPressure,
+} from '../pressure'
 import type { Tool, ToolCtx } from './types'
 
 const MIN_SAMPLES = 2
@@ -24,6 +29,16 @@ interface DrawState {
   /** Canonical world-space points the tool has committed so far.
    *  Rebuilt at the AABB's origin on each sample before writing. */
   worldSamples: Array<{ x: number; y: number; p: number }>
+  /** Timestamp of the most recent sample — feeds the velocity-based
+   *  pressure simulator on devices that don't report real pressure
+   *  (mouse, most capacitive touch). */
+  lastT: number
+  /** Smoothed simulated pressure so a single velocity blip doesn't
+   *  cut a one-sample ink thinning into the stroke. */
+  simulatedP: number
+  /** True when the device reports real pressure (pen / stylus). We
+   *  pin this at gesture start so a tap mid-stroke can't flip modes. */
+  useReported: boolean
 }
 
 let state: DrawState | null = null
@@ -34,26 +49,57 @@ export const freedrawTool: Tool = {
 
   onPointerDown(ctx, e) {
     const { x, y } = worldPoint(ctx, e)
-    const pressure = getPressure(e)
+    const reported = readReportedPressure(e)
+    const useReported = reported !== null
+    // First sample — no velocity history yet. Pin to reported pressure
+    // when available; otherwise seed at the mid-simulated value so the
+    // stroke starts at a reasonable weight.
+    const startPressure = useReported ? reported : 0.55
+    const now =
+      typeof performance !== 'undefined' ? performance.now() : Date.now()
     const id = ctx.store.create({
       type: 'freedraw',
       x,
       y,
       width: 0,
       height: 0,
-      points: [0, 0, pressure],
-      simulatePressure: !e.pressure,
+      points: [0, 0, startPressure],
+      simulatePressure: !useReported,
     })
-    state = { id, worldSamples: [{ x, y, p: pressure }] }
+    state = {
+      id,
+      worldSamples: [{ x, y, p: startPressure }],
+      lastT: now,
+      simulatedP: startPressure,
+      useReported,
+    }
   },
 
   onPointerMove(ctx, e) {
     if (!state) return
     const { x, y } = worldPoint(ctx, e)
-    const pressure = getPressure(e)
 
     const last = state.worldSamples[state.worldSamples.length - 1]
     if (Math.hypot(x - last.x, y - last.y) < MIN_POINTER_DELTA) return
+
+    // Pressure: read reported on pen, simulate from velocity otherwise.
+    // The ``useReported`` flag is pinned at gesture start so the curve
+    // doesn't flip if a browser inconsistently reports pressure mid-
+    // stroke.
+    const now =
+      typeof performance !== 'undefined' ? performance.now() : Date.now()
+    let pressure: number
+    if (state.useReported) {
+      pressure = readReportedPressure(e) ?? state.simulatedP
+    } else {
+      const target = simulatePressureFromVelocity(
+        { x: last.x, y: last.y, t: state.lastT },
+        { x, y, t: now },
+      )
+      pressure = smoothPressure(state.simulatedP, target)
+      state.simulatedP = pressure
+    }
+    state.lastT = now
 
     state.worldSamples.push({ x, y, p: pressure })
     ctx.store.update(state.id, rebuild(state.worldSamples))
@@ -79,15 +125,6 @@ export const freedrawTool: Tool = {
 function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
   const rect = (e.target as HTMLElement).getBoundingClientRect()
   return ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
-}
-
-function getPressure(e: PointerEvent): number {
-  // PointerEvent.pressure is 0 on pointer-down for mice; browsers
-  // sometimes mislabel pen events too. Fall back to 0.5 so the later
-  // renderer can still read a non-zero pressure for width modulation.
-  const p = e.pressure
-  if (typeof p === 'number' && p > 0) return Math.min(1, Math.max(0, p))
-  return 0.5
 }
 
 /** Rebuild the ``{x, y, width, height, points}`` patch from the
