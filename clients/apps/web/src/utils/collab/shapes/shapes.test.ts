@@ -70,9 +70,9 @@ describe('shape adapters', () => {
   })
 
   it('adapterFor returns null for unimplemented element types', () => {
-    // Image / frame / embed aren't wired yet — every other type is.
-    expect(adapterFor({ ...baseRect(), type: 'image' } as never)).toBeNull()
+    // Frame / embed aren't wired yet — every other type is.
     expect(adapterFor({ ...baseRect(), type: 'frame' } as never)).toBeNull()
+    expect(adapterFor({ ...baseRect(), type: 'embed' } as never)).toBeNull()
   })
 
   it('rectPath produces a Path2D that can be hit-tested', () => {
