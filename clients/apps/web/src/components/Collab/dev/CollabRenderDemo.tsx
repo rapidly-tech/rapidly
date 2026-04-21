@@ -48,6 +48,7 @@ import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-over
 import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
+import { exportToSVG } from '@/utils/collab/svg-export'
 import { onEditRequest } from '@/utils/collab/text-editing'
 import { toolIdForKey } from '@/utils/collab/tool-keys'
 import {
@@ -748,6 +749,18 @@ export function CollabRenderDemo() {
         downloadBlob(blob, 'rapidly-collab.json')
       },
     })
+    list.push({
+      id: 'export.svg',
+      label: 'Export SVG',
+      category: 'Export',
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const svg = exportToSVG(store.list())
+        const blob = new Blob([svg], { type: 'image/svg+xml' })
+        downloadBlob(blob, 'rapidly-collab.svg')
+      },
+    })
     // Help.
     list.push({
       id: 'help.shortcuts',
@@ -844,6 +857,19 @@ export function CollabRenderDemo() {
             className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
           >
             Export JSON
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const store = storeRef.current
+              if (!store) return
+              const svg = exportToSVG(store.list())
+              const blob = new Blob([svg], { type: 'image/svg+xml' })
+              downloadBlob(blob, 'rapidly-collab.svg')
+            }}
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+          >
+            Export SVG
           </button>
           <span className="rp-text-secondary">
             elements:{' '}
