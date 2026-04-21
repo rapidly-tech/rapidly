@@ -93,6 +93,7 @@ import {
 
 import { CommandPalette } from './CommandPalette'
 import { HyperlinkBadge } from './HyperlinkBadge'
+import { MobilePropertiesSheet } from './MobilePropertiesSheet'
 import { PropertiesPanel } from './PropertiesPanel'
 import { ShortcutsOverlay } from './ShortcutsOverlay'
 import { TextEditor } from './TextEditor'
@@ -178,6 +179,7 @@ export function CollabRenderDemo() {
   const [presentationActive, setPresentationActive] = useState(false)
   const [presentationIndex, setPresentationIndex] = useState(0)
   const [canInstall, setCanInstall] = useState(false)
+  const [mobileStyleOpen, setMobileStyleOpen] = useState(false)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -1190,6 +1192,16 @@ export function CollabRenderDemo() {
             />
             Laser pointer
           </label>
+          {selectionSize > 0 ? (
+            <button
+              type="button"
+              onClick={() => setMobileStyleOpen(true)}
+              aria-label="Open style panel"
+              className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 md:hidden dark:border-slate-700"
+            >
+              Style
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => setShortcutsOpen(true)}
@@ -1415,6 +1427,14 @@ export function CollabRenderDemo() {
         commands={commands}
         onClose={() => setPaletteOpen(false)}
       />
+      {storeRef.current ? (
+        <MobilePropertiesSheet
+          open={mobileStyleOpen}
+          store={storeRef.current}
+          selection={selectionRef.current}
+          onClose={() => setMobileStyleOpen(false)}
+        />
+      ) : null}
       {presentationActive ? (
         <div
           role="status"
