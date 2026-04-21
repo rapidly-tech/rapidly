@@ -22,11 +22,16 @@ import {
   paste as clipboardPaste,
   getClipboard,
 } from '@/utils/collab/clipboard'
+import { makeCursorOverlay } from '@/utils/collab/cursor-overlay'
 import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
 import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
+import {
+  inMemoryPresenceSource,
+  type InMemoryPresenceSource,
+} from '@/utils/collab/presence'
 import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
@@ -111,11 +116,14 @@ export function CollabRenderDemo() {
   const activeToolRef = useRef<Tool | null>(null)
   const gestureToolRef = useRef<Tool | null>(null)
   const vpRef = useRef<Viewport>(makeViewport({ scrollX: -20, scrollY: -20 }))
+  const presenceRef = useRef<InMemoryPresenceSource>(inMemoryPresenceSource())
+  const demoPeerFrameRef = useRef<number | null>(null)
 
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
   const [elementCount, setElementCount] = useState(0)
   const [selectionSize, setSelectionSize] = useState(0)
+  const [demoPeerActive, setDemoPeerActive] = useState(false)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -127,6 +135,39 @@ export function CollabRenderDemo() {
       setEditingId(id)
     })
   }, [])
+
+  // Demo-only: animate a fake remote cursor in a slow circle so
+  // visitors can see the cursor overlay without a second browser tab.
+  useEffect(() => {
+    const source = presenceRef.current
+    if (!demoPeerActive) {
+      source.removeRemote(1)
+      if (demoPeerFrameRef.current !== null) {
+        cancelAnimationFrame(demoPeerFrameRef.current)
+        demoPeerFrameRef.current = null
+      }
+      return
+    }
+    const start = performance.now()
+    const step = (now: number): void => {
+      const t = (now - start) / 1000
+      const cx = 240 + Math.cos(t) * 140
+      const cy = 180 + Math.sin(t) * 80
+      source.pushRemote({
+        clientId: 1,
+        user: { id: 'demo-peer', color: '#2f9e44', name: 'Demo peer' },
+        cursor: { x: cx, y: cy },
+      })
+      demoPeerFrameRef.current = requestAnimationFrame(step)
+    }
+    demoPeerFrameRef.current = requestAnimationFrame(step)
+    return () => {
+      if (demoPeerFrameRef.current !== null) {
+        cancelAnimationFrame(demoPeerFrameRef.current)
+        demoPeerFrameRef.current = null
+      }
+    }
+  }, [demoPeerActive])
 
   useEffect(() => {
     activeToolRef.current = toolFor(toolId)
@@ -168,15 +209,28 @@ export function CollabRenderDemo() {
       r.invalidate()
     })
 
-    // Selection overlay paints the dashed bounding box + marquee.
-    r.setInteractivePaint(
-      makeSelectionOverlay({
-        store,
-        selection,
-        getMarquee: () => currentMarqueeRect(),
-        getViewport: () => r.getViewport(),
-      }),
-    )
+    // Selection overlay paints the dashed bounding box + marquee;
+    // cursor overlay paints remote peers' pointers. The two compose
+    // trivially — each runs against the world-space transform.
+    const selectionPaint = makeSelectionOverlay({
+      store,
+      selection,
+      getMarquee: () => currentMarqueeRect(),
+      getViewport: () => r.getViewport(),
+    })
+    const cursorPaint = makeCursorOverlay({
+      source: presenceRef.current,
+      getViewport: () => r.getViewport(),
+    })
+    r.setInteractivePaint((ctx) => {
+      selectionPaint(ctx)
+      cursorPaint(ctx)
+    })
+
+    // Re-paint whenever a remote cursor updates.
+    const unsubscribePresence = presenceRef.current.subscribe(() => {
+      r.invalidate()
+    })
 
     const onResize = () => r.resize()
     window.addEventListener('resize', onResize)
@@ -184,6 +238,7 @@ export function CollabRenderDemo() {
       window.removeEventListener('resize', onResize)
       unobserveStore()
       unsubscribeSelection()
+      unsubscribePresence()
       r.destroy()
       rendererRef.current = null
       storeRef.current = null
@@ -471,6 +526,14 @@ export function CollabRenderDemo() {
         </div>
         <span className="rp-text-secondary">{activeChoice?.hint}</span>
         <span className="ml-auto flex items-center gap-3">
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={demoPeerActive}
+              onChange={(e) => setDemoPeerActive(e.target.checked)}
+            />
+            Demo peer cursor
+          </label>
           <span className="rp-text-secondary">
             elements:{' '}
             <span className="rp-text-primary font-mono">{elementCount}</span>
