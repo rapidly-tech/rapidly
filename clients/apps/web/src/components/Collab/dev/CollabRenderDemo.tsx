@@ -52,6 +52,11 @@ import {
   type PinchPanGesture,
 } from '@/utils/collab/pinch-gesture'
 import {
+  createPointerPreference,
+  HANDLE_SIZE_FOR_PRECISION,
+  type PointerPrecision,
+} from '@/utils/collab/pointer-preference'
+import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
 } from '@/utils/collab/presence'
@@ -159,6 +164,7 @@ export function CollabRenderDemo() {
   const laserRef = useRef<LaserController | null>(null)
   const installRef = useRef<InstallPromptController | null>(null)
   const pinchRef = useRef<PinchPanGesture>(createPinchPanGesture())
+  const precisionRef = useRef<PointerPrecision>('fine')
 
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
@@ -196,6 +202,23 @@ export function CollabRenderDemo() {
       off()
       ctrl.dispose()
       installRef.current = null
+    }
+  }, [])
+
+  // Pointer precision — coarse (finger) grows handles + hit radius so
+  // resize targets stay tappable on touch. Subscribes so a user
+  // plugging in a mouse mid-session flips back to fine handles.
+  useEffect(() => {
+    const pref = createPointerPreference()
+    precisionRef.current = pref.current()
+    rendererRef.current?.invalidate()
+    const off = pref.subscribe((next) => {
+      precisionRef.current = next
+      rendererRef.current?.invalidate()
+    })
+    return () => {
+      off()
+      pref.dispose()
     }
   }, [])
 
@@ -298,6 +321,7 @@ export function CollabRenderDemo() {
       selection,
       getMarquee: () => currentMarqueeRect(),
       getViewport: () => r.getViewport(),
+      getHandleSizePx: () => HANDLE_SIZE_FOR_PRECISION[precisionRef.current],
     })
     const cursorPaint = makeCursorOverlay({
       source: presenceRef.current,
@@ -492,6 +516,10 @@ export function CollabRenderDemo() {
       screenToWorld: (x, y) => renderer.screenToWorld(x, y),
       invalidate: () => renderer.invalidate(),
       selection: selectionRef.current,
+      getHitRadiusPx: () =>
+        // Hit radius matches the visual handle so the tap target
+        // lines up with what the user sees.
+        HANDLE_SIZE_FOR_PRECISION[precisionRef.current] / 2 + 4,
     }
     return base
   }, [])
