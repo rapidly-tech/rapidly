@@ -70,6 +70,7 @@ import {
 } from '@/utils/collab/tools'
 import { createUndoManager, type UndoController } from '@/utils/collab/undo'
 import { makeViewport, zoomAt, type Viewport } from '@/utils/collab/viewport'
+import { animateViewport } from '@/utils/collab/viewport-transitions'
 import {
   bringForward,
   bringToFront,
@@ -351,9 +352,9 @@ export function CollabRenderDemo() {
     ctrl.setTarget(followingDemoPeer ? 1 : null)
   }, [followingDemoPeer])
 
-  // Presentation mode: apply the viewport for the current frame so
-  // advancing arrow-keys visibly pans + zooms to each element in z-
-  // order. Cleanup on exit restores the previous viewport.
+  // Presentation mode: ease the viewport to the current frame. A
+  // rapid key-mash cancels the previous animation so the camera lerps
+  // from wherever it is now rather than queuing up.
   useEffect(() => {
     if (!presentationActive) return
     const renderer = rendererRef.current
@@ -364,10 +365,22 @@ export function CollabRenderDemo() {
     if (frames.length === 0) return
     const index = Math.min(presentationIndex, frames.length - 1)
     const rect = canvas.getBoundingClientRect()
-    const vp = viewportForBounds(frames[index].bounds, rect.width, rect.height)
-    vpRef.current = { ...vp }
-    renderer.setViewport(vpRef.current)
-    setZoom(Math.round(vp.scale * 100) / 100)
+    const target = viewportForBounds(
+      frames[index].bounds,
+      rect.width,
+      rect.height,
+    )
+    const handle = animateViewport({ ...vpRef.current }, target, {
+      durationMs: 400,
+      onFrame: (vp) => {
+        vpRef.current.scale = vp.scale
+        vpRef.current.scrollX = vp.scrollX
+        vpRef.current.scrollY = vp.scrollY
+        renderer.setViewport(vpRef.current)
+        setZoom(Math.round(vp.scale * 100) / 100)
+      },
+    })
+    return () => handle.cancel()
   }, [presentationActive, presentationIndex])
 
   // Laser mode: prune the trail on every RAF while active so the
