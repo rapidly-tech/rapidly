@@ -33,6 +33,10 @@ import {
 } from '@/utils/collab/follow-me'
 import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
 import {
+  createImageElement,
+  extractPastedImage,
+} from '@/utils/collab/image-paste'
+import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
 } from '@/utils/collab/presence'
@@ -305,6 +309,40 @@ export function CollabRenderDemo() {
     if (!ctrl) return
     ctrl.setTarget(followingDemoPeer ? 1 : null)
   }, [followingDemoPeer])
+
+  // Global paste listener for image-on-clipboard → image element.
+  // Non-image pastes fall through to the existing Cmd+V keydown
+  // handler (in-app clipboard) so both flows keep their contract.
+  useEffect(() => {
+    const onPaste = async (e: ClipboardEvent): Promise<void> => {
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+      const store = storeRef.current
+      const renderer = rendererRef.current
+      if (!store || !renderer) return
+      const image = await extractPastedImage(e.clipboardData)
+      if (!image) return
+      e.preventDefault()
+      // Drop the image at the current viewport centre.
+      const canvas = interactiveRef.current
+      if (!canvas) return
+      const rect = canvas.getBoundingClientRect()
+      const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
+      const id = createImageElement(store, image, { center })
+      selectionRef.current.set([id])
+    }
+    document.addEventListener('paste', onPaste)
+    return () => {
+      document.removeEventListener('paste', onPaste)
+    }
+  }, [])
 
   const toolCtx = useCallback((): ToolCtx | null => {
     const renderer = rendererRef.current

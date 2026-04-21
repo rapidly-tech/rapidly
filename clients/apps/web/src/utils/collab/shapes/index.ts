@@ -18,6 +18,7 @@ import { pathFor as arrowPath, paintArrow } from './arrow'
 import { pathFor as diamondPath, paintDiamond } from './diamond'
 import { pathFor as ellipsePath, paintEllipse } from './ellipse'
 import { pathFor as freeDrawPath, paintFreeDraw } from './freedraw'
+import { pathFor as imagePath, paintImage } from './image'
 import { pathFor as linePath, paintLine } from './line'
 import { paintRect, pathFor as rectPath } from './rect'
 import { paintSticky, pathFor as stickyPath } from './sticky'
@@ -77,7 +78,12 @@ const REGISTRY: Partial<Record<ElementType, ShapeAdapter>> = {
     paint: (ctx, el, path) =>
       paintSticky(ctx, el as Parameters<typeof paintSticky>[1], path),
   },
-  // Remaining types (image, frame, embed) land later.
+  image: {
+    pathFor: (el) => imagePath(el as Parameters<typeof imagePath>[0]),
+    paint: (ctx, el, path) =>
+      paintImage(ctx, el as Parameters<typeof paintImage>[1], path),
+  },
+  // Remaining types (frame, embed) land later.
 }
 
 export function adapterFor(el: CollabElement): ShapeAdapter | null {
@@ -89,11 +95,13 @@ export {
   diamondPath,
   ellipsePath,
   freeDrawPath,
+  imagePath,
   linePath,
   paintArrow,
   paintDiamond,
   paintEllipse,
   paintFreeDraw,
+  paintImage,
   paintLine,
   paintRect,
   paintSticky,
