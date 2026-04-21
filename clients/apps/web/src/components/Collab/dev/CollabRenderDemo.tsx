@@ -33,6 +33,7 @@ import {
   type FollowMeController,
 } from '@/utils/collab/follow-me'
 import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
+import { setLink } from '@/utils/collab/hyperlinks'
 import {
   createImageElement,
   extractPastedImage,
@@ -63,6 +64,7 @@ import {
   sendToBack,
 } from '@/utils/collab/z-order'
 
+import { HyperlinkBadge } from './HyperlinkBadge'
 import { PropertiesPanel } from './PropertiesPanel'
 import { TextEditor } from './TextEditor'
 
@@ -563,6 +565,26 @@ export function CollabRenderDemo() {
           const newIds = clipboardDuplicate(store, selection.snapshot)
           if (newIds.length > 0) selection.set(newIds)
         }
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
+        // Cmd/Ctrl+K → prompt for a URL and attach it to the selection.
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        const [firstId] = selection.snapshot
+        const existing = firstId ? (store.get(firstId)?.link ?? '') : ''
+        const input = window.prompt('Link URL (empty to clear):', existing)
+        if (input === null) return
+        setLink(store, selection.snapshot, input)
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'g' || e.key === 'G')) {
         // Cmd/Ctrl+G → group. Cmd/Ctrl+Shift+G → ungroup.
         // Swallow the browser default (View > Find Next on some
@@ -721,6 +743,13 @@ export function CollabRenderDemo() {
               store={storeRef.current}
               renderer={rendererRef.current}
               onDone={() => setEditingId(null)}
+            />
+          ) : null}
+          {storeRef.current && rendererRef.current ? (
+            <HyperlinkBadge
+              store={storeRef.current}
+              selection={selectionRef.current}
+              renderer={rendererRef.current}
             />
           ) : null}
         </div>
