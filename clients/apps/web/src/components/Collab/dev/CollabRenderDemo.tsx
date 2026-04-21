@@ -60,6 +60,7 @@ import {
   type ToolCtx,
   type ToolId,
 } from '@/utils/collab/tools'
+import { createUndoManager, type UndoController } from '@/utils/collab/undo'
 import { makeViewport, zoomAt, type Viewport } from '@/utils/collab/viewport'
 import {
   bringForward,
@@ -137,6 +138,7 @@ export function CollabRenderDemo() {
   const presenceRef = useRef<InMemoryPresenceSource>(inMemoryPresenceSource())
   const demoPeerFrameRef = useRef<number | null>(null)
   const followControllerRef = useRef<FollowMeController | null>(null)
+  const undoRef = useRef<UndoController | null>(null)
 
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
@@ -298,6 +300,10 @@ export function CollabRenderDemo() {
     })
     followControllerRef.current = follow
 
+    // Undo / redo — scoped to local-origin transactions via
+    // ORIGIN_LOCAL, so remote peers' edits never get rewound.
+    undoRef.current = createUndoManager(store)
+
     const onResize = () => r.resize()
     window.addEventListener('resize', onResize)
     return () => {
@@ -307,6 +313,8 @@ export function CollabRenderDemo() {
       unsubscribePresence()
       follow.dispose()
       followControllerRef.current = null
+      undoRef.current?.dispose()
+      undoRef.current = null
       r.destroy()
       rendererRef.current = null
       storeRef.current = null
@@ -668,6 +676,26 @@ export function CollabRenderDemo() {
         const input = window.prompt('Link URL (empty to clear):', existing)
         if (input === null) return
         setLink(store, selection.snapshot, input)
+      } else if (
+        (e.metaKey || e.ctrlKey) &&
+        (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')
+      ) {
+        // Cmd/Ctrl+Z → undo. Shift+Z or Cmd+Y → redo.
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        const undo = undoRef.current
+        if (!undo) return
+        e.preventDefault()
+        const isRedo = e.key === 'y' || e.key === 'Y' || e.shiftKey
+        if (isRedo) undo.redo()
+        else undo.undo()
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'g' || e.key === 'G')) {
         // Cmd/Ctrl+G → group. Cmd/Ctrl+Shift+G → ungroup.
         // Swallow the browser default (View > Find Next on some
@@ -759,6 +787,25 @@ export function CollabRenderDemo() {
         const svg = exportToSVG(store.list())
         const blob = new Blob([svg], { type: 'image/svg+xml' })
         downloadBlob(blob, 'rapidly-collab.svg')
+      },
+    })
+    // Editing.
+    list.push({
+      id: 'edit.undo',
+      label: 'Undo',
+      category: 'Edit',
+      shortcut: ['Mod', 'Z'],
+      run: () => {
+        undoRef.current?.undo()
+      },
+    })
+    list.push({
+      id: 'edit.redo',
+      label: 'Redo',
+      category: 'Edit',
+      shortcut: ['Mod', 'Shift', 'Z'],
+      run: () => {
+        undoRef.current?.redo()
       },
     })
     // Help.
