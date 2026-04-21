@@ -1138,7 +1138,7 @@ export function CollabRenderDemo() {
         <div
           role="radiogroup"
           aria-label="Active tool"
-          className="flex gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
+          className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
         >
           {TOOL_CHOICES.map((t) => (
             <button
@@ -1148,7 +1148,7 @@ export function CollabRenderDemo() {
               aria-checked={t.id === toolId}
               onClick={() => setToolId(t.id)}
               className={
-                'rounded-md px-3 py-1 text-sm transition-colors ' +
+                'rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm ' +
                 (t.id === toolId
                   ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-50'
                   : 'rp-text-secondary hover:rp-text-primary')
@@ -1158,9 +1158,11 @@ export function CollabRenderDemo() {
             </button>
           ))}
         </div>
-        <span className="rp-text-secondary">{activeChoice?.hint}</span>
+        <span className="rp-text-secondary hidden md:inline">
+          {activeChoice?.hint}
+        </span>
         <span className="ml-auto flex items-center gap-3">
-          <label className="flex items-center gap-1 text-xs">
+          <label className="hidden items-center gap-1 text-xs lg:flex">
             <input
               type="checkbox"
               checked={demoPeerActive}
@@ -1171,7 +1173,7 @@ export function CollabRenderDemo() {
             />
             Demo peer cursor
           </label>
-          <label className="flex items-center gap-1 text-xs">
+          <label className="hidden items-center gap-1 text-xs lg:flex">
             <input
               type="checkbox"
               checked={followingDemoPeer}
@@ -1180,7 +1182,7 @@ export function CollabRenderDemo() {
             />
             Follow demo peer
           </label>
-          <label className="flex items-center gap-1 text-xs">
+          <label className="hidden items-center gap-1 text-xs lg:flex">
             <input
               type="checkbox"
               checked={laserActive}
@@ -1230,7 +1232,7 @@ export function CollabRenderDemo() {
               const blob = await exportToPNG(store.list())
               if (blob) downloadBlob(blob, 'rapidly-collab.png')
             }}
-            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+            className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
           >
             Export PNG
           </button>
@@ -1245,7 +1247,7 @@ export function CollabRenderDemo() {
               })
               downloadBlob(blob, 'rapidly-collab.json')
             }}
-            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+            className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
           >
             Export JSON
           </button>
@@ -1258,19 +1260,100 @@ export function CollabRenderDemo() {
               const blob = new Blob([svg], { type: 'image/svg+xml' })
               downloadBlob(blob, 'rapidly-collab.svg')
             }}
-            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+            className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
           >
             Export SVG
           </button>
-          <span className="rp-text-secondary">
+          {/* ""More"" disclosure for narrow viewports — gives touch
+              users a way to reach the toggles + exports that are
+              hidden above without squeezing the toolbar. */}
+          <details className="relative lg:hidden">
+            <summary
+              className="cursor-pointer list-none rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+              aria-label="More actions"
+            >
+              ⋯
+            </summary>
+            <div className="absolute right-0 z-20 mt-1 flex min-w-[180px] flex-col gap-2 rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={demoPeerActive}
+                  onChange={(e) => {
+                    setDemoPeerActive(e.target.checked)
+                    if (!e.target.checked) setFollowingDemoPeer(false)
+                  }}
+                />
+                Demo peer cursor
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={followingDemoPeer}
+                  disabled={!demoPeerActive}
+                  onChange={(e) => setFollowingDemoPeer(e.target.checked)}
+                />
+                Follow demo peer
+              </label>
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={laserActive}
+                  onChange={(e) => setLaserActive(e.target.checked)}
+                />
+                Laser pointer
+              </label>
+              <button
+                type="button"
+                onClick={async () => {
+                  const store = storeRef.current
+                  if (!store) return
+                  const blob = await exportToPNG(store.list())
+                  if (blob) downloadBlob(blob, 'rapidly-collab.png')
+                }}
+                className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
+              >
+                Export PNG
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const store = storeRef.current
+                  if (!store) return
+                  const payload = exportToJSON(store.list())
+                  const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                    type: 'application/json',
+                  })
+                  downloadBlob(blob, 'rapidly-collab.json')
+                }}
+                className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
+              >
+                Export JSON
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const store = storeRef.current
+                  if (!store) return
+                  const svg = exportToSVG(store.list())
+                  const blob = new Blob([svg], { type: 'image/svg+xml' })
+                  downloadBlob(blob, 'rapidly-collab.svg')
+                }}
+                className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
+              >
+                Export SVG
+              </button>
+            </div>
+          </details>
+          <span className="rp-text-secondary hidden md:inline">
             elements:{' '}
             <span className="rp-text-primary font-mono">{elementCount}</span>
           </span>
-          <span className="rp-text-secondary">
+          <span className="rp-text-secondary hidden md:inline">
             selected:{' '}
             <span className="rp-text-primary font-mono">{selectionSize}</span>
           </span>
-          <span className="rp-text-secondary">
+          <span className="rp-text-secondary hidden sm:inline">
             zoom:{' '}
             <span className="rp-text-primary font-mono">
               {zoom.toFixed(2)}×
@@ -1315,10 +1398,12 @@ export function CollabRenderDemo() {
           ) : null}
         </div>
         {storeRef.current ? (
-          <PropertiesPanel
-            store={storeRef.current}
-            selection={selectionRef.current}
-          />
+          <div className="hidden md:flex">
+            <PropertiesPanel
+              store={storeRef.current}
+              selection={selectionRef.current}
+            />
+          </div>
         ) : null}
       </div>
       <ShortcutsOverlay
