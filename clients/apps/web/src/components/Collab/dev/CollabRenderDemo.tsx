@@ -27,6 +27,10 @@ import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
+import {
+  createFollowMeController,
+  type FollowMeController,
+} from '@/utils/collab/follow-me'
 import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
 import {
   inMemoryPresenceSource,
@@ -119,12 +123,14 @@ export function CollabRenderDemo() {
   const vpRef = useRef<Viewport>(makeViewport({ scrollX: -20, scrollY: -20 }))
   const presenceRef = useRef<InMemoryPresenceSource>(inMemoryPresenceSource())
   const demoPeerFrameRef = useRef<number | null>(null)
+  const followControllerRef = useRef<FollowMeController | null>(null)
 
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
   const [elementCount, setElementCount] = useState(0)
   const [selectionSize, setSelectionSize] = useState(0)
   const [demoPeerActive, setDemoPeerActive] = useState(false)
+  const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -169,6 +175,13 @@ export function CollabRenderDemo() {
         user: { id: 'demo-peer', color: '#2f9e44', name: 'Demo peer' },
         cursor: { x: cx, y: cy },
         selection,
+        // Slowly drifting viewport so "Follow demo peer" is visibly
+        // different from the static one the user set up.
+        viewport: {
+          scale: 1 + Math.sin(t * 0.2) * 0.15,
+          scrollX: -40 + Math.cos(t * 0.3) * 80,
+          scrollY: -40 + Math.sin(t * 0.3) * 40,
+        },
       })
       demoPeerFrameRef.current = requestAnimationFrame(step)
     }
@@ -254,6 +267,22 @@ export function CollabRenderDemo() {
       r.invalidate()
     })
 
+    // Follow-me controller writes the target peer's viewport into
+    // our live viewport object and repaints. Calling ``setTarget``
+    // from the UI below activates it; ``null`` tears it off.
+    const follow = createFollowMeController({
+      source: presenceRef.current,
+      apply: (vp) => {
+        const live = vpRef.current
+        live.scale = vp.scale
+        live.scrollX = vp.scrollX
+        live.scrollY = vp.scrollY
+        r.setViewport(live)
+        setZoom(Math.round(vp.scale * 100) / 100)
+      },
+    })
+    followControllerRef.current = follow
+
     const onResize = () => r.resize()
     window.addEventListener('resize', onResize)
     return () => {
@@ -261,12 +290,21 @@ export function CollabRenderDemo() {
       unobserveStore()
       unsubscribeSelection()
       unsubscribePresence()
+      follow.dispose()
+      followControllerRef.current = null
       r.destroy()
       rendererRef.current = null
       storeRef.current = null
       doc.destroy()
     }
   }, [])
+
+  // Toggle follow-me on / off when the checkbox flips.
+  useEffect(() => {
+    const ctrl = followControllerRef.current
+    if (!ctrl) return
+    ctrl.setTarget(followingDemoPeer ? 1 : null)
+  }, [followingDemoPeer])
 
   const toolCtx = useCallback((): ToolCtx | null => {
     const renderer = rendererRef.current
@@ -370,6 +408,13 @@ export function CollabRenderDemo() {
     const canvas = interactiveRef.current
     const renderer = rendererRef.current
     if (!canvas || !renderer) return
+    // Manual zoom breaks follow-me — otherwise the peer's next
+    // awareness frame would yank the camera back and the user would
+    // be fighting the follower.
+    if (followControllerRef.current?.current() !== null) {
+      followControllerRef.current?.setTarget(null)
+      setFollowingDemoPeer(false)
+    }
     const rect = canvas.getBoundingClientRect()
     const cx = e.clientX - rect.left
     const cy = e.clientY - rect.top
@@ -552,9 +597,21 @@ export function CollabRenderDemo() {
             <input
               type="checkbox"
               checked={demoPeerActive}
-              onChange={(e) => setDemoPeerActive(e.target.checked)}
+              onChange={(e) => {
+                setDemoPeerActive(e.target.checked)
+                if (!e.target.checked) setFollowingDemoPeer(false)
+              }}
             />
             Demo peer cursor
+          </label>
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={followingDemoPeer}
+              disabled={!demoPeerActive}
+              onChange={(e) => setFollowingDemoPeer(e.target.checked)}
+            />
+            Follow demo peer
           </label>
           <span className="rp-text-secondary">
             elements:{' '}

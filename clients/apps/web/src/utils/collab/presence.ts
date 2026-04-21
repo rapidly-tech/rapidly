@@ -25,6 +25,8 @@
 
 import type { Awareness } from 'y-protocols/awareness'
 
+import type { Viewport } from './viewport'
+
 /** Identity of one peer in a session. ``color`` is derived from the
  *  Yjs ``clientID`` (stableColor) so everyone agrees on which peer is
  *  which colour without extra coordination. */
@@ -44,6 +46,9 @@ export interface LocalPresence {
    *  undefined means nothing selected. Broadcasting lets remote peers
    *  render soft selection rectangles with the owner's colour. */
   selection?: readonly string[]
+  /** Optional viewport broadcast for the follow-me feature. Remotes
+   *  watching this peer project these coords into their own renderer. */
+  viewport?: Viewport
 }
 
 /** One remote peer's current state as seen by us. ``clientId`` is the
@@ -54,6 +59,9 @@ export interface RemotePresence {
   user: PresenceUser
   cursor?: { x: number; y: number }
   selection?: readonly string[]
+  /** Viewport the remote peer is currently looking at. Present only
+   *  when the peer has opted into broadcasting it (follow-me mode). */
+  viewport?: Viewport
 }
 
 /** Abstract handle over a presence backend. Consumers depend on this
@@ -188,6 +196,13 @@ export function awarenessPresenceSource(
       if (state.selection && state.selection.length > 0) {
         out.selection = [...state.selection]
       }
+      if (state.viewport) {
+        out.viewport = {
+          scale: state.viewport.scale,
+          scrollX: state.viewport.scrollX,
+          scrollY: state.viewport.scrollY,
+        }
+      }
       awareness.setLocalState(out)
     },
   }
@@ -228,6 +243,23 @@ function parseRemote(clientId: number, raw: unknown): RemotePresence | null {
     (r.selection as unknown[]).every((s) => typeof s === 'string')
   ) {
     presence.selection = r.selection as string[]
+  }
+  if (r.viewport && typeof r.viewport === 'object') {
+    const v = r.viewport as Record<string, unknown>
+    if (
+      typeof v.scale === 'number' &&
+      typeof v.scrollX === 'number' &&
+      typeof v.scrollY === 'number' &&
+      Number.isFinite(v.scale) &&
+      Number.isFinite(v.scrollX) &&
+      Number.isFinite(v.scrollY)
+    ) {
+      presence.viewport = {
+        scale: v.scale,
+        scrollX: v.scrollX,
+        scrollY: v.scrollY,
+      }
+    }
   }
   return presence
 }
