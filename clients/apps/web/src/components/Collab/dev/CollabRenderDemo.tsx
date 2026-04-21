@@ -32,6 +32,7 @@ import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
 } from '@/utils/collab/presence'
+import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
@@ -138,6 +139,8 @@ export function CollabRenderDemo() {
 
   // Demo-only: animate a fake remote cursor in a slow circle so
   // visitors can see the cursor overlay without a second browser tab.
+  // Every few seconds it rotates its "selection" to a different
+  // element so the remote-selection overlay can be exercised too.
   useEffect(() => {
     const source = presenceRef.current
     if (!demoPeerActive) {
@@ -153,10 +156,19 @@ export function CollabRenderDemo() {
       const t = (now - start) / 1000
       const cx = 240 + Math.cos(t) * 140
       const cy = 180 + Math.sin(t) * 80
+      const store = storeRef.current
+      let selection: string[] = []
+      if (store) {
+        const ids = store.list().map((el) => el.id)
+        if (ids.length > 0) {
+          selection = [ids[Math.floor(t / 2) % ids.length]]
+        }
+      }
       source.pushRemote({
         clientId: 1,
         user: { id: 'demo-peer', color: '#2f9e44', name: 'Demo peer' },
         cursor: { x: cx, y: cy },
+        selection,
       })
       demoPeerFrameRef.current = requestAnimationFrame(step)
     }
@@ -222,7 +234,17 @@ export function CollabRenderDemo() {
       source: presenceRef.current,
       getViewport: () => r.getViewport(),
     })
+    const remoteSelectionPaint = makeRemoteSelectionOverlay({
+      store,
+      source: presenceRef.current,
+      getViewport: () => r.getViewport(),
+    })
     r.setInteractivePaint((ctx) => {
+      // Paint order: remote selections sit below the local dashed
+      // overlay so the user's own selection stays on top; cursors
+      // sit above everything so they remain visible when hovering
+      // an element.
+      remoteSelectionPaint(ctx)
       selectionPaint(ctx)
       cursorPaint(ctx)
     })
