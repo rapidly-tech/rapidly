@@ -48,6 +48,10 @@ import { makeLaserOverlay } from '@/utils/collab/laser-overlay'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
 import { mermaidToElements, parseMermaid } from '@/utils/collab/mermaid'
 import {
+  createPinchPanGesture,
+  type PinchPanGesture,
+} from '@/utils/collab/pinch-gesture'
+import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
 } from '@/utils/collab/presence'
@@ -154,6 +158,7 @@ export function CollabRenderDemo() {
   const undoRef = useRef<UndoController | null>(null)
   const laserRef = useRef<LaserController | null>(null)
   const installRef = useRef<InstallPromptController | null>(null)
+  const pinchRef = useRef<PinchPanGesture>(createPinchPanGesture())
 
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
@@ -497,6 +502,27 @@ export function CollabRenderDemo() {
       const tool = activeToolRef.current
       const ctx = toolCtx()
       if (!canvas || !tool || !ctx) return
+      // Route touch / pen pointers through the pinch gesture so two-
+      // finger pinch + pan always works regardless of active tool.
+      // Mouse pointers bypass — they never multi-touch.
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+        const rect = canvas.getBoundingClientRect()
+        pinchRef.current.onPointerDown({
+          id: e.pointerId,
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        })
+        if (pinchRef.current.active()) {
+          // Pinch took over — cancel any in-progress single-finger
+          // gesture so a stray tap doesn't leave a half-drawn shape.
+          if (gestureToolRef.current) {
+            gestureToolRef.current.onCancel?.(ctx)
+            gestureToolRef.current = null
+          }
+          canvas.setPointerCapture(e.pointerId)
+          return
+        }
+      }
       canvas.setPointerCapture(e.pointerId)
       gestureToolRef.current = tool
       tool.onPointerDown(ctx, e.nativeEvent)
@@ -510,6 +536,37 @@ export function CollabRenderDemo() {
     (e: React.PointerEvent) => {
       const canvas = interactiveRef.current
       const renderer = rendererRef.current
+      // Two-finger pinch + pan — runs before everything else so
+      // pointer moves during a pinch don't leak into tools.
+      if (
+        (e.pointerType === 'touch' || e.pointerType === 'pen') &&
+        canvas &&
+        renderer
+      ) {
+        const rect = canvas.getBoundingClientRect()
+        const update = pinchRef.current.onPointerMove({
+          id: e.pointerId,
+          x: e.clientX - rect.left,
+          y: e.clientY - rect.top,
+        })
+        if (update) {
+          // Apply scale around the pinch centre, then pan by the
+          // midpoint delta in world units.
+          const vp = renderer.getViewport()
+          const scaled = zoomAt(
+            vp,
+            update.centerScreenX,
+            update.centerScreenY,
+            vp.scale * update.scaleFactor,
+          )
+          scaled.scrollX -= update.panDeltaScreenX / scaled.scale
+          scaled.scrollY -= update.panDeltaScreenY / scaled.scale
+          vpRef.current = scaled
+          renderer.setViewport(scaled)
+          setZoom(Math.round(scaled.scale * 100) / 100)
+          return
+        }
+      }
       // Laser pointer: regardless of the active tool, push the
       // current world coord into the trail + broadcast via presence.
       // Runs on every pointer move (including hover-only moves).
@@ -560,6 +617,12 @@ export function CollabRenderDemo() {
   const onPointerUp = useCallback(
     (e: React.PointerEvent) => {
       const canvas = interactiveRef.current
+      // Touch / pen pointers always leave the pinch gesture whether
+      // or not it was active, so a dropped finger can't linger in the
+      // tracker and interfere with the next gesture.
+      if (e.pointerType === 'touch' || e.pointerType === 'pen') {
+        pinchRef.current.onPointerUp(e.pointerId)
+      }
       const tool = gestureToolRef.current
       const ctx = toolCtx()
       gestureToolRef.current = null
