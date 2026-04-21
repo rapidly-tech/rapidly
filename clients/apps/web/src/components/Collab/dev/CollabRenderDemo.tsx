@@ -16,6 +16,13 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import * as Y from 'yjs'
 
 import {
+  copy as clipboardCopy,
+  cut as clipboardCut,
+  duplicate as clipboardDuplicate,
+  paste as clipboardPaste,
+  getClipboard,
+} from '@/utils/collab/clipboard'
+import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
@@ -347,6 +354,53 @@ export function CollabRenderDemo() {
         } else {
           if (e.shiftKey) sendToBack(store, selection.snapshot)
           else sendBackward(store, selection.snapshot)
+        }
+      } else if (
+        (e.metaKey || e.ctrlKey) &&
+        (e.key === 'c' ||
+          e.key === 'v' ||
+          e.key === 'x' ||
+          e.key === 'd' ||
+          e.key === 'C' ||
+          e.key === 'V' ||
+          e.key === 'X' ||
+          e.key === 'D')
+      ) {
+        // Cmd/Ctrl+C / V / X / D → clipboard ops. Skip when typing in
+        // a form input so the native browser copy/paste still works.
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store) return
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        const key = e.key.toLowerCase()
+        if (key === 'c') {
+          if (selection.size === 0) return
+          e.preventDefault()
+          clipboardCopy(store, selection.snapshot)
+        } else if (key === 'x') {
+          if (selection.size === 0) return
+          e.preventDefault()
+          clipboardCut(store, selection.snapshot)
+          selection.clear()
+        } else if (key === 'v') {
+          const payload = getClipboard()
+          if (!payload) return
+          e.preventDefault()
+          const newIds = clipboardPaste(store, payload)
+          if (newIds.length > 0) selection.set(newIds)
+        } else if (key === 'd') {
+          if (selection.size === 0) return
+          e.preventDefault()
+          const newIds = clipboardDuplicate(store, selection.snapshot)
+          if (newIds.length > 0) selection.set(newIds)
         }
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'g' || e.key === 'G')) {
         // Cmd/Ctrl+G → group. Cmd/Ctrl+Shift+G → ungroup.
