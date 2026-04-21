@@ -39,6 +39,10 @@ import {
   createImageElement,
   extractPastedImage,
 } from '@/utils/collab/image-paste'
+import {
+  createInstallPromptController,
+  type InstallPromptController,
+} from '@/utils/collab/install-prompt'
 import { createLaserState, type LaserController } from '@/utils/collab/laser'
 import { makeLaserOverlay } from '@/utils/collab/laser-overlay'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
@@ -149,6 +153,7 @@ export function CollabRenderDemo() {
   const followControllerRef = useRef<FollowMeController | null>(null)
   const undoRef = useRef<UndoController | null>(null)
   const laserRef = useRef<LaserController | null>(null)
+  const installRef = useRef<InstallPromptController | null>(null)
 
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
@@ -161,6 +166,7 @@ export function CollabRenderDemo() {
   const [laserActive, setLaserActive] = useState(false)
   const [presentationActive, setPresentationActive] = useState(false)
   const [presentationIndex, setPresentationIndex] = useState(0)
+  const [canInstall, setCanInstall] = useState(false)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -171,6 +177,21 @@ export function CollabRenderDemo() {
     return onEditRequest((id) => {
       setEditingId(id)
     })
+  }, [])
+
+  // PWA install prompt — Chromium fires the deferred prompt once per
+  // page load. Controller captures it even if the user hasn't mounted
+  // this component yet (it re-checks on subscribe).
+  useEffect(() => {
+    const ctrl = createInstallPromptController()
+    installRef.current = ctrl
+    setCanInstall(ctrl.canInstall())
+    const off = ctrl.subscribe(() => setCanInstall(ctrl.canInstall()))
+    return () => {
+      off()
+      ctrl.dispose()
+      installRef.current = null
+    }
   }, [])
 
   // Demo-only: animate a fake remote cursor in a slow circle so
@@ -1097,6 +1118,19 @@ export function CollabRenderDemo() {
           >
             Present
           </button>
+          {canInstall ? (
+            <button
+              type="button"
+              onClick={async () => {
+                await installRef.current?.install()
+              }}
+              aria-label="Install Rapidly as an app"
+              title="Install this app on your device"
+              className="rounded-md border border-emerald-500 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200"
+            >
+              Install app
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={async () => {
