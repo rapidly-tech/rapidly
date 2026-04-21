@@ -40,6 +40,7 @@ import {
   extractPastedImage,
 } from '@/utils/collab/image-paste'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
+import { mermaidToElements, parseMermaid } from '@/utils/collab/mermaid'
 import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
@@ -806,6 +807,45 @@ export function CollabRenderDemo() {
       shortcut: ['Mod', 'Shift', 'Z'],
       run: () => {
         undoRef.current?.redo()
+      },
+    })
+    // Import.
+    list.push({
+      id: 'import.mermaid',
+      label: 'Import Mermaid flowchart…',
+      category: 'Import',
+      keywords: ['mermaid', 'flowchart', 'graph', 'diagram'],
+      run: () => {
+        const store = storeRef.current
+        const renderer = rendererRef.current
+        if (!store || !renderer) return
+        const input = window.prompt(
+          'Paste a Mermaid flowchart (flowchart TD / LR / …):',
+          'flowchart TD\n  A[Start] --> B{Decision}\n  B --> C[Yes]\n  B --> D[No]',
+        )
+        if (!input) return
+        const diagram = parseMermaid(input)
+        if (!diagram) {
+          window.alert(
+            'Could not parse — expected a line starting with ' +
+              '"flowchart TD/LR/TB/BT/RL" or "graph ...".',
+          )
+          return
+        }
+        // Drop new elements near the viewport centre.
+        const canvas = interactiveRef.current
+        if (!canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
+        const parts = mermaidToElements(diagram, {
+          originX: center.x - 200,
+          originY: center.y - 100,
+        })
+        const created: string[] = []
+        store.transact(() => {
+          for (const p of parts) created.push(store.create(p))
+        })
+        selectionRef.current.set(created)
       },
     })
     // Help.
