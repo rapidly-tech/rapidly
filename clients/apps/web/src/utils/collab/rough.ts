@@ -18,6 +18,63 @@
 
 export type RoughLevel = 0 | 1 | 2
 
+/** Minimal path-builder interface that both ``Path2D`` (native) and
+ *  ``SvgPathBuilder`` below satisfy. Kept tight — only the subset the
+ *  rough helpers actually call — so any future target (e.g. a custom
+ *  tessellator for WebGL) plugs in with no runtime shim. */
+export interface PathBuilder {
+  moveTo(x: number, y: number): void
+  lineTo(x: number, y: number): void
+  bezierCurveTo(
+    cx1: number,
+    cy1: number,
+    cx2: number,
+    cy2: number,
+    x: number,
+    y: number,
+  ): void
+  quadraticCurveTo(cx: number, cy: number, x: number, y: number): void
+  closePath(): void
+}
+
+/** String builder that accumulates an SVG ``d`` attribute. Each
+ *  builder call appends one path command token; ``toString`` joins
+ *  them with spaces. Pure — no DOM, no canvas. */
+export class SvgPathBuilder implements PathBuilder {
+  private parts: string[] = []
+  moveTo(x: number, y: number): void {
+    this.parts.push(`M${n(x)} ${n(y)}`)
+  }
+  lineTo(x: number, y: number): void {
+    this.parts.push(`L${n(x)} ${n(y)}`)
+  }
+  bezierCurveTo(
+    cx1: number,
+    cy1: number,
+    cx2: number,
+    cy2: number,
+    x: number,
+    y: number,
+  ): void {
+    this.parts.push(`C${n(cx1)} ${n(cy1)} ${n(cx2)} ${n(cy2)} ${n(x)} ${n(y)}`)
+  }
+  quadraticCurveTo(cx: number, cy: number, x: number, y: number): void {
+    this.parts.push(`Q${n(cx)} ${n(cy)} ${n(x)} ${n(y)}`)
+  }
+  closePath(): void {
+    this.parts.push('Z')
+  }
+  toString(): string {
+    return this.parts.join(' ')
+  }
+}
+
+/** Round to 2 decimal places — enough for crisp SVG at every sensible
+ *  zoom, small enough to keep the output legible + compressible. */
+function n(v: number): string {
+  return Math.round(v * 100) / 100 + ''
+}
+
 /** Mulberry32 — 32-bit seeded PRNG. Cheap, decent statistical
  *  properties, well above what we need for visual jitter. */
 export function makeRng(seed: number): () => number {
@@ -64,7 +121,7 @@ function perturb(
  *  has two interior control points, each perturbed around the true
  *  midpoint — that's the classic Rough.js-style wobble. */
 export function roughLine(
-  path: Path2D,
+  path: PathBuilder,
   ax: number,
   ay: number,
   bx: number,
@@ -103,7 +160,7 @@ export function roughLine(
 
 /** Rough rectangle — four jittered edges, optional double-stroke. */
 export function roughRect(
-  path: Path2D,
+  path: PathBuilder,
   x: number,
   y: number,
   width: number,
@@ -123,7 +180,7 @@ export function roughRect(
  *  and stitch with Bezier segments. Not a true ellipse but the
  *  reader's eye takes it as one, which is the point. */
 export function roughEllipse(
-  path: Path2D,
+  path: PathBuilder,
   cx: number,
   cy: number,
   rx: number,

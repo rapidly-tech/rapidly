@@ -27,6 +27,14 @@
 
 import type { CollabElement } from './elements'
 import { computeBounds } from './export'
+import {
+  makeRng,
+  roughEllipse,
+  roughLine,
+  roughRect,
+  SvgPathBuilder,
+  type RoughLevel,
+} from './rough'
 
 export interface ExportSVGOptions {
   /** World units of padding around the scene bounds. Default 24,
@@ -139,11 +147,29 @@ function innerFor(el: CollabElement): string | null {
 }
 
 function rectSvg(el: CollabElement & { roundness?: number }): string {
+  if (isRough(el)) {
+    const d = roughPath((b) =>
+      roughRect(b, 0, 0, el.width, el.height, makeRng(el.seed), {
+        roughness: roughLevel(el),
+      }),
+    )
+    return `<path d="${d}" ${stroke(el)} ${roughFill(el)}/>`
+  }
   const r = Math.max(0, el.roundness ?? 0)
   return `<rect width="${el.width}" height="${el.height}"${r > 0 ? ` rx="${r}" ry="${r}"` : ''} ${strokeFill(el)}/>`
 }
 
 function ellipseSvg(el: CollabElement): string {
+  if (isRough(el)) {
+    const rx = el.width / 2
+    const ry = el.height / 2
+    const d = roughPath((b) =>
+      roughEllipse(b, rx, ry, rx, ry, makeRng(el.seed), {
+        roughness: roughLevel(el),
+      }),
+    )
+    return `<path d="${d}" ${stroke(el)} ${roughFill(el)}/>`
+  }
   const rx = el.width / 2
   const ry = el.height / 2
   return `<ellipse cx="${rx}" cy="${ry}" rx="${rx}" ry="${ry}" ${strokeFill(el)}/>`
@@ -152,18 +178,96 @@ function ellipseSvg(el: CollabElement): string {
 function diamondSvg(el: CollabElement): string {
   const w = el.width
   const h = el.height
+  if (isRough(el)) {
+    const rng = makeRng(el.seed)
+    const opts = { roughness: roughLevel(el) }
+    const d = roughPath((b) => {
+      // Four rough edges connecting the diamond vertices.
+      roughLine(b, w / 2, 0, w, h / 2, rng, opts)
+      roughLine(b, w, h / 2, w / 2, h, rng, opts)
+      roughLine(b, w / 2, h, 0, h / 2, rng, opts)
+      roughLine(b, 0, h / 2, w / 2, 0, rng, opts)
+    })
+    return `<path d="${d}" ${stroke(el)} ${roughFill(el)}/>`
+  }
   const pts = `${w / 2},0 ${w},${h / 2} ${w / 2},${h} 0,${h / 2}`
   return `<polygon points="${pts}" ${strokeFill(el)}/>`
 }
 
 function lineSvg(el: CollabElement & { points?: number[] }): string {
+  if (isRough(el) && (el.points?.length ?? 0) >= 4) {
+    const d = roughPolyline(el.points!, makeRng(el.seed), roughLevel(el))
+    return `<path d="${d}" ${stroke(el)} fill="none"/>`
+  }
   const pts = formatPoints(el.points ?? [])
   return `<polyline points="${pts}" ${stroke(el)} fill="none"/>`
 }
 
 function arrowSvg(el: CollabElement & { points?: number[] }): string {
+  if (isRough(el) && (el.points?.length ?? 0) >= 4) {
+    const d = roughPolyline(el.points!, makeRng(el.seed), roughLevel(el))
+    return `<path d="${d}" ${stroke(el)} fill="none" marker-end="url(#collab-arrow-head)" color="${escapeAttr(el.strokeColor)}"/>`
+  }
   const pts = formatPoints(el.points ?? [])
   return `<polyline points="${pts}" ${stroke(el)} fill="none" marker-end="url(#collab-arrow-head)" color="${escapeAttr(el.strokeColor)}"/>`
+}
+
+// ── Rough helpers ────────────────────────────────────────────────────
+
+function isRough(el: CollabElement): boolean {
+  return typeof el.roughness === 'number' && el.roughness > 0
+}
+
+function roughLevel(el: CollabElement): RoughLevel {
+  const n = el.roughness
+  if (n === 2) return 2
+  if (n === 1) return 1
+  return 0
+}
+
+/** Build a rough ``d`` attribute by handing a fresh ``SvgPathBuilder``
+ *  to the caller's painter and returning its accumulated string. Keeps
+ *  the rough core (``rough.ts``) backend-agnostic. */
+function roughPath(paint: (builder: SvgPathBuilder) => void): string {
+  const builder = new SvgPathBuilder()
+  paint(builder)
+  return builder.toString()
+}
+
+/** Rough pipeline for a polyline — each segment is a rough Bezier
+ *  line sharing the same ``rng`` so consecutive segments don't repeat
+ *  identical wobble. */
+function roughPolyline(
+  points: readonly number[],
+  rng: () => number,
+  level: RoughLevel,
+): string {
+  const builder = new SvgPathBuilder()
+  const opts = { roughness: level }
+  for (let i = 0; i + 3 < points.length; i += 2) {
+    roughLine(
+      builder,
+      points[i],
+      points[i + 1],
+      points[i + 2],
+      points[i + 3],
+      rng,
+      opts,
+    )
+  }
+  return builder.toString()
+}
+
+/** Rough paths need ``fill-rule=""evenodd""`` because the double-stroke
+ *  and self-intersections otherwise cause the fill colour to flood
+ *  weirdly. Non-rough paths aren't affected because they use
+ *  standalone ``<rect>`` / ``<ellipse>`` / ``<polygon>`` tags. */
+function roughFill(el: CollabElement): string {
+  const fill =
+    el.fillColor && el.fillColor !== 'transparent' && el.fillStyle !== 'none'
+      ? `fill="${escapeAttr(el.fillColor)}"`
+      : 'fill="none"'
+  return `${fill} fill-rule="evenodd"`
 }
 
 function freedrawSvg(el: CollabElement & { points?: number[] }): string {
