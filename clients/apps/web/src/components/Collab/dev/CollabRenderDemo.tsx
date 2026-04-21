@@ -67,6 +67,7 @@ import {
 
 import { HyperlinkBadge } from './HyperlinkBadge'
 import { PropertiesPanel } from './PropertiesPanel'
+import { ShortcutsOverlay } from './ShortcutsOverlay'
 import { TextEditor } from './TextEditor'
 
 function seedScene(store: ElementStore): void {
@@ -139,6 +140,7 @@ export function CollabRenderDemo() {
   const [selectionSize, setSelectionSize] = useState(0)
   const [demoPeerActive, setDemoPeerActive] = useState(false)
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -474,6 +476,22 @@ export function CollabRenderDemo() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
+        // Shift+/ on US layouts. Skip when the pointer is inside a
+        // form input so typing "?" in the text editor works normally.
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        setShortcutsOpen(true)
+        return
+      }
       if (e.key === 'Delete' || e.key === 'Backspace') {
         const store = storeRef.current
         const selection = selectionRef.current
@@ -704,6 +722,15 @@ export function CollabRenderDemo() {
           </label>
           <button
             type="button"
+            onClick={() => setShortcutsOpen(true)}
+            aria-label="Show keyboard shortcuts"
+            title="Shortcuts (?)"
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+          >
+            ?
+          </button>
+          <button
+            type="button"
             onClick={async () => {
               const store = storeRef.current
               if (!store) return
@@ -788,6 +815,10 @@ export function CollabRenderDemo() {
           />
         ) : null}
       </div>
+      <ShortcutsOverlay
+        open={shortcutsOpen}
+        onClose={() => setShortcutsOpen(false)}
+      />
     </div>
   )
 }
