@@ -25,6 +25,7 @@
 
 import type { Awareness } from 'y-protocols/awareness'
 
+import type { LaserState } from './laser'
 import type { Viewport } from './viewport'
 
 /** Identity of one peer in a session. ``color`` is derived from the
@@ -49,6 +50,10 @@ export interface LocalPresence {
   /** Optional viewport broadcast for the follow-me feature. Remotes
    *  watching this peer project these coords into their own renderer. */
   viewport?: Viewport
+  /** Transient laser-pointer trail. Broadcast while the local user
+   *  holds laser mode; remote peers paint a fading streak via the
+   *  laser overlay. */
+  laser?: LaserState
 }
 
 /** One remote peer's current state as seen by us. ``clientId`` is the
@@ -62,6 +67,10 @@ export interface RemotePresence {
   /** Viewport the remote peer is currently looking at. Present only
    *  when the peer has opted into broadcasting it (follow-me mode). */
   viewport?: Viewport
+  /** Laser-pointer trail broadcast by the remote. Timestamps on each
+   *  sample come from the remote's ``performance.now()``; consumers
+   *  normalise against their own clock when fading. */
+  laser?: LaserState
 }
 
 /** Abstract handle over a presence backend. Consumers depend on this
@@ -203,6 +212,9 @@ export function awarenessPresenceSource(
           scrollY: state.viewport.scrollY,
         }
       }
+      if (state.laser && state.laser.points.length > 0) {
+        out.laser = { points: state.laser.points.slice() }
+      }
       awareness.setLocalState(out)
     },
   }
@@ -243,6 +255,33 @@ function parseRemote(clientId: number, raw: unknown): RemotePresence | null {
     (r.selection as unknown[]).every((s) => typeof s === 'string')
   ) {
     presence.selection = r.selection as string[]
+  }
+  if (
+    r.laser &&
+    typeof r.laser === 'object' &&
+    Array.isArray((r.laser as { points?: unknown }).points)
+  ) {
+    const pts: { x: number; y: number; t: number }[] = []
+    for (const p of (r.laser as { points: unknown[] }).points) {
+      if (
+        !p ||
+        typeof p !== 'object' ||
+        typeof (p as { x?: unknown }).x !== 'number' ||
+        typeof (p as { y?: unknown }).y !== 'number' ||
+        typeof (p as { t?: unknown }).t !== 'number'
+      ) {
+        continue
+      }
+      const pp = p as { x: number; y: number; t: number }
+      if (
+        Number.isFinite(pp.x) &&
+        Number.isFinite(pp.y) &&
+        Number.isFinite(pp.t)
+      ) {
+        pts.push({ x: pp.x, y: pp.y, t: pp.t })
+      }
+    }
+    if (pts.length > 0) presence.laser = { points: pts }
   }
   if (r.viewport && typeof r.viewport === 'object') {
     const v = r.viewport as Record<string, unknown>

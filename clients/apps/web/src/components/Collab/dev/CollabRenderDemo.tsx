@@ -39,6 +39,8 @@ import {
   createImageElement,
   extractPastedImage,
 } from '@/utils/collab/image-paste'
+import { createLaserState, type LaserController } from '@/utils/collab/laser'
+import { makeLaserOverlay } from '@/utils/collab/laser-overlay'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
 import { mermaidToElements, parseMermaid } from '@/utils/collab/mermaid'
 import {
@@ -140,6 +142,7 @@ export function CollabRenderDemo() {
   const demoPeerFrameRef = useRef<number | null>(null)
   const followControllerRef = useRef<FollowMeController | null>(null)
   const undoRef = useRef<UndoController | null>(null)
+  const laserRef = useRef<LaserController | null>(null)
 
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
@@ -149,6 +152,7 @@ export function CollabRenderDemo() {
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [laserActive, setLaserActive] = useState(false)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -270,13 +274,18 @@ export function CollabRenderDemo() {
       source: presenceRef.current,
       getViewport: () => r.getViewport(),
     })
+    const laserPaint = makeLaserOverlay({
+      source: presenceRef.current,
+      getViewport: () => r.getViewport(),
+    })
     r.setInteractivePaint((ctx) => {
       // Paint order: remote selections sit below the local dashed
-      // overlay so the user's own selection stays on top; cursors
-      // sit above everything so they remain visible when hovering
-      // an element.
+      // overlay; laser trails layer above selections but below cursors
+      // so the pointer itself stays crisp on top; cursors sit above
+      // everything.
       remoteSelectionPaint(ctx)
       selectionPaint(ctx)
+      laserPaint(ctx)
       cursorPaint(ctx)
     })
 
@@ -305,6 +314,10 @@ export function CollabRenderDemo() {
     // ORIGIN_LOCAL, so remote peers' edits never get rewound.
     undoRef.current = createUndoManager(store)
 
+    // Laser pointer state — sliding window of recent cursor samples.
+    // Broadcast through the presence source when laser mode is on.
+    laserRef.current = createLaserState()
+
     const onResize = () => r.resize()
     window.addEventListener('resize', onResize)
     return () => {
@@ -316,6 +329,7 @@ export function CollabRenderDemo() {
       followControllerRef.current = null
       undoRef.current?.dispose()
       undoRef.current = null
+      laserRef.current = null
       r.destroy()
       rendererRef.current = null
       storeRef.current = null
@@ -329,6 +343,44 @@ export function CollabRenderDemo() {
     if (!ctrl) return
     ctrl.setTarget(followingDemoPeer ? 1 : null)
   }, [followingDemoPeer])
+
+  // Laser mode: prune the trail on every RAF while active so the
+  // tail fades away even when the user stops moving.
+  useEffect(() => {
+    if (!laserActive) {
+      laserRef.current?.clear()
+      presenceRef.current.removeRemote(999)
+      return
+    }
+    let handle = 0
+    const tick = (): void => {
+      const laser = laserRef.current
+      const renderer = rendererRef.current
+      if (laser && renderer) {
+        const snap = laser.snapshot(performance.now())
+        if (snap.points.length > 0) {
+          const head = snap.points[snap.points.length - 1]
+          presenceRef.current.pushRemote({
+            clientId: 999,
+            user: {
+              id: 'self-laser',
+              color: '#ef4444',
+              name: 'You (laser)',
+            },
+            cursor: { x: head.x, y: head.y },
+            laser: snap,
+          })
+        } else {
+          presenceRef.current.removeRemote(999)
+        }
+      }
+      handle = requestAnimationFrame(tick)
+    }
+    handle = requestAnimationFrame(tick)
+    return () => {
+      cancelAnimationFrame(handle)
+    }
+  }, [laserActive])
 
   // Global paste listener for image-on-clipboard → image element.
   // Non-image pastes fall through to the existing Cmd+V keydown
@@ -397,6 +449,24 @@ export function CollabRenderDemo() {
   const onPointerMove = useCallback(
     (e: React.PointerEvent) => {
       const canvas = interactiveRef.current
+      const renderer = rendererRef.current
+      // Laser pointer: regardless of the active tool, push the
+      // current world coord into the trail + broadcast via presence.
+      // Runs on every pointer move (including hover-only moves).
+      if (laserActive && renderer && laserRef.current && canvas) {
+        const rect = canvas.getBoundingClientRect()
+        const world = renderer.screenToWorld(
+          e.clientX - rect.left,
+          e.clientY - rect.top,
+        )
+        const trail = laserRef.current.push(world.x, world.y, performance.now())
+        presenceRef.current.pushRemote({
+          clientId: 999,
+          user: { id: 'self-laser', color: '#ef4444', name: 'You (laser)' },
+          cursor: { x: world.x, y: world.y },
+          laser: trail,
+        })
+      }
       const tool = gestureToolRef.current
       const ctx = toolCtx()
       if (!tool || !ctx) {
@@ -424,7 +494,7 @@ export function CollabRenderDemo() {
       }
       tool.onPointerMove(ctx, e.nativeEvent)
     },
-    [toolCtx, toolId],
+    [toolCtx, toolId, laserActive],
   )
 
   const onPointerUp = useCallback(
@@ -908,6 +978,14 @@ export function CollabRenderDemo() {
               onChange={(e) => setFollowingDemoPeer(e.target.checked)}
             />
             Follow demo peer
+          </label>
+          <label className="flex items-center gap-1 text-xs">
+            <input
+              type="checkbox"
+              checked={laserActive}
+              onChange={(e) => setLaserActive(e.target.checked)}
+            />
+            Laser pointer
           </label>
           <button
             type="button"
