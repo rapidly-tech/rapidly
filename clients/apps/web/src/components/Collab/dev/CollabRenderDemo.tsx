@@ -27,6 +27,7 @@ import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
+import { downloadBlob, exportToJSON, exportToPNG } from '@/utils/collab/export'
 import {
   createFollowMeController,
   type FollowMeController,
@@ -651,6 +652,33 @@ export function CollabRenderDemo() {
             />
             Follow demo peer
           </label>
+          <button
+            type="button"
+            onClick={async () => {
+              const store = storeRef.current
+              if (!store) return
+              const blob = await exportToPNG(store.list())
+              if (blob) downloadBlob(blob, 'rapidly-collab.png')
+            }}
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+          >
+            Export PNG
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              const store = storeRef.current
+              if (!store) return
+              const payload = exportToJSON(store.list())
+              const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                type: 'application/json',
+              })
+              downloadBlob(blob, 'rapidly-collab.json')
+            }}
+            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+          >
+            Export JSON
+          </button>
           <span className="rp-text-secondary">
             elements:{' '}
             <span className="rp-text-primary font-mono">{elementCount}</span>
