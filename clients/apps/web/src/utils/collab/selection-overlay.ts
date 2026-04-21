@@ -80,13 +80,11 @@ function paintHandles(
 
 function paintSelectedBounds(
   ctx: CanvasRenderingContext2D,
-  { store, selection }: SelectionOverlayOptions,
+  { store, selection, getViewport }: SelectionOverlayOptions,
 ): void {
   if (selection.size === 0) return
+  const vp = getViewport()
   ctx.save()
-  ctx.strokeStyle = SELECTION_STROKE
-  ctx.lineWidth = 1.5
-  ctx.setLineDash([6, 4])
   for (const id of selection.snapshot) {
     const el = store.get(id)
     if (!el) continue
@@ -99,12 +97,77 @@ function paintSelectedBounds(
       ctx.rotate(el.angle)
       ctx.translate(-cx, -cy)
     }
-    // Slight outset so the outline sits OUTSIDE the element stroke.
+    // Locked elements get a solid grey outline so they're visually
+    // distinct from the editable dashed-blue selection.
+    const locked = el.locked === true
+    ctx.strokeStyle = locked ? '#64748b' : SELECTION_STROKE
+    ctx.lineWidth = 1.5
+    ctx.setLineDash(locked ? [] : [6, 4])
     const inset = -4
     ctx.strokeRect(inset, inset, el.width - inset * 2, el.height - inset * 2)
+    if (locked) {
+      paintLockBadge(ctx, el.width, el.height, vp.scale)
+    }
     ctx.restore()
   }
   ctx.restore()
+}
+
+/** Tiny lock glyph at the element's top-right, screen-constant size.
+ *  Lives on the overlay layer so it doesn't force every shape adapter
+ *  to know about locks. */
+function paintLockBadge(
+  ctx: CanvasRenderingContext2D,
+  width: number,
+  _height: number,
+  viewportScale: number,
+): void {
+  const size = 14 / viewportScale
+  const pad = 4 / viewportScale
+  const x = width - size - pad
+  const y = -size - pad
+  ctx.save()
+  ctx.setLineDash([])
+  // Background pill so the glyph reads on any fill colour.
+  ctx.fillStyle = '#64748b'
+  ctx.beginPath()
+  roundRectPath(ctx, x, y, size, size, 3 / viewportScale)
+  ctx.fill()
+  // Simple lock silhouette drawn in white on top.
+  ctx.fillStyle = '#ffffff'
+  const sx = x + size * 0.5
+  const sy = y + size * 0.55
+  const bodyW = size * 0.55
+  const bodyH = size * 0.4
+  ctx.fillRect(sx - bodyW / 2, sy - bodyH / 2, bodyW, bodyH)
+  // Shackle — an open rounded arc above the body.
+  ctx.strokeStyle = '#ffffff'
+  ctx.lineWidth = 1.4 / viewportScale
+  ctx.beginPath()
+  ctx.arc(sx, sy - bodyH / 2, bodyW * 0.45, Math.PI, 0)
+  ctx.stroke()
+  ctx.restore()
+}
+
+function roundRectPath(
+  ctx: CanvasRenderingContext2D,
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+): void {
+  const rr = Math.min(r, w / 2, h / 2)
+  ctx.moveTo(x + rr, y)
+  ctx.lineTo(x + w - rr, y)
+  ctx.quadraticCurveTo(x + w, y, x + w, y + rr)
+  ctx.lineTo(x + w, y + h - rr)
+  ctx.quadraticCurveTo(x + w, y + h, x + w - rr, y + h)
+  ctx.lineTo(x + rr, y + h)
+  ctx.quadraticCurveTo(x, y + h, x, y + h - rr)
+  ctx.lineTo(x, y + rr)
+  ctx.quadraticCurveTo(x, y, x + rr, y)
+  ctx.closePath()
 }
 
 function paintMarquee(

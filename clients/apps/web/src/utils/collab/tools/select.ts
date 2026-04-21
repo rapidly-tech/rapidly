@@ -17,6 +17,7 @@
 
 import { collectBoundArrowPatches } from '../arrow-bindings'
 import { expandToGroups } from '../groups'
+import { isLocked } from '../locks'
 
 // Every element now has a rendered adapter, so marquee can include
 // all of them. Future unimplemented types (text/sticky/image/frame/
@@ -83,11 +84,12 @@ export const selectTool = {
     // Check resize handles first — handles sit on top of their element
     // and the user expects clicking one to start a resize, even when
     // the pointer technically lands outside the element's bounds
-    // (the handle juts out slightly).
+    // (the handle juts out slightly). Locked elements never start a
+    // resize gesture — the user has to unlock first.
     if (sctx.selection.size === 1) {
       const [id] = sctx.selection.snapshot
       const el = ctx.store.get(id)
-      if (el) {
+      if (el && !isLocked(el)) {
         const rect = (e.target as HTMLElement).getBoundingClientRect()
         const screenX = e.clientX - rect.left
         const screenY = e.clientY - rect.top
@@ -180,7 +182,9 @@ export const selectTool = {
           const anchors = new Map<string, { x: number; y: number }>()
           for (const id of state.baseIds) {
             const el = ctx.store.get(id)
-            if (el) anchors.set(id, { x: el.x, y: el.y })
+            // Skip locked elements — they stay pinned in place even
+            // when a mixed selection is dragged.
+            if (el && !isLocked(el)) anchors.set(id, { x: el.x, y: el.y })
           }
           state.moveAnchors = anchors
         } else {
