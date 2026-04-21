@@ -8,6 +8,7 @@
  */
 
 import type { ElementStore } from './element-store'
+import { HANDLE_SIZE_FOR_PRECISION } from './pointer-preference'
 import { handleRotatedPositions } from './resize'
 import type { SelectionState } from './selection'
 import type { Viewport } from './viewport'
@@ -19,7 +20,7 @@ const MARQUEE_FILL = 'rgba(79, 70, 229, 0.08)'
 /** Handles stay this many screen pixels wide regardless of zoom.
  *  Divided by the viewport scale inside the painter so the world-
  *  space rect we stroke ends up at the right screen size. */
-const HANDLE_SCREEN_SIZE_PX = 8
+const DEFAULT_HANDLE_SCREEN_SIZE_PX = HANDLE_SIZE_FOR_PRECISION.fine
 
 export interface SelectionOverlayOptions {
   store: ElementStore
@@ -36,6 +37,10 @@ export interface SelectionOverlayOptions {
   /** Live viewport so the handle painter can scale handle squares
    *  to a constant screen size regardless of zoom. */
   getViewport: () => Viewport
+  /** Screen-pixel handle size override. Defaults to the desktop
+   *  (``fine``) preset. Touch hosts pass the ``coarse`` preset from
+   *  ``pointer-preference.ts`` so handles stay tappable. */
+  getHandleSizePx?: () => number
 }
 
 /** Build a paint function suitable for ``renderer.setInteractivePaint``.
@@ -57,14 +62,15 @@ export function makeSelectionOverlay(
  *  selected so the overlay stays clean. */
 function paintHandles(
   ctx: CanvasRenderingContext2D,
-  { store, selection, getViewport }: SelectionOverlayOptions,
+  { store, selection, getViewport, getHandleSizePx }: SelectionOverlayOptions,
 ): void {
   if (selection.size !== 1) return
   const [id] = selection.snapshot
   const el = store.get(id)
   if (!el) return
   const vp = getViewport()
-  const worldSize = HANDLE_SCREEN_SIZE_PX / vp.scale
+  const sizePx = getHandleSizePx?.() ?? DEFAULT_HANDLE_SCREEN_SIZE_PX
+  const worldSize = sizePx / vp.scale
   const half = worldSize / 2
   const handles = handleRotatedPositions(el)
   ctx.save()

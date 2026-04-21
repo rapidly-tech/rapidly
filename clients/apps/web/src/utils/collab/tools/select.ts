@@ -39,6 +39,11 @@ import type { Tool, ToolCtx } from './types'
  *  polluting the base ``ToolCtx`` with a field most tools ignore. */
 export interface SelectToolCtx extends ToolCtx {
   selection: SelectionState
+  /** Optional hit radius override (screen px) for resize-handle
+   *  detection. Defaults to the same 10 px built into
+   *  ``hitHandle``; touch hosts bump it to match their bigger handle
+   *  render so the tap target lines up with the visual. */
+  getHitRadiusPx?: () => number
 }
 
 type GestureKind = 'click' | 'marquee' | 'moving' | 'resizing'
@@ -98,6 +103,7 @@ export const selectTool = {
           ctx.renderer.getViewport(),
           screenX,
           screenY,
+          sctx.getHitRadiusPx?.(),
         )
         if (handle) {
           state = {
@@ -334,7 +340,13 @@ export function hoverCursor(
   const [id] = ctx.selection.snapshot
   const el = ctx.store.get(id)
   if (!el) return defaultCursor
-  const handle = hitHandle(el, ctx.renderer.getViewport(), screenX, screenY)
+  const handle = hitHandle(
+    el,
+    ctx.renderer.getViewport(),
+    screenX,
+    screenY,
+    ctx.getHitRadiusPx?.(),
+  )
   return handle ? cursorForHandle(handle) : defaultCursor
 }
 
