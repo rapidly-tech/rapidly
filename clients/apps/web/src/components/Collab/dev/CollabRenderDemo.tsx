@@ -48,6 +48,7 @@ import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
 import { onEditRequest } from '@/utils/collab/text-editing'
+import { toolIdForKey } from '@/utils/collab/tool-keys'
 import {
   currentMarqueeRect,
   hoverCursor,
@@ -476,6 +477,19 @@ export function CollabRenderDemo() {
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // Single-letter tool-activation shortcuts (H / V / R / O / D /
+      // L / A / P / T / S). Skipped when any modifier is pressed so
+      // the Cmd+D etc. bindings below still work, and when focus is
+      // inside a form input so typing ""r"" in the text editor is
+      // unaffected.
+      {
+        const nextTool = toolIdForKey(e)
+        if (nextTool) {
+          e.preventDefault()
+          setToolId(nextTool)
+          return
+        }
+      }
       if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
         // Shift+/ on US layouts. Skip when the pointer is inside a
         // form input so typing "?" in the text editor works normally.
