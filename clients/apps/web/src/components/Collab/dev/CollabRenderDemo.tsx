@@ -12,7 +12,7 @@
  * observe path production chambers will use.
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Y from 'yjs'
 
 import {
@@ -22,6 +22,7 @@ import {
   paste as clipboardPaste,
   getClipboard,
 } from '@/utils/collab/clipboard'
+import { type Command } from '@/utils/collab/command-palette'
 import { makeCursorOverlay } from '@/utils/collab/cursor-overlay'
 import {
   createElementStore,
@@ -66,6 +67,7 @@ import {
   sendToBack,
 } from '@/utils/collab/z-order'
 
+import { CommandPalette } from './CommandPalette'
 import { HyperlinkBadge } from './HyperlinkBadge'
 import { PropertiesPanel } from './PropertiesPanel'
 import { ShortcutsOverlay } from './ShortcutsOverlay'
@@ -142,6 +144,7 @@ export function CollabRenderDemo() {
   const [demoPeerActive, setDemoPeerActive] = useState(false)
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
+  const [paletteOpen, setPaletteOpen] = useState(false)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -490,6 +493,25 @@ export function CollabRenderDemo() {
           return
         }
       }
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        (e.key === 'p' || e.key === 'P')
+      ) {
+        // Cmd/Ctrl+Shift+P → open the command palette.
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        setPaletteOpen(true)
+        return
+      }
       if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
         // Shift+/ on US layouts. Skip when the pointer is inside a
         // form input so typing "?" in the text editor works normally.
@@ -683,6 +705,59 @@ export function CollabRenderDemo() {
   }, [toolCtx])
 
   const activeChoice = TOOL_CHOICES.find((t) => t.id === toolId)
+
+  // Command palette entries. Re-derives when the selection / tool
+  // context changes so the commands close over fresh refs; the palette
+  // itself takes this as a prop and re-filters on every open.
+  const commands = useMemo<Command[]>(() => {
+    const list: Command[] = []
+    // Tool activation.
+    for (const t of TOOL_CHOICES) {
+      list.push({
+        id: `tool.${t.id}`,
+        label: `${t.label} tool`,
+        category: 'Tool',
+        keywords: [t.id, 'tool'],
+        run: () => setToolId(t.id),
+      })
+    }
+    // Export actions.
+    list.push({
+      id: 'export.png',
+      label: 'Export PNG',
+      category: 'Export',
+      shortcut: [],
+      run: async () => {
+        const store = storeRef.current
+        if (!store) return
+        const blob = await exportToPNG(store.list())
+        if (blob) downloadBlob(blob, 'rapidly-collab.png')
+      },
+    })
+    list.push({
+      id: 'export.json',
+      label: 'Export JSON',
+      category: 'Export',
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const blob = new Blob(
+          [JSON.stringify(exportToJSON(store.list()), null, 2)],
+          { type: 'application/json' },
+        )
+        downloadBlob(blob, 'rapidly-collab.json')
+      },
+    })
+    // Help.
+    list.push({
+      id: 'help.shortcuts',
+      label: 'Show keyboard shortcuts',
+      category: 'Help',
+      shortcut: ['?'],
+      run: () => setShortcutsOpen(true),
+    })
+    return list
+  }, [])
   const cursor = hoverCursorStyle ?? activeToolRef.current?.cursor ?? 'default'
 
   return (
@@ -832,6 +907,11 @@ export function CollabRenderDemo() {
       <ShortcutsOverlay
         open={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
+      />
+      <CommandPalette
+        open={paletteOpen}
+        commands={commands}
+        onClose={() => setPaletteOpen(false)}
       />
     </div>
   )
