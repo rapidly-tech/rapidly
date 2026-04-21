@@ -38,6 +38,7 @@ import {
   createImageElement,
   extractPastedImage,
 } from '@/utils/collab/image-paste'
+import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
 import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
@@ -487,8 +488,15 @@ export function CollabRenderDemo() {
           return
         }
         e.preventDefault()
-        store.deleteMany(Array.from(selection.snapshot))
-        selection.clear()
+        // Skip locked elements — delete only those the user has
+        // explicitly unlocked. Selection drops the deleted ids, keeps
+        // the locked ones still selected so the user sees what stayed.
+        const deletable = filterUnlocked(store, selection.snapshot)
+        if (deletable.size === 0) return
+        store.deleteMany(Array.from(deletable))
+        const survivors = new Set(selection.snapshot)
+        for (const id of deletable) survivors.delete(id)
+        selection.set(survivors)
       } else if (e.key === 'Escape') {
         const tool = gestureToolRef.current
         const ctx = toolCtx()
@@ -565,6 +573,26 @@ export function CollabRenderDemo() {
           const newIds = clipboardDuplicate(store, selection.snapshot)
           if (newIds.length > 0) selection.set(newIds)
         }
+      } else if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        (e.key === 'l' || e.key === 'L')
+      ) {
+        // Cmd/Ctrl+Shift+L → toggle lock on selection.
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        toggleLock(store, selection.snapshot)
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'k' || e.key === 'K')) {
         // Cmd/Ctrl+K → prompt for a URL and attach it to the selection.
         const store = storeRef.current
