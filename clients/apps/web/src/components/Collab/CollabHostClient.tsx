@@ -152,6 +152,21 @@ export function CollabHostClient() {
                   }
                 : undefined
             }
+            publishLaser={
+              room.clientID !== null
+                ? (trail) => {
+                    const self = room.clientID as number
+                    room.setLocalPresence({
+                      user: {
+                        id: String(self),
+                        name: 'Host',
+                        color: stableColor(self),
+                      },
+                      ...(trail ? { laser: trail } : {}),
+                    })
+                  }
+                : undefined
+            }
           />
         ) : (
           <CollabEditor doc={room.doc} />
