@@ -59,6 +59,7 @@ import {
 import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
+  type PresenceSource,
 } from '@/utils/collab/presence'
 import {
   advanceFrame,
@@ -157,10 +158,18 @@ interface CollabRenderDemoProps {
    *  owns the doc's lifecycle in that case; the demo will **not**
    *  destroy it on unmount. */
   doc?: Y.Doc
+  /** Optional external presence source — when provided, overlays
+   *  (cursor / remote-selection / laser) and the follow-me controller
+   *  read from it instead of the built-in in-memory stub. The demo
+   *  peer + self-laser simulators are hidden in this mode because
+   *  they poke the *internal* source for visual-exercise purposes
+   *  and would mix with real remote peers. */
+  presence?: PresenceSource
 }
 
 export function CollabRenderDemo({
   doc: externalDoc,
+  presence: externalPresence,
 }: CollabRenderDemoProps = {}) {
   const staticRef = useRef<HTMLCanvasElement | null>(null)
   const interactiveRef = useRef<HTMLCanvasElement | null>(null)
@@ -171,6 +180,15 @@ export function CollabRenderDemo({
   const gestureToolRef = useRef<Tool | null>(null)
   const vpRef = useRef<Viewport>(makeViewport({ scrollX: -20, scrollY: -20 }))
   const presenceRef = useRef<InMemoryPresenceSource>(inMemoryPresenceSource())
+  // The source overlays + follow-me actually read from. When an
+  // external presence is provided, everything that *reads* points at
+  // it; the internal in-memory ref stays available for the demo-peer
+  // + self-laser simulators, which would otherwise pollute a real
+  // session with their fake peers.
+  const sourceRef = useRef<PresenceSource>(
+    externalPresence ?? presenceRef.current,
+  )
+  sourceRef.current = externalPresence ?? presenceRef.current
   const demoPeerFrameRef = useRef<number | null>(null)
   const followControllerRef = useRef<FollowMeController | null>(null)
   const undoRef = useRef<UndoController | null>(null)
@@ -241,6 +259,11 @@ export function CollabRenderDemo({
   // Every few seconds it rotates its "selection" to a different
   // element so the remote-selection overlay can be exercised too.
   useEffect(() => {
+    // With an external presence source the chamber has its own real
+    // peers — injecting a fake ""Demo peer"" into the internal source
+    // would confuse the UI (it wouldn't appear in overlays either,
+    // since those read from the external source).
+    if (externalPresence) return
     const source = presenceRef.current
     if (!demoPeerActive) {
       source.removeRemote(1)
@@ -341,17 +364,26 @@ export function CollabRenderDemo({
       getViewport: () => r.getViewport(),
       getHandleSizePx: () => HANDLE_SIZE_FOR_PRECISION[precisionRef.current],
     })
+    // Overlays + follow-me read from the effective source (external
+    // when supplied, internal otherwise). Wrapped in thin
+    // pass-through sources so a prop flip mid-mount is picked up on
+    // the next paint without a renderer tear-down.
+    const effectiveSource: PresenceSource = {
+      getRemotes: () => sourceRef.current.getRemotes(),
+      subscribe: (fn) => sourceRef.current.subscribe(fn),
+      setLocal: (state) => sourceRef.current.setLocal(state),
+    }
     const cursorPaint = makeCursorOverlay({
-      source: presenceRef.current,
+      source: effectiveSource,
       getViewport: () => r.getViewport(),
     })
     const remoteSelectionPaint = makeRemoteSelectionOverlay({
       store,
-      source: presenceRef.current,
+      source: effectiveSource,
       getViewport: () => r.getViewport(),
     })
     const laserPaint = makeLaserOverlay({
-      source: presenceRef.current,
+      source: effectiveSource,
       getViewport: () => r.getViewport(),
     })
     r.setInteractivePaint((ctx) => {
@@ -366,7 +398,7 @@ export function CollabRenderDemo({
     })
 
     // Re-paint whenever a remote cursor updates.
-    const unsubscribePresence = presenceRef.current.subscribe(() => {
+    const unsubscribePresence = effectiveSource.subscribe(() => {
       r.invalidate()
     })
 
@@ -374,7 +406,7 @@ export function CollabRenderDemo({
     // our live viewport object and repaints. Calling ``setTarget``
     // from the UI below activates it; ``null`` tears it off.
     const follow = createFollowMeController({
-      source: presenceRef.current,
+      source: effectiveSource,
       apply: (vp) => {
         const live = vpRef.current
         live.scale = vp.scale
@@ -1188,34 +1220,38 @@ export function CollabRenderDemo({
           {activeChoice?.hint}
         </span>
         <span className="ml-auto flex items-center gap-3">
-          <label className="hidden items-center gap-1 text-xs lg:flex">
-            <input
-              type="checkbox"
-              checked={demoPeerActive}
-              onChange={(e) => {
-                setDemoPeerActive(e.target.checked)
-                if (!e.target.checked) setFollowingDemoPeer(false)
-              }}
-            />
-            Demo peer cursor
-          </label>
-          <label className="hidden items-center gap-1 text-xs lg:flex">
-            <input
-              type="checkbox"
-              checked={followingDemoPeer}
-              disabled={!demoPeerActive}
-              onChange={(e) => setFollowingDemoPeer(e.target.checked)}
-            />
-            Follow demo peer
-          </label>
-          <label className="hidden items-center gap-1 text-xs lg:flex">
-            <input
-              type="checkbox"
-              checked={laserActive}
-              onChange={(e) => setLaserActive(e.target.checked)}
-            />
-            Laser pointer
-          </label>
+          {externalPresence ? null : (
+            <>
+              <label className="hidden items-center gap-1 text-xs lg:flex">
+                <input
+                  type="checkbox"
+                  checked={demoPeerActive}
+                  onChange={(e) => {
+                    setDemoPeerActive(e.target.checked)
+                    if (!e.target.checked) setFollowingDemoPeer(false)
+                  }}
+                />
+                Demo peer cursor
+              </label>
+              <label className="hidden items-center gap-1 text-xs lg:flex">
+                <input
+                  type="checkbox"
+                  checked={followingDemoPeer}
+                  disabled={!demoPeerActive}
+                  onChange={(e) => setFollowingDemoPeer(e.target.checked)}
+                />
+                Follow demo peer
+              </label>
+              <label className="hidden items-center gap-1 text-xs lg:flex">
+                <input
+                  type="checkbox"
+                  checked={laserActive}
+                  onChange={(e) => setLaserActive(e.target.checked)}
+                />
+                Laser pointer
+              </label>
+            </>
+          )}
           {selectionSize > 0 ? (
             <button
               type="button"
@@ -1311,34 +1347,38 @@ export function CollabRenderDemo({
               ⋯
             </summary>
             <div className="absolute right-0 z-20 mt-1 flex min-w-[180px] flex-col gap-2 rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={demoPeerActive}
-                  onChange={(e) => {
-                    setDemoPeerActive(e.target.checked)
-                    if (!e.target.checked) setFollowingDemoPeer(false)
-                  }}
-                />
-                Demo peer cursor
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={followingDemoPeer}
-                  disabled={!demoPeerActive}
-                  onChange={(e) => setFollowingDemoPeer(e.target.checked)}
-                />
-                Follow demo peer
-              </label>
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={laserActive}
-                  onChange={(e) => setLaserActive(e.target.checked)}
-                />
-                Laser pointer
-              </label>
+              {externalPresence ? null : (
+                <>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={demoPeerActive}
+                      onChange={(e) => {
+                        setDemoPeerActive(e.target.checked)
+                        if (!e.target.checked) setFollowingDemoPeer(false)
+                      }}
+                    />
+                    Demo peer cursor
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={followingDemoPeer}
+                      disabled={!demoPeerActive}
+                      onChange={(e) => setFollowingDemoPeer(e.target.checked)}
+                    />
+                    Follow demo peer
+                  </label>
+                  <label className="flex items-center gap-2">
+                    <input
+                      type="checkbox"
+                      checked={laserActive}
+                      onChange={(e) => setLaserActive(e.target.checked)}
+                    />
+                    Laser pointer
+                  </label>
+                </>
+              )}
               <button
                 type="button"
                 onClick={async () => {
