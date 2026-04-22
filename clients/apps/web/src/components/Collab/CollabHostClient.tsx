@@ -14,12 +14,15 @@ import { useEffect, useState } from 'react'
 
 import { useCollabRoom } from '@/hooks/collab/useCollabRoom'
 import { CollabDisabledError, type CollabKind } from '@/utils/collab/api'
+import { effectiveDisplayName } from '@/utils/collab/display-name'
 import {
   encodeInviteFragment,
   generateFragmentKeys,
   type CollabFragmentKeys,
 } from '@/utils/collab/invite-fragment'
 import { stableColor } from '@/utils/collab/presence'
+
+import { useDisplayName } from './useDisplayName'
 
 import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
@@ -55,6 +58,8 @@ export function CollabHostClient() {
     },
   })
   const [lastInvite, setLastInvite] = useState<string | null>(null)
+  const [displayName, setDisplayName] = useDisplayName()
+  const broadcastName = effectiveDisplayName(displayName, room.clientID)
 
   if (room.error instanceof CollabDisabledError) {
     return <DisabledCard />
@@ -129,7 +134,22 @@ export function CollabHostClient() {
       <div className="flex items-center justify-end">
         <EncryptionBadge state={room.encryption} />
       </div>
-      <PresenceStrip peers={room.peers} selfLabel="You (host)" />
+      <PresenceStrip
+        peers={room.peers}
+        selfLabel={`You (host) · ${broadcastName}`}
+      />
+      <label className="flex items-center gap-2 text-xs">
+        <span className="rp-text-secondary">Your name:</span>
+        <input
+          type="text"
+          value={displayName}
+          onChange={(e) => setDisplayName(e.target.value)}
+          placeholder="e.g. Ada"
+          maxLength={32}
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+          aria-label="Your display name for remote peers"
+        />
+      </label>
 
       {room.doc &&
         (kind === 'canvas' && room.clientID !== null ? (
@@ -144,7 +164,7 @@ export function CollabHostClient() {
                     room.setLocalPresence({
                       user: {
                         id: String(self),
-                        name: 'Host',
+                        name: broadcastName,
                         color: stableColor(self),
                       },
                       ...(point ? { cursor: point } : {}),
@@ -159,7 +179,7 @@ export function CollabHostClient() {
                     room.setLocalPresence({
                       user: {
                         id: String(self),
-                        name: 'Host',
+                        name: broadcastName,
                         color: stableColor(self),
                       },
                       ...(trail ? { laser: trail } : {}),
