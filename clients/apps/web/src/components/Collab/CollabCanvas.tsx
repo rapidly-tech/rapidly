@@ -26,6 +26,7 @@ import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useRef, useState } from 'react'
 import type * as Y from 'yjs'
 
+import type { PresenceSource, RemotePresence } from '@/utils/collab/presence'
 import { hueFor, isStroke, repaint, type Stroke } from '@/utils/collab/strokes'
 
 interface CollabCanvasProps {
@@ -33,13 +34,24 @@ interface CollabCanvasProps {
   /** Our Yjs clientID for colour + author tagging. Pulled from the
    *  awareness module by the caller so the canvas stays decoupled. */
   clientID: number
+  /** Optional Phase 11 ``PresenceSource`` so remote cursors render on
+   *  top of the strokes. Absent → original single-user behaviour. */
+  presence?: PresenceSource
+  /** Publish the local cursor to remote peers. Called with ``null``
+   *  when the pointer leaves the canvas so the cursor hides there. */
+  publishCursor?: (point: { x: number; y: number } | null) => void
 }
 
 const DEFAULT_LINE_WIDTH = 3
 const CANVAS_WIDTH = 1024
 const CANVAS_HEIGHT = 600
 
-export function CollabCanvas({ doc, clientID }: CollabCanvasProps) {
+export function CollabCanvas({
+  doc,
+  clientID,
+  presence,
+  publishCursor,
+}: CollabCanvasProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const yStrokes = doc.getArray<Stroke>('strokes')
   const inProgressRef = useRef<Stroke | null>(null)
@@ -73,6 +85,14 @@ export function CollabCanvas({ doc, clientID }: CollabCanvasProps) {
     paint()
   }, [committedCount])
 
+  // Remote-cursor repaint — subscribe to presence updates and repaint
+  // on every change so cursors track at the presence source's own rate
+  // (~60 Hz through awareness). No-op when ``presence`` isn't wired.
+  useEffect(() => {
+    if (!presence) return
+    return presence.subscribe(() => paint())
+  }, [presence])
+
   function paint(): void {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -85,6 +105,55 @@ export function CollabCanvas({ doc, clientID }: CollabCanvasProps) {
       committedRef.current,
       inProgressRef.current,
     )
+    // Remote cursors ride on top of the committed + live strokes so a
+    // peer's pointer always stays visible on a dense canvas.
+    if (presence) {
+      for (const remote of presence.getRemotes()) {
+        paintRemoteCursor(ctx, remote)
+      }
+    }
+  }
+
+  /** Paint one remote peer's pointer as a coloured triangle in the
+   *  peer's own colour. Name label — if present — rides to the right
+   *  in a matching rounded pill. Coords are canvas-space (the stopgap
+   *  CollabCanvas has no viewport / zoom). */
+  function paintRemoteCursor(
+    ctx: CanvasRenderingContext2D,
+    remote: RemotePresence,
+  ): void {
+    const cursor = remote.cursor
+    if (!cursor) return
+    const size = 14
+    ctx.save()
+    ctx.translate(cursor.x, cursor.y)
+    ctx.fillStyle = remote.user.color
+    ctx.strokeStyle = 'rgba(0, 0, 0, 0.35)'
+    ctx.lineWidth = 1
+    ctx.lineJoin = 'round'
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.lineTo(size * 0.9, size * 0.35)
+    ctx.lineTo(size * 0.35, size * 0.9)
+    ctx.closePath()
+    ctx.fill()
+    ctx.stroke()
+    if (remote.user.name) {
+      const label = remote.user.name
+      ctx.font = '11px system-ui, -apple-system, sans-serif'
+      const metrics = ctx.measureText(label)
+      const padX = 4
+      const labelW = metrics.width + padX * 2
+      const labelH = 14
+      const lx = size * 0.9 + 6
+      const ly = size * 0.35 - labelH / 2
+      ctx.fillStyle = remote.user.color
+      ctx.fillRect(lx, ly, labelW, labelH)
+      ctx.fillStyle = '#ffffff'
+      ctx.textBaseline = 'middle'
+      ctx.fillText(label, lx + padX, ly + labelH / 2)
+    }
+    ctx.restore()
   }
 
   function canvasPoint(e: React.PointerEvent): [number, number] {
@@ -112,16 +181,27 @@ export function CollabCanvas({ doc, clientID }: CollabCanvasProps) {
   }
 
   function onPointerMove(e: React.PointerEvent<HTMLCanvasElement>): void {
+    const [x, y] = canvasPoint(e)
+    // Publish the local cursor every move so hovering (not just
+    // drawing) shows up for peers. Skipped when no publisher is
+    // wired — the stopgap single-user path stays identical.
+    publishCursor?.({ x, y })
     const stroke = inProgressRef.current
     if (!stroke) return
-    const [x, y] = canvasPoint(e)
     stroke.pts.push(x, y)
     paint()
   }
 
   function onPointerUp(e: React.PointerEvent<HTMLCanvasElement>): void {
     const stroke = inProgressRef.current
-    if (!stroke) return
+    if (!stroke) {
+      // Pointer left the canvas without drawing — still clear the
+      // published cursor so peers don't see a ghost pointer.
+      if (e.type === 'pointerleave' || e.type === 'pointercancel') {
+        publishCursor?.(null)
+      }
+      return
+    }
     try {
       e.currentTarget.releasePointerCapture(e.pointerId)
     } catch {
@@ -132,6 +212,7 @@ export function CollabCanvas({ doc, clientID }: CollabCanvasProps) {
       yStrokes.push([stroke])
     })
     inProgressRef.current = null
+    if (e.type === 'pointerleave') publishCursor?.(null)
     // The observer will repaint, but fire one now so the end-of-stroke
     // visual lands immediately on slow peers.
     paint()

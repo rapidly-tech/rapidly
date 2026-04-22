@@ -17,6 +17,7 @@ import {
   decodeInviteFragment,
   type CollabFragmentKeys,
 } from '@/utils/collab/invite-fragment'
+import { stableColor } from '@/utils/collab/presence'
 
 import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
@@ -139,7 +140,26 @@ export function CollabGuestClient({ slug, token }: Props) {
       <PresenceStrip peers={room.peers} selfLabel="You" />
 
       {room.view?.kind === 'canvas' && room.clientID !== null ? (
-        <CollabCanvas doc={room.doc} clientID={room.clientID} />
+        <CollabCanvas
+          doc={room.doc}
+          clientID={room.clientID}
+          presence={room.presence ?? undefined}
+          publishCursor={
+            room.clientID !== null
+              ? (point) => {
+                  const self = room.clientID as number
+                  room.setLocalPresence({
+                    user: {
+                      id: String(self),
+                      name: 'Guest',
+                      color: stableColor(self),
+                    },
+                    ...(point ? { cursor: point } : {}),
+                  })
+                }
+              : undefined
+          }
+        />
       ) : (
         <CollabEditor doc={room.doc} />
       )}
