@@ -1,15 +1,11 @@
 'use client'
 
 /**
- * Collab v2 renderer demo page.
+ * Collab v2 whiteboard — the production canvas renderer.
  *
- * Phase 3b adds selection + delete on top of the tool system:
- *  - Select tool: click / shift-click / marquee
- *  - Backspace or Delete removes all selected elements
- *  - Live bounding-box overlay on the interactive canvas
- *
- * All mutations still ride the ``ElementStore`` → Yjs → renderer
- * observe path production chambers will use.
+ * Mounts with an optional external ``doc``/``presence``/``selfUser`` to
+ * host inside a chamber session, or stand-alone (no props) as an
+ * internal demo for ``/dev/collab-render``.
  */
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -97,13 +93,13 @@ import {
   sendToBack,
 } from '@/utils/collab/z-order'
 
-import { CommandPalette } from './CommandPalette'
-import { HyperlinkBadge } from './HyperlinkBadge'
-import { MobilePropertiesSheet } from './MobilePropertiesSheet'
-import { PropertiesPanel } from './PropertiesPanel'
-import { ServiceWorkerRegistrar } from './ServiceWorkerRegistrar'
-import { ShortcutsOverlay } from './ShortcutsOverlay'
-import { TextEditor } from './TextEditor'
+import { CommandPalette } from './dev/CommandPalette'
+import { HyperlinkBadge } from './dev/HyperlinkBadge'
+import { MobilePropertiesSheet } from './dev/MobilePropertiesSheet'
+import { PropertiesPanel } from './dev/PropertiesPanel'
+import { ServiceWorkerRegistrar } from './dev/ServiceWorkerRegistrar'
+import { ShortcutsOverlay } from './dev/ShortcutsOverlay'
+import { TextEditor } from './dev/TextEditor'
 
 function seedScene(store: ElementStore): void {
   store.transact(() => {
@@ -156,7 +152,7 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
   },
 ]
 
-interface CollabRenderDemoProps {
+interface CollabWhiteboardProps {
   /** Optional externally-owned Y.Doc. When provided, the demo binds
    *  to it instead of creating its own — used by the chamber to host
    *  this component over a real ``useCollabRoom`` session. The caller
@@ -177,11 +173,11 @@ interface CollabRenderDemoProps {
   selfUser?: PresenceUser
 }
 
-export function CollabRenderDemo({
+export function CollabWhiteboard({
   doc: externalDoc,
   presence: externalPresence,
   selfUser,
-}: CollabRenderDemoProps = {}) {
+}: CollabWhiteboardProps = {}) {
   const staticRef = useRef<HTMLCanvasElement | null>(null)
   const interactiveRef = useRef<HTMLCanvasElement | null>(null)
   const rendererRef = useRef<Renderer | null>(null)

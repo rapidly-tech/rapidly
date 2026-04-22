@@ -25,7 +25,7 @@ import { stableColor } from '@/utils/collab/presence'
 import { useDisplayName } from './useDisplayName'
 
 import { CollabEditor } from './CollabEditor'
-import { CollabRenderDemo } from './dev/CollabRenderDemo'
+import { CollabWhiteboard } from './CollabWhiteboard'
 import { EncryptionBadge } from './EncryptionBadge'
 import { PresenceStrip } from './PresenceStrip'
 
@@ -153,7 +153,7 @@ export function CollabHostClient() {
 
       {room.doc &&
         (kind === 'canvas' && room.clientID !== null ? (
-          <CollabRenderDemo
+          <CollabWhiteboard
             doc={room.doc}
             presence={room.presence ?? undefined}
             selfUser={{
