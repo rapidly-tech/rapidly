@@ -43,7 +43,11 @@ import {
   createInstallPromptController,
   type InstallPromptController,
 } from '@/utils/collab/install-prompt'
-import { createLaserState, type LaserController } from '@/utils/collab/laser'
+import {
+  ageToAlpha,
+  createLaserState,
+  type LaserController,
+} from '@/utils/collab/laser'
 import { makeLaserOverlay } from '@/utils/collab/laser-overlay'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
 import { mermaidToElements, parseMermaid } from '@/utils/collab/mermaid'
@@ -201,6 +205,10 @@ export function CollabRenderDemo({
   // parent render otherwise).
   const selfUserRef = useRef<PresenceUser | undefined>(selfUser)
   selfUserRef.current = selfUser
+  // Laser-active mirror so the self-paint pass reads the latest
+  // value from inside the canvas interactive-paint closure without
+  // capturing ``laserActive`` stale on first render.
+  const laserActiveRef = useRef(false)
   const demoPeerFrameRef = useRef<number | null>(null)
   const followControllerRef = useRef<FollowMeController | null>(null)
   const undoRef = useRef<UndoController | null>(null)
@@ -406,6 +414,48 @@ export function CollabRenderDemo({
       source: effectiveSource,
       getViewport: () => r.getViewport(),
     })
+    // Self-laser paint pass for chamber mode: the external source's
+    // ``getRemotes`` excludes the local client, so without this the
+    // user can't see their own laser trail even while peers do. On
+    // the standalone demo page the internal source's fake self-peer
+    // already covers this, so we only paint when external presence
+    // is wired AND laser is active.
+    const selfLaserPaint = (ctx: CanvasRenderingContext2D): void => {
+      if (!externalPresence || !laserActiveRef.current) return
+      const laser = laserRef.current
+      if (!laser) return
+      const snap = laser.snapshot(performance.now())
+      if (snap.points.length === 0) return
+      const color = selfUserRef.current?.color ?? '#ef4444'
+      // Inline painter matches ``makeLaserOverlay``'s curve but
+      // scales line width / head radius through the viewport so zoom
+      // keeps it screen-constant.
+      const vp = r.getViewport()
+      const s = 1 / vp.scale
+      let newestT = -Infinity
+      for (const p of snap.points) if (p.t > newestT) newestT = p.t
+      ctx.save()
+      ctx.strokeStyle = color
+      ctx.lineWidth = 4 * s
+      ctx.lineCap = 'round'
+      ctx.lineJoin = 'round'
+      for (let i = 1; i < snap.points.length; i++) {
+        const a = snap.points[i - 1]
+        const b = snap.points[i]
+        ctx.globalAlpha = ageToAlpha(newestT - a.t)
+        ctx.beginPath()
+        ctx.moveTo(a.x, a.y)
+        ctx.lineTo(b.x, b.y)
+        ctx.stroke()
+      }
+      const head = snap.points[snap.points.length - 1]
+      ctx.globalAlpha = 1
+      ctx.fillStyle = color
+      ctx.beginPath()
+      ctx.arc(head.x, head.y, 6 * s, 0, Math.PI * 2)
+      ctx.fill()
+      ctx.restore()
+    }
     r.setInteractivePaint((ctx) => {
       // Paint order: remote selections sit below the local dashed
       // overlay; laser trails layer above selections but below cursors
@@ -414,6 +464,7 @@ export function CollabRenderDemo({
       remoteSelectionPaint(ctx)
       selectionPaint(ctx)
       laserPaint(ctx)
+      selfLaserPaint(ctx)
       cursorPaint(ctx)
     })
 
@@ -511,11 +562,24 @@ export function CollabRenderDemo({
   }, [presentationActive, presentationIndex])
 
   // Laser mode: prune the trail on every RAF while active so the
-  // tail fades away even when the user stops moving.
+  // tail fades away even when the user stops moving. Publishes
+  // through the external presence when wired (so remote peers see
+  // the trail) and falls back to a self-push into the internal
+  // source on the standalone demo page (so the overlay reflects the
+  // simulator without a peer to bounce off).
   useEffect(() => {
+    laserActiveRef.current = laserActive
     if (!laserActive) {
       laserRef.current?.clear()
-      presenceRef.current.removeRemote(999)
+      if (externalPresence && selfUserRef.current) {
+        // Clear the laser field on the external source so peers drop
+        // the trail. Keep user / cursor fields omitted — next
+        // pointer-move will repopulate them.
+        externalPresence.setLocal({ user: selfUserRef.current })
+      } else {
+        presenceRef.current.removeRemote(999)
+      }
+      rendererRef.current?.invalidate()
       return
     }
     let handle = 0
@@ -524,7 +588,15 @@ export function CollabRenderDemo({
       const renderer = rendererRef.current
       if (laser && renderer) {
         const snap = laser.snapshot(performance.now())
-        if (snap.points.length > 0) {
+        if (externalPresence && selfUserRef.current) {
+          // Chamber mode: ride on the real presence source. Remote
+          // peers' ``laser-overlay`` reads it; our own view picks up
+          // the trail via the self-paint pass below.
+          externalPresence.setLocal({
+            user: selfUserRef.current,
+            laser: snap,
+          })
+        } else if (snap.points.length > 0) {
           const head = snap.points[snap.points.length - 1]
           presenceRef.current.pushRemote({
             clientId: 999,
@@ -539,6 +611,7 @@ export function CollabRenderDemo({
         } else {
           presenceRef.current.removeRemote(999)
         }
+        renderer.invalidate()
       }
       handle = requestAnimationFrame(tick)
     }
@@ -546,7 +619,7 @@ export function CollabRenderDemo({
     return () => {
       cancelAnimationFrame(handle)
     }
-  }, [laserActive])
+  }, [laserActive, externalPresence])
 
   // Global paste listener for image-on-clipboard → image element.
   // Non-image pastes fall through to the existing Cmd+V keydown
@@ -1285,16 +1358,16 @@ export function CollabRenderDemo({
                 />
                 Follow demo peer
               </label>
-              <label className="hidden items-center gap-1 text-xs lg:flex">
-                <input
-                  type="checkbox"
-                  checked={laserActive}
-                  onChange={(e) => setLaserActive(e.target.checked)}
-                />
-                Laser pointer
-              </label>
             </>
           )}
+          <label className="hidden items-center gap-1 text-xs lg:flex">
+            <input
+              type="checkbox"
+              checked={laserActive}
+              onChange={(e) => setLaserActive(e.target.checked)}
+            />
+            Laser pointer
+          </label>
           {selectionSize > 0 ? (
             <button
               type="button"
@@ -1412,16 +1485,16 @@ export function CollabRenderDemo({
                     />
                     Follow demo peer
                   </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={laserActive}
-                      onChange={(e) => setLaserActive(e.target.checked)}
-                    />
-                    Laser pointer
-                  </label>
                 </>
               )}
+              <label className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={laserActive}
+                  onChange={(e) => setLaserActive(e.target.checked)}
+                />
+                Laser pointer
+              </label>
               <button
                 type="button"
                 onClick={async () => {
