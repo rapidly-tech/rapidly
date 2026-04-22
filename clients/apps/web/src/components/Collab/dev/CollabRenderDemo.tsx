@@ -95,6 +95,7 @@ import { CommandPalette } from './CommandPalette'
 import { HyperlinkBadge } from './HyperlinkBadge'
 import { MobilePropertiesSheet } from './MobilePropertiesSheet'
 import { PropertiesPanel } from './PropertiesPanel'
+import { ServiceWorkerRegistrar } from './ServiceWorkerRegistrar'
 import { ShortcutsOverlay } from './ShortcutsOverlay'
 import { TextEditor } from './TextEditor'
 
@@ -1135,6 +1136,7 @@ export function CollabRenderDemo() {
 
   return (
     <div className="flex h-screen w-screen flex-col bg-slate-50 dark:bg-slate-950">
+      <ServiceWorkerRegistrar />
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
         <span className="font-semibold">Collab v2 demo</span>
         <div
