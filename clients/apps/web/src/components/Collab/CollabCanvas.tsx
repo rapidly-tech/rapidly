@@ -24,7 +24,7 @@
 
 import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useRef, useState } from 'react'
-import type * as Y from 'yjs'
+import * as Y from 'yjs'
 
 import {
   ageToAlpha,
@@ -65,6 +65,15 @@ export function CollabCanvas({
   const laserRef = useRef<LaserController>(createLaserState())
   const [laserActive, setLaserActive] = useState(false)
   const laserFrameRef = useRef<number | null>(null)
+  // One origin symbol per mount — ``Y.UndoManager`` compares by
+  // identity, and a per-mount symbol keeps each peer's local undo
+  // stack from rewinding the other's strokes.
+  const undoOriginRef = useRef<symbol>(Symbol('rapidly.collab.stroke'))
+  const undoRef = useRef<Y.UndoManager | null>(null)
+  const [undoState, setUndoState] = useState<{
+    canUndo: boolean
+    canRedo: boolean
+  }>({ canUndo: false, canRedo: false })
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const yStrokes = doc.getArray<Stroke>('strokes')
   const inProgressRef = useRef<Stroke | null>(null)
@@ -105,6 +114,57 @@ export function CollabCanvas({
     if (!presence) return
     return presence.subscribe(() => paint())
   }, [presence])
+
+  // Undo / redo — scoped to the local-origin tag so a peer's stroke
+  // never ends up on this user's undo stack.
+  useEffect(() => {
+    const mgr = new Y.UndoManager(yStrokes, {
+      trackedOrigins: new Set([undoOriginRef.current]),
+      // Each committed stroke is already one atomic transaction so a
+      // per-step capture matches user intent; no time-based batching.
+      captureTimeout: 0,
+    })
+    undoRef.current = mgr
+    const emit = () =>
+      setUndoState({
+        canUndo: mgr.undoStack.length > 0,
+        canRedo: mgr.redoStack.length > 0,
+      })
+    mgr.on('stack-item-added', emit)
+    mgr.on('stack-item-popped', emit)
+    mgr.on('stack-cleared', emit)
+    emit()
+
+    const onKey = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey)) return
+      const target = e.target as HTMLElement | null
+      if (
+        target &&
+        (target.tagName === 'INPUT' ||
+          target.tagName === 'TEXTAREA' ||
+          target.isContentEditable)
+      ) {
+        return
+      }
+      if (e.key === 'z' || e.key === 'Z') {
+        e.preventDefault()
+        if (e.shiftKey) mgr.redo()
+        else mgr.undo()
+      } else if (e.key === 'y' || e.key === 'Y') {
+        e.preventDefault()
+        mgr.redo()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      mgr.off('stack-item-added', emit)
+      mgr.off('stack-item-popped', emit)
+      mgr.off('stack-cleared', emit)
+      mgr.destroy()
+      undoRef.current = null
+    }
+  }, [yStrokes])
 
   // Laser mode: RAF-prune the local trail so it fades even when the
   // user stops moving, and re-broadcast the pruned snapshot. Toggle
@@ -310,9 +370,12 @@ export function CollabCanvas({
       /* some platforms throw if the capture was already released */
     }
     // Commit: single Y.Array push = one CRDT update = one wire frame.
+    // Tagged with the local origin so our UndoManager tracks it and
+    // remote peers' transactions (different origin) stay off our
+    // undo stack.
     doc.transact(() => {
       yStrokes.push([stroke])
-    })
+    }, undoOriginRef.current)
     inProgressRef.current = null
     if (e.type === 'pointerleave') publishCursor?.(null)
     // The observer will repaint, but fire one now so the end-of-stroke
@@ -322,10 +385,12 @@ export function CollabCanvas({
 
   function onClear(): void {
     // Yjs delete on a shared array is a CRDT op — every peer sees it.
+    // Tagged with the local origin so it lands on the undo stack and
+    // a reflex Ctrl+Z brings the scene back.
     if (yStrokes.length === 0) return
     doc.transact(() => {
       yStrokes.delete(0, yStrokes.length)
-    })
+    }, undoOriginRef.current)
   }
 
   return (
@@ -336,6 +401,24 @@ export function CollabCanvas({
           soon as you lift the pointer.
         </p>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => undoRef.current?.undo()}
+            disabled={!undoState.canUndo}
+            title="Undo (⌘/Ctrl+Z)"
+          >
+            Undo
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => undoRef.current?.redo()}
+            disabled={!undoState.canRedo}
+            title="Redo (⌘/Ctrl+Shift+Z)"
+          >
+            Redo
+          </Button>
           {publishLaser ? (
             <Button
               variant={laserActive ? 'default' : 'outline'}
