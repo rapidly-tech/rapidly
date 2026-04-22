@@ -166,6 +166,15 @@ export function CollabGuestClient({ slug, token }: Props) {
           <CollabRenderDemo
             doc={room.doc}
             presence={room.presence ?? undefined}
+            selfUser={
+              room.clientID !== null
+                ? {
+                    id: String(room.clientID),
+                    name: broadcastName,
+                    color: stableColor(room.clientID),
+                  }
+                : undefined
+            }
           />
         ) : (
           <CollabCanvas
