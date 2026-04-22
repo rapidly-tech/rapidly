@@ -29,6 +29,7 @@ import * as Y from 'yjs'
 import {
   exportCanvasToPng,
   exportStrokesToJson,
+  exportStrokesToSvg,
 } from '@/utils/collab/chamber-export'
 import { downloadBlob } from '@/utils/collab/export'
 import {
@@ -435,6 +436,21 @@ export function CollabCanvas({
             title="Download the strokes as JSON"
           >
             JSON
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const svg = exportStrokesToSvg(committedRef.current, {
+                width: CANVAS_WIDTH,
+                height: CANVAS_HEIGHT,
+              })
+              const blob = new Blob([svg], { type: 'image/svg+xml' })
+              downloadBlob(blob, 'rapidly-collab.svg')
+            }}
+            title="Download the strokes as SVG"
+          >
+            SVG
           </Button>
           <Button
             variant="outline"
