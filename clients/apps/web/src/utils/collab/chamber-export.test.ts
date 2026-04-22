@@ -4,6 +4,7 @@ import {
   CHAMBER_EXPORT_SCHEMA,
   exportCanvasToPng,
   exportStrokesToJson,
+  exportStrokesToSvg,
 } from './chamber-export'
 import type { Stroke } from './strokes'
 
@@ -81,5 +82,92 @@ describe('exportCanvasToPng', () => {
     const fakeCanvas = { toBlob } as unknown as HTMLCanvasElement
     await exportCanvasToPng(fakeCanvas)
     expect(toBlob.mock.calls[0][1]).toBe('image/png')
+  })
+})
+
+describe('exportStrokesToSvg', () => {
+  it('produces a valid SVG root with viewBox matching the canvas', () => {
+    const svg = exportStrokesToSvg([stroke()], { width: 1024, height: 600 })
+    expect(svg).toMatch(/^<svg xmlns="http:\/\/www\.w3\.org\/2000\/svg"/)
+    expect(svg).toContain('viewBox="0 0 1024 600"')
+    expect(svg).toContain('width="1024"')
+    expect(svg).toContain('height="600"')
+  })
+
+  it('emits a background rect by default', () => {
+    const svg = exportStrokesToSvg([], { width: 100, height: 100 })
+    expect(svg).toContain('fill="#ffffff"')
+  })
+
+  it('omits the background rect when background is null or transparent', () => {
+    const svgNull = exportStrokesToSvg([], {
+      width: 100,
+      height: 100,
+    })
+    expect(svgNull).toContain('fill="#ffffff"')
+
+    const svgOmitted = exportStrokesToSvg(
+      [],
+      { width: 100, height: 100 },
+      { background: null },
+    )
+    expect(svgOmitted).not.toMatch(/<rect[^/]*fill="#ffffff"/)
+
+    const svgTransparent = exportStrokesToSvg(
+      [],
+      { width: 100, height: 100 },
+      { background: 'transparent' },
+    )
+    expect(svgTransparent).not.toMatch(/<rect[^/]*fill="#ffffff"/)
+  })
+
+  it('emits a <polyline> per multi-point stroke with hue-derived stroke colour', () => {
+    const svg = exportStrokesToSvg(
+      [stroke({ pts: [0, 0, 10, 10], hue: 120, w: 4 })],
+      { width: 100, height: 100 },
+    )
+    expect(svg).toContain('<polyline')
+    expect(svg).toContain('points="0,0 10,10"')
+    expect(svg).toContain('stroke="hsl(120 70% 50%)"')
+    expect(svg).toContain('stroke-width="4"')
+    expect(svg).toContain('fill="none"')
+  })
+
+  it('emits a <circle> for single-point strokes (tap-without-drag)', () => {
+    const svg = exportStrokesToSvg(
+      [stroke({ pts: [50, 50], hue: 200, w: 6 })],
+      {
+        width: 100,
+        height: 100,
+      },
+    )
+    expect(svg).toContain('<circle')
+    expect(svg).toContain('cx="50"')
+    expect(svg).toContain('cy="50"')
+    expect(svg).toContain('r="3"')
+    expect(svg).toContain('fill="hsl(200 70% 50%)"')
+  })
+
+  it('skips zero-point strokes silently', () => {
+    const svg = exportStrokesToSvg([stroke({ pts: [] })], {
+      width: 100,
+      height: 100,
+    })
+    expect(svg).not.toContain('<polyline')
+    expect(svg).not.toContain('<circle')
+  })
+
+  it('coords round to 2 decimal places', () => {
+    const svg = exportStrokesToSvg(
+      [stroke({ pts: [1.23456, 2.34567, 3.4, 4.5] })],
+      { width: 100, height: 100 },
+    )
+    expect(svg).toContain('points="1.23,2.35 3.4,4.5"')
+  })
+
+  it('empty scene still produces a valid document', () => {
+    const svg = exportStrokesToSvg([], { width: 100, height: 100 })
+    expect(svg).toContain('<svg')
+    expect(svg).toContain('</svg>')
   })
 })
