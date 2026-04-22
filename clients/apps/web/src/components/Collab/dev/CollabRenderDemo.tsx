@@ -60,6 +60,7 @@ import {
   inMemoryPresenceSource,
   type InMemoryPresenceSource,
   type PresenceSource,
+  type PresenceUser,
 } from '@/utils/collab/presence'
 import {
   advanceFrame,
@@ -165,11 +166,17 @@ interface CollabRenderDemoProps {
    *  they poke the *internal* source for visual-exercise purposes
    *  and would mix with real remote peers. */
   presence?: PresenceSource
+  /** Local user identity to broadcast through ``presence.setLocal``.
+   *  Required alongside ``presence`` for remote peers to see this
+   *  user's cursor / selection; absent → read-only mode (peers show
+   *  in this client, but this client is invisible to them). */
+  selfUser?: PresenceUser
 }
 
 export function CollabRenderDemo({
   doc: externalDoc,
   presence: externalPresence,
+  selfUser,
 }: CollabRenderDemoProps = {}) {
   const staticRef = useRef<HTMLCanvasElement | null>(null)
   const interactiveRef = useRef<HTMLCanvasElement | null>(null)
@@ -189,6 +196,11 @@ export function CollabRenderDemo({
     externalPresence ?? presenceRef.current,
   )
   sourceRef.current = externalPresence ?? presenceRef.current
+  // Stable ref to the local user identity so pointer-move handlers
+  // don't need the prop in their dep array (React re-runs on every
+  // parent render otherwise).
+  const selfUserRef = useRef<PresenceUser | undefined>(selfUser)
+  selfUserRef.current = selfUser
   const demoPeerFrameRef = useRef<number | null>(null)
   const followControllerRef = useRef<FollowMeController | null>(null)
   const undoRef = useRef<UndoController | null>(null)
@@ -352,6 +364,14 @@ export function CollabRenderDemo({
     const unsubscribeSelection = selection.subscribe((ids) => {
       setSelectionSize(ids.size)
       r.invalidate()
+      // Broadcast the new selection through the external source so
+      // remote peers' selection-overlay paints stay in sync.
+      if (externalPresence && selfUserRef.current) {
+        externalPresence.setLocal({
+          user: selfUserRef.current,
+          selection: Array.from(ids),
+        })
+      }
     })
 
     // Selection overlay paints the dashed bounding box + marquee;
@@ -667,6 +687,29 @@ export function CollabRenderDemo({
           user: { id: 'self-laser', color: '#ef4444', name: 'You (laser)' },
           cursor: { x: world.x, y: world.y },
           laser: trail,
+        })
+      }
+      // Local broadcast — when an external presence + self identity
+      // are wired, publish the current cursor through the shared
+      // source so remote peers see it. Uses world coords (same as
+      // Phase 11 ``cursor-overlay``) so peers reproject to their
+      // own viewport.
+      if (
+        externalPresence &&
+        selfUserRef.current &&
+        renderer &&
+        canvas &&
+        selectionRef.current
+      ) {
+        const rect = canvas.getBoundingClientRect()
+        const world = renderer.screenToWorld(
+          e.clientX - rect.left,
+          e.clientY - rect.top,
+        )
+        externalPresence.setLocal({
+          user: selfUserRef.current,
+          cursor: { x: world.x, y: world.y },
+          selection: Array.from(selectionRef.current.snapshot),
         })
       }
       const tool = gestureToolRef.current
