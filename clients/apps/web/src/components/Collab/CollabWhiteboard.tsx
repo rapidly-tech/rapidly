@@ -344,7 +344,7 @@ export function CollabWhiteboard({
         demoPeerFrameRef.current = null
       }
     }
-  }, [demoPeerActive])
+  }, [demoPeerActive, externalPresence])
 
   useEffect(() => {
     activeToolRef.current = toolFor(toolId)
@@ -832,7 +832,7 @@ export function CollabWhiteboard({
       }
       tool.onPointerMove(ctx, e.nativeEvent)
     },
-    [toolCtx, toolId, laserActive],
+    [toolCtx, toolId, laserActive, externalPresence, publishViewport],
   )
 
   const onPointerUp = useCallback(
