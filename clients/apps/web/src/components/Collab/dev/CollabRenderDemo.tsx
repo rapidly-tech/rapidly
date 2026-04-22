@@ -209,6 +209,26 @@ export function CollabRenderDemo({
   // value from inside the canvas interactive-paint closure without
   // capturing ``laserActive`` stale on first render.
   const laserActiveRef = useRef(false)
+
+  /** Broadcast the current viewport through the external presence
+   *  source so remote peers can follow the local user. Skipped when
+   *  no external session is wired (standalone demo) or the local
+   *  identity isn't known yet. Callers invoke this from the exact
+   *  sites that mutate ``vpRef.current`` — wheel, pinch, presentation
+   *  transition — but **not** from the follow-me apply path, which
+   *  would create a mirror-a-peer feedback loop. */
+  const publishViewport = useCallback(() => {
+    if (!externalPresence || !selfUserRef.current) return
+    const vp = vpRef.current
+    externalPresence.setLocal({
+      user: selfUserRef.current,
+      viewport: {
+        scale: vp.scale,
+        scrollX: vp.scrollX,
+        scrollY: vp.scrollY,
+      },
+    })
+  }, [externalPresence])
   const demoPeerFrameRef = useRef<number | null>(null)
   const followControllerRef = useRef<FollowMeController | null>(null)
   const undoRef = useRef<UndoController | null>(null)
@@ -556,10 +576,13 @@ export function CollabRenderDemo({
         vpRef.current.scrollY = vp.scrollY
         renderer.setViewport(vpRef.current)
         setZoom(Math.round(vp.scale * 100) / 100)
+        // Broadcast through external presence so a ""follow me""
+        // audience in another tab moves in sync with the presenter.
+        publishViewport()
       },
     })
     return () => handle.cancel()
-  }, [presentationActive, presentationIndex])
+  }, [presentationActive, presentationIndex, publishViewport])
 
   // Laser mode: prune the trail on every RAF while active so the
   // tail fades away even when the user stops moving. Publishes
@@ -742,6 +765,7 @@ export function CollabRenderDemo({
           vpRef.current = scaled
           renderer.setViewport(scaled)
           setZoom(Math.round(scaled.scale * 100) / 100)
+          publishViewport()
           return
         }
       }
@@ -855,32 +879,36 @@ export function CollabRenderDemo({
     }
   }, [])
 
-  const onWheel = useCallback((e: React.WheelEvent) => {
-    e.preventDefault()
-    const canvas = interactiveRef.current
-    const renderer = rendererRef.current
-    if (!canvas || !renderer) return
-    // Manual zoom breaks follow-me — otherwise the peer's next
-    // awareness frame would yank the camera back and the user would
-    // be fighting the follower.
-    if (followControllerRef.current?.current() !== null) {
-      followControllerRef.current?.setTarget(null)
-      setFollowingDemoPeer(false)
-    }
-    const rect = canvas.getBoundingClientRect()
-    const cx = e.clientX - rect.left
-    const cy = e.clientY - rect.top
-    const factor = Math.exp(-e.deltaY * 0.001)
-    const next = zoomAt(
-      renderer.getViewport(),
-      cx,
-      cy,
-      renderer.getViewport().scale * factor,
-    )
-    vpRef.current = next
-    renderer.setViewport(next)
-    setZoom(Math.round(next.scale * 100) / 100)
-  }, [])
+  const onWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault()
+      const canvas = interactiveRef.current
+      const renderer = rendererRef.current
+      if (!canvas || !renderer) return
+      // Manual zoom breaks follow-me — otherwise the peer's next
+      // awareness frame would yank the camera back and the user would
+      // be fighting the follower.
+      if (followControllerRef.current?.current() !== null) {
+        followControllerRef.current?.setTarget(null)
+        setFollowingDemoPeer(false)
+      }
+      const rect = canvas.getBoundingClientRect()
+      const cx = e.clientX - rect.left
+      const cy = e.clientY - rect.top
+      const factor = Math.exp(-e.deltaY * 0.001)
+      const next = zoomAt(
+        renderer.getViewport(),
+        cx,
+        cy,
+        renderer.getViewport().scale * factor,
+      )
+      vpRef.current = next
+      renderer.setViewport(next)
+      setZoom(Math.round(next.scale * 100) / 100)
+      publishViewport()
+    },
+    [publishViewport],
+  )
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
