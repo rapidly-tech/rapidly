@@ -157,7 +157,10 @@ export function CollabHostClient() {
       {room.doc &&
         (kind === 'canvas' && room.clientID !== null ? (
           WHITEBOARD_V2 ? (
-            <CollabRenderDemo doc={room.doc} />
+            <CollabRenderDemo
+              doc={room.doc}
+              presence={room.presence ?? undefined}
+            />
           ) : (
             <CollabCanvas
               doc={room.doc}
