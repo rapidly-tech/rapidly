@@ -3,7 +3,7 @@
  *
  * Declarative so the overlay component and a future command-palette
  * search can share one source of truth. The component in
- * ``components/Collab/dev/ShortcutsOverlay.tsx`` renders this list
+ * ``components/Collab/Whiteboard/ShortcutsOverlay.tsx`` renders this list
  * grouped by category; other consumers can flatten it.
  *
  * Each entry owns:
