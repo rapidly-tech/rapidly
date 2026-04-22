@@ -150,7 +150,18 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
   },
 ]
 
-export function CollabRenderDemo() {
+interface CollabRenderDemoProps {
+  /** Optional externally-owned Y.Doc. When provided, the demo binds
+   *  to it instead of creating its own — used by the chamber to host
+   *  this component over a real ``useCollabRoom`` session. The caller
+   *  owns the doc's lifecycle in that case; the demo will **not**
+   *  destroy it on unmount. */
+  doc?: Y.Doc
+}
+
+export function CollabRenderDemo({
+  doc: externalDoc,
+}: CollabRenderDemoProps = {}) {
   const staticRef = useRef<HTMLCanvasElement | null>(null)
   const interactiveRef = useRef<HTMLCanvasElement | null>(null)
   const rendererRef = useRef<Renderer | null>(null)
@@ -285,9 +296,13 @@ export function CollabRenderDemo() {
     const i = interactiveRef.current
     if (!s || !i) return
 
-    const doc = new Y.Doc()
+    // Bind to the caller's doc when provided, otherwise spin up our
+    // own + seed the demo scene. Track whether we own it so the
+    // cleanup branch doesn't destroy a doc the caller still needs.
+    const ownsDoc = externalDoc === undefined
+    const doc = externalDoc ?? new Y.Doc()
     const store = createElementStore(doc)
-    seedScene(store)
+    if (ownsDoc) seedScene(store)
     storeRef.current = store
     setElementCount(store.size)
 
@@ -394,8 +409,15 @@ export function CollabRenderDemo() {
       r.destroy()
       rendererRef.current = null
       storeRef.current = null
-      doc.destroy()
+      // Only destroy the doc when we own it — externally-provided
+      // docs outlive this component and get cleaned up by the caller
+      // (e.g. useCollabRoom's leave).
+      if (ownsDoc) doc.destroy()
     }
+    // ownsDoc captured at effect start; re-running the effect on
+    // prop change would force a full store rebuild, which the caller
+    // almost never wants.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Toggle follow-me on / off when the checkbox flips.
