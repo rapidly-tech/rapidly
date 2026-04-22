@@ -93,13 +93,13 @@ import {
   sendToBack,
 } from '@/utils/collab/z-order'
 
-import { CommandPalette } from './dev/CommandPalette'
-import { HyperlinkBadge } from './dev/HyperlinkBadge'
-import { MobilePropertiesSheet } from './dev/MobilePropertiesSheet'
-import { PropertiesPanel } from './dev/PropertiesPanel'
-import { ServiceWorkerRegistrar } from './dev/ServiceWorkerRegistrar'
-import { ShortcutsOverlay } from './dev/ShortcutsOverlay'
-import { TextEditor } from './dev/TextEditor'
+import { CommandPalette } from './Whiteboard/CommandPalette'
+import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
+import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
+import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
+import { ServiceWorkerRegistrar } from './Whiteboard/ServiceWorkerRegistrar'
+import { ShortcutsOverlay } from './Whiteboard/ShortcutsOverlay'
+import { TextEditor } from './Whiteboard/TextEditor'
 
 function seedScene(store: ElementStore): void {
   store.transact(() => {

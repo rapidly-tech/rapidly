@@ -9,7 +9,7 @@
  *    Takes a query and a command list, returns the subset sorted by
  *    relevance (prefix > word-start > contains). Deterministic and
  *    test-friendly.
- *  - No UI: ``components/Collab/dev/CommandPalette.tsx`` renders the
+ *  - No UI: ``components/Collab/Whiteboard/CommandPalette.tsx`` renders the
  *    modal on top of this data layer.
  *
  * Design notes
