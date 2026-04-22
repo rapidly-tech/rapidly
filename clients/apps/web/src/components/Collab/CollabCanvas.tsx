@@ -26,6 +26,12 @@ import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useRef, useState } from 'react'
 import type * as Y from 'yjs'
 
+import {
+  ageToAlpha,
+  createLaserState,
+  type LaserController,
+  type LaserState,
+} from '@/utils/collab/laser'
 import type { PresenceSource, RemotePresence } from '@/utils/collab/presence'
 import { hueFor, isStroke, repaint, type Stroke } from '@/utils/collab/strokes'
 
@@ -40,6 +46,9 @@ interface CollabCanvasProps {
   /** Publish the local cursor to remote peers. Called with ``null``
    *  when the pointer leaves the canvas so the cursor hides there. */
   publishCursor?: (point: { x: number; y: number } | null) => void
+  /** Publish the local laser-pointer trail. Called with ``null`` to
+   *  clear (laser toggled off / pointer left). */
+  publishLaser?: (trail: LaserState | null) => void
 }
 
 const DEFAULT_LINE_WIDTH = 3
@@ -51,7 +60,11 @@ export function CollabCanvas({
   clientID,
   presence,
   publishCursor,
+  publishLaser,
 }: CollabCanvasProps) {
+  const laserRef = useRef<LaserController>(createLaserState())
+  const [laserActive, setLaserActive] = useState(false)
+  const laserFrameRef = useRef<number | null>(null)
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const yStrokes = doc.getArray<Stroke>('strokes')
   const inProgressRef = useRef<Stroke | null>(null)
@@ -93,6 +106,35 @@ export function CollabCanvas({
     return presence.subscribe(() => paint())
   }, [presence])
 
+  // Laser mode: RAF-prune the local trail so it fades even when the
+  // user stops moving, and re-broadcast the pruned snapshot. Toggle
+  // off → clear + null-broadcast so peers drop the trail.
+  useEffect(() => {
+    if (!laserActive) {
+      laserRef.current.clear()
+      publishLaser?.(null)
+      if (laserFrameRef.current !== null) {
+        cancelAnimationFrame(laserFrameRef.current)
+        laserFrameRef.current = null
+      }
+      paint()
+      return
+    }
+    const tick = (): void => {
+      const snap = laserRef.current.snapshot(performance.now())
+      publishLaser?.(snap.points.length > 0 ? snap : null)
+      paint()
+      laserFrameRef.current = requestAnimationFrame(tick)
+    }
+    laserFrameRef.current = requestAnimationFrame(tick)
+    return () => {
+      if (laserFrameRef.current !== null) {
+        cancelAnimationFrame(laserFrameRef.current)
+        laserFrameRef.current = null
+      }
+    }
+  }, [laserActive, publishLaser])
+
   function paint(): void {
     const canvas = canvasRef.current
     if (!canvas) return
@@ -105,6 +147,20 @@ export function CollabCanvas({
       committedRef.current,
       inProgressRef.current,
     )
+    // Remote lasers ride above strokes but below cursors so the
+    // pointer itself stays crisp on top of the glow.
+    if (presence) {
+      for (const remote of presence.getRemotes()) {
+        paintRemoteLaser(ctx, remote)
+      }
+    }
+    // Local laser trail — paint it ourselves so the user sees their
+    // own streak as they move. Coloured emerald to match the chamber
+    // brand accent.
+    if (laserActive) {
+      const local = laserRef.current.snapshot(performance.now())
+      paintLaserTrail(ctx, local, '#10b981')
+    }
     // Remote cursors ride on top of the committed + live strokes so a
     // peer's pointer always stays visible on a dense canvas.
     if (presence) {
@@ -112,6 +168,48 @@ export function CollabCanvas({
         paintRemoteCursor(ctx, remote)
       }
     }
+  }
+
+  /** Paint a laser trail — shared logic between remote peers and the
+   *  local self-preview. Coords are canvas-space (no viewport). */
+  function paintLaserTrail(
+    ctx: CanvasRenderingContext2D,
+    trail: LaserState,
+    color: string,
+  ): void {
+    if (trail.points.length === 0) return
+    let newestT = -Infinity
+    for (const p of trail.points) if (p.t > newestT) newestT = p.t
+    ctx.save()
+    ctx.strokeStyle = color
+    ctx.lineWidth = 4
+    ctx.lineCap = 'round'
+    ctx.lineJoin = 'round'
+    for (let i = 1; i < trail.points.length; i++) {
+      const a = trail.points[i - 1]
+      const b = trail.points[i]
+      ctx.globalAlpha = ageToAlpha(newestT - a.t)
+      ctx.beginPath()
+      ctx.moveTo(a.x, a.y)
+      ctx.lineTo(b.x, b.y)
+      ctx.stroke()
+    }
+    const head = trail.points[trail.points.length - 1]
+    ctx.globalAlpha = 1
+    ctx.fillStyle = color
+    ctx.beginPath()
+    ctx.arc(head.x, head.y, 6, 0, Math.PI * 2)
+    ctx.fill()
+    ctx.restore()
+  }
+
+  /** Paint one remote peer's laser trail in their own colour. */
+  function paintRemoteLaser(
+    ctx: CanvasRenderingContext2D,
+    remote: RemotePresence,
+  ): void {
+    if (!remote.laser || remote.laser.points.length === 0) return
+    paintLaserTrail(ctx, remote.laser, remote.user.color)
   }
 
   /** Paint one remote peer's pointer as a coloured triangle in the
@@ -186,6 +284,10 @@ export function CollabCanvas({
     // drawing) shows up for peers. Skipped when no publisher is
     // wired — the stopgap single-user path stays identical.
     publishCursor?.({ x, y })
+    if (laserActive) {
+      // Extend the trail; the RAF tick above re-broadcasts + repaints.
+      laserRef.current.push(x, y, performance.now())
+    }
     const stroke = inProgressRef.current
     if (!stroke) return
     stroke.pts.push(x, y)
@@ -228,14 +330,27 @@ export function CollabCanvas({
 
   return (
     <div className="flex w-full flex-col gap-3">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2">
         <p className="rp-text-muted text-xs">
           Draw anywhere. Every stroke appears on every peer&apos;s canvas as
           soon as you lift the pointer.
         </p>
-        <Button variant="outline" size="sm" onClick={onClear}>
-          Clear
-        </Button>
+        <div className="flex items-center gap-2">
+          {publishLaser ? (
+            <Button
+              variant={laserActive ? 'default' : 'outline'}
+              size="sm"
+              onClick={() => setLaserActive((v) => !v)}
+              aria-pressed={laserActive}
+              title="Laser pointer — hold to highlight, fades on release"
+            >
+              {laserActive ? 'Laser on' : 'Laser'}
+            </Button>
+          ) : null}
+          <Button variant="outline" size="sm" onClick={onClear}>
+            Clear
+          </Button>
+        </div>
       </div>
       <canvas
         ref={canvasRef}
