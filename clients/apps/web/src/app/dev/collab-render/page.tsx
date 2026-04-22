@@ -1,20 +1,17 @@
 import type { Metadata } from 'next'
 
-import { CollabRenderDemo } from '@/components/Collab/dev/CollabRenderDemo'
+import { CollabWhiteboard } from '@/components/Collab/CollabWhiteboard'
 
-/** Internal demo of the Collab v2 renderer (Phase 1b).
- *
- *  Builds a small scene of rects + ellipses in an ``ElementStore``,
- *  mounts a ``Renderer``, and wires pan / zoom / hit-test. No Yjs
- *  networking — the store is local. Purpose is to prove the renderer
- *  orchestration works end-to-end before any tool / multi-peer code
- *  lands on top. */
+/** Internal demo page for the Collab v2 whiteboard. Mounts the real
+ *  production component with no external props — its internal
+ *  ``ElementStore`` + in-memory presence stub stand in for the chamber
+ *  wiring. Used for visual regression + manual tool exercise. */
 
 export const metadata: Metadata = {
-  title: 'Collab renderer demo — Rapidly (internal)',
+  title: 'Collab whiteboard demo — Rapidly (internal)',
   robots: { index: false, follow: false },
 }
 
-export default function CollabRenderDemoPage() {
-  return <CollabRenderDemo />
+export default function CollabWhiteboardDemoPage() {
+  return <CollabWhiteboard />
 }
