@@ -21,18 +21,15 @@ import {
   type CollabFragmentKeys,
 } from '@/utils/collab/invite-fragment'
 import { stableColor } from '@/utils/collab/presence'
-import { isWhiteboardV2EnabledFromEnv } from '@/utils/collab/whiteboard-v2-flag'
 
 import { useDisplayName } from './useDisplayName'
 
-import { CollabCanvas } from './CollabCanvas'
 import { CollabEditor } from './CollabEditor'
 import { CollabRenderDemo } from './dev/CollabRenderDemo'
 import { EncryptionBadge } from './EncryptionBadge'
 import { PresenceStrip } from './PresenceStrip'
 
 const E2EE_ENABLED = process.env.NEXT_PUBLIC_COLLAB_E2EE !== 'false'
-const WHITEBOARD_V2 = isWhiteboardV2EnabledFromEnv()
 
 export function CollabHostClient() {
   const [kind, setKind] = useState<CollabKind>('text')
@@ -156,57 +153,15 @@ export function CollabHostClient() {
 
       {room.doc &&
         (kind === 'canvas' && room.clientID !== null ? (
-          WHITEBOARD_V2 ? (
-            <CollabRenderDemo
-              doc={room.doc}
-              presence={room.presence ?? undefined}
-              selfUser={
-                room.clientID !== null
-                  ? {
-                      id: String(room.clientID),
-                      name: broadcastName,
-                      color: stableColor(room.clientID),
-                    }
-                  : undefined
-              }
-            />
-          ) : (
-            <CollabCanvas
-              doc={room.doc}
-              clientID={room.clientID}
-              presence={room.presence ?? undefined}
-              publishCursor={
-                room.clientID !== null
-                  ? (point) => {
-                      const self = room.clientID as number
-                      room.setLocalPresence({
-                        user: {
-                          id: String(self),
-                          name: broadcastName,
-                          color: stableColor(self),
-                        },
-                        ...(point ? { cursor: point } : {}),
-                      })
-                    }
-                  : undefined
-              }
-              publishLaser={
-                room.clientID !== null
-                  ? (trail) => {
-                      const self = room.clientID as number
-                      room.setLocalPresence({
-                        user: {
-                          id: String(self),
-                          name: broadcastName,
-                          color: stableColor(self),
-                        },
-                        ...(trail ? { laser: trail } : {}),
-                      })
-                    }
-                  : undefined
-              }
-            />
-          )
+          <CollabRenderDemo
+            doc={room.doc}
+            presence={room.presence ?? undefined}
+            selfUser={{
+              id: String(room.clientID),
+              name: broadcastName,
+              color: stableColor(room.clientID),
+            }}
+          />
         ) : (
           <CollabEditor doc={room.doc} />
         ))}
