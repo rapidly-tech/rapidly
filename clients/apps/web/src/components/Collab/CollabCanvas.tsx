@@ -27,6 +27,11 @@ import { useEffect, useRef, useState } from 'react'
 import * as Y from 'yjs'
 
 import {
+  exportCanvasToPng,
+  exportStrokesToJson,
+} from '@/utils/collab/chamber-export'
+import { downloadBlob } from '@/utils/collab/export'
+import {
   ageToAlpha,
   createLaserState,
   type LaserController,
@@ -401,6 +406,36 @@ export function CollabCanvas({
           soon as you lift the pointer.
         </p>
         <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={async () => {
+              const canvas = canvasRef.current
+              if (!canvas) return
+              const blob = await exportCanvasToPng(canvas)
+              if (blob) downloadBlob(blob, 'rapidly-collab.png')
+            }}
+            title="Download the current canvas as a PNG"
+          >
+            PNG
+          </Button>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              const payload = exportStrokesToJson(committedRef.current, {
+                width: CANVAS_WIDTH,
+                height: CANVAS_HEIGHT,
+              })
+              const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                type: 'application/json',
+              })
+              downloadBlob(blob, 'rapidly-collab-strokes.json')
+            }}
+            title="Download the strokes as JSON"
+          >
+            JSON
+          </Button>
           <Button
             variant="outline"
             size="sm"
