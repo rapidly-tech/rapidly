@@ -125,7 +125,7 @@ class TestStrEnumType:
         import pytest
 
         col = self._col()
-        with pytest.raises(ValueError):
+        with pytest.raises(ValueError, match="not a valid"):
             col.process_result_value("garbage", dialect=MagicMock())
 
 
