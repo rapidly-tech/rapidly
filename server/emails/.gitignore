@@ -1,5 +1,0 @@
-# Rapidly — email template build artifacts (server/emails)
-.DS_Store
-bin/
-dist/
-node_modules/
