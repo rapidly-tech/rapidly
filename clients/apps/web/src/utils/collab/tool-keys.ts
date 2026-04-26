@@ -5,7 +5,7 @@
  *
  *   H → hand     V → select    R → rect     O → ellipse
  *   D → diamond  L → line      A → arrow    P → freedraw
- *   T → text     S → sticky
+ *   T → text     S → sticky    E → eraser
  *
  * Extracted as a pure map so the demo's keyboard handler, the
  * ``useCollabRoom`` hook, and a future command-palette all share one
@@ -26,6 +26,7 @@ export const TOOL_KEY_MAP: Readonly<Record<string, ToolId>> = {
   p: 'freedraw',
   t: 'text',
   s: 'sticky',
+  e: 'eraser',
 }
 
 /** Resolve a ``KeyboardEvent`` to a ``ToolId``. Returns ``null`` when

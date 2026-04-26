@@ -16,6 +16,7 @@ import {
   arrowTool,
   diamondTool,
   ellipseTool,
+  eraserTool,
   freedrawTool,
   handTool,
   lineTool,
@@ -71,8 +72,8 @@ describe('toolFor registry', () => {
     expect(toolFor('line')).toBe(lineTool)
   })
 
-  it('returns null for unimplemented tools', () => {
-    expect(toolFor('eraser')).toBeNull()
+  it('resolves the eraser tool', () => {
+    expect(toolFor('eraser')).toBe(eraserTool)
   })
 
   it('has arrow + freedraw + text + sticky wired up', () => {
