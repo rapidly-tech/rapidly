@@ -30,10 +30,20 @@ import {
   type CreateSessionResponse,
 } from '@/utils/collab/api'
 import {
+  createCrossTabSync,
+  type CrossTabSyncController,
+} from '@/utils/collab/cross-tab-sync'
+import {
   aggregateEncryptionState,
   type PeerStatus,
   type RoomEncryptionState,
 } from '@/utils/collab/encryption-state'
+import {
+  createPersistence,
+  indexedDbStorage,
+  type PersistenceController,
+} from '@/utils/collab/persistence'
+import { encryptedStorage } from '@/utils/collab/persistence-encrypted'
 import {
   awarenessPresenceSource,
   type PresenceSource,
@@ -184,6 +194,8 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
   const sessionRef = useRef<CreateSessionResponse | null>(null)
   const detachersRef = useRef<Map<string, () => void>>(new Map())
   const encryptionTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const persistenceRef = useRef<PersistenceController | null>(null)
+  const crossTabRef = useRef<CrossTabSyncController | null>(null)
 
   const refreshPeers = useCallback(() => {
     const room = roomRef.current
@@ -197,6 +209,19 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
   }, [])
 
   const leave = useCallback(async () => {
+    // Flush the local snapshot before tearing down the doc so a
+    // mid-edit unmount doesn't drop the last few unsaved changes.
+    if (persistenceRef.current) {
+      try {
+        await persistenceRef.current.save()
+      } catch {
+        /* best-effort — IDB may be evicted on tab close */
+      }
+      persistenceRef.current.dispose()
+      persistenceRef.current = null
+    }
+    crossTabRef.current?.dispose()
+    crossTabRef.current = null
     for (const detach of detachersRef.current.values()) detach()
     detachersRef.current.clear()
     roomRef.current?.close()
@@ -245,13 +270,43 @@ export function useCollabRoom(props: UseCollabRoomProps): UseCollabRoomReturn {
 
     const room = createCollabRoom({ selfPeerId: selfId, keys })
     roomRef.current = room
-    setDoc(room.doc)
     setClientID(room.awareness.clientID)
     setAwareness(room.awareness)
     setPresence(
       awarenessPresenceSource(room.awareness, room.awareness.clientID),
     )
     room.awareness.on('change', refreshPeers)
+
+    // Local-first persistence + cross-tab fan-out. Both keyed by the
+    // session slug so different rooms get separate snapshots and
+    // separate BroadcastChannels. Persistence loads BEFORE we expose
+    // the doc to React so the renderer's first paint already shows the
+    // hydrated state — no flash of empty canvas on reload. Cross-tab
+    // sync runs alongside; its CROSS_TAB_ORIGIN tag stops it echoing
+    // local hydrations or vice-versa.
+    const roomId = sessionRef.current?.short_slug ?? slug ?? null
+    if (roomId) {
+      const inner = indexedDbStorage()
+      // E2EE keys ⇒ wrap so the local snapshot is also at-rest
+      // encrypted. Plaintext fallback when no keys are derived.
+      const storage = keys ? encryptedStorage(inner, keys.sync) : inner
+      const persistence = createPersistence({
+        doc: room.doc,
+        roomId,
+        storage,
+      })
+      persistenceRef.current = persistence
+      try {
+        await persistence.load()
+      } catch {
+        /* no existing snapshot or storage unavailable — fall through */
+      }
+      crossTabRef.current = createCrossTabSync({
+        doc: room.doc,
+        roomId,
+      })
+    }
+    setDoc(room.doc)
 
     // Re-aggregate encryption state periodically. The handshake
     // resolves asynchronously and without a dedicated event, so a
