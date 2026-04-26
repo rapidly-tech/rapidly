@@ -35,6 +35,8 @@ function stubCtx(store: ElementStore): ToolCtx {
   const renderer = {
     getViewport: () => viewport,
     setViewport: () => {},
+    isGridEnabled: () => false,
+    getGridSize: () => 20,
   } as unknown as ToolCtx['renderer']
   return {
     store,
@@ -191,6 +193,24 @@ describe('rectTool', () => {
     expect(el.width).toBe(60)
     expect(el.height).toBe(40)
     rectTool.onPointerUp(ctx, makeEvent(40, 60))
+  })
+
+  it('snaps to the grid when renderer.isGridEnabled() is true', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    // Override grid to enabled, gridSize 20.
+    ;(ctx.renderer as { isGridEnabled: () => boolean }).isGridEnabled = () =>
+      true
+    // Pointer at (11, 9) → snaps to (20, 0). Drag to (61, 41) → (60, 40).
+    rectTool.onPointerDown(ctx, makeEvent(11, 9))
+    rectTool.onPointerMove(ctx, makeEvent(61, 41))
+    const el = store.list()[0]
+    expect(el.x).toBe(20)
+    expect(el.y).toBe(0)
+    expect(el.width).toBe(40)
+    expect(el.height).toBe(40)
+    rectTool.onPointerUp(ctx, makeEvent(61, 41))
   })
 })
 

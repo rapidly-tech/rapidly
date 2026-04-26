@@ -16,6 +16,7 @@
  */
 
 import { collectBoundArrowPatches } from '../arrow-bindings'
+import { snapToGrid } from '../grid'
 import { expandToGroups } from '../groups'
 import { isLocked } from '../locks'
 
@@ -213,8 +214,17 @@ export const selectTool = {
     }
 
     if (state.kind === 'moving' && state.moveAnchors) {
-      const dx = x - state.startWorldX
-      const dy = y - state.startWorldY
+      // When grid-snap is on, quantise the **delta** (not each
+      // element's absolute position) so a multi-element selection
+      // preserves its internal offsets and only the group's origin
+      // lands on a grid line.
+      let dx = x - state.startWorldX
+      let dy = y - state.startWorldY
+      if (ctx.renderer.isGridEnabled()) {
+        const g = ctx.renderer.getGridSize()
+        dx = snapToGrid(dx, g)
+        dy = snapToGrid(dy, g)
+      }
       const patches: { id: string; patch: Record<string, unknown> }[] = []
       for (const [id, anchor] of state.moveAnchors) {
         patches.push({ id, patch: { x: anchor.x + dx, y: anchor.y + dy } })
