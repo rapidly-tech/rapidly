@@ -25,7 +25,12 @@ import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
-import { downloadBlob, exportToJSON, exportToPNG } from '@/utils/collab/export'
+import {
+  computeBounds,
+  downloadBlob,
+  exportToJSON,
+  exportToPNG,
+} from '@/utils/collab/export'
 import { flipHorizontal, flipVertical } from '@/utils/collab/flip'
 import {
   createFollowMeController,
@@ -37,6 +42,11 @@ import {
   createImageElement,
   extractPastedImage,
 } from '@/utils/collab/image-paste'
+import {
+  importScene,
+  isImportError,
+  parseExportedScene,
+} from '@/utils/collab/import-json'
 import {
   createInstallPromptController,
   type InstallPromptController,
@@ -1342,6 +1352,50 @@ export function CollabWhiteboard({
       },
     })
     // Import.
+    list.push({
+      id: 'import.json',
+      label: 'Import JSON…',
+      category: 'Import',
+      keywords: ['json', 'open', 'load', 'rapidly', 'scene'],
+      run: () => {
+        const store = storeRef.current
+        const renderer = rendererRef.current
+        if (!store || !renderer) return
+        const input = document.createElement('input')
+        input.type = 'file'
+        input.accept = 'application/json,.json'
+        input.onchange = async () => {
+          const file = input.files?.[0]
+          if (!file) return
+          const text = await file.text()
+          const parsed = parseExportedScene(text)
+          if (isImportError(parsed)) {
+            window.alert(
+              'Could not import — file is not a Rapidly Collab JSON ' +
+                `export (${parsed.reason}).`,
+            )
+            return
+          }
+          // Centre the import on the viewport rather than dropping
+          // every element at world origin (which would either pile on
+          // top of an existing scene or land off-screen).
+          const canvas = interactiveRef.current
+          if (!canvas) return
+          const rect = canvas.getBoundingClientRect()
+          const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
+          const bounds = computeBounds(parsed.elements)
+          const offset = bounds
+            ? {
+                x: center.x - bounds.x - bounds.width / 2,
+                y: center.y - bounds.y - bounds.height / 2,
+              }
+            : { x: 0, y: 0 }
+          const ids = importScene(store, parsed, { offset })
+          if (ids.length > 0) selectionRef.current.set(ids)
+        }
+        input.click()
+      },
+    })
     list.push({
       id: 'import.mermaid',
       label: 'Import Mermaid flowchart…',
