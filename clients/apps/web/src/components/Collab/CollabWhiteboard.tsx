@@ -27,6 +27,7 @@ import {
 import { align, distribute } from '@/utils/collab/align'
 import { downloadBlob, exportToJSON, exportToPNG } from '@/utils/collab/export'
 import { flipHorizontal, flipVertical } from '@/utils/collab/flip'
+import { zoomToFit, zoomToSelection } from '@/utils/collab/zoom-to-fit'
 import {
   createFollowMeController,
   type FollowMeController,
@@ -1386,6 +1387,41 @@ export function CollabWhiteboard({
       category: 'Help',
       shortcut: ['?'],
       run: () => setShortcutsOpen(true),
+    })
+    list.push({
+      id: 'view.zoomToFit',
+      label: 'Zoom to fit',
+      category: 'View',
+      keywords: ['zoom', 'fit', 'all', 'reset', 'show all'],
+      run: () => {
+        const renderer = rendererRef.current
+        const store = storeRef.current
+        const canvas = interactiveRef.current
+        if (!renderer || !store || !canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const vp = zoomToFit(store.list(), rect.width, rect.height)
+        if (vp) renderer.setViewport(vp)
+      },
+    })
+    list.push({
+      id: 'view.zoomToSelection',
+      label: 'Zoom to selection',
+      category: 'View',
+      keywords: ['zoom', 'selection', 'frame', 'focus'],
+      run: () => {
+        const renderer = rendererRef.current
+        const store = storeRef.current
+        const canvas = interactiveRef.current
+        if (!renderer || !store || !canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const vp = zoomToSelection(
+          store.list(),
+          selectionRef.current.snapshot,
+          rect.width,
+          rect.height,
+        )
+        if (vp) renderer.setViewport(vp)
+      },
     })
     list.push({
       id: 'view.present',
