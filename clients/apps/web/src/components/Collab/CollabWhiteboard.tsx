@@ -19,6 +19,7 @@ import {
   duplicate as clipboardDuplicate,
   paste as clipboardPaste,
   getClipboard,
+  serialiseSelection,
 } from '@/utils/collab/clipboard'
 import { type Command } from '@/utils/collab/command-palette'
 import { makeCursorOverlay } from '@/utils/collab/cursor-overlay'
@@ -85,6 +86,11 @@ import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
 import { exportToSVG } from '@/utils/collab/svg-export'
+import {
+  parseClipboardText,
+  readSystemClipboardPayload,
+  writeSystemClipboard,
+} from '@/utils/collab/system-clipboard'
 import { onEditRequest } from '@/utils/collab/text-editing'
 import { toolIdForKey } from '@/utils/collab/tool-keys'
 import {
@@ -682,6 +688,19 @@ export function CollabWhiteboard({
       const store = storeRef.current
       const renderer = rendererRef.current
       if (!store || !renderer) return
+      // Try our JSON envelope first — pasting from another Rapidly tab
+      // ships a Rapidly payload as text. This is the cross-tab path
+      // the keyboard handler also takes; we duplicate the lookup here
+      // so a paste *event* (e.g. from the system menu) is handled
+      // without needing keyboard focus.
+      const text = e.clipboardData?.getData('text/plain') ?? ''
+      const ourPayload = parseClipboardText(text)
+      if (ourPayload) {
+        e.preventDefault()
+        const newIds = clipboardPaste(store, ourPayload)
+        if (newIds.length > 0) selectionRef.current.set(newIds)
+        return
+      }
       const image = await extractPastedImage(e.clipboardData)
       if (!image) return
       e.preventDefault()
@@ -1103,17 +1122,32 @@ export function CollabWhiteboard({
           if (selection.size === 0) return
           e.preventDefault()
           clipboardCopy(store, selection.snapshot)
+          // Mirror to the system clipboard so a paste in another tab
+          // (or another browser window) picks up the same payload.
+          // Fire-and-forget — the in-app buffer is the source of truth
+          // and any error is swallowed by ``writeSystemClipboard``.
+          const payload = serialiseSelection(store, selection.snapshot)
+          if (payload) void writeSystemClipboard(payload)
         } else if (key === 'x') {
           if (selection.size === 0) return
           e.preventDefault()
+          const payload = serialiseSelection(store, selection.snapshot)
           clipboardCut(store, selection.snapshot)
           selection.clear()
+          if (payload) void writeSystemClipboard(payload)
         } else if (key === 'v') {
-          const payload = getClipboard()
-          if (!payload) return
           e.preventDefault()
-          const newIds = clipboardPaste(store, payload)
-          if (newIds.length > 0) selection.set(newIds)
+          // Prefer the system clipboard so cross-tab paste works; fall
+          // back to the in-app buffer when the system clipboard isn't
+          // ours (or isn't readable). Async branch — the in-app branch
+          // runs synchronously below if the await yields null.
+          ;(async () => {
+            const remote = await readSystemClipboardPayload()
+            const payload = remote ?? getClipboard()
+            if (!payload) return
+            const newIds = clipboardPaste(store, payload)
+            if (newIds.length > 0) selection.set(newIds)
+          })()
         } else if (key === 'd') {
           if (selection.size === 0) return
           e.preventDefault()
