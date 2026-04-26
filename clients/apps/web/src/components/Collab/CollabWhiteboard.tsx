@@ -24,6 +24,7 @@ import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
+import { align, distribute } from '@/utils/collab/align'
 import { downloadBlob, exportToJSON, exportToPNG } from '@/utils/collab/export'
 import { flipHorizontal, flipVertical } from '@/utils/collab/flip'
 import {
@@ -1293,6 +1294,50 @@ export function CollabWhiteboard({
         const store = storeRef.current
         if (!store) return
         flipVertical(store, selectionRef.current.snapshot)
+      },
+    })
+    // Align (multi-element edge / centre snapping).
+    for (const [axis, label, kw] of [
+      ['left', 'Align left', ['left edge']],
+      ['centreX', 'Align centre horizontally', ['middle', 'horizontal centre']],
+      ['right', 'Align right', ['right edge']],
+      ['top', 'Align top', ['top edge']],
+      ['centreY', 'Align centre vertically', ['middle', 'vertical centre']],
+      ['bottom', 'Align bottom', ['bottom edge']],
+    ] as const) {
+      list.push({
+        id: `edit.align.${axis}`,
+        label,
+        category: 'Align',
+        keywords: ['align', ...kw],
+        run: () => {
+          const store = storeRef.current
+          if (!store) return
+          align(store, selectionRef.current.snapshot, axis)
+        },
+      })
+    }
+    // Distribute (equal gaps between consecutive elements).
+    list.push({
+      id: 'edit.distribute.horizontal',
+      label: 'Distribute horizontally',
+      category: 'Align',
+      keywords: ['distribute', 'space', 'horizontal', 'equal'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        distribute(store, selectionRef.current.snapshot, 'horizontal')
+      },
+    })
+    list.push({
+      id: 'edit.distribute.vertical',
+      label: 'Distribute vertically',
+      category: 'Align',
+      keywords: ['distribute', 'space', 'vertical', 'equal'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        distribute(store, selectionRef.current.snapshot, 'vertical')
       },
     })
     // Import.
