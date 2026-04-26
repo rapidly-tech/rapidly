@@ -104,6 +104,11 @@ import {
   type ToolId,
 } from '@/utils/collab/tools'
 import { createUndoManager, type UndoController } from '@/utils/collab/undo'
+import {
+  isReadOnlyPaletteCommand,
+  isReadOnlyTool,
+  isViewModeShortcutAllowed,
+} from '@/utils/collab/view-mode'
 import { makeViewport, zoomAt, type Viewport } from '@/utils/collab/viewport'
 import { animateViewport } from '@/utils/collab/viewport-transitions'
 import {
@@ -197,12 +202,18 @@ interface CollabWhiteboardProps {
    *  user's cursor / selection; absent → read-only mode (peers show
    *  in this client, but this client is invisible to them). */
   selfUser?: PresenceUser
+  /** When ``true``, the whiteboard renders in read-only mode: only
+   *  pan/select tools, no keyboard mutations, no editing buttons.
+   *  The caller (e.g. a "share view-only link" route) is responsible
+   *  for setting this; the component itself doesn't infer it. */
+  viewMode?: boolean
 }
 
 export function CollabWhiteboard({
   doc: externalDoc,
   presence: externalPresence,
   selfUser,
+  viewMode = false,
 }: CollabWhiteboardProps = {}) {
   const staticRef = useRef<HTMLCanvasElement | null>(null)
   const interactiveRef = useRef<HTMLCanvasElement | null>(null)
@@ -259,6 +270,10 @@ export function CollabWhiteboard({
   const pinchRef = useRef<PinchPanGesture>(createPinchPanGesture())
   const precisionRef = useRef<PointerPrecision>('fine')
 
+  // View mode keeps the tool to read-only choices via the toolbar +
+  // palette filter and the keyboard whitelist (which drops the
+  // r/o/d/l/a/p/t/s tool-letter hotkeys). The useEffect below flips
+  // any sneaked-through editing tool back to hand for belt-and-braces.
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
   const [elementCount, setElementCount] = useState(0)
@@ -375,6 +390,15 @@ export function CollabWhiteboard({
   useEffect(() => {
     activeToolRef.current = toolFor(toolId)
   }, [toolId])
+
+  // Entering view mode flips any editing tool back to hand. Leaving
+  // view mode preserves whatever the user picked before — they may
+  // want to resume drawing without a manual tool re-pick.
+  useEffect(() => {
+    if (viewMode && !isReadOnlyTool(toolId)) {
+      setToolId('hand')
+    }
+  }, [viewMode, toolId])
 
   useEffect(() => {
     const s = staticRef.current
@@ -952,6 +976,11 @@ export function CollabWhiteboard({
 
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
+      // View-mode gate: drop every shortcut not on the read-only
+      // whitelist before any handler below has a chance to mutate.
+      if (viewMode && !isViewModeShortcutAllowed(e)) {
+        return
+      }
       // Presentation mode: Arrow keys / Space advance the frame,
       // Shift+Arrow / Backspace / ArrowLeft rewind, Esc exits. Takes
       // precedence over every other binding while active.
@@ -1249,7 +1278,7 @@ export function CollabWhiteboard({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toolCtx, presentationActive])
+  }, [toolCtx, presentationActive, viewMode])
 
   const activeChoice = TOOL_CHOICES.find((t) => t.id === toolId)
 
@@ -1550,8 +1579,12 @@ export function CollabWhiteboard({
         setPresentationActive(true)
       },
     })
+    // View mode strips every editing command. Read-only-safe ids are
+    // whitelisted in ``view-mode.ts`` so the palette stays useful for
+    // export / zoom / help / tool toggles between hand and select.
+    if (viewMode) return list.filter((c) => isReadOnlyPaletteCommand(c.id))
     return list
-  }, [])
+  }, [viewMode])
   const cursor = hoverCursorStyle ?? activeToolRef.current?.cursor ?? 'default'
 
   return (
@@ -1559,28 +1592,38 @@ export function CollabWhiteboard({
       <ServiceWorkerRegistrar />
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
         <span className="font-semibold">Collab v2 demo</span>
+        {viewMode ? (
+          <span
+            className="rounded-md border border-amber-400 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 dark:border-amber-500/60 dark:bg-amber-950/40 dark:text-amber-200"
+            aria-label="Read-only viewer mode"
+          >
+            View only
+          </span>
+        ) : null}
         <div
           role="radiogroup"
           aria-label="Active tool"
           className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
         >
-          {TOOL_CHOICES.map((t) => (
-            <button
-              key={t.id}
-              type="button"
-              role="radio"
-              aria-checked={t.id === toolId}
-              onClick={() => setToolId(t.id)}
-              className={
-                'rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm ' +
-                (t.id === toolId
-                  ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-50'
-                  : 'rp-text-secondary hover:rp-text-primary')
-              }
-            >
-              {t.label}
-            </button>
-          ))}
+          {TOOL_CHOICES.filter((t) => !viewMode || isReadOnlyTool(t.id)).map(
+            (t) => (
+              <button
+                key={t.id}
+                type="button"
+                role="radio"
+                aria-checked={t.id === toolId}
+                onClick={() => setToolId(t.id)}
+                className={
+                  'rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm ' +
+                  (t.id === toolId
+                    ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-50'
+                    : 'rp-text-secondary hover:rp-text-primary')
+                }
+              >
+                {t.label}
+              </button>
+            ),
+          )}
         </div>
         <span className="rp-text-secondary hidden md:inline">
           {activeChoice?.hint}
