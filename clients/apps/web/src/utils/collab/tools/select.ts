@@ -19,7 +19,12 @@ import { collectBoundArrowPatches } from '../arrow-bindings'
 import { snapToGrid } from '../grid'
 import { expandToGroups } from '../groups'
 import { isLocked } from '../locks'
-import { bboxFromElement, snapToObjects, unionBbox } from '../snap-to-objects'
+import {
+  bboxFromElement,
+  snapToObjects,
+  unionBbox,
+  type SnapGuide,
+} from '../snap-to-objects'
 
 // Every element now has a rendered adapter, so marquee can include
 // all of them. Future unimplemented types (text/sticky/image/frame/
@@ -72,6 +77,10 @@ interface GestureState {
   resizeId?: string
   resizeAnchor?: ResizeAnchor
   resizeHandle?: HandleId
+  /** For moving: latest alignment guides emitted by snap-to-objects.
+   *  The interactive overlay reads them via ``currentSnapGuides()``;
+   *  empty array on no-snap. */
+  snapGuides?: SnapGuide[]
 }
 
 let state: GestureState | null = null
@@ -257,7 +266,12 @@ export const selectTool = {
           })
           dx = snapped.dx
           dy = snapped.dy
+          state.snapGuides = snapped.guides
+        } else {
+          state.snapGuides = []
         }
+      } else {
+        state.snapGuides = []
       }
       const patches: { id: string; patch: Record<string, unknown> }[] = []
       for (const [id, anchor] of state.moveAnchors) {
@@ -366,6 +380,14 @@ export function currentMarqueeRect(): {
 } | null {
   if (!state || state.kind !== 'marquee') return null
   return marqueeRect(state)
+}
+
+/** Latest alignment guides for an in-progress move gesture, or an empty
+ *  array when no snap is currently active. The alignment-guides overlay
+ *  reads this every paint to draw a faint line at each match. */
+export function currentSnapGuides(): readonly SnapGuide[] {
+  if (!state || state.kind !== 'moving' || !state.snapGuides) return []
+  return state.snapGuides
 }
 
 /** CSS cursor appropriate for the pointer's current screen location
