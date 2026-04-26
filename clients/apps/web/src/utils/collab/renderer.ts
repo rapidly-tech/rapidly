@@ -57,6 +57,11 @@ export interface RendererOptions {
   gridEnabled?: boolean
   /** World-units between grid lines. Default 20. */
   gridSize?: number
+  /** Snap dragged elements to other objects' edges + centres while
+   *  moving. Default ``true`` — Excalidraw-style alignment guides
+   *  feel like a baseline expectation; users who don't want them can
+   *  toggle from the palette. */
+  snapToObjectsEnabled?: boolean
 }
 
 interface CacheEntry {
@@ -76,6 +81,7 @@ export class Renderer {
   private viewport: Viewport
   private gridEnabled: boolean
   private gridSize: number
+  private snapToObjectsEnabled: boolean
   private readonly pathCache = new Map<string, CacheEntry>()
   private unobserve: (() => void) | null = null
   private rafHandle: number | null = null
@@ -96,6 +102,7 @@ export class Renderer {
     this.viewport = opts.viewport ?? makeViewport()
     this.gridEnabled = opts.gridEnabled ?? false
     this.gridSize = opts.gridSize ?? 20
+    this.snapToObjectsEnabled = opts.snapToObjectsEnabled ?? true
 
     const staticCtx = this.staticCanvas.getContext('2d')
     const interactiveCtx = this.interactiveCanvas.getContext('2d')
@@ -130,6 +137,15 @@ export class Renderer {
 
   getGridSize(): number {
     return this.gridSize
+  }
+
+  /** Toggle snap-to-objects (alignment guides). */
+  setSnapToObjectsEnabled(enabled: boolean): void {
+    this.snapToObjectsEnabled = enabled
+  }
+
+  isSnapToObjectsEnabled(): boolean {
+    return this.snapToObjectsEnabled
   }
 
   /** Current viewport — callers should treat it as read-only. */

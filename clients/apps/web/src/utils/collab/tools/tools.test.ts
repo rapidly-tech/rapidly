@@ -37,6 +37,7 @@ function stubCtx(store: ElementStore): ToolCtx {
     setViewport: () => {},
     isGridEnabled: () => false,
     getGridSize: () => 20,
+    isSnapToObjectsEnabled: () => false,
   } as unknown as ToolCtx['renderer']
   return {
     store,

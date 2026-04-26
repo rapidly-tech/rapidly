@@ -29,6 +29,7 @@ function stubCtx(
     invalidate: () => {},
     isGridEnabled: () => false,
     getGridSize: () => 20,
+    isSnapToObjectsEnabled: () => false,
   } as unknown as SelectToolCtx['renderer']
   return {
     store,
@@ -294,6 +295,40 @@ describe('selectTool', () => {
     expect(store.get(a)?.x).toBe(40)
     expect(store.get(a)?.y).toBe(40)
     selectTool.onPointerUp(ctx, event(59, 41))
+  })
+
+  it('snaps to a sibling element s edges when snap-to-objects is on', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const dragger = store.create({
+      type: 'rect',
+      x: 0,
+      y: 0,
+      width: 50,
+      height: 50,
+      roundness: 0,
+    })
+    // Sibling whose left edge is at x=100. Dragging dragger 99 px →
+    // its left would land at 99; snap should pull it to 100.
+    store.create({
+      type: 'rect',
+      x: 100,
+      y: 1000, // far on y so y-axis can't snap
+      width: 50,
+      height: 50,
+      roundness: 0,
+    })
+    const sel = new SelectionState()
+    sel.set([dragger])
+    const ctx = stubCtx(store, sel, dragger)
+    ;(
+      ctx.renderer as { isSnapToObjectsEnabled: () => boolean }
+    ).isSnapToObjectsEnabled = () => true
+
+    selectTool.onPointerDown(ctx, event(10, 10))
+    selectTool.onPointerMove(ctx, event(109, 11))
+    expect(store.get(dragger)?.x).toBe(100)
+    selectTool.onPointerUp(ctx, event(109, 11))
   })
 
   it('click on an unselected element replaces selection before drag-move', () => {
