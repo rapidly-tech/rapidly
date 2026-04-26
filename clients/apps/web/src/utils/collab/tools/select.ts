@@ -19,6 +19,7 @@ import { collectBoundArrowPatches } from '../arrow-bindings'
 import { snapToGrid } from '../grid'
 import { expandToGroups } from '../groups'
 import { isLocked } from '../locks'
+import { bboxFromElement, snapToObjects, unionBbox } from '../snap-to-objects'
 
 // Every element now has a rendered adapter, so marquee can include
 // all of them. Future unimplemented types (text/sticky/image/frame/
@@ -224,6 +225,39 @@ export const selectTool = {
         const g = ctx.renderer.getGridSize()
         dx = snapToGrid(dx, g)
         dy = snapToGrid(dy, g)
+      }
+      // Snap-to-objects refines the (possibly grid-snapped) delta by
+      // pulling toward nearby static elements' edges + centres. Skip
+      // when alt is held — Excalidraw's escape hatch for "I want this
+      // exactly where the cursor is".
+      if (ctx.renderer.isSnapToObjectsEnabled() && !e.altKey) {
+        const movingIds = new Set(state.moveAnchors.keys())
+        const draggedAtStart = unionBbox(
+          [...state.moveAnchors.entries()].map(([id, a]) => {
+            const live = ctx.store.get(id)
+            return {
+              x: a.x,
+              y: a.y,
+              width: live?.width ?? 0,
+              height: live?.height ?? 0,
+            }
+          }),
+        )
+        if (draggedAtStart) {
+          const staticBboxes = ctx.store
+            .list()
+            .filter((el) => !movingIds.has(el.id))
+            .map(bboxFromElement)
+          const snapped = snapToObjects({
+            draggedBbox: draggedAtStart,
+            dx,
+            dy,
+            staticBboxes,
+            scale: ctx.renderer.getViewport().scale,
+          })
+          dx = snapped.dx
+          dy = snapped.dy
+        }
       }
       const patches: { id: string; patch: Record<string, unknown> }[] = []
       for (const [id, anchor] of state.moveAnchors) {

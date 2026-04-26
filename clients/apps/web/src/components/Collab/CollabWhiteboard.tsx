@@ -1454,6 +1454,17 @@ export function CollabWhiteboard({
       },
     })
     list.push({
+      id: 'view.toggleSnapToObjects',
+      label: 'Toggle snap to objects',
+      category: 'View',
+      keywords: ['snap', 'objects', 'align', 'guides', 'alignment'],
+      run: () => {
+        const r = rendererRef.current
+        if (!r) return
+        r.setSnapToObjectsEnabled(!r.isSnapToObjectsEnabled())
+      },
+    })
+    list.push({
       id: 'view.zoomToFit',
       label: 'Zoom to fit',
       category: 'View',
