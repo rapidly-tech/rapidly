@@ -13,6 +13,7 @@
  * centre outward.
  */
 
+import { snapPoint } from '../grid'
 import type { Tool, ToolCtx } from './types'
 
 const MIN_DIMENSION = 4
@@ -71,7 +72,11 @@ export const rectTool: Tool = {
 
 function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
   const rect = (e.target as HTMLElement).getBoundingClientRect()
-  return ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
+  const world = ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
+  if (ctx.renderer.isGridEnabled()) {
+    return snapPoint(world.x, world.y, ctx.renderer.getGridSize())
+  }
+  return world
 }
 
 function computePatch(

@@ -32,6 +32,7 @@ import type * as Y from 'yjs'
 
 import type { ElementStore } from './element-store'
 import type { CollabElement } from './elements'
+import { drawGrid } from './grid'
 import { adapterFor } from './shapes'
 import {
   applyViewportTransform,
@@ -50,6 +51,12 @@ export interface RendererOptions {
   background?: string
   /** Device pixel ratio. Provided for tests that want determinism. */
   dpr?: number
+  /** Render a dotted grid overlay underneath every element. Default
+   *  ``false`` — visible only when the user toggles via the command
+   *  palette. */
+  gridEnabled?: boolean
+  /** World-units between grid lines. Default 20. */
+  gridSize?: number
 }
 
 interface CacheEntry {
@@ -67,6 +74,8 @@ export class Renderer {
   private readonly dpr: number
 
   private viewport: Viewport
+  private gridEnabled: boolean
+  private gridSize: number
   private readonly pathCache = new Map<string, CacheEntry>()
   private unobserve: (() => void) | null = null
   private rafHandle: number | null = null
@@ -85,6 +94,8 @@ export class Renderer {
       opts.dpr ??
       (typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1)
     this.viewport = opts.viewport ?? makeViewport()
+    this.gridEnabled = opts.gridEnabled ?? false
+    this.gridSize = opts.gridSize ?? 20
 
     const staticCtx = this.staticCanvas.getContext('2d')
     const interactiveCtx = this.interactiveCanvas.getContext('2d')
@@ -104,6 +115,21 @@ export class Renderer {
   setViewport(vp: Viewport): void {
     this.viewport = vp
     this.scheduleRepaint()
+  }
+
+  /** Toggle the dotted grid overlay. */
+  setGridEnabled(enabled: boolean): void {
+    if (this.gridEnabled === enabled) return
+    this.gridEnabled = enabled
+    this.scheduleRepaint()
+  }
+
+  isGridEnabled(): boolean {
+    return this.gridEnabled
+  }
+
+  getGridSize(): number {
+    return this.gridSize
   }
 
   /** Current viewport — callers should treat it as read-only. */
@@ -238,6 +264,9 @@ export class Renderer {
     }
     // dpr scale; then viewport transform.
     ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+    if (this.gridEnabled) {
+      drawGrid(ctx, this.viewport, rect.width, rect.height, this.gridSize)
+    }
     applyViewportTransform(ctx, this.viewport)
     // Re-apply dpr on top of the viewport transform.
     const vp = this.viewport

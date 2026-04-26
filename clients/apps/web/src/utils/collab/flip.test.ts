@@ -29,7 +29,14 @@ describe('flipHorizontal', () => {
   })
 
   it('mirrors a single element in place across its own centre', () => {
-    store.create({ id: 'r', type: 'rect', x: 100, y: 50, width: 40, height: 20 })
+    store.create({
+      id: 'r',
+      type: 'rect',
+      x: 100,
+      y: 50,
+      width: 40,
+      height: 20,
+    })
     flipHorizontal(store, new Set(['r']))
     const after = store.get('r')!
     // Centre at (120, 60); flip across centre → element keeps position.

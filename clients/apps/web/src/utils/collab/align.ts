@@ -109,7 +109,9 @@ export function align(
       // Only emit the update if the value actually changes (avoids
       // bumping ``version`` for already-aligned elements).
       const current =
-        axis === 'top' || axis === 'bottom' || axis === 'centreY' ? b.minY : b.minX
+        axis === 'top' || axis === 'bottom' || axis === 'centreY'
+          ? b.minY
+          : b.minX
       const next =
         axis === 'top' || axis === 'bottom' || axis === 'centreY'
           ? patch.y

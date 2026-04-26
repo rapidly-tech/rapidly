@@ -30,7 +30,14 @@ describe('align', () => {
   it('aligns left edges to the leftmost element', () => {
     store.create({ id: 'a', type: 'rect', x: 100, y: 0, width: 50, height: 20 })
     store.create({ id: 'b', type: 'rect', x: 30, y: 50, width: 40, height: 20 })
-    store.create({ id: 'c', type: 'rect', x: 200, y: 100, width: 30, height: 20 })
+    store.create({
+      id: 'c',
+      type: 'rect',
+      x: 200,
+      y: 100,
+      width: 30,
+      height: 20,
+    })
     align(store, new Set(['a', 'b', 'c']), 'left')
     expect(store.get('a')!.x).toBe(30)
     expect(store.get('b')!.x).toBe(30)
@@ -106,7 +113,14 @@ describe('align', () => {
     const doc = new Y.Doc()
     const store2 = createElementStore(doc)
     store2.create({ id: 'a', type: 'rect', x: 0, y: 0, width: 20, height: 20 })
-    store2.create({ id: 'b', type: 'rect', x: 100, y: 0, width: 20, height: 20 })
+    store2.create({
+      id: 'b',
+      type: 'rect',
+      x: 100,
+      y: 0,
+      width: 20,
+      height: 20,
+    })
     let txCount = 0
     doc.on('afterTransaction', () => {
       txCount++

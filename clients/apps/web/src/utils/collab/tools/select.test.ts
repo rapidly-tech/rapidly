@@ -27,6 +27,8 @@ function stubCtx(
     hitTest: () => hitTarget,
     screenToWorld: (x: number, y: number) => ({ x, y }),
     invalidate: () => {},
+    isGridEnabled: () => false,
+    getGridSize: () => 20,
   } as unknown as SelectToolCtx['renderer']
   return {
     store,
@@ -267,6 +269,31 @@ describe('selectTool', () => {
     // Back at the anchor.
     expect(store.get(a)?.x).toBe(10)
     expect(store.get(a)?.y).toBe(20)
+  })
+
+  it('snaps drag deltas to the grid when the renderer reports it enabled', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const a = store.create({
+      type: 'rect',
+      x: 0,
+      y: 0,
+      width: 50,
+      height: 50,
+      roundness: 0,
+    })
+    const sel = new SelectionState()
+    sel.set([a])
+    const ctx = stubCtx(store, sel, a)
+    ;(ctx.renderer as { isGridEnabled: () => boolean }).isGridEnabled = () =>
+      true
+
+    selectTool.onPointerDown(ctx, event(10, 10))
+    // Drag delta (49, 31) → snaps to (40, 40) at gridSize 20.
+    selectTool.onPointerMove(ctx, event(59, 41))
+    expect(store.get(a)?.x).toBe(40)
+    expect(store.get(a)?.y).toBe(40)
+    selectTool.onPointerUp(ctx, event(59, 41))
   })
 
   it('click on an unselected element replaces selection before drag-move', () => {

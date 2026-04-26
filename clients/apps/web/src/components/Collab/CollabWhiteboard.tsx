@@ -11,6 +11,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Y from 'yjs'
 
+import { align, distribute } from '@/utils/collab/align'
 import {
   copy as clipboardCopy,
   cut as clipboardCut,
@@ -24,10 +25,8 @@ import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
-import { align, distribute } from '@/utils/collab/align'
 import { downloadBlob, exportToJSON, exportToPNG } from '@/utils/collab/export'
 import { flipHorizontal, flipVertical } from '@/utils/collab/flip'
-import { zoomToFit, zoomToSelection } from '@/utils/collab/zoom-to-fit'
 import {
   createFollowMeController,
   type FollowMeController,
@@ -95,6 +94,7 @@ import {
   sendBackward,
   sendToBack,
 } from '@/utils/collab/z-order'
+import { zoomToFit, zoomToSelection } from '@/utils/collab/zoom-to-fit'
 
 import { CommandPalette } from './Whiteboard/CommandPalette'
 import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
@@ -1387,6 +1387,17 @@ export function CollabWhiteboard({
       category: 'Help',
       shortcut: ['?'],
       run: () => setShortcutsOpen(true),
+    })
+    list.push({
+      id: 'view.toggleGrid',
+      label: 'Toggle grid',
+      category: 'View',
+      keywords: ['grid', 'snap', 'guides', 'show', 'hide'],
+      run: () => {
+        const r = rendererRef.current
+        if (!r) return
+        r.setGridEnabled(!r.isGridEnabled())
+      },
     })
     list.push({
       id: 'view.zoomToFit',
