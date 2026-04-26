@@ -150,6 +150,11 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
     label: 'Sticky',
     hint: 'Click to add a sticky note; Enter commits',
   },
+  {
+    id: 'eraser',
+    label: 'Eraser',
+    hint: 'Drag over elements to delete them; release to commit',
+  },
 ]
 
 interface CollabWhiteboardProps {
