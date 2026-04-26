@@ -1243,6 +1243,36 @@ export function CollabWhiteboard({
         const isRedo = e.key === 'y' || e.key === 'Y' || e.shiftKey
         if (isRedo) undo.redo()
         else undo.undo()
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
+        // Cmd/Ctrl+A → select every (unlocked) element. Shift+Cmd+A
+        // clears selection — matches Excalidraw + Figma. Skipped when
+        // typing into a form input so the native browser select-all
+        // still works there.
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store) return
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        if (e.shiftKey) {
+          selection.clear()
+        } else {
+          // Locked elements are skipped — selecting them would invite
+          // accidental Delete / drag attempts the lock then has to
+          // refuse silently. Excalidraw matches.
+          const ids = filterUnlocked(
+            store,
+            new Set(store.list().map((el) => el.id)),
+          )
+          selection.set(ids)
+        }
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'g' || e.key === 'G')) {
         // Cmd/Ctrl+G → group. Cmd/Ctrl+Shift+G → ungroup.
         // Swallow the browser default (View > Find Next on some
@@ -1353,6 +1383,32 @@ export function CollabWhiteboard({
       shortcut: ['Mod', 'Shift', 'Z'],
       run: () => {
         undoRef.current?.redo()
+      },
+    })
+    list.push({
+      id: 'edit.selectAll',
+      label: 'Select all',
+      category: 'Edit',
+      shortcut: ['Mod', 'A'],
+      keywords: ['select', 'all', 'everything'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const ids = filterUnlocked(
+          store,
+          new Set(store.list().map((el) => el.id)),
+        )
+        selectionRef.current.set(ids)
+      },
+    })
+    list.push({
+      id: 'edit.clearSelection',
+      label: 'Clear selection',
+      category: 'Edit',
+      shortcut: ['Mod', 'Shift', 'A'],
+      keywords: ['deselect', 'clear', 'none'],
+      run: () => {
+        selectionRef.current.clear()
       },
     })
     list.push({
