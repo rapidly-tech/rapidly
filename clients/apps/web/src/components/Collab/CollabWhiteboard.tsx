@@ -12,6 +12,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import * as Y from 'yjs'
 
 import { align, distribute } from '@/utils/collab/align'
+import { makeAlignmentGuidesOverlay } from '@/utils/collab/alignment-guides-overlay'
 import {
   copy as clipboardCopy,
   cut as clipboardCut,
@@ -88,6 +89,7 @@ import { onEditRequest } from '@/utils/collab/text-editing'
 import { toolIdForKey } from '@/utils/collab/tool-keys'
 import {
   currentMarqueeRect,
+  currentSnapGuides,
   hoverCursor,
   toolFor,
   type SelectToolCtx,
@@ -448,6 +450,10 @@ export function CollabWhiteboard({
       source: effectiveSource,
       getViewport: () => r.getViewport(),
     })
+    const alignmentGuidesPaint = makeAlignmentGuidesOverlay({
+      getGuides: () => currentSnapGuides(),
+      getViewport: () => r.getViewport(),
+    })
     // Self-laser paint pass for chamber mode: the external source's
     // ``getRemotes`` excludes the local client, so without this the
     // user can't see their own laser trail even while peers do. On
@@ -497,6 +503,7 @@ export function CollabWhiteboard({
       // everything.
       remoteSelectionPaint(ctx)
       selectionPaint(ctx)
+      alignmentGuidesPaint(ctx)
       laserPaint(ctx)
       selfLaserPaint(ctx)
       cursorPaint(ctx)

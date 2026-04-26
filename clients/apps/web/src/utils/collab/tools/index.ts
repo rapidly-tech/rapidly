@@ -38,7 +38,7 @@ export function toolFor(id: ToolId): Tool | null {
   return TOOLS[id] ?? null
 }
 
-export { currentMarqueeRect, hoverCursor } from './select'
+export { currentMarqueeRect, currentSnapGuides, hoverCursor } from './select'
 export type { SelectToolCtx } from './select'
 export type { Tool, ToolCtx, ToolId } from './types'
 export {
