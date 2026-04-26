@@ -1,0 +1,54 @@
+# Rapidly — Lint and validate Terraform configuration on pushes to main and on pull requests.
+
+name: Terraform
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform.yaml"
+  pull_request:
+    types: [opened, synchronize]
+    paths:
+      - "terraform/**"
+      - ".github/workflows/terraform.yaml"
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: "Terraform: Lint"
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@5e8dbf3c6d9deaf4193ca7a8fb23f2ac83bb6c85 # v4
+
+      # Verify all .tf files are canonically formatted
+      - name: Check formatting
+        working-directory: ./terraform
+        run: terraform fmt -check -recursive -diff
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@b480b8fcdaa6f2c577f8e4fa799e89e756bb7c93 # v6
+        with:
+          tflint_version: latest
+          cache: true
+
+      - name: Cache TFLint plugins
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5
+        with:
+          path: ~/.tflint.d/plugins
+          key: tflint-plugins-${{ hashFiles('terraform/.tflint.hcl') }}
+
+      - name: Initialize TFLint plugins
+        working-directory: ./terraform
+        run: tflint --init
+
+      - name: Run TFLint
+        working-directory: ./terraform
+        run: tflint --recursive --format=compact

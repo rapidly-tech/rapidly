@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+#
+# Run the Collab two-browser Playwright suite against a local backend.
+#
+# Prerequisites
+#   - ``docker compose up -d`` in server/ (postgres, redis, minio)
+#   - Backend env has ``RAPIDLY_FILE_SHARING_COLLAB_ENABLED=true``
+#   - ``uv run task api`` running in another terminal on :8000
+#
+# The script sets the feature flag on the frontend, boots the Next.js
+# dev server through Playwright's ``webServer`` config, and runs the
+# e2e suite gated by ``E2E_COLLAB_BACKEND=1``.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT/clients/apps/web"
+
+# Verify the backend is up before we spend 2 minutes booting Playwright.
+if ! curl -sf --max-time 3 http://127.0.0.1:8000/healthz >/dev/null 2>&1; then
+  echo "Backend not reachable at http://127.0.0.1:8000 — start it with:" >&2
+  echo "  cd server && uv run task api" >&2
+  exit 1
+fi
+
+# Confirm the feature flag is actually on. POSTing an empty body is a
+# valid probe — a 422 proves the route exists; a 404 proves the flag
+# is off.
+probe=$(curl -s -o /dev/null -w "%{http_code}" -X POST \
+  -H 'Content-Type: application/json' -d '{}' \
+  http://127.0.0.1:8000/api/v1/collab/session || true)
+if [[ "$probe" == "404" ]]; then
+  echo "FILE_SHARING_COLLAB_ENABLED=false on the backend. Enable and restart." >&2
+  exit 1
+fi
+
+export E2E_COLLAB_BACKEND=1
+export NEXT_PUBLIC_COLLAB_E2EE=true
+
+exec pnpm test:e2e -- e2e/collab.spec.ts "$@"

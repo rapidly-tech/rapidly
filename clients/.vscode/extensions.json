@@ -1,0 +1,8 @@
+{
+  "_description": "Rapidly frontend — recommended VS Code extensions for TypeScript / React development.",
+  "recommendations": [
+    "esbenp.prettier-vscode",
+    "bradlc.vscode-tailwindcss",
+    "EditorConfig.EditorConfig"
+  ]
+}

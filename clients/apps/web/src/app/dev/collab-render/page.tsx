@@ -1,0 +1,17 @@
+import type { Metadata } from 'next'
+
+import { CollabWhiteboard } from '@/components/Collab/CollabWhiteboard'
+
+/** Internal demo page for the Collab v2 whiteboard. Mounts the real
+ *  production component with no external props — its internal
+ *  ``ElementStore`` + in-memory presence stub stand in for the chamber
+ *  wiring. Used for visual regression + manual tool exercise. */
+
+export const metadata: Metadata = {
+  title: 'Collab whiteboard demo — Rapidly (internal)',
+  robots: { index: false, follow: false },
+}
+
+export default function CollabWhiteboardDemoPage() {
+  return <CollabWhiteboard />
+}

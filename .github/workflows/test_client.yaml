@@ -1,0 +1,82 @@
+# Rapidly CI — Client-side linting, type-checking, unit tests, and production build
+name: Client
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    types: [opened, synchronize]
+
+defaults:
+  run:
+    working-directory: ./clients
+
+permissions:
+  contents: read
+
+jobs:
+  # Only run client jobs when files under clients/ actually changed
+  changes:
+    name: "Detect changes"
+    runs-on: ubuntu-latest
+    outputs:
+      clients: ${{ steps.filter.outputs.clients }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+        id: filter
+        with:
+          filters: |
+            clients:
+              - 'clients/**'
+              - '.github/workflows/test_client.yaml'
+
+  build:
+    name: "Client: Tests 🎨"
+    needs: changes
+    if: needs.changes.outputs.clients == 'true'
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    concurrency:
+      group: test-client-${{ github.event.pull_request.number || github.sha }}
+      cancel-in-progress: true
+
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      VERCEL_ENV: "testing"
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          package_json_file: clients/package.json
+
+      - name: Setup Node.js environment
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version-file: clients/.node-version
+          cache: "pnpm"
+          cache-dependency-path: "clients/pnpm-lock.yaml"
+
+      - name: 📦 Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: 💅Lint
+        run: pnpm run lint
+
+      - name: 👀 Typecheck
+        run: pnpm run typecheck
+
+      # Run unit tests for each package independently
+      - name: "🧪 Test: App"
+        run: pnpm --filter @rapidly-tech/app test
+
+      - name: "🧪 Test: @rapidly-tech/customer-portal"
+        run: pnpm --filter @rapidly-tech/customer-portal test
+
+      # Verify the production build succeeds (catches build-time errors)
+      - name: 🛠️ Build
+        run: pnpm build
