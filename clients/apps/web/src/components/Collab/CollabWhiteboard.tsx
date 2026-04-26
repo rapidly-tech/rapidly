@@ -25,6 +25,7 @@ import {
   type ElementStore,
 } from '@/utils/collab/element-store'
 import { downloadBlob, exportToJSON, exportToPNG } from '@/utils/collab/export'
+import { flipHorizontal, flipVertical } from '@/utils/collab/flip'
 import {
   createFollowMeController,
   type FollowMeController,
@@ -1270,6 +1271,28 @@ export function CollabWhiteboard({
       shortcut: ['Mod', 'Shift', 'Z'],
       run: () => {
         undoRef.current?.redo()
+      },
+    })
+    list.push({
+      id: 'edit.flipHorizontal',
+      label: 'Flip horizontal',
+      category: 'Edit',
+      keywords: ['mirror', 'flip', 'horizontal', 'reflect'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        flipHorizontal(store, selectionRef.current.snapshot)
+      },
+    })
+    list.push({
+      id: 'edit.flipVertical',
+      label: 'Flip vertical',
+      category: 'Edit',
+      keywords: ['mirror', 'flip', 'vertical', 'reflect'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        flipVertical(store, selectionRef.current.snapshot)
       },
     })
     // Import.
