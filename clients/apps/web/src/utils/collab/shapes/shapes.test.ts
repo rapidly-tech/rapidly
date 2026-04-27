@@ -69,10 +69,11 @@ describe('shape adapters', () => {
     expect(adapterFor(baseEllipse())).not.toBeNull()
   })
 
-  it('adapterFor returns null for unimplemented element types', () => {
-    // Frame ships in this PR; embed is still pending.
+  it('adapterFor resolves an adapter for every concrete element type', () => {
+    // Frame + embed both ship now; the registry should have full
+    // coverage of the discriminated union.
     expect(adapterFor({ ...baseRect(), type: 'frame' } as never)).not.toBeNull()
-    expect(adapterFor({ ...baseRect(), type: 'embed' } as never)).toBeNull()
+    expect(adapterFor({ ...baseRect(), type: 'embed' } as never)).not.toBeNull()
   })
 
   it('rectPath produces a Path2D that can be hit-tested', () => {
