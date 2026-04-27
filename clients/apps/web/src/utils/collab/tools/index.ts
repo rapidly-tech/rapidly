@@ -11,6 +11,7 @@ import { arrowTool } from './arrow'
 import { diamondTool } from './diamond'
 import { ellipseTool } from './ellipse'
 import { eraserTool } from './eraser'
+import { frameTool } from './frame'
 import { freedrawTool } from './freedraw'
 import { handTool } from './hand'
 import { lineTool } from './line'
@@ -32,6 +33,7 @@ const TOOLS: Partial<Record<ToolId, Tool>> = {
   text: textTool,
   sticky: stickyTool,
   eraser: eraserTool,
+  frame: frameTool,
 }
 
 export function toolFor(id: ToolId): Tool | null {
@@ -46,6 +48,7 @@ export {
   diamondTool,
   ellipseTool,
   eraserTool,
+  frameTool,
   freedrawTool,
   handTool,
   lineTool,

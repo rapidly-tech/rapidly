@@ -70,8 +70,8 @@ describe('shape adapters', () => {
   })
 
   it('adapterFor returns null for unimplemented element types', () => {
-    // Frame / embed aren't wired yet — every other type is.
-    expect(adapterFor({ ...baseRect(), type: 'frame' } as never)).toBeNull()
+    // Frame ships in this PR; embed is still pending.
+    expect(adapterFor({ ...baseRect(), type: 'frame' } as never)).not.toBeNull()
     expect(adapterFor({ ...baseRect(), type: 'embed' } as never)).toBeNull()
   })
 
