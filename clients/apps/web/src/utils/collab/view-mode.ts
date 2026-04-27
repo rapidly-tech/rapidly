@@ -21,6 +21,48 @@
 
 import type { ToolId } from './tools/types'
 
+/** URL query parameter that toggles view-mode at mount time. The
+ *  guest + host clients read it via ``isViewModeUrl`` so a recipient
+ *  who pastes a ``?view=1`` link always lands in read-only mode. */
+export const VIEW_MODE_URL_PARAM = 'view'
+
+/** Parse a query string (or full URL) and decide whether view-mode
+ *  should be on. Truthy values: ``1``, ``true``, ``yes``, ``on``.
+ *  Anything else (or a missing param) returns false. */
+export function isViewModeUrl(searchOrUrl: string): boolean {
+  if (!searchOrUrl) return false
+  // Strip any fragment first so a #key=... after a query string doesn't
+  // get glued onto the last param value.
+  const hashIdx = searchOrUrl.indexOf('#')
+  const noFragment = hashIdx >= 0 ? searchOrUrl.slice(0, hashIdx) : searchOrUrl
+  const search = noFragment.includes('?')
+    ? noFragment.slice(noFragment.indexOf('?'))
+    : noFragment
+  const params = new URLSearchParams(
+    search.startsWith('?') ? search.slice(1) : search,
+  )
+  const raw = params.get(VIEW_MODE_URL_PARAM)
+  if (raw === null) return false
+  const value = raw.trim().toLowerCase()
+  return value === '1' || value === 'true' || value === 'yes' || value === 'on'
+}
+
+/** Append ``?view=1`` to a URL so the recipient lands in read-only
+ *  mode. Preserves any existing query params; replaces the value when
+ *  the key is already present. Pure — no DOM. */
+export function withViewModeUrl(url: string): string {
+  // Split off the fragment (E2EE invite keys) so we don't disturb it.
+  const hashIdx = url.indexOf('#')
+  const head = hashIdx >= 0 ? url.slice(0, hashIdx) : url
+  const tail = hashIdx >= 0 ? url.slice(hashIdx) : ''
+  const qIdx = head.indexOf('?')
+  const base = qIdx >= 0 ? head.slice(0, qIdx) : head
+  const search = qIdx >= 0 ? head.slice(qIdx + 1) : ''
+  const params = new URLSearchParams(search)
+  params.set(VIEW_MODE_URL_PARAM, '1')
+  return `${base}?${params.toString()}${tail}`
+}
+
 /** Subset of KeyboardEvent the predicate consults. The full event isn't
  *  passed so callers (and tests) can use a plain object literal. */
 export interface ShortcutEventLike {

@@ -110,6 +110,7 @@ import {
   isReadOnlyPaletteCommand,
   isReadOnlyTool,
   isViewModeShortcutAllowed,
+  withViewModeUrl,
 } from '@/utils/collab/view-mode'
 import { makeViewport, zoomAt, type Viewport } from '@/utils/collab/viewport'
 import { animateViewport } from '@/utils/collab/viewport-transitions'
@@ -1773,6 +1774,25 @@ export function CollabWhiteboard({
         const r = rendererRef.current
         if (!r) return
         r.setGridEnabled(!r.isGridEnabled())
+      },
+    })
+    list.push({
+      id: 'view.copyViewOnlyLink',
+      label: 'Copy view-only link',
+      category: 'View',
+      keywords: ['share', 'view', 'read-only', 'link', 'copy'],
+      run: async () => {
+        if (typeof window === 'undefined') return
+        const url = withViewModeUrl(window.location.href)
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(url)
+          } else {
+            window.prompt('Copy this view-only link:', url)
+          }
+        } catch {
+          window.prompt('Copy this view-only link:', url)
+        }
       },
     })
     list.push({

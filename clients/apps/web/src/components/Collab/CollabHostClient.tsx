@@ -21,6 +21,7 @@ import {
   type CollabFragmentKeys,
 } from '@/utils/collab/invite-fragment'
 import { stableColor } from '@/utils/collab/presence'
+import { isViewModeUrl } from '@/utils/collab/view-mode'
 
 import { useDisplayName } from './useDisplayName'
 
@@ -33,6 +34,15 @@ const E2EE_ENABLED = process.env.NEXT_PUBLIC_COLLAB_E2EE !== 'false'
 
 export function CollabHostClient() {
   const [kind, setKind] = useState<CollabKind>('text')
+  // Same view-mode URL gate as the guest client. The host is unlikely
+  // to load their own session in view mode, but we honour the param
+  // for parity so a host who pastes a ``?view=1`` link in a second
+  // tab gets the read-only experience as expected.
+  const [viewMode, setViewMode] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setViewMode(isViewModeUrl(window.location.search))
+  }, [])
   const [fragmentKeys, setFragmentKeys] = useState<CollabFragmentKeys | null>(
     null,
   )
@@ -161,6 +171,7 @@ export function CollabHostClient() {
               name: broadcastName,
               color: stableColor(room.clientID),
             }}
+            viewMode={viewMode}
           />
         ) : (
           <CollabEditor doc={room.doc} />
