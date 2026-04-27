@@ -69,7 +69,7 @@ dependencies = [
   "taskipy>=1.10.3",
   "tagflow>=0.7.0",
   # ── Scheduling ──────────────────────────────────────────────
-  "apscheduler>=3.10.4",
+  "apscheduler>=3.11.2",
   "aiosmtplib>=5.1.0",
 ]
 
