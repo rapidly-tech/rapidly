@@ -10,9 +10,9 @@
  * - Drag empty space → marquee. Every element whose AABB intersects
  *   the marquee is added on pointer-up. Shift during marquee appends
  *   to the existing selection; no shift replaces.
- *
- * Not-in-this-phase: resize handles, rotation handle. Those land in
- * Phase 4b.
+ * - **Drag a resize handle → resize the element** (Phase 4b).
+ * - **Drag the rotation handle → rotate around centre** (Phase 4b).
+ *   Shift snaps the angle to 15° increments.
  */
 
 import { collectBoundArrowPatches } from '../arrow-bindings'
@@ -41,6 +41,7 @@ import {
   type HandleId,
   type ResizeAnchor,
 } from '../resize'
+import { angleFromCentre, hitRotationHandle, nextAngle } from '../rotation'
 import type { SelectionState } from '../selection'
 import type { Tool, ToolCtx } from './types'
 
@@ -56,7 +57,7 @@ export interface SelectToolCtx extends ToolCtx {
   getHitRadiusPx?: () => number
 }
 
-type GestureKind = 'click' | 'marquee' | 'moving' | 'resizing'
+type GestureKind = 'click' | 'marquee' | 'moving' | 'resizing' | 'rotating'
 
 interface GestureState {
   kind: GestureKind
@@ -84,6 +85,13 @@ interface GestureState {
   resizeId?: string
   resizeAnchor?: ResizeAnchor
   resizeHandle?: HandleId
+  /** For rotating: the element id + the pointer angle at gesture
+   *  start + the element's angle at gesture start. The current
+   *  pointer angle subtracts the initial to derive the delta we add
+   *  to ``initialAngle``. Only set when ``kind === 'rotating'``. */
+  rotateId?: string
+  rotateInitialPointerAngle?: number
+  rotateInitialAngle?: number
   /** For moving: latest alignment guides emitted by snap-to-objects.
    *  The interactive overlay reads them via ``currentSnapGuides()``;
    *  empty array on no-snap. */
@@ -104,11 +112,12 @@ export const selectTool = {
     const sctx = ctx as SelectToolCtx
     const { x, y } = worldPoint(ctx, e)
 
-    // Check resize handles first — handles sit on top of their element
-    // and the user expects clicking one to start a resize, even when
-    // the pointer technically lands outside the element's bounds
-    // (the handle juts out slightly). Locked elements never start a
-    // resize gesture — the user has to unlock first.
+    // Check resize + rotation handles first — handles sit on top of
+    // their element and the user expects clicking one to start that
+    // gesture, even when the pointer technically lands outside the
+    // element's bounds (the handles juts out slightly). Locked
+    // elements never start either gesture — the user has to unlock
+    // first.
     if (sctx.selection.size === 1) {
       const [id] = sctx.selection.snapshot
       const el = ctx.store.get(id)
@@ -116,13 +125,31 @@ export const selectTool = {
         const rect = (e.target as HTMLElement).getBoundingClientRect()
         const screenX = e.clientX - rect.left
         const screenY = e.clientY - rect.top
-        const handle = hitHandle(
-          el,
-          ctx.renderer.getViewport(),
-          screenX,
-          screenY,
-          sctx.getHitRadiusPx?.(),
-        )
+        const radius = sctx.getHitRadiusPx?.()
+        const vp = ctx.renderer.getViewport()
+        // Rotation handle wins over the resize-n handle if the user
+        // genuinely targets the upper bobble. Tested first because
+        // the rotation handle is geometrically above the n handle.
+        if (hitRotationHandle(el, vp, screenX, screenY, radius)) {
+          const cx = el.x + el.width / 2
+          const cy = el.y + el.height / 2
+          const initialPointerAngle = angleFromCentre(cx, cy, x, y)
+          state = {
+            kind: 'rotating',
+            shift: e.shiftKey,
+            altOnDown: e.altKey,
+            startWorldX: x,
+            startWorldY: y,
+            curX: x,
+            curY: y,
+            baseIds: new Set(sctx.selection.snapshot),
+            rotateId: id,
+            rotateInitialPointerAngle: initialPointerAngle,
+            rotateInitialAngle: el.angle,
+          }
+          return
+        }
+        const handle = hitHandle(el, vp, screenX, screenY, radius)
         if (handle) {
           state = {
             kind: 'resizing',
@@ -315,6 +342,32 @@ export const selectTool = {
     }
 
     if (
+      state.kind === 'rotating' &&
+      state.rotateId &&
+      state.rotateInitialPointerAngle !== undefined &&
+      state.rotateInitialAngle !== undefined
+    ) {
+      const el = ctx.store.get(state.rotateId)
+      if (el) {
+        const cx = el.x + el.width / 2
+        const cy = el.y + el.height / 2
+        const currentPointerAngle = angleFromCentre(cx, cy, x, y)
+        const angle = nextAngle(
+          state.rotateInitialPointerAngle,
+          currentPointerAngle,
+          state.rotateInitialAngle,
+          e.shiftKey,
+        )
+        ctx.store.update(state.rotateId, { angle })
+        // Bound arrows on a rotated container don't reposition — the
+        // existing binding math runs against the AABB-centre and
+        // rotation doesn't change it. Skip the patch pass.
+      }
+      sctx.invalidate()
+      return
+    }
+
+    if (
       state.kind === 'resizing' &&
       state.resizeId &&
       state.resizeAnchor &&
@@ -413,6 +466,13 @@ export const selectTool = {
         width: a.width,
         height: a.height,
       })
+    }
+    if (
+      state?.kind === 'rotating' &&
+      state.rotateId &&
+      state.rotateInitialAngle !== undefined
+    ) {
+      ctx.store.update(state.rotateId, { angle: state.rotateInitialAngle })
     }
     state = null
     sctx.invalidate()
