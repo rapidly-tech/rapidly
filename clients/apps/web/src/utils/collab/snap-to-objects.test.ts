@@ -14,6 +14,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_SNAP_THRESHOLD_PX,
+  snapPointToObjects,
   snapToObjects,
   unionBbox,
 } from './snap-to-objects'
@@ -177,6 +178,77 @@ describe('snapToObjects', () => {
   it('exports a sensible default threshold', () => {
     expect(DEFAULT_SNAP_THRESHOLD_PX).toBeGreaterThanOrEqual(3)
     expect(DEFAULT_SNAP_THRESHOLD_PX).toBeLessThanOrEqual(10)
+  })
+})
+
+describe('snapPointToObjects', () => {
+  it('snaps to a static element s left edge', () => {
+    const result = snapPointToObjects(
+      { x: 99, y: 1000 },
+      [{ x: 100, y: 0, width: 50, height: 50 }],
+      1,
+    )
+    expect(result.x).toBe(100)
+    expect(result.y).toBe(1000) // y far away → no y snap
+    expect(result.guides[0]?.axis).toBe('x')
+  })
+
+  it('snaps to a centre line when closer than the edge', () => {
+    // Static at x=200, w=50 → edges 200 + 250, centre 225.
+    // Point at x=224 → centre wins (1) over left edge (24).
+    const result = snapPointToObjects(
+      { x: 224, y: 0 },
+      [{ x: 200, y: 0, width: 50, height: 50 }],
+      1,
+    )
+    expect(result.x).toBe(225)
+  })
+
+  it('snaps x and y independently in one call', () => {
+    const result = snapPointToObjects(
+      { x: 99, y: 199 },
+      [{ x: 100, y: 200, width: 30, height: 30 }],
+      1,
+    )
+    expect(result.x).toBe(100)
+    expect(result.y).toBe(200)
+    expect(result.guides).toHaveLength(2)
+  })
+
+  it('respects the screen threshold across zoom', () => {
+    // scale 0.5 ⇒ 5 screen-px = 10 world. 9-unit gap snaps; 11 doesn t.
+    const within = snapPointToObjects(
+      { x: 91, y: 1000 },
+      [{ x: 100, y: 0, width: 50, height: 50 }],
+      0.5,
+    )
+    expect(within.x).toBe(100)
+    const outside = snapPointToObjects(
+      { x: 89, y: 1000 },
+      [{ x: 100, y: 0, width: 50, height: 50 }],
+      0.5,
+    )
+    expect(outside.x).toBe(89)
+    expect(outside.guides).toHaveLength(0)
+  })
+
+  it('is a no-op for an empty static set', () => {
+    expect(snapPointToObjects({ x: 7, y: 11 }, [], 1)).toEqual({
+      x: 7,
+      y: 11,
+      guides: [],
+    })
+  })
+
+  it('uses a custom threshold when provided', () => {
+    // 1-px threshold at scale 1: gap of 4 → no snap.
+    const result = snapPointToObjects(
+      { x: 96, y: 1000 },
+      [{ x: 100, y: 0, width: 50, height: 50 }],
+      1,
+      1,
+    )
+    expect(result.x).toBe(96)
   })
 })
 

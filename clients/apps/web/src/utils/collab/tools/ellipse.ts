@@ -8,6 +8,7 @@
  */
 
 import { snapPoint } from '../grid'
+import { bboxFromElement, snapPointToObjects } from '../snap-to-objects'
 import type { Tool, ToolCtx } from './types'
 
 const MIN_DIMENSION = 4
@@ -62,9 +63,24 @@ export const ellipseTool: Tool = {
 
 function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
   const rect = (e.target as HTMLElement).getBoundingClientRect()
-  const world = ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
+  let world = ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
   if (ctx.renderer.isGridEnabled()) {
-    return snapPoint(world.x, world.y, ctx.renderer.getGridSize())
+    world = snapPoint(world.x, world.y, ctx.renderer.getGridSize())
+  }
+  if (ctx.renderer.isSnapToObjectsEnabled() && !e.altKey) {
+    const drawingId = state?.id
+    const statics = ctx.store
+      .list()
+      .filter((el) => el.id !== drawingId)
+      .map(bboxFromElement)
+    if (statics.length > 0) {
+      const snapped = snapPointToObjects(
+        world,
+        statics,
+        ctx.renderer.getViewport().scale,
+      )
+      world = { x: snapped.x, y: snapped.y }
+    }
   }
   return world
 }

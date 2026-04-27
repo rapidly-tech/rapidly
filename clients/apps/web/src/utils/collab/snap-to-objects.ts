@@ -183,6 +183,85 @@ export function bboxFromElement(el: {
   return { x: el.x, y: el.y, width: el.width, height: el.height }
 }
 
+/** Snap a single world-space point to the nearest edge / centre of a
+ *  static element on each axis. Used by the draw tools so the
+ *  in-progress corner of a rect / ellipse / diamond pulls toward an
+ *  existing element s edge as the user drags.
+ *
+ *  Threshold is screen-space (CSS pixels) so the affordance feels
+ *  identical to ``snapToObjects`` at every zoom level. ``staticBboxes``
+ *  excludes the element being drawn — that one's bbox changes every
+ *  pointer-move and would cause the cursor to chase its own tail.
+ *
+ *  Returns the (possibly adjusted) point plus the guides that fired.
+ *  Empty static set ⇒ identity. */
+export function snapPointToObjects(
+  point: { x: number; y: number },
+  staticBboxes: readonly Bounds[],
+  scale: number,
+  thresholdPx: number = DEFAULT_SNAP_THRESHOLD_PX,
+): { x: number; y: number; guides: SnapGuide[] } {
+  if (staticBboxes.length === 0) {
+    return { x: point.x, y: point.y, guides: [] }
+  }
+  const thresholdWorld = thresholdPx / Math.max(scale, 0.01)
+  const xCandidates: number[] = []
+  const yCandidates: number[] = []
+  // Track the source bbox per candidate so the guide span knows the
+  // perpendicular-axis range to draw across.
+  const xSource: Bounds[] = []
+  const ySource: Bounds[] = []
+  for (const b of staticBboxes) {
+    xCandidates.push(b.x, b.x + b.width / 2, b.x + b.width)
+    yCandidates.push(b.y, b.y + b.height / 2, b.y + b.height)
+    xSource.push(b, b, b)
+    ySource.push(b, b, b)
+  }
+  const x = pickClosest(point.x, xCandidates, thresholdWorld)
+  const y = pickClosest(point.y, yCandidates, thresholdWorld)
+  const guides: SnapGuide[] = []
+  const snappedX = x.idx >= 0 ? xCandidates[x.idx] : point.x
+  const snappedY = y.idx >= 0 ? yCandidates[y.idx] : point.y
+  if (x.idx >= 0) {
+    const b = xSource[x.idx]
+    guides.push({
+      axis: 'x',
+      world: snappedX,
+      start: Math.min(point.y, b.y),
+      end: Math.max(point.y, b.y + b.height),
+    })
+  }
+  if (y.idx >= 0) {
+    const b = ySource[y.idx]
+    guides.push({
+      axis: 'y',
+      world: snappedY,
+      start: Math.min(point.x, b.x),
+      end: Math.max(point.x, b.x + b.width),
+    })
+  }
+  return { x: snappedX, y: snappedY, guides }
+}
+
+/** Closest candidate in ``values`` to ``target`` within ``threshold``.
+ *  Returns ``-1`` when nothing is in range. */
+function pickClosest(
+  target: number,
+  values: readonly number[],
+  threshold: number,
+): { idx: number } {
+  let bestIdx = -1
+  let bestDist = threshold + 1
+  for (let i = 0; i < values.length; i++) {
+    const d = Math.abs(values[i] - target)
+    if (d > threshold) continue
+    if (d >= bestDist) continue
+    bestDist = d
+    bestIdx = i
+  }
+  return { idx: bestIdx }
+}
+
 /** AABB covering many elements. Used for multi-select drag. Returns
  *  null on empty input — the caller falls back to no-snap. */
 export function unionBbox(
