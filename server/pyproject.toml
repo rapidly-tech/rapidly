@@ -64,7 +64,7 @@ dependencies = [
   # ── Utilities ────────────────────────────────────────────────
   "python-slugify>=8.0.1",
   "python-snappy>=0.7.3",
-  "makefun>=1.15.6",
+  "makefun>=1.16.0",
   "typer>=0.12.5",
   "taskipy>=1.10.3",
   "tagflow>=0.7.0",
