@@ -49,6 +49,8 @@ describe('SHORTCUT_CATEGORIES', () => {
       'zoom out',
       'reset zoom',
       'duplicate selection while dragging',
+      'rotate the selected element',
+      '15°',
     ]) {
       expect(flat).toContain(fragment)
     }

@@ -1495,6 +1495,26 @@ export function CollabWhiteboard({
       },
     })
     list.push({
+      id: 'edit.resetRotation',
+      label: 'Reset rotation',
+      category: 'Edit',
+      keywords: ['rotation', 'angle', 'reset', 'unrotate', '0°'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const ids = Array.from(selectionRef.current.snapshot)
+        if (ids.length === 0) return
+        const patches = ids
+          .map((id) => store.get(id))
+          .filter(
+            (el): el is NonNullable<typeof el> =>
+              el !== null && !el.locked && el.angle !== 0,
+          )
+          .map((el) => ({ id: el.id, patch: { angle: 0 } }))
+        if (patches.length > 0) store.updateMany(patches)
+      },
+    })
+    list.push({
       id: 'edit.flipHorizontal',
       label: 'Flip horizontal',
       category: 'Edit',
