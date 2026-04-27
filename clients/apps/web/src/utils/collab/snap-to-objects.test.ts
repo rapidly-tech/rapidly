@@ -14,7 +14,9 @@ import { describe, expect, it } from 'vitest'
 
 import {
   DEFAULT_SNAP_THRESHOLD_PX,
+  activeSidesForHandle,
   snapPointToObjects,
+  snapResizeBbox,
   snapToObjects,
   unionBbox,
 } from './snap-to-objects'
@@ -249,6 +251,111 @@ describe('snapPointToObjects', () => {
       1,
     )
     expect(result.x).toBe(96)
+  })
+})
+
+describe('snapResizeBbox', () => {
+  const statics = [{ x: 100, y: 0, width: 50, height: 50 }]
+
+  it('snaps the right edge when the e handle is active', () => {
+    // Bbox right = 99; pull to static left at 100 (edge match within
+    // threshold). Width grows by 1.
+    const result = snapResizeBbox(
+      { x: 0, y: 1000, width: 99, height: 20 },
+      { right: true },
+      statics,
+      1,
+    )
+    expect(result.bbox.x).toBe(0)
+    expect(result.bbox.width).toBe(100)
+    expect(result.guides[0]?.world).toBe(100)
+  })
+
+  it('snaps the left edge when the w handle is active', () => {
+    // Bbox left at 99 → snap to 100; width shrinks by 1.
+    const result = snapResizeBbox(
+      { x: 99, y: 1000, width: 100, height: 20 },
+      { left: true },
+      statics,
+      1,
+    )
+    expect(result.bbox.x).toBe(100)
+    expect(result.bbox.width).toBe(99)
+  })
+
+  it('snaps top + left for a NW handle drag', () => {
+    // Static top at y=0, left at x=100. Bbox at (99, 1) 50×50 →
+    // pull both edges; check both axes.
+    const result = snapResizeBbox(
+      { x: 99, y: 1, width: 50, height: 50 },
+      { top: true, left: true },
+      statics,
+      1,
+    )
+    expect(result.bbox.x).toBe(100)
+    expect(result.bbox.y).toBe(0)
+    expect(result.guides).toHaveLength(2)
+  })
+
+  it('drops a snap that would invert the bbox', () => {
+    // Tiny bbox (width=2). A right-edge snap to a far left line
+    // would produce negative width; helper must keep the original.
+    const result = snapResizeBbox(
+      { x: 200, y: 1000, width: 2, height: 20 },
+      { right: true },
+      [{ x: 100, y: 0, width: 1, height: 1 }],
+      1,
+    )
+    // No snap emitted; bbox unchanged.
+    expect(result.bbox).toEqual({ x: 200, y: 1000, width: 2, height: 20 })
+    expect(result.guides).toHaveLength(0)
+  })
+
+  it('is a no-op with no static elements', () => {
+    const bbox = { x: 0, y: 0, width: 10, height: 10 }
+    expect(snapResizeBbox(bbox, { right: true }, [], 1)).toEqual({
+      bbox,
+      guides: [],
+    })
+  })
+
+  it('respects the screen threshold across zoom', () => {
+    // At scale 0.5, 5 screen-px = 10 world. A 9-unit gap on the right
+    // edge snaps; an 11 doesn t.
+    const within = snapResizeBbox(
+      { x: 0, y: 1000, width: 91, height: 20 },
+      { right: true },
+      statics,
+      0.5,
+    )
+    expect(within.bbox.width).toBe(100)
+    const outside = snapResizeBbox(
+      { x: 0, y: 1000, width: 89, height: 20 },
+      { right: true },
+      statics,
+      0.5,
+    )
+    expect(outside.bbox.width).toBe(89)
+  })
+})
+
+describe('activeSidesForHandle', () => {
+  it('maps cardinal handles to a single side', () => {
+    expect(activeSidesForHandle('n')).toEqual({ top: true })
+    expect(activeSidesForHandle('s')).toEqual({ bottom: true })
+    expect(activeSidesForHandle('e')).toEqual({ right: true })
+    expect(activeSidesForHandle('w')).toEqual({ left: true })
+  })
+
+  it('maps corner handles to two sides', () => {
+    expect(activeSidesForHandle('nw')).toEqual({ top: true, left: true })
+    expect(activeSidesForHandle('ne')).toEqual({ top: true, right: true })
+    expect(activeSidesForHandle('sw')).toEqual({ bottom: true, left: true })
+    expect(activeSidesForHandle('se')).toEqual({ bottom: true, right: true })
+  })
+
+  it('returns empty for unrecognised handles', () => {
+    expect(activeSidesForHandle('rotation')).toEqual({})
   })
 })
 

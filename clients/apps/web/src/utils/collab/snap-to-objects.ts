@@ -183,6 +183,176 @@ export function bboxFromElement(el: {
   return { x: el.x, y: el.y, width: el.width, height: el.height }
 }
 
+/** Which sides of the resize bbox the active handle controls. The
+ *  caller (select tool) maps its 8-direction ``HandleId`` onto this
+ *  shape so the snap helper stays handle-agnostic. */
+export interface ResizeActiveSides {
+  left?: boolean
+  right?: boolean
+  top?: boolean
+  bottom?: boolean
+}
+
+export interface ResizeSnapResult {
+  /** Adjusted bbox — caller writes ``x/y/width/height`` back to the
+   *  element. Equal to the input bbox on no-snap. */
+  bbox: Bounds
+  guides: SnapGuide[]
+}
+
+/** Snap a resize-in-progress bbox so its **active edges** align with
+ *  nearby static elements. Inactive edges are left exactly where the
+ *  caller put them — the user only gets to see the cursor pull on the
+ *  edge they re actually dragging.
+ *
+ *  Width / height stay non-negative: if a snap would invert the bbox
+ *  (e.g. the right edge crosses the left), the snap is dropped on
+ *  that axis and the original value stands. ``applyResize`` already
+ *  enforces the sign elsewhere, but we re defensive here too because
+ *  this helper is called late in the gesture pipeline. */
+export function snapResizeBbox(
+  bbox: Bounds,
+  active: ResizeActiveSides,
+  staticBboxes: readonly Bounds[],
+  scale: number,
+  thresholdPx: number = DEFAULT_SNAP_THRESHOLD_PX,
+): ResizeSnapResult {
+  if (staticBboxes.length === 0) return { bbox, guides: [] }
+  const thresholdWorld = thresholdPx / Math.max(scale, 0.01)
+
+  const xCandidates: number[] = []
+  const xSource: Bounds[] = []
+  const yCandidates: number[] = []
+  const ySource: Bounds[] = []
+  for (const b of staticBboxes) {
+    xCandidates.push(b.x, b.x + b.width / 2, b.x + b.width)
+    yCandidates.push(b.y, b.y + b.height / 2, b.y + b.height)
+    xSource.push(b, b, b)
+    ySource.push(b, b, b)
+  }
+
+  let { x, y, width, height } = bbox
+  const guides: SnapGuide[] = []
+
+  // Helper: snap a single edge value, return the new value + index of
+  // the matched candidate (-1 = no match).
+  const pull = (
+    target: number,
+    cands: readonly number[],
+  ): { value: number; idx: number } => {
+    let bestIdx = -1
+    let bestDist = thresholdWorld + 1
+    for (let i = 0; i < cands.length; i++) {
+      const d = Math.abs(cands[i] - target)
+      if (d > thresholdWorld) continue
+      if (d >= bestDist) continue
+      bestDist = d
+      bestIdx = i
+    }
+    return {
+      value: bestIdx >= 0 ? cands[bestIdx] : target,
+      idx: bestIdx,
+    }
+  }
+
+  // Active sides are checked one axis at a time. Conflicting
+  // left+right snaps would over-constrain the bbox; we let left win
+  // because that s the convention that keeps the un-snapped corner
+  // anchored when both edges are dragged via NW / SW handles.
+  if (active.left) {
+    const r = pull(x, xCandidates)
+    if (r.idx >= 0) {
+      const newWidth = width + (x - r.value)
+      if (newWidth > 0) {
+        x = r.value
+        width = newWidth
+        const b = xSource[r.idx]
+        guides.push({
+          axis: 'x',
+          world: r.value,
+          start: Math.min(y, b.y),
+          end: Math.max(y + height, b.y + b.height),
+        })
+      }
+    }
+  } else if (active.right) {
+    const r = pull(x + width, xCandidates)
+    if (r.idx >= 0) {
+      const newWidth = r.value - x
+      if (newWidth > 0) {
+        width = newWidth
+        const b = xSource[r.idx]
+        guides.push({
+          axis: 'x',
+          world: r.value,
+          start: Math.min(y, b.y),
+          end: Math.max(y + height, b.y + b.height),
+        })
+      }
+    }
+  }
+
+  if (active.top) {
+    const r = pull(y, yCandidates)
+    if (r.idx >= 0) {
+      const newHeight = height + (y - r.value)
+      if (newHeight > 0) {
+        y = r.value
+        height = newHeight
+        const b = ySource[r.idx]
+        guides.push({
+          axis: 'y',
+          world: r.value,
+          start: Math.min(x, b.x),
+          end: Math.max(x + width, b.x + b.width),
+        })
+      }
+    }
+  } else if (active.bottom) {
+    const r = pull(y + height, yCandidates)
+    if (r.idx >= 0) {
+      const newHeight = r.value - y
+      if (newHeight > 0) {
+        height = newHeight
+        const b = ySource[r.idx]
+        guides.push({
+          axis: 'y',
+          world: r.value,
+          start: Math.min(x, b.x),
+          end: Math.max(x + width, b.x + b.width),
+        })
+      }
+    }
+  }
+
+  return { bbox: { x, y, width, height }, guides }
+}
+
+/** Map an 8-way HandleId to the active-sides struct ``snapResizeBbox``
+ *  expects. Pure helper so the select tool stays terse. */
+export function activeSidesForHandle(handle: string): ResizeActiveSides {
+  switch (handle) {
+    case 'n':
+      return { top: true }
+    case 's':
+      return { bottom: true }
+    case 'e':
+      return { right: true }
+    case 'w':
+      return { left: true }
+    case 'ne':
+      return { top: true, right: true }
+    case 'nw':
+      return { top: true, left: true }
+    case 'se':
+      return { bottom: true, right: true }
+    case 'sw':
+      return { bottom: true, left: true }
+    default:
+      return {}
+  }
+}
+
 /** Snap a single world-space point to the nearest edge / centre of a
  *  static element on each axis. Used by the draw tools so the
  *  in-progress corner of a rect / ellipse / diamond pulls toward an
