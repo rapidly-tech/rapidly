@@ -318,6 +318,35 @@ describe('lineTool', () => {
     expect(el.height).toBe(70)
     lineTool.onPointerUp(ctx, makeEvent(50, 30))
   })
+
+  it('snaps the second endpoint to a sibling element when snap-to-objects is on', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    // Sibling rect's left edge sits at x=100. Drawing a line whose
+    // second endpoint lands at x=99 should snap to 100.
+    store.create({
+      type: 'rect',
+      x: 100,
+      y: 1000, // far on y so y-axis can't snap
+      width: 50,
+      height: 50,
+      roundness: 0,
+    })
+    const ctx = stubCtx(store)
+    ;(
+      ctx.renderer as { isSnapToObjectsEnabled: () => boolean }
+    ).isSnapToObjectsEnabled = () => true
+
+    lineTool.onPointerDown(ctx, makeEvent(0, 0))
+    lineTool.onPointerMove(ctx, makeEvent(99, 0))
+    const line = store.list().find((el) => el.type === 'line') as {
+      points: number[]
+    }
+    // line.points[2] is the second endpoint x (element-local). With
+    // anchor at 0, snapped endpoint at 100 → points[2] = 100.
+    expect(line.points[2]).toBe(100)
+    lineTool.onPointerUp(ctx, makeEvent(99, 0))
+  })
 })
 
 describe('arrowTool', () => {
