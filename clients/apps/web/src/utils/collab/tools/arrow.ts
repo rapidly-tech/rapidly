@@ -13,6 +13,8 @@
 
 import type { ArrowBinding } from '../arrow-bindings'
 import { findBinding, resolveBinding } from '../arrow-bindings'
+import { snapPoint } from '../grid'
+import { bboxFromElement, snapPointToObjects } from '../snap-to-objects'
 import type { Tool, ToolCtx } from './types'
 
 const MIN_LENGTH = 4
@@ -115,7 +117,33 @@ export const arrowTool: Tool = {
 
 function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
   const rect = (e.target as HTMLElement).getBoundingClientRect()
-  return ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
+  let world = ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
+  if (ctx.renderer.isGridEnabled()) {
+    world = snapPoint(world.x, world.y, ctx.renderer.getGridSize())
+  }
+  // Snap arrow endpoints to nearby element edges + centres. The
+  // existing arrow-binding pass (``findBinding``) handles a different
+  // contract — it locks the endpoint to a shape's anchor so a later
+  // shape-move drags the endpoint along — whereas object snap just
+  // pulls the cursor to a clean line. They compose cleanly: snap
+  // happens here on the cursor, then ``findBinding`` consults the
+  // (snapped) point on pointer-up. Skipped while alt is held.
+  if (ctx.renderer.isSnapToObjectsEnabled() && !e.altKey) {
+    const drawingId = state?.id
+    const statics = ctx.store
+      .list()
+      .filter((el) => el.id !== drawingId)
+      .map(bboxFromElement)
+    if (statics.length > 0) {
+      const snapped = snapPointToObjects(
+        world,
+        statics,
+        ctx.renderer.getViewport().scale,
+      )
+      world = { x: snapped.x, y: snapped.y }
+    }
+  }
+  return world
 }
 
 function computePatch(
