@@ -45,6 +45,10 @@ describe('SHORTCUT_CATEGORIES', () => {
       'nudge selection by 1',
       'nudge selection by 10',
       'command palette',
+      'zoom in',
+      'zoom out',
+      'reset zoom',
+      'duplicate selection while dragging',
     ]) {
       expect(flat).toContain(fragment)
     }

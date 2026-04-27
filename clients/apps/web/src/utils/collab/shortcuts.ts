@@ -90,6 +90,9 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
     entries: [
       { keys: ['Scroll'], description: 'Zoom at cursor' },
       { keys: ['Space', 'drag'], description: 'Pan' },
+      { keys: ['Mod', '='], description: 'Zoom in' },
+      { keys: ['Mod', '-'], description: 'Zoom out' },
+      { keys: ['Mod', '0'], description: 'Reset zoom to 100%' },
     ],
   },
   {
