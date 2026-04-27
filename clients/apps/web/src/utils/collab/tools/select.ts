@@ -517,13 +517,16 @@ export function hoverCursor(
   const [id] = ctx.selection.snapshot
   const el = ctx.store.get(id)
   if (!el) return defaultCursor
-  const handle = hitHandle(
-    el,
-    ctx.renderer.getViewport(),
-    screenX,
-    screenY,
-    ctx.getHitRadiusPx?.(),
-  )
+  if (el.locked) return defaultCursor
+  const vp = ctx.renderer.getViewport()
+  const radius = ctx.getHitRadiusPx?.()
+  // Rotation handle wins over the n resize handle (matches the
+  // pointerdown precedence) so the cursor announces what a click here
+  // will do.
+  if (hitRotationHandle(el, vp, screenX, screenY, radius)) {
+    return 'grab'
+  }
+  const handle = hitHandle(el, vp, screenX, screenY, radius)
   return handle ? cursorForHandle(handle) : defaultCursor
 }
 
