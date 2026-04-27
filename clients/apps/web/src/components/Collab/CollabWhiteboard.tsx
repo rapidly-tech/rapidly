@@ -28,6 +28,7 @@ import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
+import { EMBED_SANDBOX, isEmbeddableUrl } from '@/utils/collab/embed-allowlist'
 import {
   computeBounds,
   downloadBlob,
@@ -1756,6 +1757,45 @@ export function CollabWhiteboard({
           for (const p of parts) created.push(store.create(p))
         })
         selectionRef.current.set(created)
+      },
+    })
+    list.push({
+      id: 'import.embed',
+      label: 'Add embed…',
+      category: 'Import',
+      keywords: ['embed', 'iframe', 'youtube', 'loom', 'figma', 'vimeo'],
+      run: () => {
+        const store = storeRef.current
+        const renderer = rendererRef.current
+        const canvas = interactiveRef.current
+        if (!store || !renderer || !canvas) return
+        const input = window.prompt(
+          'Paste a YouTube / Loom / Figma / Vimeo URL:',
+          '',
+        )
+        if (!input) return
+        const trimmed = input.trim()
+        if (!isEmbeddableUrl(trimmed)) {
+          window.alert(
+            'Embed URLs must come from one of: YouTube, Loom, Figma, Vimeo.',
+          )
+          return
+        }
+        const rect = canvas.getBoundingClientRect()
+        const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
+        // 16:9 default — matches the common video-embed aspect.
+        const width = 480
+        const height = 270
+        const id = store.create({
+          type: 'embed',
+          x: center.x - width / 2,
+          y: center.y - height / 2,
+          width,
+          height,
+          url: trimmed,
+          sandbox: EMBED_SANDBOX,
+        })
+        selectionRef.current.set([id])
       },
     })
     // Help.

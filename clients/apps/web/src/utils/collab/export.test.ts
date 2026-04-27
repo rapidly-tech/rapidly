@@ -173,16 +173,19 @@ describe('paintElementsOnto', () => {
     const store = createElementStore(doc)
     rect(store)
     // Cast-through-unknown to inject a fake type the registry skips.
+    // Every concrete element type is now wired, so we use a forward-
+    // compat sentinel — the kind a peer running a newer build might
+    // emit before we know about it.
     const list = [
       ...store.list(),
       {
         ...store.list()[0],
         id: 'ghost',
-        type: 'embed' as const,
+        type: 'future-element-kind' as const,
       },
     ] as unknown as Parameters<typeof paintElementsOnto>[1]
     const ctx = mockCtx()
-    // Should not throw even though 'embed' has no adapter.
+    // Should not throw even when the registry doesn't know the type.
     expect(() =>
       paintElementsOnto(ctx, list, { offsetX: 0, offsetY: 0, scale: 1 }),
     ).not.toThrow()
