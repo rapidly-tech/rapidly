@@ -40,7 +40,7 @@ import {
   type FollowMeController,
 } from '@/utils/collab/follow-me'
 import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
-import { setLink } from '@/utils/collab/hyperlinks'
+import { hasLink, setLink } from '@/utils/collab/hyperlinks'
 import {
   createImageElement,
   extractPastedImage,
@@ -773,6 +773,30 @@ export function CollabWhiteboard({
       const tool = activeToolRef.current
       const ctx = toolCtx()
       if (!canvas || !tool || !ctx) return
+      // Cmd/Ctrl-click on an element with a hyperlink opens it in a
+      // new tab and short-circuits the tool gesture. Plan §2 calls
+      // this out: ""Cmd+click opens in new tab"". The new tab gets
+      // ``noopener,noreferrer`` so it can't reach back into our window.
+      if (e.metaKey || e.ctrlKey) {
+        const renderer = rendererRef.current
+        const store = storeRef.current
+        if (renderer && store) {
+          const rect = canvas.getBoundingClientRect()
+          const world = renderer.screenToWorld(
+            e.clientX - rect.left,
+            e.clientY - rect.top,
+          )
+          const hitId = renderer.hitTest(world.x, world.y)
+          if (hitId) {
+            const el = store.get(hitId)
+            if (el && hasLink(el) && el.link) {
+              e.preventDefault()
+              window.open(el.link, '_blank', 'noopener,noreferrer')
+              return
+            }
+          }
+        }
+      }
       // Route touch / pen pointers through the pinch gesture so two-
       // finger pinch + pan always works regardless of active tool.
       // Mouse pointers bypass — they never multi-touch.

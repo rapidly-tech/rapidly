@@ -51,6 +51,7 @@ describe('SHORTCUT_CATEGORIES', () => {
       'duplicate selection while dragging',
       'rotate the selected element',
       '15°',
+      'open the clicked element',
     ]) {
       expect(flat).toContain(fragment)
     }
