@@ -20,7 +20,9 @@ import { snapToGrid } from '../grid'
 import { expandToGroups } from '../groups'
 import { isLocked } from '../locks'
 import {
+  activeSidesForHandle,
   bboxFromElement,
+  snapResizeBbox,
   snapToObjects,
   unionBbox,
   type SnapGuide,
@@ -316,7 +318,36 @@ export const selectTool = {
       const curLocal = rotatePoint(x, y, cx, cy, -a.angle)
       const dx = curLocal.x - startLocal.x
       const dy = curLocal.y - startLocal.y
-      const next = applyResize(a, state.resizeHandle, dx, dy)
+      let next = applyResize(a, state.resizeHandle, dx, dy)
+
+      // Snap-to-objects on the active edge(s). Skipped for rotated
+      // elements because the snap math is axis-aligned and a rotated
+      // bbox's snapped edges no longer line up with the user's
+      // pointer. Skipped when alt is held (Excalidraw escape hatch).
+      // Stash the resulting guides for the alignment-guides overlay
+      // so the user sees what they're snapping to.
+      if (ctx.renderer.isSnapToObjectsEnabled() && !e.altKey && a.angle === 0) {
+        const id = state.resizeId
+        const statics = ctx.store
+          .list()
+          .filter((el) => el.id !== id)
+          .map(bboxFromElement)
+        if (statics.length > 0) {
+          const result = snapResizeBbox(
+            { x: next.x, y: next.y, width: next.width, height: next.height },
+            activeSidesForHandle(state.resizeHandle),
+            statics,
+            ctx.renderer.getViewport().scale,
+          )
+          next = { ...next, ...result.bbox }
+          state.snapGuides = result.guides
+        } else {
+          state.snapGuides = []
+        }
+      } else {
+        state.snapGuides = []
+      }
+
       ctx.store.update(state.resizeId, next)
       const arrowPatches = collectBoundArrowPatches(
         ctx.store.list(),
@@ -382,11 +413,13 @@ export function currentMarqueeRect(): {
   return marqueeRect(state)
 }
 
-/** Latest alignment guides for an in-progress move gesture, or an empty
- *  array when no snap is currently active. The alignment-guides overlay
- *  reads this every paint to draw a faint line at each match. */
+/** Latest alignment guides for an in-progress move or resize gesture,
+ *  or an empty array when no snap is currently active. The alignment-
+ *  guides overlay reads this every paint to draw a faint line at each
+ *  match. */
 export function currentSnapGuides(): readonly SnapGuide[] {
-  if (!state || state.kind !== 'moving' || !state.snapGuides) return []
+  if (!state || !state.snapGuides) return []
+  if (state.kind !== 'moving' && state.kind !== 'resizing') return []
   return state.snapGuides
 }
 
