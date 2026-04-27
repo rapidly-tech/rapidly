@@ -42,7 +42,7 @@ dependencies = [
   # ── File scanning ───────────────────────────────────────────
   "pyclamd>=0.4.0",
   # ── Email ────────────────────────────────────────────────────
-  "exponent-server-sdk>=2.1.0",
+  "exponent-server-sdk>=2.2.0",
   # ── Observability & logging ──────────────────────────────────
   "structlog>=24.4.0",
   "sentry-sdk[fastapi,sqlalchemy]>=2.48.0",
