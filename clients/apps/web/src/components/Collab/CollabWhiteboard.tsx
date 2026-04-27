@@ -61,6 +61,7 @@ import {
 import { makeLaserOverlay } from '@/utils/collab/laser-overlay'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
 import { mermaidToElements, parseMermaid } from '@/utils/collab/mermaid'
+import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
   type PinchPanGesture,
@@ -1020,6 +1021,28 @@ export function CollabWhiteboard({
         // accidentally trigger a tool / undo during a talk.
         if (e.key !== 'F11') e.preventDefault()
         return
+      }
+      // Arrow-key nudge — moves the selection by 1 world unit (10 with
+      // shift). Skipped when meta/ctrl is held (let zoom / browser
+      // shortcuts pass) and when focus is inside a form input so the
+      // text editor's caret keys still work.
+      if (!e.metaKey && !e.ctrlKey) {
+        const target = e.target as HTMLElement | null
+        const inForm =
+          !!target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        const delta = inForm ? null : deltaFromArrowKey(e.key, e.shiftKey)
+        if (delta) {
+          const store = storeRef.current
+          const selection = selectionRef.current
+          if (store && selection.size > 0) {
+            e.preventDefault()
+            nudge(store, selection.snapshot, delta.dx, delta.dy)
+            return
+          }
+        }
       }
       // Single-letter tool-activation shortcuts (H / V / R / O / D /
       // L / A / P / T / S). Skipped when any modifier is pressed so
