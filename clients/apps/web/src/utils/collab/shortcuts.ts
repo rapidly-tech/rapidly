@@ -82,6 +82,10 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
       { keys: ['Mod', '['], description: 'Send backward' },
       { keys: ['Mod', 'Shift', '['], description: 'Send to back' },
       { keys: ['Mod', 'K'], description: 'Set link on selection' },
+      {
+        keys: ['Mod', 'click'],
+        description: 'Open the clicked element s link in a new tab',
+      },
       { keys: ['Mod', 'Shift', 'L'], description: 'Toggle lock' },
       {
         keys: ['Drag', 'rotation handle'],
