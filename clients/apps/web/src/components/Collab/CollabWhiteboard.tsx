@@ -949,6 +949,36 @@ export function CollabWhiteboard({
     }
   }, [])
 
+  const onDragOver = useCallback((e: React.DragEvent) => {
+    // Required so the drop event fires. ``copy`` matches the cursor
+    // most OSes show when dragging an image into a content area.
+    if (e.dataTransfer?.types.includes('Files')) {
+      e.preventDefault()
+      e.dataTransfer.dropEffect = 'copy'
+    }
+  }, [])
+
+  const onDrop = useCallback(async (e: React.DragEvent) => {
+    if (!e.dataTransfer?.types.includes('Files')) return
+    const canvas = interactiveRef.current
+    const store = storeRef.current
+    const renderer = rendererRef.current
+    if (!canvas || !store || !renderer) return
+    const image = await extractPastedImage(e.dataTransfer)
+    if (!image) return
+    e.preventDefault()
+    // Drop the image at the actual cursor world position so the
+    // user's drag-target lands where they expect — Excalidraw + Figma
+    // both behave this way.
+    const rect = canvas.getBoundingClientRect()
+    const center = renderer.screenToWorld(
+      e.clientX - rect.left,
+      e.clientY - rect.top,
+    )
+    const id = createImageElement(store, image, { center })
+    selectionRef.current.set([id])
+  }, [])
+
   const onWheel = useCallback(
     (e: React.WheelEvent) => {
       e.preventDefault()
@@ -2029,6 +2059,8 @@ export function CollabWhiteboard({
             onPointerCancel={onPointerUp}
             onDoubleClick={onDoubleClick}
             onWheel={onWheel}
+            onDragOver={onDragOver}
+            onDrop={onDrop}
             className="absolute inset-0 h-full w-full touch-none"
             style={{ cursor }}
             aria-label="Renderer demo canvas"
