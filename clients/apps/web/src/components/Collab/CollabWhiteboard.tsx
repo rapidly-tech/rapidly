@@ -118,6 +118,10 @@ import {
   sendBackward,
   sendToBack,
 } from '@/utils/collab/z-order'
+import {
+  viewportForKeyboardZoom,
+  zoomDirectionForKey,
+} from '@/utils/collab/zoom-keyboard'
 import { zoomToFit, zoomToSelection } from '@/utils/collab/zoom-to-fit'
 
 import { CommandPalette } from './Whiteboard/CommandPalette'
@@ -1057,6 +1061,38 @@ export function CollabWhiteboard({
           return
         }
       }
+      // Cmd/Ctrl+= zoom in, Cmd/Ctrl+- zoom out, Cmd/Ctrl+0 reset.
+      // Anchored on the canvas mid-point so the visible-region centre
+      // stays put. Skipped in form inputs so cmd+0 / cmd+= in a text
+      // editor still does whatever the editor expects.
+      if (e.metaKey || e.ctrlKey) {
+        const target = e.target as HTMLElement | null
+        const inForm =
+          !!target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        const direction = inForm ? null : zoomDirectionForKey(e.key)
+        if (direction) {
+          const renderer = rendererRef.current
+          const canvas = interactiveRef.current
+          if (renderer && canvas) {
+            e.preventDefault()
+            const rect = canvas.getBoundingClientRect()
+            const next = viewportForKeyboardZoom(
+              renderer.getViewport(),
+              direction,
+              rect.width,
+              rect.height,
+            )
+            vpRef.current = next
+            renderer.setViewport(next)
+            setZoom(Math.round(next.scale * 100) / 100)
+            publishViewport()
+            return
+          }
+        }
+      }
       if (
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey &&
@@ -1331,7 +1367,7 @@ export function CollabWhiteboard({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toolCtx, presentationActive, viewMode])
+  }, [toolCtx, presentationActive, viewMode, publishViewport])
 
   const activeChoice = TOOL_CHOICES.find((t) => t.id === toolId)
 
@@ -1613,6 +1649,35 @@ export function CollabWhiteboard({
         r.setSnapToObjectsEnabled(!r.isSnapToObjectsEnabled())
       },
     })
+    for (const [direction, label, shortcut] of [
+      ['in', 'Zoom in', ['Mod', '=']],
+      ['out', 'Zoom out', ['Mod', '-']],
+      ['reset', 'Reset zoom', ['Mod', '0']],
+    ] as const) {
+      list.push({
+        id: `view.zoom.${direction}`,
+        label,
+        category: 'View',
+        shortcut: [...shortcut],
+        keywords: ['zoom', direction],
+        run: () => {
+          const renderer = rendererRef.current
+          const canvas = interactiveRef.current
+          if (!renderer || !canvas) return
+          const rect = canvas.getBoundingClientRect()
+          const next = viewportForKeyboardZoom(
+            renderer.getViewport(),
+            direction,
+            rect.width,
+            rect.height,
+          )
+          vpRef.current = next
+          renderer.setViewport(next)
+          setZoom(Math.round(next.scale * 100) / 100)
+          publishViewport()
+        },
+      })
+    }
     list.push({
       id: 'view.zoomToFit',
       label: 'Zoom to fit',
@@ -1663,7 +1728,7 @@ export function CollabWhiteboard({
     // export / zoom / help / tool toggles between hand and select.
     if (viewMode) return list.filter((c) => isReadOnlyPaletteCommand(c.id))
     return list
-  }, [viewMode])
+  }, [viewMode, publishViewport])
   const cursor = hoverCursorStyle ?? activeToolRef.current?.cursor ?? 'default'
 
   return (
