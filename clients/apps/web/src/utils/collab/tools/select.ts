@@ -318,7 +318,7 @@ export const selectTool = {
       const curLocal = rotatePoint(x, y, cx, cy, -a.angle)
       const dx = curLocal.x - startLocal.x
       const dy = curLocal.y - startLocal.y
-      let next = applyResize(a, state.resizeHandle, dx, dy)
+      let next = applyResize(a, state.resizeHandle, dx, dy, e.shiftKey)
 
       // Snap-to-objects on the active edge(s). Skipped for rotated
       // elements because the snap math is axis-aligned and a rotated
