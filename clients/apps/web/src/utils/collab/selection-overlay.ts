@@ -10,6 +10,7 @@
 import type { ElementStore } from './element-store'
 import { HANDLE_SIZE_FOR_PRECISION } from './pointer-preference'
 import { handleRotatedPositions } from './resize'
+import { rotationHandlePosition } from './rotation'
 import type { SelectionState } from './selection'
 import type { Viewport } from './viewport'
 
@@ -68,6 +69,10 @@ function paintHandles(
   const [id] = selection.snapshot
   const el = store.get(id)
   if (!el) return
+  // Locked elements show the dashed-grey outline + lock badge but no
+  // interactive handles — there's nothing the user can do with them
+  // until they unlock. Matches the select-tool pointerdown gate.
+  if (el.locked) return
   const vp = getViewport()
   const sizePx = getHandleSizePx?.() ?? DEFAULT_HANDLE_SCREEN_SIZE_PX
   const worldSize = sizePx / vp.scale
@@ -81,6 +86,21 @@ function paintHandles(
     ctx.fillRect(h.x - half, h.y - half, worldSize, worldSize)
     ctx.strokeRect(h.x - half, h.y - half, worldSize, worldSize)
   }
+  // Rotation handle — a circle above the n handle, connected by a
+  // short line so the user reads it as ""attached"" to the selection
+  // rather than free-floating UI.
+  const rot = rotationHandlePosition(el, vp)
+  const radius = (sizePx * 0.55) / vp.scale
+  ctx.beginPath()
+  ctx.moveTo(handles.n.x, handles.n.y)
+  ctx.lineTo(rot.x, rot.y)
+  ctx.stroke()
+  ctx.fillStyle = '#ffffff'
+  ctx.strokeStyle = SELECTION_STROKE
+  ctx.beginPath()
+  ctx.arc(rot.x, rot.y, radius, 0, Math.PI * 2)
+  ctx.fill()
+  ctx.stroke()
   ctx.restore()
 }
 
