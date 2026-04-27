@@ -144,6 +144,12 @@ export function anchorFrom(el: CollabElement): ResizeAnchor {
  *  un-rotate the drag delta around the anchor's centre first. The
  *  select tool does that before calling in.
  *
+ *  When ``aspectLock`` is set (Shift held), corner handles preserve
+ *  the anchor's width/height ratio: the dominant axis (longer
+ *  effective drag) wins and the other axis derives from the locked
+ *  ratio. Edge handles ignore the flag — there's no second axis to
+ *  constrain. Excalidraw + Figma both behave this way.
+ *
  *  Minimum width / height is 1 so a handle can't collapse the element
  *  to a degenerate rect that hit-testing rejects.
  */
@@ -152,7 +158,13 @@ export function applyResize(
   handle: HandleId,
   dx: number,
   dy: number,
+  aspectLock: boolean = false,
 ): { x: number; y: number; width: number; height: number } {
+  if (aspectLock && isCornerHandle(handle)) {
+    const locked = lockAspectDelta(anchor, handle, dx, dy)
+    dx = locked.dx
+    dy = locked.dy
+  }
   let { x, y, width, height } = anchor
   const right = x + width
   const bottom = y + height
@@ -211,4 +223,56 @@ export function applyResize(
   height = Math.max(1, height)
 
   return { x, y, width, height }
+}
+
+/** Whether ``handle`` controls two axes simultaneously. Edge handles
+ *  (n / s / e / w) only move one dimension; corner handles can lock
+ *  aspect because they have a meaningful ratio between dx and dy. */
+function isCornerHandle(handle: HandleId): boolean {
+  return (
+    handle === 'nw' || handle === 'ne' || handle === 'sw' || handle === 'se'
+  )
+}
+
+/** Project ``(dx, dy)`` onto the anchor's diagonal so the resulting
+ *  resize preserves the anchor's aspect ratio. The dominant axis (the
+ *  one whose drag implies a larger uniform scale) wins; the other
+ *  axis is derived from it. Each corner handle has its own sign
+ *  conventions — nw drags negative, se positive, etc. */
+export function lockAspectDelta(
+  anchor: ResizeAnchor,
+  handle: HandleId,
+  dx: number,
+  dy: number,
+): { dx: number; dy: number } {
+  const aw = anchor.width || 1
+  const ah = anchor.height || 1
+  // For each corner, ``signX`` and ``signY`` describe whether a
+  // positive scale corresponds to a positive dx / dy. nw drags up-left
+  // to grow → both negative; se drags down-right to grow → both
+  // positive; ne is up-right → dy negative, dx positive; sw is the
+  // mirror.
+  let signX = 1
+  let signY = 1
+  if (handle === 'nw') {
+    signX = -1
+    signY = -1
+  } else if (handle === 'ne') {
+    signY = -1
+  } else if (handle === 'sw') {
+    signX = -1
+  }
+  // Effective uniform scale implied by each axis. Multiply by the
+  // sign so a positive scale always means ""bigger"" regardless of
+  // which corner is dragged.
+  const scaleFromX = (signX * dx) / aw
+  const scaleFromY = (signY * dy) / ah
+  // Larger absolute scale wins — the user's pointer travels further
+  // along that axis so its motion should drive the resize.
+  const scale =
+    Math.abs(scaleFromX) >= Math.abs(scaleFromY) ? scaleFromX : scaleFromY
+  return {
+    dx: signX * scale * aw,
+    dy: signY * scale * ah,
+  }
 }

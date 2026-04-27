@@ -179,4 +179,48 @@ describe('applyResize', () => {
     expect(tiny.width).toBeGreaterThanOrEqual(1)
     expect(tiny.height).toBeGreaterThanOrEqual(1)
   })
+
+  describe('aspect-lock (Shift)', () => {
+    // anchor is 200×100 (aspect 2:1). With Shift, corner drags should
+    // preserve that ratio; the dominant axis wins.
+    it('SE corner: x-dominant drag scales y from x', () => {
+      // dx=100, dy=20 → scale=0.5 (from x). Locked: dx=100, dy=50.
+      const r = applyResize(anchor, 'se', 100, 20, true)
+      expect(r.width).toBe(300)
+      expect(r.height).toBe(150) // 2:1 preserved
+    })
+
+    it('SE corner: y-dominant drag scales x from y', () => {
+      // dx=20, dy=80 → scale=0.8 (from y). Locked: dx=160, dy=80.
+      const r = applyResize(anchor, 'se', 20, 80, true)
+      expect(r.width).toBe(360)
+      expect(r.height).toBe(180)
+    })
+
+    it('NW corner: dragging inward shrinks symmetrically', () => {
+      // NW handle pulled inward (positive dx + dy) → shrink. Locked
+      // scale uses x: 50/200 = 0.25 (vs y: 10/100 = 0.1). Locked
+      // dx=50, dy=25 → origin moves by (50, 25); the opposite corner
+      // stays fixed, so width = 200-50=150, height = 100-25=75.
+      const r = applyResize(anchor, 'nw', 50, 10, true)
+      expect(r.x).toBe(150)
+      expect(r.y).toBe(75)
+      expect(r.width).toBe(150)
+      expect(r.height).toBe(75)
+    })
+
+    it('edge handle ignores Shift (no diagonal to lock to)', () => {
+      // E handle, dx=100, dy=20 with shift → width grows, height
+      // stays at the anchor's height.
+      const r = applyResize(anchor, 'e', 100, 20, true)
+      expect(r.width).toBe(300)
+      expect(r.height).toBe(100)
+    })
+
+    it('without Shift the aspect ratio is free', () => {
+      const r = applyResize(anchor, 'se', 100, 20, false)
+      expect(r.width).toBe(300)
+      expect(r.height).toBe(120) // not locked → free
+    })
+  })
 })
