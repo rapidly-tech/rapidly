@@ -36,6 +36,7 @@ export type ToolId =
   | 'text'
   | 'sticky'
   | 'eraser'
+  | 'frame'
 
 export interface ToolCtx {
   readonly store: ElementStore

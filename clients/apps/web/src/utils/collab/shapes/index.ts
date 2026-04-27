@@ -17,6 +17,7 @@ import type { CollabElement, ElementType } from '../elements'
 import { pathFor as arrowPath, paintArrow } from './arrow'
 import { pathFor as diamondPath, paintDiamond } from './diamond'
 import { pathFor as ellipsePath, paintEllipse } from './ellipse'
+import { pathFor as framePath, paintFrame } from './frame'
 import { pathFor as freeDrawPath, paintFreeDraw } from './freedraw'
 import { pathFor as imagePath, paintImage } from './image'
 import { pathFor as linePath, paintLine } from './line'
@@ -83,7 +84,12 @@ const REGISTRY: Partial<Record<ElementType, ShapeAdapter>> = {
     paint: (ctx, el, path) =>
       paintImage(ctx, el as Parameters<typeof paintImage>[1], path),
   },
-  // Remaining types (frame, embed) land later.
+  frame: {
+    pathFor: (el) => framePath(el as Parameters<typeof framePath>[0]),
+    paint: (ctx, el, path) =>
+      paintFrame(ctx, el as Parameters<typeof paintFrame>[1], path),
+  },
+  // Remaining types (embed) land later.
 }
 
 export function adapterFor(el: CollabElement): ShapeAdapter | null {
@@ -94,12 +100,14 @@ export {
   arrowPath,
   diamondPath,
   ellipsePath,
+  framePath,
   freeDrawPath,
   imagePath,
   linePath,
   paintArrow,
   paintDiamond,
   paintEllipse,
+  paintFrame,
   paintFreeDraw,
   paintImage,
   paintLine,

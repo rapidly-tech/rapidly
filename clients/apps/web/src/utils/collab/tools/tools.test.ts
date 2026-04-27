@@ -7,16 +7,18 @@
  * state. No canvas, no React.
  */
 
-import { describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 
 import { createElementStore, type ElementStore } from '../element-store'
 import { makeViewport, type Viewport } from '../viewport'
+import { _resetFrameNameCounter } from './frame'
 import {
   arrowTool,
   diamondTool,
   ellipseTool,
   eraserTool,
+  frameTool,
   freedrawTool,
   handTool,
   lineTool,
@@ -489,5 +491,61 @@ describe('handTool', () => {
     expect(typeof t.cursor).toBe('string')
     expect(typeof t.onPointerDown).toBe('function')
     expect(typeof t.onPointerUp).toBe('function')
+  })
+})
+
+describe('frameTool', () => {
+  beforeEach(() => {
+    _resetFrameNameCounter()
+  })
+
+  it('creates a labelled frame on drag with empty childIds', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    frameTool.onPointerDown(ctx, makeEvent(0, 0))
+    frameTool.onPointerMove(ctx, makeEvent(200, 100))
+    frameTool.onPointerUp(ctx, makeEvent(200, 100))
+    const el = store.list()[0] as {
+      type: string
+      width: number
+      height: number
+      name: string
+      childIds: string[]
+    }
+    expect(el.type).toBe('frame')
+    expect(el.width).toBe(200)
+    expect(el.height).toBe(100)
+    expect(el.name).toBe('Frame 1')
+    expect(el.childIds).toEqual([])
+  })
+
+  it('drops a sub-MIN frame on pointer-up', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    frameTool.onPointerDown(ctx, makeEvent(0, 0))
+    frameTool.onPointerMove(ctx, makeEvent(4, 4)) // < MIN_DIMENSION (8)
+    frameTool.onPointerUp(ctx, makeEvent(4, 4))
+    expect(store.size).toBe(0)
+  })
+
+  it('numbers consecutive frames per tab', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const ctx = stubCtx(store)
+    for (let i = 0; i < 3; i++) {
+      frameTool.onPointerDown(ctx, makeEvent(i * 200, 0))
+      frameTool.onPointerMove(ctx, makeEvent(i * 200 + 100, 50))
+      frameTool.onPointerUp(ctx, makeEvent(i * 200 + 100, 50))
+    }
+    const names = store.list().map((el) => (el as { name: string }).name)
+    expect(names.sort()).toEqual(['Frame 1', 'Frame 2', 'Frame 3'])
+  })
+})
+
+describe('toolFor (frame)', () => {
+  it('resolves the frame tool', () => {
+    expect(toolFor('frame')).toBe(frameTool)
   })
 })

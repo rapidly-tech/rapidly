@@ -188,6 +188,7 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
     label: 'Eraser',
     hint: 'Drag over elements to delete them; release to commit',
   },
+  { id: 'frame', label: 'Frame', hint: 'Drag to draw a labelled container' },
 ]
 
 interface CollabWhiteboardProps {
