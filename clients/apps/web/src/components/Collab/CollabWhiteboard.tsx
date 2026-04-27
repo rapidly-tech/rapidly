@@ -13,6 +13,7 @@ import * as Y from 'yjs'
 
 import { align, distribute } from '@/utils/collab/align'
 import { makeAlignmentGuidesOverlay } from '@/utils/collab/alignment-guides-overlay'
+import { clearCanvas } from '@/utils/collab/clear-canvas'
 import {
   copy as clipboardCopy,
   cut as clipboardCut,
@@ -1467,6 +1468,29 @@ export function CollabWhiteboard({
       shortcut: ['Mod', 'Shift', 'A'],
       keywords: ['deselect', 'clear', 'none'],
       run: () => {
+        selectionRef.current.clear()
+      },
+    })
+    list.push({
+      id: 'edit.clearCanvas',
+      label: 'Clear canvas…',
+      category: 'Edit',
+      keywords: ['clear', 'wipe', 'reset', 'empty', 'delete all'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        if (store.size === 0) return
+        // Confirmation gate — clear-canvas is undoable but a remote
+        // peer reads it instantly; we don t want to wipe a shared
+        // session by accident. Native ``confirm`` is the cheapest
+        // appropriate UX.
+        const ok = window.confirm(
+          `Clear all ${store.size} element${
+            store.size === 1 ? '' : 's'
+          } from the canvas? This can be undone with Cmd+Z.`,
+        )
+        if (!ok) return
+        clearCanvas(store)
         selectionRef.current.clear()
       },
     })
