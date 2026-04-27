@@ -964,18 +964,57 @@ export function CollabWhiteboard({
     const store = storeRef.current
     const renderer = rendererRef.current
     if (!canvas || !store || !renderer) return
+    const rect = canvas.getBoundingClientRect()
+    const cursorWorld = renderer.screenToWorld(
+      e.clientX - rect.left,
+      e.clientY - rect.top,
+    )
+
+    // Try JSON files first — they re Rapidly scene exports. Image
+    // extraction silently skips non-image files so the JSON branch
+    // doesn t accidentally swallow a real image.
+    const file = e.dataTransfer.files?.[0]
+    if (
+      file &&
+      (file.type === 'application/json' ||
+        file.name.toLowerCase().endsWith('.json'))
+    ) {
+      e.preventDefault()
+      let text: string
+      try {
+        text = await file.text()
+      } catch {
+        return
+      }
+      const parsed = parseExportedScene(text)
+      if (isImportError(parsed)) {
+        window.alert(
+          'Could not import — file is not a Rapidly Collab JSON ' +
+            `export (${parsed.reason}).`,
+        )
+        return
+      }
+      // Centre the import on the drop position rather than the
+      // viewport, so the user's drop-target lands where they expect.
+      const bounds = computeBounds(parsed.elements)
+      const offset = bounds
+        ? {
+            x: cursorWorld.x - bounds.x - bounds.width / 2,
+            y: cursorWorld.y - bounds.y - bounds.height / 2,
+          }
+        : { x: 0, y: 0 }
+      const ids = importScene(store, parsed, { offset })
+      if (ids.length > 0) selectionRef.current.set(ids)
+      return
+    }
+
     const image = await extractPastedImage(e.dataTransfer)
     if (!image) return
     e.preventDefault()
     // Drop the image at the actual cursor world position so the
     // user's drag-target lands where they expect — Excalidraw + Figma
     // both behave this way.
-    const rect = canvas.getBoundingClientRect()
-    const center = renderer.screenToWorld(
-      e.clientX - rect.left,
-      e.clientY - rect.top,
-    )
-    const id = createImageElement(store, image, { center })
+    const id = createImageElement(store, image, { center: cursorWorld })
     selectionRef.current.set([id])
   }, [])
 
