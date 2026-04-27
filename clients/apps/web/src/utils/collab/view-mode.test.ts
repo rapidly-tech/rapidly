@@ -14,6 +14,8 @@ import {
   isReadOnlyPaletteCommand,
   isReadOnlyTool,
   isViewModeShortcutAllowed,
+  isViewModeUrl,
+  withViewModeUrl,
 } from './view-mode'
 
 describe('isReadOnlyTool', () => {
@@ -109,5 +111,58 @@ describe('isReadOnlyPaletteCommand', () => {
     expect(isReadOnlyPaletteCommand('import.mermaid')).toBe(false)
     expect(isReadOnlyPaletteCommand('tool.rect')).toBe(false)
     expect(isReadOnlyPaletteCommand('tool.eraser')).toBe(false)
+  })
+})
+
+describe('isViewModeUrl', () => {
+  it('returns true for the canonical ?view=1 form', () => {
+    expect(isViewModeUrl('?view=1')).toBe(true)
+    expect(isViewModeUrl('?view=true')).toBe(true)
+    expect(isViewModeUrl('?view=YES')).toBe(true)
+    expect(isViewModeUrl('?view=on')).toBe(true)
+  })
+
+  it('parses a full URL', () => {
+    expect(
+      isViewModeUrl('https://rapidly.tech/collab/abc?view=1#key=...'),
+    ).toBe(true)
+  })
+
+  it('returns false on missing or falsy values', () => {
+    expect(isViewModeUrl('')).toBe(false)
+    expect(isViewModeUrl('?other=1')).toBe(false)
+    expect(isViewModeUrl('?view=0')).toBe(false)
+    expect(isViewModeUrl('?view=false')).toBe(false)
+  })
+
+  it('handles a query string without the leading ?', () => {
+    expect(isViewModeUrl('view=1')).toBe(true)
+    expect(isViewModeUrl('view=0')).toBe(false)
+  })
+})
+
+describe('withViewModeUrl', () => {
+  it('adds ?view=1 to a clean URL', () => {
+    expect(withViewModeUrl('https://rapidly.tech/collab/abc')).toBe(
+      'https://rapidly.tech/collab/abc?view=1',
+    )
+  })
+
+  it('preserves existing query params', () => {
+    const out = withViewModeUrl('https://rapidly.tech/collab/abc?token=xyz')
+    expect(out).toContain('token=xyz')
+    expect(out).toContain('view=1')
+  })
+
+  it('replaces an existing view value', () => {
+    expect(withViewModeUrl('https://rapidly.tech/collab/abc?view=0')).toContain(
+      'view=1',
+    )
+  })
+
+  it('preserves the URL fragment (E2EE invite keys)', () => {
+    expect(withViewModeUrl('https://rapidly.tech/collab/abc#k=secret')).toBe(
+      'https://rapidly.tech/collab/abc?view=1#k=secret',
+    )
   })
 })

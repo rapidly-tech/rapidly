@@ -19,6 +19,7 @@ import {
   type CollabFragmentKeys,
 } from '@/utils/collab/invite-fragment'
 import { stableColor } from '@/utils/collab/presence'
+import { isViewModeUrl } from '@/utils/collab/view-mode'
 
 import { useDisplayName } from './useDisplayName'
 
@@ -39,6 +40,15 @@ export function CollabGuestClient({ slug, token }: Props) {
     null,
   )
   const [fragmentChecked, setFragmentChecked] = useState(false)
+  // Read ``?view=1`` from the URL once on mount. Captured up-front so
+  // a later push-state navigation can't surprise the recipient by
+  // flipping into edit mode mid-session — the prop is set at the
+  // CollabWhiteboard mount and stays stable.
+  const [viewMode, setViewMode] = useState(false)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setViewMode(isViewModeUrl(window.location.search))
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -166,6 +176,7 @@ export function CollabGuestClient({ slug, token }: Props) {
             name: broadcastName,
             color: stableColor(room.clientID),
           }}
+          viewMode={viewMode}
         />
       ) : (
         <CollabEditor doc={room.doc} />
