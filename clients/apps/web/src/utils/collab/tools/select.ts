@@ -16,6 +16,7 @@
  */
 
 import { collectBoundArrowPatches } from '../arrow-bindings'
+import { duplicate as duplicateElements } from '../clipboard'
 import { snapToGrid } from '../grid'
 import { expandToGroups } from '../groups'
 import { isLocked } from '../locks'
@@ -60,6 +61,10 @@ type GestureKind = 'click' | 'marquee' | 'moving' | 'resizing'
 interface GestureState {
   kind: GestureKind
   shift: boolean
+  /** Whether Alt was held at pointer-down. Captured up-front so a user
+   *  who releases Alt mid-drag still gets the duplicated copies they
+   *  asked for — Excalidraw + Figma both behave this way. */
+  altOnDown: boolean
   startWorldX: number
   startWorldY: number
   /** For marquee: current rect in world coords. */
@@ -122,6 +127,7 @@ export const selectTool = {
           state = {
             kind: 'resizing',
             shift: e.shiftKey,
+            altOnDown: e.altKey,
             startWorldX: x,
             startWorldY: y,
             curX: x,
@@ -156,7 +162,7 @@ export const selectTool = {
           else next.add(id)
         }
         sctx.selection.set(next)
-        state = clickState(x, y, true, sctx.selection.snapshot)
+        state = clickState(x, y, true, sctx.selection.snapshot, e.altKey)
         return
       }
 
@@ -166,12 +172,12 @@ export const selectTool = {
       if (!sctx.selection.has(hitId)) {
         sctx.selection.set(expanded)
       }
-      state = clickState(x, y, false, sctx.selection.snapshot)
+      state = clickState(x, y, false, sctx.selection.snapshot, e.altKey)
       return
     }
 
     // Empty-space: start a click (may promote to marquee).
-    state = clickState(x, y, e.shiftKey, sctx.selection.snapshot)
+    state = clickState(x, y, e.shiftKey, sctx.selection.snapshot, e.altKey)
   },
 
   onPointerMove(ctx, e) {
@@ -197,6 +203,18 @@ export const selectTool = {
           state.baseIds.size > 0 &&
           state.baseIds.has(startedOnHit)
         ) {
+          // Alt-drag: duplicate the selection in place, then drag the
+          // copies. The originals stay pinned. Excalidraw + Figma
+          // ship this as the standard ""drag to clone"" gesture.
+          if (state.altOnDown) {
+            const newIds = duplicateElements(ctx.store, state.baseIds, {
+              offset: { x: 0, y: 0 },
+            })
+            if (newIds.length > 0) {
+              sctx.selection.set(newIds)
+              state.baseIds = new Set(newIds)
+            }
+          }
           state.kind = 'moving'
           const anchors = new Map<string, { x: number; y: number }>()
           for (const id of state.baseIds) {
@@ -454,10 +472,12 @@ function clickState(
   y: number,
   shift: boolean,
   baseIds: ReadonlySet<string>,
+  alt: boolean = false,
 ): GestureState {
   return {
     kind: 'click',
     shift,
+    altOnDown: alt,
     startWorldX: x,
     startWorldY: y,
     curX: x,

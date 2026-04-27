@@ -63,6 +63,7 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
       { keys: ['Mod', 'D'], description: 'Duplicate selection in place' },
       { keys: ['Arrows'], description: 'Nudge selection by 1 unit' },
       { keys: ['Shift', 'Arrows'], description: 'Nudge selection by 10 units' },
+      { keys: ['Alt', 'drag'], description: 'Duplicate selection while dragging' },
     ],
   },
   {

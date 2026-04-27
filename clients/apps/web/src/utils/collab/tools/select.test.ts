@@ -44,13 +44,13 @@ function stubCtx(
 function event(
   clientX: number,
   clientY: number,
-  opts: { shift?: boolean } = {},
+  opts: { shift?: boolean; alt?: boolean } = {},
 ): PointerEvent {
   return {
     clientX,
     clientY,
     shiftKey: !!opts.shift,
-    altKey: false,
+    altKey: !!opts.alt,
     target: {
       getBoundingClientRect: () => ({ left: 0, top: 0 }),
     },
@@ -362,5 +362,41 @@ describe('selectTool', () => {
     expect(store.get(b)?.x).toBe(240)
     expect(store.get(a)?.x).toBe(10)
     selectTool.onPointerUp(ctx, event(260, 50))
+  })
+
+  it('alt-drag duplicates the selection in place and drags the copies', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const original = store.create({
+      type: 'rect',
+      x: 10,
+      y: 20,
+      width: 50,
+      height: 50,
+      roundness: 0,
+    })
+    const sel = new SelectionState()
+    sel.set([original])
+    const ctx = stubCtx(store, sel, original)
+
+    // Pointer-down with Alt held captures altOnDown.
+    selectTool.onPointerDown(ctx, event(20, 30, { alt: true }))
+    // Drag past the threshold → click promotes to moving and the
+    // duplicate fires. Alt may have been released by now; the
+    // captured ``altOnDown`` is what counts.
+    selectTool.onPointerMove(ctx, event(80, 80))
+
+    // Two elements now: the original at the original position, and a
+    // fresh copy that has moved by the drag delta (60, 50).
+    expect(store.size).toBe(2)
+    const ids = store.list().map((el) => el.id)
+    const fresh = ids.find((id) => id !== original)!
+    expect(store.get(original)?.x).toBe(10) // pinned
+    expect(store.get(original)?.y).toBe(20)
+    expect(store.get(fresh)?.x).toBe(70) // 10 + 60
+    expect(store.get(fresh)?.y).toBe(70) // 20 + 50
+    // Selection moves to the new copy.
+    expect(Array.from(sel.snapshot)).toEqual([fresh])
+    selectTool.onPointerUp(ctx, event(80, 80))
   })
 })
