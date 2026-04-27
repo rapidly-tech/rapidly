@@ -29,6 +29,26 @@ describe('SHORTCUT_CATEGORIES', () => {
       }
     }
   })
+
+  it('lists shortcuts the keydown handler actually wires', () => {
+    // Drift guard: each item below has a real handler in
+    // CollabWhiteboard.tsx. If a row goes stale, the dialog lies to
+    // the user. Match by description fragment so wording can evolve
+    // without breaking the test.
+    const flat = allShortcuts()
+      .map((s) => s.description.toLowerCase())
+      .join(' | ')
+    for (const fragment of [
+      'eraser',
+      'select all',
+      'clear selection',
+      'nudge selection by 1',
+      'nudge selection by 10',
+      'command palette',
+    ]) {
+      expect(flat).toContain(fragment)
+    }
+  })
 })
 
 describe('formatKeys', () => {

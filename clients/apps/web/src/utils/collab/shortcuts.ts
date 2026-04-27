@@ -42,6 +42,7 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
       { keys: ['P'], description: 'Pen (freehand)' },
       { keys: ['T'], description: 'Text' },
       { keys: ['S'], description: 'Sticky note' },
+      { keys: ['E'], description: 'Eraser — drag over elements to delete' },
     ],
   },
   {
@@ -51,10 +52,17 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
       { keys: ['Mod', 'Shift', 'Z'], description: 'Redo' },
       { keys: ['Backspace'], description: 'Delete selected' },
       { keys: ['Esc'], description: 'Cancel gesture / clear selection' },
+      { keys: ['Mod', 'A'], description: 'Select all' },
+      { keys: ['Mod', 'Shift', 'A'], description: 'Clear selection' },
       { keys: ['Mod', 'C'], description: 'Copy selection' },
-      { keys: ['Mod', 'V'], description: 'Paste (in-app or OS image)' },
+      {
+        keys: ['Mod', 'V'],
+        description: 'Paste (in-app, cross-tab, or OS image)',
+      },
       { keys: ['Mod', 'X'], description: 'Cut selection' },
       { keys: ['Mod', 'D'], description: 'Duplicate selection in place' },
+      { keys: ['Arrows'], description: 'Nudge selection by 1 unit' },
+      { keys: ['Shift', 'Arrows'], description: 'Nudge selection by 10 units' },
     ],
   },
   {
@@ -82,7 +90,10 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
   },
   {
     label: 'Collaboration',
-    entries: [{ keys: ['?'], description: 'Show this shortcuts overlay' }],
+    entries: [
+      { keys: ['?'], description: 'Show this shortcuts overlay' },
+      { keys: ['Mod', 'Shift', 'P'], description: 'Open command palette' },
+    ],
   },
 ]
 
