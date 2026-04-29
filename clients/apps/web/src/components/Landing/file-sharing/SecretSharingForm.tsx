@@ -523,15 +523,7 @@ export const SecretSharingForm = ({
           className="w-full"
           size="lg"
         >
-          {isLoading
-            ? saveOnServer || (useCustomPassword && customPassword)
-              ? 'Encrypting...'
-              : 'Building link...'
-            : saveOnServer
-              ? 'Encrypt & Share'
-              : useCustomPassword && customPassword
-                ? 'Encrypt & Share'
-                : 'Build share link'}
+          {isLoading ? 'Encrypting...' : 'Encrypt & Share'}
         </Button>
       </div>
     </div>
