@@ -1562,7 +1562,8 @@ async def get_public_stats(session: AsyncReadSession, redis: Redis) -> int:
     secret_repo = SecretRepository(redis)
     pg_count = await pg_repo.get_total_count()
     secret_count = await secret_repo.get_created_count()
-    total = pg_count + secret_count
+    no_server_count = await secret_repo.get_no_server_created_count()
+    total = pg_count + secret_count + no_server_count
 
     await redis.setex(_STATS_CACHE_KEY, _STATS_CACHE_TTL, str(total))
     return total
@@ -1576,7 +1577,25 @@ async def get_workspace_stats(
     secret_repo = SecretRepository(redis)
     pg_count = await pg_repo.get_count_by_workspace(workspace_id)
     secret_count = await secret_repo.get_workspace_created_count(str(workspace_id))
-    return pg_count + secret_count
+    no_server_count = await secret_repo.get_workspace_no_server_created_count(
+        str(workspace_id)
+    )
+    return pg_count + secret_count + no_server_count
+
+
+async def record_no_server_secret(
+    redis: Redis, workspace_id: UUID | None = None
+) -> None:
+    """Record that a no-server secret was created.
+
+    The payload itself never reaches us — this only bumps the public
+    ""shares so far"" counter (and the workspace counter when a
+    workspace is attributed). No row, no log of content.
+    """
+    secret_repo = SecretRepository(redis)
+    await secret_repo.increment_no_server_created_count(
+        str(workspace_id) if workspace_id else None
+    )
 
 
 # ── Authenticated Session List (PG-backed) ──

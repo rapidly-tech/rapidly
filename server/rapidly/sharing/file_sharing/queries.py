@@ -1080,6 +1080,14 @@ class SecretRepository:
 
     _STATS_CACHE_KEY = "file-sharing:stats:cached_total"
 
+    # No-server secrets ride entirely in the URL fragment — the server
+    # never sees the payload. We still want them to show up in the public
+    # ""shares so far"" tally, so the form pings a metadata-only endpoint
+    # that bumps this counter. Kept in a separate key from
+    # ``_STATS_KEY`` so the existing ""things stored on our server""
+    # semantic stays clean.
+    _NO_SERVER_STATS_KEY = "file-sharing:stats:no_server_created"
+
     async def increment_created_count(self, workspace_id: str | None = None) -> None:
         """Increment the persistent counter of secrets/files created."""
         await self._redis.incr(self._STATS_KEY)
@@ -1097,6 +1105,36 @@ class SecretRepository:
         """Return the number of secrets/files created for a workspace."""
         val = await self._redis.get(
             f"file-sharing:stats:secrets_created:{workspace_id}"
+        )
+        return int(val) if val else 0
+
+    async def increment_no_server_created_count(
+        self, workspace_id: str | None = None
+    ) -> None:
+        """Increment the persistent counter of no-server (URL-fragment) shares.
+
+        Mirrors :meth:`increment_created_count`: always bumps the global
+        key (so the public counter sees both anonymous and workspace
+        shares), and only bumps the per-workspace key when
+        ``workspace_id`` is provided (so workspace dashboards stay
+        unpolluted by anonymous traffic).
+        """
+        await self._redis.incr(self._NO_SERVER_STATS_KEY)
+        await self._redis.delete(self._STATS_CACHE_KEY)
+        if workspace_id:
+            await self._redis.incr(
+                f"file-sharing:stats:no_server_created:{workspace_id}"
+            )
+
+    async def get_no_server_created_count(self) -> int:
+        """Return the total number of no-server shares ever created."""
+        val = await self._redis.get(self._NO_SERVER_STATS_KEY)
+        return int(val) if val else 0
+
+    async def get_workspace_no_server_created_count(self, workspace_id: str) -> int:
+        """Return the number of no-server shares attributed to a workspace."""
+        val = await self._redis.get(
+            f"file-sharing:stats:no_server_created:{workspace_id}"
         )
         return int(val) if val else 0
 

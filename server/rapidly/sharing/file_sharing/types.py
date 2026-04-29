@@ -95,6 +95,21 @@ class FileShareStatsResponse(Schema):
     total_shares: int = Field(..., description="Total number of file shares created")
 
 
+class NoServerSecretPingRequest(Schema):
+    """Body for the no-server-secret ping endpoint.
+
+    The payload itself never reaches us — this is a content-free signal
+    that the user just generated a fragment-only share, so the public
+    counter (and optionally the workspace counter) can include it.
+    """
+
+    workspace_id: UUID4 | None = Field(
+        default=None,
+        description="Optional workspace ID for self-attribution. Anonymous"
+        " pings only bump the public counter.",
+    )
+
+
 class SecretCreateResponse(Schema):
     """Response schema for secret/file creation.
 

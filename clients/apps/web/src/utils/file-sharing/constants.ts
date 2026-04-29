@@ -67,10 +67,70 @@ export function buildSecretURL(uuid: string, password?: string): string {
  *  not sent in HTTP requests, mirroring the file-sharing model where
  *  payload data never touches the server.
  *
- *  Path uses ``/secret/local`` as a sentinel so a future page route
- *  can branch on it without parsing the fragment first. */
+ *  Path uses ``/secret/local`` — handled by ``/secret/[key]`` with the
+ *  ``local`` sentinel branch in ``SecretClient``. */
 export function buildLocalSecretURL(payloadB64Url: string): string {
   return `${window.location.origin}/secret/local#${payloadB64Url}`
+}
+
+/** Versioned envelope for no-server secrets. Lets us carry title /
+ *  expiry / encryption flag alongside the payload without sending
+ *  anything to the server (the whole envelope rides in the URL
+ *  fragment).
+ *
+ *  ``v: 1`` is the parser sentinel — older raw-base64 fragments from
+ *  before envelopes existed parse without ``v`` and are handled by
+ *  the receiver's backward-compat fallback. */
+export interface LocalSecretEnvelope {
+  v: 1
+  /** base64url of the payload bytes. When ``encrypted`` is true the
+   *  payload bytes are an OpenPGP armored ciphertext; otherwise they
+   *  are the plaintext UTF-8 secret. */
+  secret: string
+  /** Optional human-readable label shown above the reveal button. */
+  title?: string
+  /** Unix milliseconds. Soft client-enforced — there's no server to
+   *  delete the link, so this only stops a well-behaved recipient
+   *  from viewing past the deadline. */
+  expires_at?: number
+  /** True when ``secret`` is an OpenPGP armored ciphertext that needs
+   *  the recipient to enter a password to decrypt. */
+  encrypted?: boolean
+}
+
+/** Encode a no-server envelope into a fragment-safe base64url string. */
+export function encodeLocalSecretEnvelope(env: LocalSecretEnvelope): string {
+  return toBase64Url(JSON.stringify(env))
+}
+
+/** Decode a fragment back into an envelope. Returns ``null`` if the
+ *  fragment isn't a v1 envelope — the receiver falls back to treating
+ *  the fragment as a raw base64 plaintext (backward compat with
+ *  links generated before envelopes existed). */
+export function decodeLocalSecretEnvelope(
+  fragment: string,
+): LocalSecretEnvelope | null {
+  let json: string
+  try {
+    json = fromBase64Url(fragment)
+  } catch {
+    return null
+  }
+  let parsed: unknown
+  try {
+    parsed = JSON.parse(json)
+  } catch {
+    return null
+  }
+  if (
+    !parsed ||
+    typeof parsed !== 'object' ||
+    (parsed as { v?: unknown }).v !== 1 ||
+    typeof (parsed as { secret?: unknown }).secret !== 'string'
+  ) {
+    return null
+  }
+  return parsed as LocalSecretEnvelope
 }
 
 /** Encode a UTF-8 string to base64url so it survives the URL fragment
