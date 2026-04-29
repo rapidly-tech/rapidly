@@ -6,8 +6,11 @@ import {
   ZIP64_COUNT_THRESHOLD,
   ZIP64_THRESHOLD,
   buildFileShareURL,
+  buildLocalSecretURL,
   buildSecretURL,
   formatFileSize,
+  fromBase64Url,
+  toBase64Url,
 } from './constants'
 
 describe('constants — numeric thresholds', () => {
@@ -136,5 +139,55 @@ describe('buildSecretURL', () => {
     expect(buildSecretURL('abc-123', '')).toBe(
       'https://rapidly.tech/#/s/abc-123',
     )
+  })
+})
+
+describe('toBase64Url / fromBase64Url', () => {
+  it('round-trips ASCII text', () => {
+    const input = 'hello world'
+    expect(fromBase64Url(toBase64Url(input))).toBe(input)
+  })
+
+  it('round-trips multi-line text', () => {
+    const input = 'line one\nline two\nline three'
+    expect(fromBase64Url(toBase64Url(input))).toBe(input)
+  })
+
+  it('round-trips non-ASCII (UTF-8) text', () => {
+    const input = 'naïve résumé · 🔐 password'
+    expect(fromBase64Url(toBase64Url(input))).toBe(input)
+  })
+
+  it('produces URL-safe output (no +, /, or =)', () => {
+    // 32 random bytes are likely to hit + and / under standard base64.
+    const noisy = String.fromCharCode(
+      ...Array.from({ length: 64 }, (_, i) => i + 0x80),
+    )
+    const out = toBase64Url(noisy)
+    expect(out).not.toMatch(/[+/=]/)
+  })
+})
+
+describe('buildLocalSecretURL', () => {
+  beforeEach(() => {
+    if (typeof window !== 'undefined') {
+      Object.defineProperty(window, 'location', {
+        value: { origin: 'https://rapidly.tech' },
+        writable: true,
+      })
+    }
+  })
+
+  it('puts the payload in the URL fragment under /secret/local', () => {
+    expect(buildLocalSecretURL('abc')).toBe(
+      'https://rapidly.tech/secret/local#abc',
+    )
+  })
+
+  it('round-trips a real secret end-to-end', () => {
+    const secret = 'sk-test-abc123 · multi-line\nsecond line'
+    const url = buildLocalSecretURL(toBase64Url(secret))
+    const fragment = url.split('#')[1]
+    expect(fromBase64Url(fragment)).toBe(secret)
   })
 })

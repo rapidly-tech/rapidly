@@ -14,7 +14,11 @@ import { WarningBanner } from '@/components/FileSharing/WarningBanner'
 import { toast } from '@/components/Toast/use-toast'
 import { postSecret } from '@/hooks/file-sharing'
 import { encryptMessage, randomString } from '@/utils/file-sharing'
-import { buildSecretURL } from '@/utils/file-sharing/constants'
+import {
+  buildLocalSecretURL,
+  buildSecretURL,
+  toBase64Url,
+} from '@/utils/file-sharing/constants'
 import { Icon } from '@iconify/react'
 import Button from '@rapidly-tech/ui/components/forms/Button'
 import Input from '@rapidly-tech/ui/components/forms/Input'
@@ -44,9 +48,16 @@ const expirationLabels: Record<Expiration, string> = {
 }
 
 interface Result {
-  password: string
-  uuid: string
+  /** ``null`` for no-server mode (the secret is in the URL fragment). */
+  password: string | null
+  /** ``null`` for no-server mode — there's no server-side record. */
+  uuid: string | null
   customPassword: boolean
+  /** Pre-built share URL. For no-server mode this is the only thing
+   *  the user needs to deliver; for server mode the URL is rebuilt
+   *  on demand alongside the QR code. */
+  shareUrl: string
+  serverStored: boolean
 }
 
 export type SecretFormState = 'input' | 'result'
@@ -72,10 +83,16 @@ export const SecretSharingForm = ({
   const [expiration, setExpiration] = useState<Expiration>('3600')
   const [useCustomPassword, setUseCustomPassword] = useState(false)
   const [customPassword, setCustomPassword] = useState('')
+  // ""Save on server"" defaults to OFF — by default the secret rides
+  // in the URL fragment and the server never sees it (mirrors the
+  // file-sharing model). Users opt in for offline delivery, expiry
+  // tracking, custom password split-knowledge, and paid gating.
+  const [saveOnServer, setSaveOnServer] = useState(false)
   const [result, setResult] = useState<Result | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const customPasswordId = useId()
+  const saveOnServerId = useId()
 
   // ── Payment state ──
   const [usePayment, setUsePayment] = useState(false)
@@ -111,7 +128,10 @@ export const SecretSharingForm = ({
   }, [])
 
   const handleCreateSecret = useCallback(async () => {
-    if (!title.trim()) {
+    // Title is server-mode metadata. No-server mode skips the title
+    // gate (there's nothing to attach it to) but still validates the
+    // secret content.
+    if (saveOnServer && !title.trim()) {
       toast({ title: 'Please enter a title', variant: 'error' })
       return
     }
@@ -142,6 +162,27 @@ export const SecretSharingForm = ({
     setIsLoading(true)
 
     try {
+      // ── No-server (default) ──
+      // Encode the secret into the URL fragment. The server never
+      // sees it — fragments are not sent in HTTP requests. Same
+      // delivery model as file-sharing: payload data stays on the
+      // sender → recipient hop, the server only handles signaling /
+      // metadata for opt-in features.
+      if (!saveOnServer) {
+        const url = buildLocalSecretURL(toBase64Url(secret))
+        setResult({
+          password: null,
+          uuid: null,
+          customPassword: false,
+          shareUrl: url,
+          serverStored: false,
+        })
+        setSecret('')
+        onStateChange?.('result')
+        return
+      }
+
+      // ── Server-stored (opt-in) ──
       const pw = getPassword()
       const encrypted = await encryptMessage(secret, pw)
 
@@ -161,10 +202,17 @@ export const SecretSharingForm = ({
         return
       }
 
+      const customPasswordActive = useCustomPassword && !!customPassword
+      const serverShareUrl = buildSecretURL(
+        data.message,
+        customPasswordActive ? undefined : pw,
+      )
       setResult({
         password: pw,
         uuid: data.message,
-        customPassword: useCustomPassword && !!customPassword,
+        customPassword: customPasswordActive,
+        shareUrl: serverShareUrl,
+        serverStored: true,
       })
       setSecret('')
       onStateChange?.('result')
@@ -190,6 +238,7 @@ export const SecretSharingForm = ({
     priceCents,
     currency,
     title,
+    saveOnServer,
   ])
 
   const handleReset = useCallback(() => {
@@ -199,14 +248,11 @@ export const SecretSharingForm = ({
   }, [onStateChange])
 
   // ── Share URL & Social Handlers ──
-  // When custom password is used, share the link WITHOUT the password embedded
-  // so the user can send the password through a separate channel (split-knowledge)
-  const shareLink = result
-    ? buildSecretURL(
-        result.uuid,
-        result.customPassword ? undefined : result.password,
-      )
-    : ''
+  // Unified — no-server mode embeds the secret in the fragment;
+  // server mode embeds the password (or omits it for split-knowledge).
+  // The form pre-builds the URL into the result so the rendering stays
+  // a straight read.
+  const shareLink = result?.shareUrl ?? ''
 
   const shareHandlers = useSocialShare({
     url: shareLink,
@@ -235,12 +281,18 @@ export const SecretSharingForm = ({
             <Icon icon="solar:danger-triangle-linear" className="h-4 w-4" />
           }
         >
-          This secret will be deleted after it&apos;s viewed once.
+          {result.serverStored
+            ? "This secret will be deleted after it's viewed once."
+            : 'This secret rides in the URL itself — anyone with the link can read it. Send the link through a private channel.'}
         </WarningBanner>
 
         <div className="bg-surface rounded-xl p-4">
           <CopyableInput
-            label="Share this link with a secret code"
+            label={
+              result.serverStored
+                ? 'Share this link with a secret code'
+                : 'Share this link — the secret is in the URL fragment, never sent to our server'
+            }
             value={shareLink}
           />
           {result.customPassword && (
@@ -267,22 +319,25 @@ export const SecretSharingForm = ({
   // Input view
   return (
     <div className="flex w-full flex-col gap-4">
-      {/* Title — on top, always visible and required */}
-      <div className="flex flex-col gap-2">
-        <label htmlFor="secret-title" className="rp-text-secondary text-sm">
-          Title <span className="text-red-500">*</span>
-        </label>
-        <input
-          id="secret-title"
-          type="text"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="e.g. API Key, License Key"
-          maxLength={255}
-          required
-          className="bg-surface-inset rp-text-primary placeholder:rp-text-muted w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none dark:border-slate-800 dark:focus:ring-slate-500"
-        />
-      </div>
+      {/* Title — server-mode metadata. Hidden in no-server mode since
+          there's no server-side record to label. */}
+      {saveOnServer && (
+        <div className="flex flex-col gap-2">
+          <label htmlFor="secret-title" className="rp-text-secondary text-sm">
+            Title <span className="text-red-500">*</span>
+          </label>
+          <input
+            id="secret-title"
+            type="text"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="e.g. API Key, License Key"
+            maxLength={255}
+            required
+            className="bg-surface-inset rp-text-primary placeholder:rp-text-muted w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none dark:border-slate-800 dark:focus:ring-slate-500"
+          />
+        </div>
+      )}
 
       <textarea
         ref={textareaRef}
@@ -295,87 +350,125 @@ export const SecretSharingForm = ({
       />
 
       <div className="flex flex-col gap-4">
-        <div className="flex flex-col gap-y-2">
-          <label className="rp-text-secondary text-sm">Expires in</label>
-          <Select
-            value={expiration}
-            onValueChange={(v) => setExpiration(v as Expiration)}
-          >
-            <SelectTrigger>
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {Object.entries(expirationLabels).map(([value, label]) => (
-                <SelectItem key={value} value={value}>
-                  {label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-
-        <div className="flex items-center gap-x-3">
+        {/* Save on server toggle — default OFF. The hint right under
+            it tells the user what they re trading away when they flip
+            it on, so the privacy-by-default story stays explicit. */}
+        <div className="flex items-start gap-x-3">
           <Checkbox
-            id={customPasswordId}
-            checked={useCustomPassword}
-            onCheckedChange={(checked) =>
-              setUseCustomPassword(checked === true)
-            }
+            id={saveOnServerId}
+            checked={saveOnServer}
+            onCheckedChange={(checked) => setSaveOnServer(checked === true)}
           />
-          <label
-            htmlFor={customPasswordId}
-            className="rp-text-secondary text-sm"
-          >
-            Use custom password
-          </label>
+          <div className="flex flex-col gap-1">
+            <label
+              htmlFor={saveOnServerId}
+              className="rp-text-secondary text-sm"
+            >
+              Save on our server
+              <span className="rp-text-muted ml-1 text-xs">(optional)</span>
+            </label>
+            <p className="rp-text-muted text-xs">
+              {saveOnServer
+                ? 'The encrypted secret is stored on our server with an expiry. Enables offline delivery, custom-password split-knowledge, and paid gating.'
+                : 'The secret stays in the URL fragment — never sent to our server. Same as how files are shared. Recipient must open the link before you forget the URL.'}
+            </p>
+          </div>
         </div>
 
-        {useCustomPassword && (
-          <div>
-            <Input
-              type="password"
-              value={customPassword}
-              onChange={(e) => setCustomPassword(e.target.value)}
-              placeholder="Enter custom password"
-              minLength={MIN_PASSWORD_LENGTH}
-            />
-            {customPassword.length > 0 &&
-              customPassword.length < MIN_PASSWORD_LENGTH && (
-                <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
-                  Minimum {MIN_PASSWORD_LENGTH} characters
-                </p>
-              )}
-          </div>
-        )}
+        {saveOnServer && (
+          <>
+            <div className="flex flex-col gap-y-2">
+              <label className="rp-text-secondary text-sm">Expires in</label>
+              <Select
+                value={expiration}
+                onValueChange={(v) => setExpiration(v as Expiration)}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.entries(expirationLabels).map(([value, label]) => (
+                    <SelectItem key={value} value={value}>
+                      {label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-        {/* Require payment — only shown in dashboard */}
-        <PaymentConfigSection
-          showPricing={showPricing}
-          workspaceId={workspaceId}
-          usePayment={usePayment}
-          priceCents={priceCents}
-          currency={currency}
-          onPaymentToggle={handlePaymentToggle}
-          onPriceCentsChange={setPriceCents}
-          onCurrencyChange={setCurrency}
-        />
+            <div className="flex items-center gap-x-3">
+              <Checkbox
+                id={customPasswordId}
+                checked={useCustomPassword}
+                onCheckedChange={(checked) =>
+                  setUseCustomPassword(checked === true)
+                }
+              />
+              <label
+                htmlFor={customPasswordId}
+                className="rp-text-secondary text-sm"
+              >
+                Use custom password
+              </label>
+            </div>
+
+            {useCustomPassword && (
+              <div>
+                <Input
+                  type="password"
+                  value={customPassword}
+                  onChange={(e) => setCustomPassword(e.target.value)}
+                  placeholder="Enter custom password"
+                  minLength={MIN_PASSWORD_LENGTH}
+                />
+                {customPassword.length > 0 &&
+                  customPassword.length < MIN_PASSWORD_LENGTH && (
+                    <p className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                      Minimum {MIN_PASSWORD_LENGTH} characters
+                    </p>
+                  )}
+              </div>
+            )}
+
+            {/* Require payment — only shown in dashboard */}
+            <PaymentConfigSection
+              showPricing={showPricing}
+              workspaceId={workspaceId}
+              usePayment={usePayment}
+              priceCents={priceCents}
+              currency={currency}
+              onPaymentToggle={handlePaymentToggle}
+              onPriceCentsChange={setPriceCents}
+              onCurrencyChange={setCurrency}
+            />
+          </>
+        )}
 
         <Button
           onClick={handleCreateSecret}
           disabled={
             isLoading ||
-            (useCustomPassword &&
-              customPassword.length < MIN_PASSWORD_LENGTH) ||
-            (usePayment &&
-              (priceCents === null ||
-                priceCents < FILE_SHARING_MIN_PRICE_CENTS ||
-                priceCents > FILE_SHARING_MAX_PRICE_CENTS))
+            // Server-only validations (custom password, payment) only
+            // gate when the user opted into server storage.
+            (saveOnServer &&
+              ((useCustomPassword &&
+                customPassword.length < MIN_PASSWORD_LENGTH) ||
+                (usePayment &&
+                  (priceCents === null ||
+                    priceCents < FILE_SHARING_MIN_PRICE_CENTS ||
+                    priceCents > FILE_SHARING_MAX_PRICE_CENTS))))
           }
           variant="secondary"
           className="w-full"
           size="lg"
         >
-          {isLoading ? 'Encrypting...' : 'Encrypt & Share'}
+          {isLoading
+            ? saveOnServer
+              ? 'Encrypting...'
+              : 'Building link...'
+            : saveOnServer
+              ? 'Encrypt & Share'
+              : 'Build share link'}
         </Button>
       </div>
     </div>
