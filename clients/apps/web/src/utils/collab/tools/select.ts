@@ -17,6 +17,7 @@
 
 import { collectBoundArrowPatches } from '../arrow-bindings'
 import { duplicate as duplicateElements } from '../clipboard'
+import { updateFrameMembership } from '../frame-containment'
 import { snapToGrid } from '../grid'
 import { expandToGroups } from '../groups'
 import { isLocked } from '../locks'
@@ -441,6 +442,13 @@ export const selectTool = {
       if (!hitId && !state.shift) {
         sctx.selection.clear()
       }
+    }
+    // After a move commits, recompute frame membership for every
+    // dragged element. An element whose centre lands inside a frame
+    // gets adopted; an element that left a frame gets released. The
+    // helper is a no-op when no frames exist or no childIds change.
+    if (state.kind === 'moving' && state.moveAnchors) {
+      updateFrameMembership(ctx.store, new Set(state.moveAnchors.keys()))
     }
     state = null
     sctx.invalidate()
