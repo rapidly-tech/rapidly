@@ -128,6 +128,7 @@ import {
 import { zoomToFit, zoomToSelection } from '@/utils/collab/zoom-to-fit'
 
 import { CommandPalette } from './Whiteboard/CommandPalette'
+import { EmbedsOverlay } from './Whiteboard/EmbedsOverlay'
 import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
 import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
 import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
@@ -2222,6 +2223,12 @@ export function CollabWhiteboard({
             <HyperlinkBadge
               store={storeRef.current}
               selection={selectionRef.current}
+              renderer={rendererRef.current}
+            />
+          ) : null}
+          {storeRef.current && rendererRef.current ? (
+            <EmbedsOverlay
+              store={storeRef.current}
               renderer={rendererRef.current}
             />
           ) : null}
