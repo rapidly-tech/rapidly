@@ -40,6 +40,7 @@ import {
   createFollowMeController,
   type FollowMeController,
 } from '@/utils/collab/follow-me'
+import { elementsForFrame, isFrameId } from '@/utils/collab/frame-export'
 import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
 import { hasLink, setLink } from '@/utils/collab/hyperlinks'
 import {
@@ -1523,6 +1524,65 @@ export function CollabWhiteboard({
         downloadBlob(blob, 'rapidly-collab.svg')
       },
     })
+    // Frame-level exports — visible only when a single frame is
+    // selected. The action filters the element list to the frame +
+    // its childIds before handing off to the existing exporter, so
+    // the bbox + paint order Just Work.
+    const frameExportCmd = (
+      id: string,
+      label: string,
+      run: (subset: ReturnType<ElementStore['list']>) => void,
+    ) => {
+      list.push({
+        id,
+        label,
+        category: 'Export',
+        keywords: ['frame', 'export', 'children'],
+        run: () => {
+          const store = storeRef.current
+          if (!store) return
+          const sel = Array.from(selectionRef.current.snapshot)
+          if (sel.length !== 1) {
+            window.alert('Select one frame to export.')
+            return
+          }
+          const all = store.list()
+          if (!isFrameId(all, sel[0])) {
+            window.alert('The selected element is not a frame.')
+            return
+          }
+          const subset = elementsForFrame(all, sel[0])
+          run(subset)
+        },
+      })
+    }
+    frameExportCmd(
+      'export.frame.png',
+      'Export selected frame as PNG',
+      async (subset) => {
+        const blob = await exportToPNG(subset)
+        if (blob) downloadBlob(blob, 'rapidly-collab-frame.png')
+      },
+    )
+    frameExportCmd(
+      'export.frame.svg',
+      'Export selected frame as SVG',
+      (subset) => {
+        const svg = exportToSVG(subset)
+        const blob = new Blob([svg], { type: 'image/svg+xml' })
+        downloadBlob(blob, 'rapidly-collab-frame.svg')
+      },
+    )
+    frameExportCmd(
+      'export.frame.json',
+      'Export selected frame as JSON',
+      (subset) => {
+        const blob = new Blob([JSON.stringify(exportToJSON(subset), null, 2)], {
+          type: 'application/json',
+        })
+        downloadBlob(blob, 'rapidly-collab-frame.json')
+      },
+    )
     // Editing.
     list.push({
       id: 'edit.undo',
