@@ -130,14 +130,10 @@ export const SecretSharingForm = ({
   }, [])
 
   const handleCreateSecret = useCallback(async () => {
-    // Title is server-mode metadata. No-server mode treats it as
-    // optional — it rides in the envelope as a recipient-facing label
-    // but isn't required because there's no dashboard to find it in.
-    if (saveOnServer && !title.trim()) {
-      toast({ title: 'Please enter a title', variant: 'error' })
-      return
-    }
-
+    // Title is optional in every mode now. In server mode it's a
+    // dashboard label (empty falls back to a generic "Untitled" on
+    // listing); in no-server mode it rides in the envelope as a
+    // recipient-facing hint and is omitted when empty.
     if (!secret.trim()) {
       toast({ title: 'Please enter a secret to share', variant: 'error' })
       return
@@ -359,17 +355,13 @@ export const SecretSharingForm = ({
   // Input view
   return (
     <div className="flex w-full flex-col gap-4">
-      {/* Title — required in server mode (it's the dashboard label),
-          optional in no-server mode (it just rides in the envelope as
-          a recipient-facing hint). Same field, different gravity. */}
+      {/* Title — optional in every mode. Server mode falls back to
+          a generic label in the dashboard listing; no-server mode
+          omits the hint from the envelope when empty. */}
       <div className="flex flex-col gap-2">
         <label htmlFor="secret-title" className="rp-text-secondary text-sm">
           Title
-          {saveOnServer ? (
-            <span className="text-red-500"> *</span>
-          ) : (
-            <span className="rp-text-muted ml-1 text-xs">(optional)</span>
-          )}
+          <span className="rp-text-muted ml-1 text-xs">(optional)</span>
         </label>
         <input
           id="secret-title"
@@ -378,7 +370,6 @@ export const SecretSharingForm = ({
           onChange={(e) => setTitle(e.target.value)}
           placeholder="e.g. API Key, License Key"
           maxLength={255}
-          required={saveOnServer}
           className="bg-surface-inset rp-text-primary placeholder:rp-text-muted w-full rounded-xl border border-slate-200 px-3 py-2 text-sm focus:ring-2 focus:ring-slate-400 focus:outline-none dark:border-slate-800 dark:focus:ring-slate-500"
         />
       </div>
