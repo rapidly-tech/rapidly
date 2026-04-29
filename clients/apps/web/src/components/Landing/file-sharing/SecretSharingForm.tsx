@@ -523,7 +523,7 @@ export const SecretSharingForm = ({
           className="w-full"
           size="lg"
         >
-          {isLoading ? 'Encrypting...' : 'Encrypt & Share'}
+          {isLoading ? 'Sharing...' : 'Share'}
         </Button>
       </div>
     </div>
