@@ -7,7 +7,6 @@ import {
   FILE_SHARING_MIN_PRICE_CENTS,
   PaymentConfigSection,
 } from '@/components/FileSharing/PaymentConfigSection'
-import { toast } from '@/components/Toast/use-toast'
 import { hashPassword } from '@/utils/file-sharing'
 import {
   LARGE_FILE_THRESHOLD,
@@ -139,10 +138,8 @@ function ConfirmUploadState({
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault()
-      if (!title.trim()) {
-        toast({ title: 'Please enter a title', variant: 'error' })
-        return
-      }
+      // Title is optional — when empty, the file name(s) shown in the
+      // placeholder become the natural fallback at display time.
       if (usePassword && !password.trim()) return
       if (
         usePayment &&
@@ -182,13 +179,17 @@ function ConfirmUploadState({
     <div className="flex w-full flex-col gap-y-6">
       <form onSubmit={handleSubmit} noValidate>
         <div className="flex w-full flex-col gap-4">
-          {/* Title field — on top, always visible and required */}
+          {/* Title field — optional. Empty falls back to the file
+              name(s) at display time. */}
           <div className="flex flex-col gap-2">
             <label
               htmlFor="file-share-title"
               className="text-sm text-slate-500 dark:text-slate-400"
             >
-              Title <span className="text-red-500">*</span>
+              Title
+              <span className="ml-1 text-xs text-slate-500 dark:text-slate-500">
+                (optional)
+              </span>
             </label>
             <input
               id="file-share-title"
