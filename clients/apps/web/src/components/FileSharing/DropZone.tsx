@@ -349,16 +349,16 @@ export default function DropZone({
             <div
               className={`flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300 ${
                 isDragging
-                  ? 'scale-110 bg-teal-100 dark:bg-teal-900/40'
-                  : 'bg-slate-100 group-hover:scale-110 group-hover:bg-teal-100 dark:bg-slate-900/40 dark:group-hover:bg-teal-900/40'
+                  ? 'scale-110 bg-violet-100 dark:bg-violet-900/40'
+                  : 'bg-slate-100 group-hover:scale-110 group-hover:bg-violet-100 dark:bg-slate-900/40 dark:group-hover:bg-violet-900/40'
               }`}
             >
               <Icon
                 icon="solar:upload-linear"
                 className={`h-6 w-6 transition-transform duration-300 ${
                   isDragging
-                    ? '-translate-y-1 text-teal-600 dark:text-teal-400'
-                    : 'text-slate-500 group-hover:-translate-y-0.5 group-hover:text-teal-600 dark:text-slate-400 dark:group-hover:text-teal-400'
+                    ? '-translate-y-1 text-violet-600 dark:text-violet-400'
+                    : 'text-slate-500 group-hover:-translate-y-0.5 group-hover:text-violet-600 dark:text-slate-400 dark:group-hover:text-violet-400'
                 }`}
                 aria-hidden="true"
               />

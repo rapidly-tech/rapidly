@@ -78,12 +78,12 @@ const SVGS: Record<string, React.ReactNode> = {
 // chamber's hero icon remains recognisable across the site (Files /
 // Secret stay on the brand teal axis; the rest get warm/cool variety).
 const CHAMBER_ACCENT: Record<string, string> = {
-  files: 'text-teal-600 dark:text-teal-400',
-  secret: 'text-emerald-600 dark:text-emerald-400',
+  files: 'text-violet-600 dark:text-violet-400',
+  secret: 'text-fuchsia-600 dark:text-fuchsia-400',
   screen: 'text-sky-600 dark:text-sky-400',
   watch: 'text-amber-600 dark:text-amber-400',
   call: 'text-rose-600 dark:text-rose-400',
-  collab: 'text-violet-600 dark:text-violet-400',
+  collab: 'text-indigo-600 dark:text-indigo-400',
 }
 
 interface ChamberStripProps {
