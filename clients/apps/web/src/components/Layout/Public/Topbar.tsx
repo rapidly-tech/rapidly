@@ -50,7 +50,10 @@ const Topbar = ({
         )}
         {!hasOrgs && (
           <Link href="/dashboard">
-            <Button type="button" className="space-x-2 p-2 px-4 text-sm">
+            <Button
+              type="button"
+              className="space-x-2 border border-white/[0.15] bg-teal-500/80 p-2 px-4 text-sm text-white shadow-md backdrop-blur-2xl backdrop-saturate-150 hover:bg-teal-500/90 hover:shadow-lg hover:shadow-teal-500/25 dark:bg-teal-600/80 dark:hover:bg-teal-600/90"
+            >
               <div className="flex flex-row items-center gap-x-2">
                 <span className="whitespace-nowrap">Paid Share</span>
                 <Icon icon="solar:arrow-right-linear" className="text-[1em]" />
@@ -60,7 +63,7 @@ const Topbar = ({
         )}
         {hasOrgs && (
           <Link href={creatorPath}>
-            <Button>
+            <Button className="border border-white/[0.15] bg-teal-500/80 text-white shadow-md backdrop-blur-2xl backdrop-saturate-150 hover:bg-teal-500/90 hover:shadow-lg hover:shadow-teal-500/25 dark:bg-teal-600/80 dark:hover:bg-teal-600/90">
               <div className="flex flex-row items-center gap-x-2">
                 <span className="text-xs whitespace-nowrap">Paid Share</span>
               </div>

@@ -55,7 +55,7 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-lg font-semibold tracking-tight text-slate-500 tabular-nums dark:text-slate-400">
+      <span className="text-lg font-semibold tracking-tight text-teal-600 tabular-nums dark:text-teal-400">
         <AnimatedNumber value={count} />
       </span>
       <div className="flex items-center gap-x-1.5">

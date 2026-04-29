@@ -73,6 +73,19 @@ const SVGS: Record<string, React.ReactNode> = {
   ),
 }
 
+// Per-chamber accent — gives each pill a distinct hue so the strip
+// reads as a palette rather than six identical greys. Picked so each
+// chamber's hero icon remains recognisable across the site (Files /
+// Secret stay on the brand teal axis; the rest get warm/cool variety).
+const CHAMBER_ACCENT: Record<string, string> = {
+  files: 'text-teal-600 dark:text-teal-400',
+  secret: 'text-emerald-600 dark:text-emerald-400',
+  screen: 'text-sky-600 dark:text-sky-400',
+  watch: 'text-amber-600 dark:text-amber-400',
+  call: 'text-rose-600 dark:text-rose-400',
+  collab: 'text-violet-600 dark:text-violet-400',
+}
+
 interface ChamberStripProps {
   currentId?: string
   excludeIds?: readonly string[]
@@ -104,7 +117,7 @@ export function ChamberStrip({
           >
             <svg
               viewBox="0 0 24 24"
-              className="h-3.5 w-3.5 text-slate-500 dark:text-slate-400"
+              className={`h-3.5 w-3.5 ${CHAMBER_ACCENT[chamber.id] ?? 'text-slate-500 dark:text-slate-400'}`}
               aria-hidden
             >
               {SVGS[chamber.id]}
