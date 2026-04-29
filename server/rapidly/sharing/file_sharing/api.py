@@ -68,6 +68,7 @@ from .types import (
     FileShareStatsResponse,
     ICEConfigRequest,
     ICEConfigResponse,
+    NoServerSecretPingRequest,
     PasswordAttemptRequest,
     PasswordAttemptResponse,
     ReaderTokenRequest,
@@ -139,6 +140,35 @@ async def get_stats(
     else:
         total = await file_sharing_service.get_public_stats(session, redis)
     return FileShareStatsResponse(total_shares=total)
+
+
+@router.post("/no-server-secrets/ping", status_code=204)
+async def ping_no_server_secret(
+    request: NoServerSecretPingRequest,
+    http_request: Request,
+    redis: Redis = Depends(get_redis),
+) -> Response:
+    """Record that a no-server (URL-fragment) secret was created.
+
+    The payload itself never reaches us — fragments are not sent in
+    HTTP requests. This endpoint exists purely so the public ""shares
+    so far"" counter can include fragment-only shares alongside the
+    server-stored ones.
+
+    Reuses the secret-create rate limit (per-IP) since it's the same
+    abuse surface as today's anonymous server-stored secret create.
+    """
+    await check_rate_limit(
+        http_request,
+        redis,
+        "no_server_secret_ping",
+        SECRET_CREATE_RATE_LIMIT,
+        SECRET_CREATE_RATE_WINDOW,
+    )
+    await file_sharing_service.record_no_server_secret(
+        redis, workspace_id=request.workspace_id
+    )
+    return Response(status_code=204)
 
 
 # ── Session Listing and Detail ──

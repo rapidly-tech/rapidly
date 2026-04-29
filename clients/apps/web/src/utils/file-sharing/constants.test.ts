@@ -8,6 +8,8 @@ import {
   buildFileShareURL,
   buildLocalSecretURL,
   buildSecretURL,
+  decodeLocalSecretEnvelope,
+  encodeLocalSecretEnvelope,
   formatFileSize,
   fromBase64Url,
   toBase64Url,
@@ -189,5 +191,58 @@ describe('buildLocalSecretURL', () => {
     const url = buildLocalSecretURL(toBase64Url(secret))
     const fragment = url.split('#')[1]
     expect(fromBase64Url(fragment)).toBe(secret)
+  })
+})
+
+describe('encodeLocalSecretEnvelope / decodeLocalSecretEnvelope', () => {
+  it('round-trips a v1 envelope with all optional fields', () => {
+    const env = {
+      v: 1 as const,
+      secret: toBase64Url('sk-test-abc'),
+      title: 'API Key',
+      expires_at: 1234567890000,
+      encrypted: false,
+    }
+    const fragment = encodeLocalSecretEnvelope(env)
+    expect(decodeLocalSecretEnvelope(fragment)).toEqual(env)
+  })
+
+  it('round-trips a minimal envelope (only v + secret)', () => {
+    const env = { v: 1 as const, secret: toBase64Url('hi') }
+    expect(decodeLocalSecretEnvelope(encodeLocalSecretEnvelope(env))).toEqual(
+      env,
+    )
+  })
+
+  it('returns null for raw-base64 legacy fragments (no JSON inside)', () => {
+    // Legacy links from before envelopes existed: the fragment is
+    // the base64url of plaintext, which doesn't decode to valid JSON.
+    // Receiver falls back to ``fromBase64Url`` directly.
+    const legacy = toBase64Url('plain-secret')
+    expect(decodeLocalSecretEnvelope(legacy)).toBeNull()
+  })
+
+  it('returns null for malformed base64', () => {
+    expect(decodeLocalSecretEnvelope('!!!not-base64!!!')).toBeNull()
+  })
+
+  it('returns null when JSON parses but lacks v: 1', () => {
+    const noVersion = toBase64Url(JSON.stringify({ secret: 'x' }))
+    expect(decodeLocalSecretEnvelope(noVersion)).toBeNull()
+  })
+
+  it('returns null when JSON parses but secret is missing', () => {
+    const noSecret = toBase64Url(JSON.stringify({ v: 1, title: 'oops' }))
+    expect(decodeLocalSecretEnvelope(noSecret)).toBeNull()
+  })
+
+  it('preserves the encrypted flag for password-protected payloads', () => {
+    const env = {
+      v: 1 as const,
+      secret: toBase64Url('-----BEGIN PGP MESSAGE-----\n...'),
+      encrypted: true,
+    }
+    const decoded = decodeLocalSecretEnvelope(encodeLocalSecretEnvelope(env))
+    expect(decoded?.encrypted).toBe(true)
   })
 })
