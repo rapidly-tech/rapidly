@@ -16,10 +16,18 @@
 // section. Pure SVG + CSS, no extra dependency.
 
 export function HeroDiagramAnnotations() {
+  // Absolute-positioned overlay that breaks out of the constrained
+  // ``max-w-2xl`` parent — the visible Venn circles are ~866 px wide
+  // while the parent is ~672 px, so we need a wider overlay (and
+  // z-index high enough to sit above the white circle backgrounds)
+  // for the annotations to land on the visible Venn shape.
   return (
-    <div className="pointer-events-none absolute inset-0 z-0 hidden md:block">
+    <div
+      className="pointer-events-none absolute top-1/2 left-1/2 z-30 hidden h-[600px] w-[900px] -translate-x-1/2 -translate-y-1/2 md:block"
+      aria-hidden
+    >
       {/* Left circle — ""You"" label */}
-      <div className="absolute top-[42%] left-[14%] flex flex-col items-center gap-1">
+      <div className="absolute top-1/2 left-[8%] flex -translate-y-1/2 flex-col items-center gap-1">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-[0_2px_8px_rgba(120,100,80,0.10)] dark:bg-white/8 dark:backdrop-blur-xl">
           <svg
             viewBox="0 0 24 24"
@@ -45,7 +53,7 @@ export function HeroDiagramAnnotations() {
       </div>
 
       {/* Right circle — ""Recipient"" label */}
-      <div className="absolute top-[42%] right-[14%] flex flex-col items-center gap-1">
+      <div className="absolute top-1/2 right-[8%] flex -translate-y-1/2 flex-col items-center gap-1">
         <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-white shadow-[0_2px_8px_rgba(120,100,80,0.10)] dark:bg-white/8 dark:backdrop-blur-xl">
           <svg
             viewBox="0 0 24 24"
@@ -71,7 +79,7 @@ export function HeroDiagramAnnotations() {
       </div>
 
       {/* Server above the Venn — grayed out, ""never sees the file"" */}
-      <div className="absolute top-[8%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1 opacity-60">
+      <div className="absolute top-[2%] left-1/2 flex -translate-x-1/2 flex-col items-center gap-1 opacity-70">
         <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 dark:bg-slate-800/40">
           <svg
             viewBox="0 0 24 24"
@@ -92,13 +100,14 @@ export function HeroDiagramAnnotations() {
         </span>
       </div>
 
-      {/* Animated particle flowing left → right through the eye.
-          Sits on its own SVG positioned at the Venn's eye region. */}
+      {/* Animated particle flowing left → right across the Venn.
+          Spans the full overlay (900×600) so the path is visible
+          across the visible circles. */}
       <svg
-        viewBox="0 0 400 400"
+        viewBox="0 0 900 600"
         className="absolute inset-0 h-full w-full"
         aria-hidden
-        preserveAspectRatio="xMidYMid meet"
+        preserveAspectRatio="none"
       >
         <defs>
           <radialGradient id="venn-particle" cx="50%" cy="50%" r="50%">
@@ -107,7 +116,7 @@ export function HeroDiagramAnnotations() {
           </radialGradient>
         </defs>
         <circle
-          r="6"
+          r="8"
           fill="url(#venn-particle)"
           className="hero-venn-particle"
         />

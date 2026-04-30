@@ -474,7 +474,7 @@ pre.shiki {
 }
 
 .hero-venn-particle {
-  offset-path: path('M 50 200 Q 200 200 350 200');
+  offset-path: path('M 100 300 Q 450 300 800 300');
   offset-rotate: 0deg;
   animation: hero-venn-flow 3.5s ease-in-out infinite;
 }
