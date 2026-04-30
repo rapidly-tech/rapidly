@@ -164,52 +164,55 @@ export const FileSharingLandingPage = ({
         </motion.div>
       </AnimatePresence>
 
-      {/* Hero composite — chambers float on a dome arc above the
-          dropzone, all inside one wrapper. The dome replaces the
-          two-circle Venn as the hero's signature shape. Hidden in
-          mid-task / secret-form states so the user is not asked to
-          look at decorative chambers while configuring a share. */}
-      {mode === 'direct' && flowState === 'initial' && (
+      {/* Initial landing = pure showcase. Chambers around the dome
+          are the navigation; clicking ""Files"" takes you to the
+          dropzone page. Typing any key still triggers the secret
+          flow inline (window keydown listener at the top of the
+          component), which is when SecretSharingForm renders. */}
+      {mode === 'direct' && flowState === 'initial' ? (
         <div className="relative z-10 mb-8 w-full max-w-5xl">
           <ChambersDome />
+          <p className="rp-text-muted mt-6 text-center text-xs">
+            Pick a chamber, or just start typing to send a secret.
+          </p>
+        </div>
+      ) : (
+        <div className="relative w-full max-w-2xl">
+          {mode === 'direct' ? (
+            <div>
+              <FileSharingLanding
+                onStateChange={handleStateChange}
+                workspaceId={workspaceId}
+                showPricing={showPricing}
+                entranceAnimation={entranceAnimation}
+              >
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    setInitialChar('')
+                    setMode('secret')
+                    onFlowStateChange?.('confirm')
+                  }}
+                  className="rp-text-muted hover:rp-text-secondary mt-3 flex min-h-[44px] items-center gap-x-1.5 text-xs transition-colors"
+                >
+                  <Icon icon="solar:lock-linear" className="h-3.5 w-3.5" />
+                  or type a secret...
+                </button>
+              </FileSharingLanding>
+            </div>
+          ) : (
+            <div>
+              <SecretSharingForm
+                onStateChange={handleSecretStateChange}
+                initialValue={initialChar}
+                workspaceId={workspaceId}
+                showPricing={showPricing}
+              />
+            </div>
+          )}
         </div>
       )}
-
-      <div className="relative w-full max-w-2xl">
-        {mode === 'direct' ? (
-          <div>
-            <FileSharingLanding
-              onStateChange={handleStateChange}
-              workspaceId={workspaceId}
-              showPricing={showPricing}
-              entranceAnimation={entranceAnimation}
-            >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setInitialChar('')
-                  setMode('secret')
-                  onFlowStateChange?.('confirm')
-                }}
-                className="rp-text-muted hover:rp-text-secondary mt-3 flex min-h-[44px] items-center gap-x-1.5 text-xs transition-colors"
-              >
-                <Icon icon="solar:lock-linear" className="h-3.5 w-3.5" />
-                or type a secret...
-              </button>
-            </FileSharingLanding>
-          </div>
-        ) : (
-          <div>
-            <SecretSharingForm
-              onStateChange={handleSecretStateChange}
-              initialValue={initialChar}
-              workspaceId={workspaceId}
-              showPricing={showPricing}
-            />
-          </div>
-        )}
-      </div>
 
       {/* Live share counter */}
       <div className="relative z-20 flex items-center justify-center py-8">
