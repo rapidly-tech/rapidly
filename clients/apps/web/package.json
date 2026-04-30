@@ -54,6 +54,7 @@
     "@vercel/blob": "^0.23.4",
     "ai": "^5.0.113",
     "class-variance-authority": "^0.7.1",
+    "cobe": "^2.0.1",
     "date-fns": "^4.1.0",
     "dom-to-image": "^2.6.0",
     "framer-motion": "^12.29.2",
