@@ -16,16 +16,16 @@ const RapidlyGlobe = dynamic(
 // promise. Pattern lifted from Linear / Vercel / Cal.com landings:
 // big visual centerpiece with a tight one-liner above and a
 // reinforcement line below.
+//
+// The section header always renders server-side; only the globe
+// canvas waits for client mount + theme resolution. That way the
+// user sees the section instantly even if WebGL is loading or the
+// dynamic import is in flight.
 export function GlobeSection() {
   const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
 
-  // ``next-themes`` returns ``undefined`` until the client has
-  // hydrated. Wait for mount so the globe initialises with the
-  // correct dark/light palette instead of flashing wrong-mode.
   useEffect(() => setMounted(true), [])
-
-  if (!mounted) return null
 
   const isDark = resolvedTheme === 'dark'
 
@@ -44,8 +44,11 @@ export function GlobeSection() {
         </p>
       </div>
 
-      <div className="relative flex items-center justify-center">
-        <RapidlyGlobe isDark={isDark} size={600} />
+      <div
+        className="relative flex items-center justify-center"
+        style={{ minHeight: 600 }}
+      >
+        {mounted && <RapidlyGlobe isDark={isDark} size={600} />}
       </div>
     </section>
   )
