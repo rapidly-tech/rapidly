@@ -9,6 +9,7 @@ import { Icon } from '@iconify/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChamberStrip } from './ChamberStrip'
+import { OrbitalGraph } from './OrbitalGraph'
 import { SecretSharingForm, type SecretFormState } from './SecretSharingForm'
 import { ShareCounter } from './ShareCounter'
 
@@ -145,57 +146,74 @@ export const FileSharingLandingPage = ({
 
   return (
     <div className="relative flex flex-1 flex-col items-center px-4 pt-4">
-      {/* Title — CSS fade-in on first paint, framer-motion on mode switches */}
-      <AnimatePresence mode="wait" initial={false}>
-        <motion.div
-          key={mode}
-          className={`relative z-10 mb-6 text-center ${!shouldAnimate && entranceAnimation ? 'animate-fade-in-up' : ''}`}
-          initial={shouldAnimate ? { opacity: 0, y: -8 } : false}
-          animate={{ opacity: 1, y: 0, transition: { duration: 0.3 } }}
-          exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
-        >
-          <h1 className="rp-text-primary text-3xl leading-tight! font-semibold tracking-tight md:text-5xl">
-            {title}
-          </h1>
-          <p className="rp-text-secondary mt-4 text-base font-medium tracking-wide">
-            {subtitle}
-          </p>
-        </motion.div>
-      </AnimatePresence>
-
-      {/* Content */}
-      <div className="relative w-full max-w-2xl">
-        {mode === 'direct' ? (
-          <div>
-            <FileSharingLanding
-              onStateChange={handleStateChange}
-              workspaceId={workspaceId}
-              showPricing={showPricing}
-              entranceAnimation={entranceAnimation}
+      {/* Hero — left/right split on desktop (text + dropzone left,
+          orbital graph right), stacked on mobile. The orbital graph
+          is hidden during configure/uploading/secret states because
+          mid-flow attention shouldn't compete with a decorative
+          animation. */}
+      <div className="relative z-10 grid w-full max-w-6xl grid-cols-1 items-center gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] lg:gap-12">
+        <div className="flex flex-col items-center lg:items-start lg:text-left">
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={mode}
+              className={`relative mb-6 text-center lg:text-left ${!shouldAnimate && entranceAnimation ? 'animate-fade-in-up' : ''}`}
+              initial={shouldAnimate ? { opacity: 0, y: -8 } : false}
+              animate={{ opacity: 1, y: 0, transition: { duration: 0.3 } }}
+              exit={{ opacity: 0, y: 8, transition: { duration: 0.15 } }}
             >
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation()
-                  setInitialChar('')
-                  setMode('secret')
-                  onFlowStateChange?.('confirm')
-                }}
-                className="rp-text-muted hover:rp-text-secondary mt-3 flex min-h-[44px] items-center gap-x-1.5 text-xs transition-colors"
-              >
-                <Icon icon="solar:lock-linear" className="h-3.5 w-3.5" />
-                or type a secret...
-              </button>
-            </FileSharingLanding>
+              <h1 className="rp-text-primary text-3xl leading-tight! font-semibold tracking-tight md:text-5xl">
+                {title}
+              </h1>
+              <p className="rp-text-secondary mt-4 text-base font-medium tracking-wide">
+                {subtitle}
+              </p>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Action surface — dropzone or secret form */}
+          <div className="relative w-full max-w-2xl">
+            {mode === 'direct' ? (
+              <div>
+                <FileSharingLanding
+                  onStateChange={handleStateChange}
+                  workspaceId={workspaceId}
+                  showPricing={showPricing}
+                  entranceAnimation={entranceAnimation}
+                >
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setInitialChar('')
+                      setMode('secret')
+                      onFlowStateChange?.('confirm')
+                    }}
+                    className="rp-text-muted hover:rp-text-secondary mt-3 flex min-h-[44px] items-center gap-x-1.5 text-xs transition-colors"
+                  >
+                    <Icon icon="solar:lock-linear" className="h-3.5 w-3.5" />
+                    or type a secret...
+                  </button>
+                </FileSharingLanding>
+              </div>
+            ) : (
+              <div>
+                <SecretSharingForm
+                  onStateChange={handleSecretStateChange}
+                  initialValue={initialChar}
+                  workspaceId={workspaceId}
+                  showPricing={showPricing}
+                />
+              </div>
+            )}
           </div>
-        ) : (
-          <div>
-            <SecretSharingForm
-              onStateChange={handleSecretStateChange}
-              initialValue={initialChar}
-              workspaceId={workspaceId}
-              showPricing={showPricing}
-            />
+        </div>
+
+        {/* Right column — orbital network graph. Hidden on the
+            secret form / configure / upload states so the user isn't
+            distracted mid-task. */}
+        {mode === 'direct' && flowState === 'initial' && (
+          <div className="hidden items-center justify-center lg:flex">
+            <OrbitalGraph />
           </div>
         )}
       </div>

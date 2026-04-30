@@ -453,6 +453,91 @@ pre.shiki {
   }
 }
 
+/* Orbital graph — three rings rotate at different speeds and
+   directions to feel organic rather than mechanical. Centre node
+   pulses on its own cycle. All animations are GPU-cheap CSS
+   transforms (no JS, no canvas) and stop on prefers-reduced-motion. */
+@keyframes orbital-spin-cw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes orbital-spin-ccw {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(-360deg);
+  }
+}
+
+@keyframes orbital-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.15);
+    opacity: 0.85;
+  }
+}
+
+.orbital-ring {
+  transform-origin: 200px 200px;
+  transform-box: fill-box;
+}
+
+.orbital-ring--inner {
+  animation: orbital-spin-cw 60s linear infinite;
+}
+
+.orbital-ring--middle {
+  animation: orbital-spin-ccw 90s linear infinite;
+}
+
+.orbital-ring--outer {
+  animation: orbital-spin-cw 120s linear infinite;
+}
+
+.orbital-center {
+  fill: oklch(0.78 0.16 65); /* warm amber */
+  transform-origin: 200px 200px;
+  transform-box: fill-box;
+  animation: orbital-pulse 3.5s ease-in-out infinite;
+}
+
+.orbital-satellite {
+  fill: oklch(0.6 0.145 163); /* emerald-600 */
+}
+
+.orbital-lines line {
+  stroke: oklch(0.6 0.145 163 / 0.25);
+}
+
+:root.dark .orbital-center {
+  fill: oklch(0.78 0.18 65);
+}
+
+:root.dark .orbital-satellite {
+  fill: oklch(0.7 0.17 163);
+}
+
+:root.dark .orbital-lines line {
+  stroke: oklch(0.7 0.17 163 / 0.3);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbital-ring,
+  .orbital-center {
+    animation: none;
+  }
+}
+
 /* ── Rapidly utility classes — use semantic tokens, no hardcoded colors ── */
 @utility rp-text-primary {
   color: var(--text-primary);
