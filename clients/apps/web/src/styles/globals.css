@@ -453,36 +453,10 @@ pre.shiki {
   }
 }
 
-/* HowItDiffers diagram — animated dot tracing the file's path
-   through (or around) the server. Two keyframes: the server-
-   stored variant pauses at the cloud node mid-flight; the direct
-   variant moves uninterrupted. */
-@keyframes flow-via-server {
-  0% {
-    offset-distance: 0%;
-    opacity: 0;
-  }
-  10% {
-    opacity: 1;
-  }
-  40% {
-    offset-distance: 50%;
-    opacity: 1;
-  }
-  55% {
-    offset-distance: 50%;
-    opacity: 1;
-  }
-  90% {
-    opacity: 1;
-  }
-  100% {
-    offset-distance: 100%;
-    opacity: 0;
-  }
-}
-
-@keyframes flow-direct {
+/* Hero Venn annotations — animated particle flowing left circle →
+   eye → right circle, representing the file moving peer-to-peer.
+   Stops on prefers-reduced-motion. */
+@keyframes hero-venn-flow {
   0% {
     offset-distance: 0%;
     opacity: 0;
@@ -499,22 +473,14 @@ pre.shiki {
   }
 }
 
-.flow-particle-server {
-  offset-path: path('M 60 110 Q 130 50 200 80 Q 270 50 340 110');
+.hero-venn-particle {
+  offset-path: path('M 50 200 Q 200 200 350 200');
   offset-rotate: 0deg;
-  animation: flow-via-server 4.5s ease-in-out infinite;
-}
-
-.flow-particle-direct {
-  offset-path: path('M 60 110 Q 200 80 340 110');
-  offset-rotate: 0deg;
-  animation: flow-direct 3s ease-in-out infinite;
-  animation-delay: 0.5s;
+  animation: hero-venn-flow 3.5s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .flow-particle-server,
-  .flow-particle-direct {
+  .hero-venn-particle {
     animation: none;
     opacity: 0;
   }

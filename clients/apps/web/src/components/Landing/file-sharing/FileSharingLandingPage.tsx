@@ -9,7 +9,7 @@ import { Icon } from '@iconify/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChamberStrip } from './ChamberStrip'
-import { HowItDiffers } from './HowItDiffers'
+import { HeroDiagramAnnotations } from './HeroDiagramAnnotations'
 import { SecretSharingForm, type SecretFormState } from './SecretSharingForm'
 import { ShareCounter } from './ShareCounter'
 
@@ -166,6 +166,14 @@ export const FileSharingLandingPage = ({
 
       {/* Content */}
       <div className="relative w-full max-w-2xl">
+        {/* Annotations layer — turns the existing two-circle Venn
+            into a P2P flow diagram (you on the left, recipient on
+            the right, server grayed-out above, animated file particle
+            flowing through the eye). Only on the initial direct
+            landing where the Venn is showing. */}
+        {mode === 'direct' && flowState === 'initial' && (
+          <HeroDiagramAnnotations />
+        )}
         {mode === 'direct' ? (
           <div>
             <FileSharingLanding
@@ -209,11 +217,6 @@ export const FileSharingLandingPage = ({
       {/* Chamber badges — Secret is omitted because the card above
           already surfaces the secret entry point via "or type a secret...". */}
       <ChamberStrip excludeIds={['secret']} />
-
-      {/* P2P-vs-server-stored comparison diagram — only on the
-          initial direct landing so it doesn't compete with mid-task
-          attention. */}
-      {mode === 'direct' && flowState === 'initial' && <HowItDiffers />}
     </div>
   )
 }
