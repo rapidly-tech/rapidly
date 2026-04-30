@@ -9,6 +9,7 @@ import { Icon } from '@iconify/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChamberStrip } from './ChamberStrip'
+import { HowItDiffers } from './HowItDiffers'
 import { SecretSharingForm, type SecretFormState } from './SecretSharingForm'
 import { ShareCounter } from './ShareCounter'
 
@@ -208,6 +209,11 @@ export const FileSharingLandingPage = ({
       {/* Chamber badges — Secret is omitted because the card above
           already surfaces the secret entry point via "or type a secret...". */}
       <ChamberStrip excludeIds={['secret']} />
+
+      {/* P2P-vs-server-stored comparison diagram — only on the
+          initial direct landing so it doesn't compete with mid-task
+          attention. */}
+      {mode === 'direct' && flowState === 'initial' && <HowItDiffers />}
     </div>
   )
 }

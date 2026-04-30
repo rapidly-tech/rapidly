@@ -453,6 +453,73 @@ pre.shiki {
   }
 }
 
+/* HowItDiffers diagram — animated dot tracing the file's path
+   through (or around) the server. Two keyframes: the server-
+   stored variant pauses at the cloud node mid-flight; the direct
+   variant moves uninterrupted. */
+@keyframes flow-via-server {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  40% {
+    offset-distance: 50%;
+    opacity: 1;
+  }
+  55% {
+    offset-distance: 50%;
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+@keyframes flow-direct {
+  0% {
+    offset-distance: 0%;
+    opacity: 0;
+  }
+  10% {
+    opacity: 1;
+  }
+  90% {
+    opacity: 1;
+  }
+  100% {
+    offset-distance: 100%;
+    opacity: 0;
+  }
+}
+
+.flow-particle-server {
+  offset-path: path('M 60 110 Q 130 50 200 80 Q 270 50 340 110');
+  offset-rotate: 0deg;
+  animation: flow-via-server 4.5s ease-in-out infinite;
+}
+
+.flow-particle-direct {
+  offset-path: path('M 60 110 Q 200 80 340 110');
+  offset-rotate: 0deg;
+  animation: flow-direct 3s ease-in-out infinite;
+  animation-delay: 0.5s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flow-particle-server,
+  .flow-particle-direct {
+    animation: none;
+    opacity: 0;
+  }
+}
+
 /* ── Rapidly utility classes — use semantic tokens, no hardcoded colors ── */
 @utility rp-text-primary {
   color: var(--text-primary);
