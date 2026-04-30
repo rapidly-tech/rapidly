@@ -164,7 +164,17 @@ export const FileSharingLandingPage = ({
         </motion.div>
       </AnimatePresence>
 
-      {/* Content */}
+      {/* Hero composite — chambers float on a dome arc above the
+          dropzone, all inside one wrapper. The dome replaces the
+          two-circle Venn as the hero's signature shape. Hidden in
+          mid-task / secret-form states so the user is not asked to
+          look at decorative chambers while configuring a share. */}
+      {mode === 'direct' && flowState === 'initial' && (
+        <div className="relative z-10 mb-8 w-full max-w-5xl">
+          <ChambersDome />
+        </div>
+      )}
+
       <div className="relative w-full max-w-2xl">
         {mode === 'direct' ? (
           <div>
@@ -206,18 +216,12 @@ export const FileSharingLandingPage = ({
         <ShareCounter workspaceId={workspaceId} />
       </div>
 
-      {/* Chamber badges — kept on mid-task flows where the dome
-          would be too heavy. The dome takes over on the initial
-          direct-mode landing. */}
+      {/* Chamber strip pills — kept on mid-task flows where the
+          dome would be too heavy. The dome lives above the dropzone
+          on the initial direct-mode landing. */}
       {!(mode === 'direct' && flowState === 'initial') && (
         <ChamberStrip excludeIds={['secret']} />
       )}
-
-      {/* Chambers dome — Lenora-style ""integrations"" section, the
-          six chambers as floating cards on a soft pale arc. Only on
-          the initial landing state so it doesn't compete with mid-
-          task attention. */}
-      {mode === 'direct' && flowState === 'initial' && <ChambersDome />}
     </div>
   )
 }

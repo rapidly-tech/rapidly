@@ -39,30 +39,16 @@ const ARC_POSITIONS = [
   { x: 92, y: 62 }, // far-right
 ]
 
+// Renders the dome arc + chamber cards as a self-contained block.
+// Title / pill label live in the parent so the dome can sit
+// around the dropzone without competing copy stacked on top.
 export function ChambersDome() {
   return (
-    <section
-      aria-label="Six chambers"
-      className="relative z-10 mx-auto w-full max-w-6xl px-4 py-20 md:py-28"
-    >
-      {/* Pill label */}
-      <div className="flex justify-center">
-        <span className="rp-text-secondary inline-flex items-center rounded-full border border-(--beige-border)/50 bg-white/60 px-4 py-1.5 text-xs font-medium tracking-wide backdrop-blur-sm dark:border-white/10 dark:bg-white/5">
-          Chambers
-        </span>
-      </div>
-
-      {/* Big two-line headline */}
-      <h2 className="rp-text-primary mx-auto mt-6 max-w-3xl text-center text-3xl leading-[1.1] font-semibold tracking-tight md:text-5xl">
-        Six chambers,
-        <br />
-        one private platform.
-      </h2>
-
+    <div className="relative w-full">
       {/* Dome with floating chamber cards. The arc itself is an SVG
           path (semi-ellipse) filled with a soft pale gradient; cards
           sit on top via absolute positioning. */}
-      <div className="relative mx-auto mt-12 hidden aspect-[16/7] w-full max-w-4xl md:block">
+      <div className="relative mx-auto hidden aspect-[16/7] w-full max-w-4xl md:block">
         {/* Pale gradient dome shape */}
         <svg
           viewBox="0 0 100 44"
@@ -123,7 +109,7 @@ export function ChambersDome() {
 
       {/* Mobile fallback — stacked grid since the arc doesn't have
           horizontal room on a phone. */}
-      <div className="mt-12 grid grid-cols-3 gap-4 md:hidden">
+      <div className="grid grid-cols-3 gap-4 md:hidden">
         {CHAMBERS.slice(0, 6).map((chamber) => {
           const tint = CHAMBER_TINT[chamber.id] ?? 'text-slate-500'
           return (
@@ -145,6 +131,6 @@ export function ChambersDome() {
           )
         })}
       </div>
-    </section>
+    </div>
   )
 }
