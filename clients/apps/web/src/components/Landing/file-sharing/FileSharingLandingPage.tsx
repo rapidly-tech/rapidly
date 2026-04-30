@@ -9,6 +9,7 @@ import { Icon } from '@iconify/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChamberStrip } from './ChamberStrip'
+import { ChambersDome } from './ChambersDome'
 import { SecretSharingForm, type SecretFormState } from './SecretSharingForm'
 import { ShareCounter } from './ShareCounter'
 
@@ -205,9 +206,18 @@ export const FileSharingLandingPage = ({
         <ShareCounter workspaceId={workspaceId} />
       </div>
 
-      {/* Chamber badges — Secret is omitted because the card above
-          already surfaces the secret entry point via "or type a secret...". */}
-      <ChamberStrip excludeIds={['secret']} />
+      {/* Chamber badges — kept on mid-task flows where the dome
+          would be too heavy. The dome takes over on the initial
+          direct-mode landing. */}
+      {!(mode === 'direct' && flowState === 'initial') && (
+        <ChamberStrip excludeIds={['secret']} />
+      )}
+
+      {/* Chambers dome — Lenora-style ""integrations"" section, the
+          six chambers as floating cards on a soft pale arc. Only on
+          the initial landing state so it doesn't compete with mid-
+          task attention. */}
+      {mode === 'direct' && flowState === 'initial' && <ChambersDome />}
     </div>
   )
 }
