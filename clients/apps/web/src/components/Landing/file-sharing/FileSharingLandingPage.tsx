@@ -9,6 +9,10 @@ import { Icon } from '@iconify/react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChamberStrip } from './ChamberStrip'
+import { FAQ } from './FAQ'
+import { Features } from './Features'
+import { FooterCTA } from './FooterCTA'
+import { HowItWorks } from './HowItWorks'
 import { SecretSharingForm, type SecretFormState } from './SecretSharingForm'
 import { ShareCounter } from './ShareCounter'
 
@@ -208,6 +212,19 @@ export const FileSharingLandingPage = ({
       {/* Chamber badges — Secret is omitted because the card above
           already surfaces the secret entry point via "or type a secret...". */}
       <ChamberStrip excludeIds={['secret']} />
+
+      {/* Sections below the hero — only on the initial direct-mode
+          landing. Mid-task flows (configure / upload / secret form)
+          hide them so the user is not asked to read marketing copy
+          while in the middle of sharing something. */}
+      {mode === 'direct' && flowState === 'initial' && (
+        <>
+          <HowItWorks />
+          <Features />
+          <FAQ />
+          <FooterCTA />
+        </>
+      )}
     </div>
   )
 }
