@@ -1,11 +1,6 @@
 'use client'
 
-import {
-  BakeShadows,
-  CycleRaycast,
-  SoftShadows,
-  useCursor,
-} from '@react-three/drei'
+import { BakeShadows, CycleRaycast, useCursor } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useRef, useState } from 'react'
 import type { Mesh } from 'three'
@@ -120,12 +115,15 @@ interface RapidlyStairProps {
 export function RapidlyStair({ isDark = false }: RapidlyStairProps) {
   return (
     <Canvas
-      shadows
+      // ``shadows="soft"`` selects PCFSoftShadowMap which uses the
+      // current Three.js shadow shader. We dropped drei's
+      // ``<SoftShadows />`` because its injected shader still calls
+      // ``unpackRGBAToDepth``, removed in Three r163+.
+      shadows="soft"
       camera={{ position: [-10, 5, 12], fov: 35 }}
       gl={{ antialias: true, alpha: true }}
       style={{ width: '100%', height: '100%' }}
     >
-      <SoftShadows size={25} samples={20} focus={0.5} />
       <Stage isDark={isDark} />
       {Array.from({ length: 12 }, (_, i) => (
         <Panel key={i} index={i} />
