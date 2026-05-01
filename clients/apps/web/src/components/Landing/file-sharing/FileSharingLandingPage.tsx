@@ -164,10 +164,17 @@ export const FileSharingLandingPage = ({
         </motion.div>
       </AnimatePresence>
 
-      {/* Content */}
-      <div className="relative w-full max-w-2xl">
-        {mode === 'direct' ? (
-          <div>
+      {/* Content — the spiral stair is the hero visual when on the
+          initial direct landing. Picking a chamber panel routes to
+          that chamber's page; in particular ""Files"" leads to the
+          full file-share flow with the dropzone. Mid-task or
+          secret-mode states render the original Venn dropzone or
+          the secret form so users can complete an in-flight share. */}
+      <div className="relative w-full max-w-5xl">
+        {mode === 'direct' && flowState === 'initial' ? (
+          <StairSection />
+        ) : mode === 'direct' ? (
+          <div className="mx-auto max-w-2xl">
             <FileSharingLanding
               onStateChange={handleStateChange}
               workspaceId={workspaceId}
@@ -190,7 +197,7 @@ export const FileSharingLandingPage = ({
             </FileSharingLanding>
           </div>
         ) : (
-          <div>
+          <div className="mx-auto max-w-2xl">
             <SecretSharingForm
               onStateChange={handleSecretStateChange}
               initialValue={initialChar}
@@ -206,14 +213,12 @@ export const FileSharingLandingPage = ({
         <ShareCounter workspaceId={workspaceId} />
       </div>
 
-      {/* Chamber badges — Secret is omitted because the card above
-          already surfaces the secret entry point via "or type a secret...". */}
-      <ChamberStrip excludeIds={['secret']} />
-
-      {/* R3F frosted-glass stair scene — only on the initial direct
-          landing so the heavy WebGL canvas isn't loading during
-          mid-task flows. */}
-      {mode === 'direct' && flowState === 'initial' && <StairSection />}
+      {/* Chamber pill strip — only shown when the hero stair is NOT
+          active (i.e. mid-task / secret form). The stair already
+          covers chamber navigation on the initial landing. */}
+      {!(mode === 'direct' && flowState === 'initial') && (
+        <ChamberStrip excludeIds={['secret']} />
+      )}
     </div>
   )
 }

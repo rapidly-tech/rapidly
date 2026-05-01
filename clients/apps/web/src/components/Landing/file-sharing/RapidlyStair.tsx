@@ -1,39 +1,28 @@
 'use client'
 
-import { CycleRaycast, useCursor } from '@react-three/drei'
+import { CHAMBERS } from '@/components/Revolver/chambers'
+import { CycleRaycast, Text, useCursor } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
+import { useRouter } from 'next/navigation'
 import { useRef, useState } from 'react'
 import type { Mesh } from 'three'
 
-// Frosted-glass stair scene — twelve translucent panels arranged
-// in a spiral. Hover scales a panel with a subtle pulse; click
-// toggles a tint. The visual story for Rapidly: layered,
-// translucent, private.
+// Frosted-glass spiral stair where each panel = one chamber. Click
+// a panel to navigate to that chamber. Hover scales with a pulse.
+// The visual story: six chambers stacked into one stair — pick the
+// kind of share you want and walk into it.
 
-interface Props {
-  name: string
+interface PanelProps {
   index: number
+  label: string
+  href: string
+  tagline: string
 }
 
-const RaycastCyclingStair: React.FC = () => {
-  return (
-    <>
-      <Stage />
-      {Array.from({ length: 12 }, (_, i) => (
-        <Stair key={i} name={'stair-' + (i + 1)} index={i} />
-      ))}
-
-      {/* This component cycles through the raycast intersections, combine it with event.stopPropagation! */}
-      <CycleRaycast />
-    </>
-  )
-}
-
-const Stair: React.FC<Props> = ({ index }) => {
+function Panel({ index, label, href, tagline }: PanelProps) {
+  const router = useRouter()
   const ref = useRef<Mesh>(null)
-
   const [hovered, setHovered] = useState(false)
-  const [clicked, setClicked] = useState(false)
 
   useFrame(({ clock }) => {
     if (!ref.current) return
@@ -42,21 +31,25 @@ const Stair: React.FC<Props> = ({ index }) => {
     )
   })
 
-  // Sets document.body.style.cursor: useCursor(flag, onPointerOver = 'pointer', onPointerOut = 'auto')
   useCursor(hovered)
+
+  // Spread 6 panels across what was originally a 12-step spiral so
+  // the curve is still visible. Effective ``stride`` of 2x lays
+  // out the same arc with half as many treads.
+  const stride = index * 2
 
   return (
     <mesh
-      rotation={[-Math.PI / 2, 0, index / Math.PI / 2]}
+      rotation={[-Math.PI / 2, 0, stride / Math.PI / 2]}
       position={[
-        2 - Math.sin(index / 5) * 5,
-        index * 0.5,
-        2 - Math.cos(index / 5) * 5,
+        2 - Math.sin(stride / 5) * 5,
+        index * 0.9,
+        2 - Math.cos(stride / 5) * 5,
       ]}
       ref={ref}
       onClick={(e) => {
         e.stopPropagation()
-        setClicked(!clicked)
+        router.push(href)
       }}
       onPointerOver={(e) => {
         e.stopPropagation()
@@ -69,9 +62,33 @@ const Stair: React.FC<Props> = ({ index }) => {
         roughness={1}
         metalness={1}
         transparent
-        opacity={0.6}
-        color={clicked ? 'violet' : hovered ? 'aquamarine' : 'white'}
+        opacity={0.65}
+        color={hovered ? 'aquamarine' : 'white'}
       />
+      {/* Chamber label — chamber name + small tagline.
+          Positioned just off the panel surface so it isn't
+          z-fighting. Inherits the panel's rotation, so it lies
+          flat with the panel. */}
+      <Text
+        position={[0, 0, 0.05]}
+        fontSize={0.6}
+        color="#1f2937"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={5.5}
+      >
+        {label}
+      </Text>
+      <Text
+        position={[0, -0.85, 0.05]}
+        fontSize={0.22}
+        color="#475569"
+        anchorX="center"
+        anchorY="middle"
+        maxWidth={5.5}
+      >
+        {tagline}
+      </Text>
     </mesh>
   )
 }
@@ -98,7 +115,17 @@ export function RapidlyStair() {
       dpr={[1, 1.5]}
       style={{ width: '100%', height: '100%' }}
     >
-      <RaycastCyclingStair />
+      <Stage />
+      {CHAMBERS.slice(0, 6).map((chamber, i) => (
+        <Panel
+          key={chamber.id}
+          index={i}
+          label={chamber.label}
+          href={chamber.href}
+          tagline={chamber.tagline}
+        />
+      ))}
+      <CycleRaycast />
     </Canvas>
   )
 }
