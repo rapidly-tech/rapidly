@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { ChamberStrip } from './ChamberStrip'
 import { SecretSharingForm, type SecretFormState } from './SecretSharingForm'
 import { ShareCounter } from './ShareCounter'
+import { StairSection } from './StairSection'
 
 // ── Types ──
 
@@ -208,6 +209,12 @@ export const FileSharingLandingPage = ({
       {/* Chamber badges — Secret is omitted because the card above
           already surfaces the secret entry point via "or type a secret...". */}
       <ChamberStrip excludeIds={['secret']} />
+
+      {/* R3F frosted-glass stair scene — adapted from Paul Henschel's
+          raycast cycling stair demo. Only on the initial direct
+          landing so the heavy WebGL canvas isn't loading during
+          mid-task flows. */}
+      {mode === 'direct' && flowState === 'initial' && <StairSection />}
     </div>
   )
 }
