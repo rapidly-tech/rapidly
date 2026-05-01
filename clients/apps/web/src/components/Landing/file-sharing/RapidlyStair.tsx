@@ -1,24 +1,14 @@
 'use client'
 
-import {
-  BakeShadows,
-  CycleRaycast,
-  useCursor,
-} from '@react-three/drei'
+import { CycleRaycast, useCursor } from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useRef, useState } from 'react'
 import type { Mesh } from 'three'
 
 // Frosted-glass stair scene — twelve translucent panels arranged
 // in a spiral. Hover scales a panel with a subtle pulse; click
-// toggles a tint. Soft baked shadows on a ground plane. The
-// visual story for Rapidly: layered, translucent, private.
-//
-// Note on shadows: ``shadows="soft"`` on the Canvas selects
-// ``PCFSoftShadowMap`` using Three's built-in shadow path. We
-// avoided drei's ``softShadows`` helper because it injects a
-// shader that calls ``unpackRGBAToDepth``, removed from Three in
-// r163+, so it fails to compile on current versions.
+// toggles a tint. The visual story for Rapidly: layered,
+// translucent, private.
 
 interface Props {
   name: string
@@ -64,8 +54,6 @@ const Stair: React.FC<Props> = ({ index }) => {
         2 - Math.cos(index / 5) * 5,
       ]}
       ref={ref}
-      receiveShadow
-      castShadow
       onClick={(e) => {
         e.stopPropagation()
         setClicked(!clicked)
@@ -95,29 +83,10 @@ const Stage: React.FC = () => {
       <ambientLight intensity={0.5} />
 
       {/* Main */}
-      <directionalLight
-        position={[1, 10, -2]}
-        intensity={1}
-        shadow-camera-far={70}
-        shadow-camera-left={-10}
-        shadow-camera-right={10}
-        shadow-camera-top={10}
-        shadow-camera-bottom={-10}
-        shadow-mapSize={[512, 512]}
-        castShadow
-      />
+      <directionalLight position={[1, 10, -2]} intensity={1} />
 
       {/* Strip */}
       <directionalLight position={[-10, -10, 2]} intensity={3} />
-
-      {/* Ground */}
-      <mesh receiveShadow rotation-x={-Math.PI / 2} position={[0, -0.75, 0]}>
-        <planeGeometry args={[20, 20]} />
-        <shadowMaterial opacity={0.2} />
-      </mesh>
-
-      {/* This freezes the shadow map, which is fast, but the model has to be static  */}
-      <BakeShadows />
     </>
   )
 }
@@ -125,7 +94,6 @@ const Stage: React.FC = () => {
 export function RapidlyStair() {
   return (
     <Canvas
-      shadows="soft"
       camera={{ position: [-10, 10, 5], fov: 50 }}
       dpr={[1, 1.5]}
       style={{ width: '100%', height: '100%' }}

@@ -20,27 +20,20 @@ export function StairSection() {
   return (
     <section
       aria-label="Layered, private, peer-to-peer"
-      // Full-bleed white-90 surface matches the demo's page wrapper
-      // (``bg-white/90``). Breaks out of the page's cream theme so
-      // the panels float against the same near-white background the
-      // original demo uses, which is what keeps the shadows looking
-      // subtle instead of dominant.
-      className="relative z-10 w-full bg-white/90 py-20 md:py-28 dark:bg-white/5"
+      className="relative z-10 mx-auto w-full max-w-6xl px-4 py-20 md:py-28"
     >
-      <div className="mx-auto max-w-6xl px-4">
-        <div className="mb-8 text-center md:mb-12">
-          <h2 className="text-3xl font-semibold tracking-tight text-slate-900 md:text-4xl dark:text-slate-100">
-            Layered. Private. Yours.
-          </h2>
-          <p className="mx-auto mt-3 max-w-xl text-sm text-slate-600 md:text-base dark:text-slate-400">
-            Every share is encrypted in the browser, streamed peer-to-peer,
-            and gone when you say so.
-          </p>
-        </div>
+      <div className="mb-8 text-center md:mb-12">
+        <h2 className="rp-text-primary text-3xl font-semibold tracking-tight md:text-4xl">
+          Layered. Private. Yours.
+        </h2>
+        <p className="rp-text-secondary mx-auto mt-3 max-w-xl text-sm md:text-base">
+          Every share is encrypted in the browser, streamed peer-to-peer, and
+          gone when you say so.
+        </p>
+      </div>
 
-        <div className="relative w-full" style={{ height: 600 }}>
-          {mounted && <RapidlyStair />}
-        </div>
+      <div className="relative w-full" style={{ height: 600 }}>
+        {mounted && <RapidlyStair />}
       </div>
     </section>
   )
