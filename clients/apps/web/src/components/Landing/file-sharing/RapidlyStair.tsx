@@ -80,26 +80,31 @@ function Stage({ isDark }: StageProps) {
       {/* Fill light */}
       <ambientLight intensity={isDark ? 0.3 : 0.5} />
 
-      {/* Main directional — casts soft shadows */}
+      {/* Main directional — casts shadows. Tighter frustum +
+          higher-res shadow map = cleaner penumbra without ramping
+          up cost. */}
       <directionalLight
-        position={[1, 10, -2]}
-        intensity={isDark ? 1.5 : 1}
-        shadow-camera-far={70}
-        shadow-camera-left={-10}
-        shadow-camera-right={10}
-        shadow-camera-top={10}
-        shadow-camera-bottom={-10}
-        shadow-mapSize={[1024, 1024]}
+        position={[5, 12, 5]}
+        intensity={isDark ? 1.5 : 1.2}
+        shadow-camera-far={50}
+        shadow-camera-left={-8}
+        shadow-camera-right={8}
+        shadow-camera-top={8}
+        shadow-camera-bottom={-8}
+        shadow-mapSize={[2048, 2048]}
+        shadow-bias={-0.0005}
         castShadow
       />
 
       {/* Strip / rim light from the back */}
-      <directionalLight position={[-10, -10, 2]} intensity={3} />
+      <directionalLight position={[-10, -10, 2]} intensity={2} />
 
-      {/* Ground plane to receive the shadow */}
+      {/* Ground plane to receive the shadow — opacity dialled down
+          so the shadow reads as ambient grounding, not a
+          dominant blob. */}
       <mesh receiveShadow rotation-x={-Math.PI / 2} position={[0, -0.75, 0]}>
-        <planeGeometry args={[20, 20]} />
-        <shadowMaterial opacity={isDark ? 0.35 : 0.2} />
+        <planeGeometry args={[30, 30]} />
+        <shadowMaterial opacity={isDark ? 0.2 : 0.12} />
       </mesh>
 
       {/* Freezes shadow map — fast, model is static so it's safe */}
@@ -120,7 +125,9 @@ export function RapidlyStair({ isDark = false }: RapidlyStairProps) {
       // ``<SoftShadows />`` because its injected shader still calls
       // ``unpackRGBAToDepth``, removed in Three r163+.
       shadows="soft"
-      camera={{ position: [-10, 5, 12], fov: 35 }}
+      // 3/4 view from upper-right — matches the original demo's
+      // composition where the spiral travels away into the frame.
+      camera={{ position: [10, 8, 10], fov: 35 }}
       gl={{ antialias: true, alpha: true }}
       style={{ width: '100%', height: '100%' }}
     >
