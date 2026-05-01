@@ -1,6 +1,5 @@
 'use client'
 
-import { useTheme } from 'next-themes'
 import dynamic from 'next/dynamic'
 import { useEffect, useState } from 'react'
 
@@ -11,17 +10,12 @@ const RapidlyStair = dynamic(
   { ssr: false },
 )
 
-// Section that hosts Paul Henschel's raycast cycling stair
-// adapted for Rapidly. The header always renders server-side; only
-// the WebGL canvas waits for client mount + theme resolution so
-// the user sees the section instantly even if R3F is in flight.
+// Section that hosts the frosted-glass stair scene. The header
+// renders server-side; only the WebGL canvas waits for client mount
+// so users see the section instantly.
 export function StairSection() {
-  const { resolvedTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
-
   useEffect(() => setMounted(true), [])
-
-  const isDark = resolvedTheme === 'dark'
 
   return (
     <section
@@ -42,7 +36,7 @@ export function StairSection() {
         className="relative w-full overflow-hidden rounded-3xl"
         style={{ height: 600 }}
       >
-        {mounted && <RapidlyStair isDark={isDark} />}
+        {mounted && <RapidlyStair />}
       </div>
     </section>
   )

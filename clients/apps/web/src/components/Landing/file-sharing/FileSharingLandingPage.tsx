@@ -210,8 +210,7 @@ export const FileSharingLandingPage = ({
           already surfaces the secret entry point via "or type a secret...". */}
       <ChamberStrip excludeIds={['secret']} />
 
-      {/* R3F frosted-glass stair scene — adapted from Paul Henschel's
-          raycast cycling stair demo. Only on the initial direct
+      {/* R3F frosted-glass stair scene — only on the initial direct
           landing so the heavy WebGL canvas isn't loading during
           mid-task flows. */}
       {mode === 'direct' && flowState === 'initial' && <StairSection />}

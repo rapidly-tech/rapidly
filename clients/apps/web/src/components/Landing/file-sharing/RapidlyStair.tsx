@@ -1,26 +1,47 @@
 'use client'
 
-import { BakeShadows, CycleRaycast, useCursor } from '@react-three/drei'
+import {
+  BakeShadows,
+  CycleRaycast,
+  useCursor,
+} from '@react-three/drei'
 import { Canvas, useFrame } from '@react-three/fiber'
 import { useRef, useState } from 'react'
 import type { Mesh } from 'three'
 
-// Adapted from Paul Henschel's "raycast cycling stair" R3F demo
-// (pmh-showcase-main/src/components/canvas/raycast-cycling-stair.tsx).
-// Twelve frosted-glass panels arranged in a spiral — hover scales
-// the panel, click toggles the colour. The visual story for
-// Rapidly: layered, translucent, private — you can sense the shape
-// of what's moving but not see through it.
+// Frosted-glass stair scene — twelve translucent panels arranged
+// in a spiral. Hover scales a panel with a subtle pulse; click
+// toggles a tint. Soft baked shadows on a ground plane. The
+// visual story for Rapidly: layered, translucent, private.
 //
-// Pure decoration in this first cut. Chamber semantics (one panel
-// per chamber, click → navigate) are a follow-up.
+// Note on shadows: ``shadows="soft"`` on the Canvas selects
+// ``PCFSoftShadowMap`` using Three's built-in shadow path. We
+// avoided drei's ``softShadows`` helper because it injects a
+// shader that calls ``unpackRGBAToDepth``, removed from Three in
+// r163+, so it fails to compile on current versions.
 
-interface PanelProps {
+interface Props {
+  name: string
   index: number
 }
 
-function Panel({ index }: PanelProps) {
+const RaycastCyclingStair: React.FC = () => {
+  return (
+    <>
+      <Stage />
+      {Array.from({ length: 12 }, (_, i) => (
+        <Stair key={i} name={'stair-' + (i + 1)} index={i} />
+      ))}
+
+      {/* This component cycles through the raycast intersections, combine it with event.stopPropagation! */}
+      <CycleRaycast />
+    </>
+  )
+}
+
+const Stair: React.FC<Props> = ({ index }) => {
   const ref = useRef<Mesh>(null)
+
   const [hovered, setHovered] = useState(false)
   const [clicked, setClicked] = useState(false)
 
@@ -31,7 +52,7 @@ function Panel({ index }: PanelProps) {
     )
   })
 
-  // Sets document.body.style.cursor on hover.
+  // Sets document.body.style.cursor: useCursor(flag, onPointerOver = 'pointer', onPointerOut = 'auto')
   useCursor(hovered)
 
   return (
@@ -61,83 +82,55 @@ function Panel({ index }: PanelProps) {
         metalness={1}
         transparent
         opacity={0.6}
-        // Click cycles a soft warm tint; hover hints emerald
-        // (Rapidly's accent); idle stays close to the page so the
-        // scene reads as ""glass on cream"" not ""coloured shapes"".
-        color={clicked ? '#d97757' : hovered ? '#10b981' : '#ffffff'}
+        color={clicked ? 'violet' : hovered ? 'aquamarine' : 'white'}
       />
     </mesh>
   )
 }
 
-interface StageProps {
-  isDark: boolean
-}
-
-function Stage({ isDark }: StageProps) {
+const Stage: React.FC = () => {
   return (
     <>
-      {/* Fill light */}
-      <ambientLight intensity={isDark ? 0.3 : 0.5} />
+      {/* Fill */}
+      <ambientLight intensity={0.5} />
 
-      {/* Main directional — casts shadows. Tighter frustum +
-          higher-res shadow map = cleaner penumbra without ramping
-          up cost. */}
+      {/* Main */}
       <directionalLight
-        position={[5, 12, 5]}
-        intensity={isDark ? 1.5 : 1.2}
-        shadow-camera-far={50}
-        shadow-camera-left={-8}
-        shadow-camera-right={8}
-        shadow-camera-top={8}
-        shadow-camera-bottom={-8}
-        shadow-mapSize={[2048, 2048]}
-        shadow-bias={-0.0005}
+        position={[1, 10, -2]}
+        intensity={1}
+        shadow-camera-far={70}
+        shadow-camera-left={-10}
+        shadow-camera-right={10}
+        shadow-camera-top={10}
+        shadow-camera-bottom={-10}
+        shadow-mapSize={[512, 512]}
         castShadow
       />
 
-      {/* Strip / rim light from the back */}
-      <directionalLight position={[-10, -10, 2]} intensity={2} />
+      {/* Strip */}
+      <directionalLight position={[-10, -10, 2]} intensity={3} />
 
-      {/* Ground plane to receive the shadow — opacity dialled down
-          so the shadow reads as ambient grounding, not a
-          dominant blob. */}
+      {/* Ground */}
       <mesh receiveShadow rotation-x={-Math.PI / 2} position={[0, -0.75, 0]}>
-        <planeGeometry args={[30, 30]} />
-        <shadowMaterial opacity={isDark ? 0.2 : 0.12} />
+        <planeGeometry args={[20, 20]} />
+        <shadowMaterial opacity={0.2} />
       </mesh>
 
-      {/* Freezes shadow map — fast, model is static so it's safe */}
+      {/* This freezes the shadow map, which is fast, but the model has to be static  */}
       <BakeShadows />
     </>
   )
 }
 
-interface RapidlyStairProps {
-  isDark?: boolean
-}
-
-export function RapidlyStair({ isDark = false }: RapidlyStairProps) {
+export function RapidlyStair() {
   return (
     <Canvas
-      // ``shadows="soft"`` selects PCFSoftShadowMap which uses the
-      // current Three.js shadow shader. We dropped drei's
-      // ``<SoftShadows />`` because its injected shader still calls
-      // ``unpackRGBAToDepth``, removed in Three r163+.
       shadows="soft"
-      // 3/4 view from upper-right — matches the original demo's
-      // composition where the spiral travels away into the frame.
-      camera={{ position: [10, 8, 10], fov: 35 }}
-      gl={{ antialias: true, alpha: true }}
+      camera={{ position: [-10, 10, 5], fov: 50 }}
+      dpr={[1, 1.5]}
       style={{ width: '100%', height: '100%' }}
     >
-      <Stage isDark={isDark} />
-      {Array.from({ length: 12 }, (_, i) => (
-        <Panel key={i} index={i} />
-      ))}
-      {/* Cycles raycast intersections so click events go to the
-          panel under the cursor even when others overlap. */}
-      <CycleRaycast />
+      <RaycastCyclingStair />
     </Canvas>
   )
 }
