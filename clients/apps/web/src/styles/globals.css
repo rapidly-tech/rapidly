@@ -317,11 +317,12 @@
   }
 
   :root.dark {
-    /* ── HN dark palette — from problemhunt.pro ── */
-    --background: #050505;
+    /* ── Warm dark palette — slight brown undertone so the page
+         doesn't read as flat terminal-black. ── */
+    --background: #1a1612;
     --foreground: oklch(0.92 0.005 75);
 
-    --bg-dot: #1f1f1f;
+    --bg-dot: #2a2521;
 
     --card: rgb(20 20 20 / 0.5);
     --card-foreground: #e8e8e0;
@@ -354,8 +355,8 @@
     --input: #2a2a2a;
     --ring: #4a4a4a;
 
-    --surface: #111111;
-    --surface-inset: #050505;
+    --surface: #221d18;
+    --surface-inset: #1a1612;
 
     /* ── HN dark component tokens — derived from #050505 ── */
     --beige-surface: #1a1a1a;
@@ -386,9 +387,9 @@
     --text-muted: #6a6a62;
     --text-inverted: #050505;
 
-    /* ── Neutral surface tokens — dark, derived from #050505 ── */
-    --surface-subtle: #050505;
-    --surface-muted: #1a1a1a;
+    /* ── Neutral surface tokens — dark, derived from #1a1612 ── */
+    --surface-subtle: #1a1612;
+    --surface-muted: #221d18;
     --surface-bold: #e8e8e0;
     --surface-bold-hover: #d0d0c8;
 
