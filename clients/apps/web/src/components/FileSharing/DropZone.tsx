@@ -336,15 +336,6 @@ export default function DropZone({
             </svg>
           </motion.div>
 
-          {/* Ambient glow at the eye center */}
-          <div
-            className={`pointer-events-none absolute h-[200px] w-[350px] rounded-full blur-[60px] transition-all duration-500 ${
-              isDragging
-                ? 'scale-115 bg-slate-300/20 dark:bg-white/5'
-                : 'bg-slate-200/15 group-hover:scale-110 group-hover:bg-slate-300/20 dark:bg-white/3 dark:group-hover:bg-white/5'
-            }`}
-          />
-
           {/* ===== Content — centered in the eye opening, slight
                nudge up so the stack doesn't crowd the bottom half. ===== */}
           <div className="relative z-10 flex h-64 w-64 -translate-y-1 flex-col items-center justify-center pt-2 md:h-80 md:w-80">
