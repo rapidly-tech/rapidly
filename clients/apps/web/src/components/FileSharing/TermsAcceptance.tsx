@@ -15,16 +15,14 @@ export default function TermsAcceptance(): JSX.Element {
     <>
       <div className="flex justify-center text-center">
         <span className="text-xs text-slate-400 dark:text-slate-500">
-          By selecting a file or typing a secret,
-          <br />
-          you agree to{' '}
+          By sharing, you agree to{' '}
           <button
             type="button"
             onClick={() => setShowModal(true)}
             className="underline transition-colors duration-200 hover:text-slate-900 dark:hover:text-slate-200"
             aria-label="View file sharing and secret terms"
           >
-            our sharing terms
+            our terms
           </button>
           .
         </span>
