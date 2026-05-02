@@ -341,8 +341,10 @@ export default function DropZone({
             }`}
           />
 
-          {/* ===== Content — centered in the eye opening ===== */}
-          <div className="relative z-10 flex h-64 w-64 flex-col items-center justify-center pt-4 md:h-80 md:w-80">
+          {/* ===== Content — centered in the eye opening, nudged up
+               so the icon + label + secret hint + disclaimer stack
+               sits visibly higher inside the bottom half-circle. ===== */}
+          <div className="relative z-10 flex h-64 w-64 -translate-y-6 flex-col items-center justify-center md:h-80 md:w-80">
             {/* Upload icon container */}
             <div
               className={`flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300 ${
