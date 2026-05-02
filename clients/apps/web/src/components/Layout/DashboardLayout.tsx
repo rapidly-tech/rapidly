@@ -1,6 +1,7 @@
 'use client'
 
 import LogoIcon from '@/components/Brand/LogoIcon'
+import Footer from '@/components/Workspace/Footer'
 import { useAuth } from '@/hooks/auth'
 import { WorkspaceContext } from '@/providers/workspaceContext'
 import { setLastVisitedOrg } from '@/utils/cookies'
@@ -27,7 +28,6 @@ import {
 import { twMerge } from 'tailwind-merge'
 import { SubRouteWithActive } from '../Dashboard/navigation'
 import { useRoute } from '../Navigation/useRoute'
-import Footer from '@/components/Workspace/Footer'
 import { DashboardSidebar } from './Dashboard/DashboardSidebar'
 import TopbarRight from './Public/TopbarRight'
 
