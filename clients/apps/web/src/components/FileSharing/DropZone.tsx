@@ -144,11 +144,12 @@ export default function DropZone({
   }, [handleDragEnter, handleDragLeave, handleDragOver, handleDrop, onDrop])
 
   // ── Ring Styles ──
-  // Dark fill uses a warm RGB tint (matches the dashboard cards'
-  // brown undertone) instead of pure white-alpha, which read as
-  // cold gray on the new warm-dark background.
+  // Dark fill reuses the same --card / --border tokens dashboard
+  // cards use, so the Venn picks up the same warm brown undertone
+  // (semi-transparent dark fill over the warm-dark bg) instead of
+  // reading as cold gray.
   const circleClass =
-    'border border-white/50 bg-white/70 backdrop-blur-xl shadow-[0_4px_60px_rgba(120,100,80,0.06)] dark:border-[rgb(180,160,135)]/12 dark:bg-[rgb(180,160,135)]/6 dark:backdrop-blur-xl dark:shadow-[0_4px_60px_rgba(0,0,0,0.2)]'
+    'border border-white/50 bg-white/70 backdrop-blur-xl shadow-[0_4px_60px_rgba(120,100,80,0.06)] dark:border-(--border) dark:bg-(--card) dark:backdrop-blur-xl dark:shadow-[0_4px_60px_rgba(0,0,0,0.2)]'
 
   // Inner ring — always visible, strong
   const ringColor = isDragging
