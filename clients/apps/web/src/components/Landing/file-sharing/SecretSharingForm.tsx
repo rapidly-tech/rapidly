@@ -166,7 +166,13 @@ export const SecretSharingForm = ({
       // delivery model as file-sharing: payload data stays on the
       // sender → recipient hop, the server only handles signaling /
       // metadata for opt-in features.
-      if (!saveOnServer) {
+      //
+      // Payment requires a server-side gate (the URL fragment alone
+      // can't enforce paywalls), so when the user opts in to charging
+      // we transparently fall through to server-storage even if
+      // ""Save on server"" is off. UX matches file-sharing: tick
+      // payment, set price, share — storage mode is implicit.
+      if (!saveOnServer && !usePayment) {
         // Optional password encryption: when on, the payload is
         // OpenPGP-armored under the user's password and the recipient
         // must enter the password to decrypt. Without it, the
@@ -479,20 +485,20 @@ export const SecretSharingForm = ({
           </div>
         )}
 
-        {/* Payment — server-only. Needs a server to gate access, so
-            it's hidden in no-server mode. */}
-        {saveOnServer && (
-          <PaymentConfigSection
-            showPricing={showPricing}
-            workspaceId={workspaceId}
-            usePayment={usePayment}
-            priceCents={priceCents}
-            currency={currency}
-            onPaymentToggle={handlePaymentToggle}
-            onPriceCentsChange={setPriceCents}
-            onCurrencyChange={setCurrency}
-          />
-        )}
+        {/* Payment — available in every mode. When payment is on but
+            ""Save on server"" is off we transparently switch to
+            server-storage at submit time, since a paywall needs a
+            server-side gate that URL fragments can't provide. */}
+        <PaymentConfigSection
+          showPricing={showPricing}
+          workspaceId={workspaceId}
+          usePayment={usePayment}
+          priceCents={priceCents}
+          currency={currency}
+          onPaymentToggle={handlePaymentToggle}
+          onPriceCentsChange={setPriceCents}
+          onCurrencyChange={setCurrency}
+        />
 
         <Button
           onClick={handleCreateSecret}
@@ -503,9 +509,10 @@ export const SecretSharingForm = ({
             // short password is just as wrong there as on the server.
             (useCustomPassword &&
               customPassword.length < MIN_PASSWORD_LENGTH) ||
-            // Payment is server-only.
-            (saveOnServer &&
-              usePayment &&
+            // Price is required whenever payment is on, regardless of
+            // storage mode (no-server with payment auto-switches to
+            // server-stored at submit time).
+            (usePayment &&
               (priceCents === null ||
                 priceCents < FILE_SHARING_MIN_PRICE_CENTS ||
                 priceCents > FILE_SHARING_MAX_PRICE_CENTS))
