@@ -159,6 +159,11 @@ export const SecretSharingForm = ({
 
     setIsLoading(true)
 
+    // Payment requires a server-side gate (URL fragments can't enforce
+    // paywalls), so any paid secret implicitly uses server storage —
+    // even if the ""Save on server"" toggle is off.
+    const effectiveSaveOnServer = saveOnServer || usePayment
+
     try {
       // ── No-server (default) ──
       // Encode the secret into the URL fragment. The server never
@@ -166,13 +171,7 @@ export const SecretSharingForm = ({
       // delivery model as file-sharing: payload data stays on the
       // sender → recipient hop, the server only handles signaling /
       // metadata for opt-in features.
-      //
-      // Payment requires a server-side gate (the URL fragment alone
-      // can't enforce paywalls), so when the user opts in to charging
-      // we transparently fall through to server-storage even if
-      // ""Save on server"" is off. UX matches file-sharing: tick
-      // payment, set price, share — storage mode is implicit.
-      if (!saveOnServer && !usePayment) {
+      if (!effectiveSaveOnServer) {
         // Optional password encryption: when on, the payload is
         // OpenPGP-armored under the user's password and the recipient
         // must enter the password to decrypt. Without it, the
@@ -393,11 +392,15 @@ export const SecretSharingForm = ({
       <div className="flex flex-col gap-4">
         {/* Save on server toggle — default OFF. The hint right under
             it tells the user what they re trading away when they flip
-            it on, so the privacy-by-default story stays explicit. */}
+            it on, so the privacy-by-default story stays explicit.
+            Locked ON when payment is enabled, since a paywall needs
+            a server-side gate — keeps the toggle visually honest
+            instead of off-but-actually-on. */}
         <div className="flex items-start gap-x-3">
           <Checkbox
             id={saveOnServerId}
-            checked={saveOnServer}
+            checked={saveOnServer || usePayment}
+            disabled={usePayment}
             onCheckedChange={(checked) => setSaveOnServer(checked === true)}
           />
           <div className="flex flex-col gap-1">
@@ -406,10 +409,12 @@ export const SecretSharingForm = ({
               className="rp-text-secondary text-sm"
             >
               Save on our server
-              <span className="rp-text-muted ml-1 text-xs">(optional)</span>
+              <span className="rp-text-muted ml-1 text-xs">
+                {usePayment ? '(required for payment)' : '(optional)'}
+              </span>
             </label>
             <p className="rp-text-muted text-xs">
-              {saveOnServer
+              {saveOnServer || usePayment
                 ? 'The encrypted secret is stored on our server with an expiry. Enables offline delivery, custom-password split-knowledge, and paid gating.'
                 : 'The secret stays in the URL fragment — never sent to our server. Same as how files are shared. Recipient must open the link before you forget the URL.'}
             </p>
@@ -485,20 +490,24 @@ export const SecretSharingForm = ({
           </div>
         )}
 
-        {/* Payment — available in every mode. When payment is on but
+        {/* Payment — available in every mode for logged-in users.
+            Anonymous users have no workspace_id, so the paid gate
+            wouldn't have anywhere to attach. When payment is on but
             ""Save on server"" is off we transparently switch to
             server-storage at submit time, since a paywall needs a
             server-side gate that URL fragments can't provide. */}
-        <PaymentConfigSection
-          showPricing={showPricing}
-          workspaceId={workspaceId}
-          usePayment={usePayment}
-          priceCents={priceCents}
-          currency={currency}
-          onPaymentToggle={handlePaymentToggle}
-          onPriceCentsChange={setPriceCents}
-          onCurrencyChange={setCurrency}
-        />
+        {workspaceId && (
+          <PaymentConfigSection
+            showPricing={showPricing}
+            workspaceId={workspaceId}
+            usePayment={usePayment}
+            priceCents={priceCents}
+            currency={currency}
+            onPaymentToggle={handlePaymentToggle}
+            onPriceCentsChange={setPriceCents}
+            onCurrencyChange={setCurrency}
+          />
+        )}
 
         <Button
           onClick={handleCreateSecret}
