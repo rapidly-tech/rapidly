@@ -3,7 +3,6 @@
 import type { FileSharingFlowState } from '@/components/FileSharing'
 import { FileSharingLandingPage } from '@/components/Landing/file-sharing/FileSharingLandingPage'
 import { DashboardBody } from '@/components/Layout/DashboardLayout'
-import Footer from '@/components/Workspace/Footer'
 import { schemas } from '@rapidly-tech/client'
 import { useCallback, useState } from 'react'
 
@@ -38,7 +37,9 @@ export default function SendFilesPage({
         </button>
       }
       className="flex-1"
-      wrapperClassName={flowState === 'initial' ? 'overflow-clip' : undefined}
+      wrapperClassName={
+        flowState === 'initial' ? 'overflow-x-clip' : undefined
+      }
     >
       <FileSharingLandingPage
         key={resetKey}
@@ -47,7 +48,6 @@ export default function SendFilesPage({
         onFlowStateChange={handleFlowStateChange}
         entranceAnimation={false}
       />
-      <Footer />
     </DashboardBody>
   )
 }
