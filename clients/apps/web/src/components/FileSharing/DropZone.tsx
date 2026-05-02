@@ -144,8 +144,12 @@ export default function DropZone({
   }, [handleDragEnter, handleDragLeave, handleDragOver, handleDrop, onDrop])
 
   // ── Ring Styles ──
+  // Dark fill reuses the same --card / --border tokens dashboard
+  // cards use, so the Venn picks up the same warm brown undertone
+  // (semi-transparent dark fill over the warm-dark bg) instead of
+  // reading as cold gray.
   const circleClass =
-    'border border-white/50 bg-white/70 backdrop-blur-xl shadow-[0_4px_60px_rgba(120,100,80,0.06)] dark:border-white/10 dark:bg-white/5 dark:backdrop-blur-xl dark:shadow-[0_4px_60px_rgba(0,0,0,0.2)]'
+    'border border-white/50 bg-white/70 backdrop-blur-xl shadow-[0_4px_60px_rgba(120,100,80,0.06)] dark:border-(--border) dark:bg-(--card) dark:backdrop-blur-xl dark:shadow-[0_4px_60px_rgba(0,0,0,0.2)]'
 
   // Inner ring — always visible, strong
   const ringColor = isDragging
@@ -341,10 +345,9 @@ export default function DropZone({
             }`}
           />
 
-          {/* ===== Content — centered in the eye opening, nudged up
-               so the icon + label + secret hint + disclaimer stack
-               sits visibly higher inside the bottom half-circle. ===== */}
-          <div className="relative z-10 flex h-64 w-64 -translate-y-6 flex-col items-center justify-center md:h-80 md:w-80">
+          {/* ===== Content — centered in the eye opening, slight
+               nudge up so the stack doesn't crowd the bottom half. ===== */}
+          <div className="relative z-10 flex h-64 w-64 -translate-y-1 flex-col items-center justify-center pt-2 md:h-80 md:w-80">
             {/* Upload icon container */}
             <div
               className={`flex h-12 w-12 items-center justify-center rounded-xl transition-all duration-300 ${
