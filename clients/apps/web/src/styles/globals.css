@@ -233,9 +233,11 @@
 
 @layer base {
   :root {
-    /* ── Warm beige palette ── */
-    --background: oklch(0.97 0.01 75);
+    /* ── HN cream palette (light) — from problemhunt.pro ── */
+    --background: #f6f6ef;
     --foreground: var(--color-slate-900);
+
+    --bg-dot: #c8c0b0;
 
     --card: oklch(1 0 0 / 0.08);
     --card-foreground: var(--color-slate-900);
@@ -243,41 +245,41 @@
     --popover: oklch(1 0 0 / 0.08);
     --popover-foreground: var(--color-slate-800);
 
-    --sidebar-background: oklch(0.94 0.015 75 / 0.5);
+    --sidebar-background: rgb(240 240 232 / 0.5);
     --sidebar-foreground: var(--color-slate-900);
-    --sidebar-primary: oklch(0.45 0.03 60);
+    --sidebar-primary: #2a2a26;
     --sidebar-primary-foreground: var(--color-white);
-    --sidebar-border: oklch(0.88 0.02 75 / 0.4);
+    --sidebar-border: rgb(220 220 208 / 0.4);
 
-    --primary: oklch(0.45 0.03 60);
+    --primary: #2a2a26;
     --primary-foreground: var(--color-white);
 
-    --secondary: oklch(0.94 0.012 75);
+    --secondary: #f0f0e8;
     --secondary-foreground: var(--color-slate-900);
 
-    --muted: oklch(0.94 0.012 75);
-    --muted-foreground: oklch(0.55 0.02 60);
+    --muted: #f0f0e8;
+    --muted-foreground: #6b6b62;
 
-    --accent: oklch(0.5 0.03 60);
+    --accent: #383832;
     --accent-foreground: var(--color-white);
 
     --destructive: var(--color-red-500);
     --destructive-foreground: var(--color-red-600);
 
-    --border: oklch(0.9 0.015 75);
-    --input: oklch(0.9 0.015 75);
-    --ring: oklch(0.8 0.02 75);
+    --border: #dcdcd0;
+    --input: #dcdcd0;
+    --ring: #c4c4b8;
     --radius: 0.5rem;
 
-    --surface: oklch(0.94 0.012 75);
-    --surface-inset: oklch(0.99 0.005 75);
+    --surface: #f0f0e8;
+    --surface-inset: #fbfbf5;
 
-    /* ── Warm beige component tokens ── */
-    --beige-surface: #f5f0ea;
-    --beige-border: #ddd5ca;
-    --beige-hover: #efe9e1;
-    --beige-focus: #c5bdb3;
-    --beige-item-hover: #f5f0ea;
+    /* ── HN cream component tokens — derived from #f6f6ef ── */
+    --beige-surface: #f0f0e8;
+    --beige-border: #dcdcd0;
+    --beige-hover: #ebebe2;
+    --beige-focus: #bcbcb0;
+    --beige-item-hover: #f0f0e8;
 
     /* ── Liquid glass parameters — frosted pop (like popover) on beige ── */
     --glass-tint: 255, 255, 255;
@@ -291,22 +293,22 @@
     --glass-outer-shadow: 0 8px 32px oklch(0 0 0 / 0.08);
     --glass-radius: 1rem;
 
-    /* ── Shared page background gradient — warm beige ── */
-    --page-bg-from: oklch(0.94 0.015 75);
-    --page-bg-via: oklch(0.96 0.01 75);
-    --page-bg-to: oklch(0.94 0.015 75);
+    /* ── Shared page background — flat HN cream ── */
+    --page-bg-from: var(--background);
+    --page-bg-via: var(--background);
+    --page-bg-to: var(--background);
 
     /* ── Neutral text tokens ── */
     --text-primary: var(--color-slate-900);
-    --text-secondary: oklch(0.55 0.02 60);
-    --text-muted: oklch(0.65 0.02 60);
+    --text-secondary: #5a5a52;
+    --text-muted: #82827a;
     --text-inverted: var(--color-white);
 
-    /* ── Neutral surface tokens ── */
-    --surface-subtle: oklch(0.97 0.01 75);
-    --surface-muted: oklch(0.94 0.012 75);
-    --surface-bold: oklch(0.3 0.02 60);
-    --surface-bold-hover: oklch(0.35 0.02 60);
+    /* ── Neutral surface tokens — derived from HN cream bg ── */
+    --surface-subtle: #f6f6ef;
+    --surface-muted: #f0f0e8;
+    --surface-bold: #2a2a26;
+    --surface-bold-hover: #383832;
 
     /* ── Chart tokens ── */
     --chart-line: var(--color-slate-900);
@@ -315,50 +317,52 @@
   }
 
   :root.dark {
-    /* ── Warm dark palette ── */
-    --background: oklch(0.16 0.015 60);
-    --foreground: oklch(0.85 0.01 75);
+    /* ── HN dark palette — from problemhunt.pro ── */
+    --background: #050505;
+    --foreground: oklch(0.92 0.005 75);
 
-    --card: oklch(0.22 0.015 60 / 0.5);
-    --card-foreground: oklch(0.9 0.008 75);
+    --bg-dot: #1f1f1f;
 
-    --popover: oklch(0.22 0.015 60 / 0.6);
-    --popover-foreground: oklch(0.9 0.008 75);
+    --card: rgb(20 20 20 / 0.5);
+    --card-foreground: #e8e8e0;
 
-    --sidebar-background: oklch(0.18 0.015 60 / 0.4);
-    --sidebar-foreground: oklch(0.9 0.008 75);
-    --sidebar-primary: oklch(0.75 0.02 75);
-    --sidebar-primary-foreground: oklch(0.16 0.015 60);
-    --sidebar-border: oklch(0.28 0.015 60 / 0.4);
+    --popover: rgb(20 20 20 / 0.6);
+    --popover-foreground: #e8e8e0;
 
-    --primary: oklch(0.75 0.02 75);
-    --primary-foreground: oklch(0.16 0.015 60);
+    --sidebar-background: rgb(15 15 15 / 0.4);
+    --sidebar-foreground: #e8e8e0;
+    --sidebar-primary: #d8d8d0;
+    --sidebar-primary-foreground: #050505;
+    --sidebar-border: rgb(42 42 42 / 0.4);
 
-    --secondary: oklch(0.22 0.015 60);
-    --secondary-foreground: oklch(0.9 0.008 75);
+    --primary: #d8d8d0;
+    --primary-foreground: #050505;
 
-    --muted: oklch(0.22 0.015 60);
-    --muted-foreground: oklch(0.55 0.015 60);
+    --secondary: #1a1a1a;
+    --secondary-foreground: #e8e8e0;
 
-    --accent: oklch(0.65 0.02 75);
-    --accent-foreground: oklch(0.16 0.015 60);
+    --muted: #1a1a1a;
+    --muted-foreground: #8a8a82;
+
+    --accent: #c0c0b8;
+    --accent-foreground: #050505;
 
     --destructive: var(--color-red-500);
     --destructive-foreground: var(--color-red-500);
 
-    --border: oklch(0.28 0.015 60);
-    --input: oklch(0.28 0.015 60);
-    --ring: oklch(0.45 0.02 60);
+    --border: #2a2a2a;
+    --input: #2a2a2a;
+    --ring: #4a4a4a;
 
-    --surface: oklch(0.2 0.015 60);
-    --surface-inset: oklch(0.16 0.015 60);
+    --surface: #111111;
+    --surface-inset: #050505;
 
-    /* ── Warm beige component tokens — dark ── */
-    --beige-surface: oklch(0.22 0.015 60);
-    --beige-border: oklch(0.3 0.015 60);
-    --beige-hover: oklch(0.26 0.015 60);
-    --beige-focus: oklch(0.35 0.015 60);
-    --beige-item-hover: oklch(0.3 0.015 60);
+    /* ── HN dark component tokens — derived from #050505 ── */
+    --beige-surface: #1a1a1a;
+    --beige-border: #2a2a2a;
+    --beige-hover: #1a1a1a;
+    --beige-focus: #3a3a3a;
+    --beige-item-hover: #1a1a1a;
 
     /* ── Liquid glass parameters — warm dark ── */
     --glass-tint: 180, 165, 148;
@@ -371,22 +375,22 @@
       inset 0 0 24px -8px oklch(0.3 0.01 60 / 0.1);
     --glass-outer-shadow: 0 4px 24px oklch(0 0 0 / 0.3);
 
-    /* ── Shared page background gradient — warm dark ── */
-    --page-bg-from: oklch(0.16 0.015 60);
-    --page-bg-via: oklch(0.18 0.012 60);
-    --page-bg-to: oklch(0.16 0.015 60);
+    /* ── Shared page background — flat HN dark ── */
+    --page-bg-from: var(--background);
+    --page-bg-via: var(--background);
+    --page-bg-to: var(--background);
 
     /* ── Neutral text tokens — dark ── */
-    --text-primary: oklch(0.95 0.005 75);
-    --text-secondary: oklch(0.6 0.015 60);
-    --text-muted: oklch(0.5 0.015 60);
-    --text-inverted: oklch(0.16 0.01 60);
+    --text-primary: #f0f0e8;
+    --text-secondary: #9a9a92;
+    --text-muted: #6a6a62;
+    --text-inverted: #050505;
 
-    /* ── Neutral surface tokens — dark ── */
-    --surface-subtle: oklch(0.16 0.015 60);
-    --surface-muted: oklch(0.22 0.015 60);
-    --surface-bold: oklch(0.85 0.01 75);
-    --surface-bold-hover: oklch(0.75 0.01 75);
+    /* ── Neutral surface tokens — dark, derived from #050505 ── */
+    --surface-subtle: #050505;
+    --surface-muted: #1a1a1a;
+    --surface-bold: #e8e8e0;
+    --surface-bold-hover: #d0d0c8;
 
     /* ── Chart tokens — dark ── */
     --chart-line: var(--color-white);
@@ -397,6 +401,18 @@
   html,
   body {
     background-color: var(--background);
+  }
+
+  /* Global dot pattern — fixed overlay behind all content */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: -1;
+    background-image: radial-gradient(var(--bg-dot) 1px, transparent 1px);
+    background-size: 24px 24px;
+    opacity: 0.25;
   }
 }
 
