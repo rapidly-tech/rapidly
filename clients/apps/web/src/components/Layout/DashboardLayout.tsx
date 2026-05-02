@@ -27,6 +27,7 @@ import {
 import { twMerge } from 'tailwind-merge'
 import { SubRouteWithActive } from '../Dashboard/navigation'
 import { useRoute } from '../Navigation/useRoute'
+import Footer from '@/components/Workspace/Footer'
 import { DashboardSidebar } from './Dashboard/DashboardSidebar'
 import TopbarRight from './Public/TopbarRight'
 
@@ -73,6 +74,7 @@ const DashboardLayout = (
         {/* On large devices, scroll here. On small devices the _document_ is the only element that should scroll. */}
         <main className="relative flex min-h-0 min-w-0 grow flex-col md:overflow-y-auto md:[scrollbar-gutter:stable]">
           {props.children}
+          <Footer />
         </main>
       </div>
     </div>
