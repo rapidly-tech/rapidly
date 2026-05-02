@@ -37,9 +37,7 @@ export default function SendFilesPage({
         </button>
       }
       className="flex-1"
-      wrapperClassName={
-        flowState === 'initial' ? 'overflow-x-clip' : undefined
-      }
+      wrapperClassName={flowState === 'initial' ? 'overflow-x-clip' : undefined}
     >
       <FileSharingLandingPage
         key={resetKey}
