@@ -186,12 +186,10 @@ export const FileSharingLandingPage = ({
                 <Icon icon="solar:lock-linear" className="h-3.5 w-3.5" />
                 or type a secret...
               </button>
-            </FileSharingLanding>
-            {flowState === 'initial' && (
-              <p className="rp-text-muted mt-6 text-center text-xs">
+              <p className="rp-text-muted mt-2 text-center text-xs">
                 Recipient must open the link while this tab is open.
               </p>
-            )}
+            </FileSharingLanding>
           </div>
         ) : (
           <div>
