@@ -538,7 +538,7 @@ export const SecretSharingForm = ({
               ? 'Encrypt & Share'
               : useCustomPassword && customPassword
                 ? 'Encrypt & Share'
-                : 'Build share link'}
+                : 'Share'}
         </Button>
       </div>
     </div>
