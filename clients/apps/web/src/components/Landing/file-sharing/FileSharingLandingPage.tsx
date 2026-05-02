@@ -23,8 +23,8 @@ const directTitleContent: Record<
   { title: string; subtitle: string }
 > = {
   initial: {
-    title: 'Share Files Securely',
-    subtitle: 'Encrypted peer-to-peer transfers, directly in your browser',
+    title: 'Send files browser to browser',
+    subtitle: 'End-to-end encrypted. No uploads, no accounts, no size limits.',
   },
   confirm: {
     title: 'Configure Transfer',
@@ -187,6 +187,11 @@ export const FileSharingLandingPage = ({
                 or type a secret...
               </button>
             </FileSharingLanding>
+            {flowState === 'initial' && (
+              <p className="rp-text-muted mt-6 text-center text-xs">
+                Recipient must open the link while this tab is open.
+              </p>
+            )}
           </div>
         ) : (
           <div>

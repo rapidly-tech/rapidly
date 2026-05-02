@@ -23,6 +23,37 @@ test.describe('Landing pages render', () => {
     expect(title.length).toBeGreaterThan(0)
   })
 
+  test('root / answers what + why-safe + sender-must-stay-online', async ({
+    page,
+  }) => {
+    await page.goto('/')
+    // New H1 + subtitle directly answer the trust questions reviewers
+    // flagged ("what does this do" / "is it actually safe").
+    await expect(
+      page.getByRole('heading', { name: /send files browser to browser/i }),
+    ).toBeVisible()
+    await expect(
+      page.getByText(/end-to-end encrypted\. no uploads/i),
+    ).toBeVisible()
+    // Critical friction-point disclaimer — without this, users close
+    // the tab and break their own transfer.
+    await expect(
+      page.getByText(/recipient must open the link while this tab is open/i),
+    ).toBeVisible()
+  })
+
+  test('/secret hides payment for anonymous users', async ({ page }) => {
+    await page.goto('/')
+    // Type a character to flip into secret-sharing mode. The page has
+    // a global keydown listener that converts the first keystroke into
+    // the secret textarea seed.
+    await page.keyboard.press('h')
+    // Anonymous users have no workspace_id — the payment section
+    // should not render (without a workspace, the paywall would have
+    // nowhere to attach).
+    await expect(page.getByText(/require payment/i)).toBeHidden()
+  })
+
   test('/revolver renders the 6-chamber preview', async ({ page }) => {
     await page.goto('/revolver')
     // The revolver landing has a distinctive headline we can target.
