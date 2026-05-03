@@ -1,7 +1,6 @@
 'use client'
 
 import LogoIcon from '@/components/Brand/LogoIcon'
-import Footer from '@/components/Workspace/Footer'
 import { useAuth } from '@/hooks/auth'
 import { WorkspaceContext } from '@/providers/workspaceContext'
 import { setLastVisitedOrg } from '@/utils/cookies'
@@ -74,7 +73,6 @@ const DashboardLayout = (
         {/* On large devices, scroll here. On small devices the _document_ is the only element that should scroll. */}
         <main className="relative flex min-h-0 min-w-0 grow flex-col md:overflow-y-auto md:[scrollbar-gutter:stable]">
           {props.children}
-          <Footer />
         </main>
       </div>
     </div>
