@@ -46,7 +46,7 @@ dependencies = [
   # ── Observability & logging ──────────────────────────────────
   "structlog>=24.4.0",
   "sentry-sdk[fastapi,sqlalchemy]>=2.48.0",
-  "logfire[fastapi,httpx,sqlalchemy,redis]>=2.6.0",
+  "logfire[fastapi,httpx,sqlalchemy,redis]>=4.32.1",
   "posthog>=3.6.0",
   "prometheus-client>=0.21.0",
   # ── IP geolocation ───────────────────────────────────────────
