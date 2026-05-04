@@ -92,3 +92,29 @@ export const ROUNDNESS_PRESETS = [
   { id: 'sharp', label: 'Sharp', value: 0 },
   { id: 'round', label: 'Round', value: 16 },
 ] as const
+
+/** Font family options for text + sticky elements. Mirrors the
+ *  ``FontFamily`` element field; the labels match what we render so
+ *  the picker is its own legend. */
+export const FONT_FAMILIES = [
+  { id: 'handwritten', label: 'Hand', sample: 'Aa' },
+  { id: 'sans', label: 'Sans', sample: 'Aa' },
+  { id: 'mono', label: 'Mono', sample: 'Aa' },
+] as const
+
+/** Discrete font-size presets. Excalidraw uses S/M/L/XL with concrete
+ *  pixel values; we keep the same four steps so users coming from
+ *  Excalidraw don't hit a continuous slider where they expect tiers. */
+export const FONT_SIZES = [
+  { id: 's', label: 'S', value: 16 },
+  { id: 'm', label: 'M', value: 20 },
+  { id: 'l', label: 'L', value: 28 },
+  { id: 'xl', label: 'XL', value: 36 },
+] as const
+
+/** Horizontal text alignment options. */
+export const TEXT_ALIGNMENTS = [
+  { id: 'left', label: '⟸', aria: 'Align text left' },
+  { id: 'center', label: '⇔', aria: 'Align text center' },
+  { id: 'right', label: '⟹', aria: 'Align text right' },
+] as const

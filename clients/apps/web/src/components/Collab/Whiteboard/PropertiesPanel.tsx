@@ -21,12 +21,15 @@ import type { ElementStore } from '@/utils/collab/element-store'
 import {
   applyToSelection,
   FILL_PALETTE,
+  FONT_FAMILIES,
+  FONT_SIZES,
   ROUGHNESS_LEVELS,
   ROUNDNESS_PRESETS,
   sharedField,
   STROKE_PALETTE,
   STROKE_STYLES,
   STROKE_WIDTHS,
+  TEXT_ALIGNMENTS,
   type SharedValue,
 } from '@/utils/collab/properties'
 import type { SelectionState } from '@/utils/collab/selection'
@@ -69,6 +72,15 @@ export function PropertiesPanel({ store, selection }: Props) {
   // picker when at least one element actually supports it.
   const roundness = sharedRoundness(store, ids)
   const showRoundness = roundness !== null
+  // Text-only fields (fontFamily / fontSize / textAlign) live on
+  // text + sticky elements. Same per-element probe pattern; the
+  // group is hidden entirely when no text-bearing element is in
+  // the selection so shape-only selections stay compact.
+  const fontFamily = sharedTextField<string>(store, ids, 'fontFamily')
+  const fontSize = sharedTextField<number>(store, ids, 'fontSize')
+  const textAlign = sharedTextField<string>(store, ids, 'textAlign')
+  const showText =
+    fontFamily !== null || fontSize !== null || textAlign !== null
 
   return (
     <aside className="flex w-60 flex-col gap-5 border-l border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
@@ -191,6 +203,72 @@ export function PropertiesPanel({ store, selection }: Props) {
           <span>{ids.size} selected</span>
         </div>
       </FieldGroup>
+
+      {showText && (
+        <>
+          <FieldGroup label="Font">
+            <Row>
+              {FONT_FAMILIES.map((f) => (
+                <PillButton
+                  key={f.id}
+                  active={fontFamily === f.id}
+                  onClick={() =>
+                    applyToSelection(store, ids, { fontFamily: f.id })
+                  }
+                >
+                  <span
+                    style={{
+                      fontFamily:
+                        f.id === 'mono'
+                          ? 'ui-monospace, monospace'
+                          : f.id === 'sans'
+                            ? 'ui-sans-serif, system-ui, sans-serif'
+                            : 'cursive',
+                    }}
+                  >
+                    {f.label}
+                  </span>
+                </PillButton>
+              ))}
+              {fontFamily === 'mixed' && <Mixed />}
+            </Row>
+          </FieldGroup>
+
+          <FieldGroup label="Font size">
+            <Row>
+              {FONT_SIZES.map((s) => (
+                <PillButton
+                  key={s.id}
+                  active={fontSize === s.value}
+                  onClick={() =>
+                    applyToSelection(store, ids, { fontSize: s.value })
+                  }
+                >
+                  {s.label}
+                </PillButton>
+              ))}
+              {fontSize === 'mixed' && <Mixed />}
+            </Row>
+          </FieldGroup>
+
+          <FieldGroup label="Text align">
+            <Row>
+              {TEXT_ALIGNMENTS.map((a) => (
+                <PillButton
+                  key={a.id}
+                  active={textAlign === a.id}
+                  onClick={() =>
+                    applyToSelection(store, ids, { textAlign: a.id })
+                  }
+                >
+                  <span aria-label={a.aria}>{a.label}</span>
+                </PillButton>
+              ))}
+              {textAlign === 'mixed' && <Mixed />}
+            </Row>
+          </FieldGroup>
+        </>
+      )}
     </aside>
   )
 }
@@ -312,4 +390,33 @@ function sharedRoundness(
     if (el.roundness !== value) return 'mixed'
   }
   return initialised ? (value as number) : null
+}
+
+/** Same shape as ``sharedRoundness`` for fields that only exist on
+ *  text + sticky elements (``fontFamily``, ``fontSize``, ``textAlign``).
+ *  Returns ``null`` when no text-bearing element is in the selection
+ *  so the panel can hide the whole text section. */
+function sharedTextField<T>(
+  store: ElementStore,
+  ids: ReadonlySet<string>,
+  key: 'fontFamily' | 'fontSize' | 'textAlign',
+): SharedValue<T> {
+  let value: T | undefined
+  let initialised = false
+  for (const id of ids) {
+    const el = store.get(id) as unknown as
+      | { type?: string; [k: string]: unknown }
+      | undefined
+    if (!el) continue
+    if (el.type !== 'text' && el.type !== 'sticky') continue
+    const v = el[key] as T | undefined
+    if (v === undefined) continue
+    if (!initialised) {
+      value = v
+      initialised = true
+      continue
+    }
+    if (v !== value) return 'mixed'
+  }
+  return initialised ? (value as T) : null
 }

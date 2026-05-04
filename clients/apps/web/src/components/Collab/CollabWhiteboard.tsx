@@ -44,6 +44,7 @@ import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
 import { hasLink, setLink } from '@/utils/collab/hyperlinks'
 import {
   createImageElement,
+  extractImageFile,
   extractPastedImage,
 } from '@/utils/collab/image-paste'
 import {
@@ -228,6 +229,7 @@ export function CollabWhiteboard({
   const staticRef = useRef<HTMLCanvasElement | null>(null)
   const interactiveRef = useRef<HTMLCanvasElement | null>(null)
   const rendererRef = useRef<Renderer | null>(null)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
   const storeRef = useRef<ElementStore | null>(null)
   const selectionRef = useRef<SelectionState>(new SelectionState())
   const activeToolRef = useRef<Tool | null>(null)
@@ -2037,6 +2039,48 @@ export function CollabWhiteboard({
                 {t.label}
               </button>
             ),
+          )}
+          {!viewMode && (
+            <>
+              {/* Image isn't a draw-to-create tool — it opens the file
+                  picker, decodes the chosen image, and drops it at the
+                  current viewport centre. Sits in the same visual
+                  group as the tool radios so it reads as part of the
+                  toolbar, but it's a plain button (no aria-checked). */}
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="rp-text-secondary hover:rp-text-primary rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm"
+                aria-label="Insert image from file"
+                title="Insert image (or paste / drag-drop)"
+              >
+                Image
+              </button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0] ?? null
+                  e.target.value = '' // allow re-selecting the same file
+                  const image = await extractImageFile(file)
+                  if (!image) return
+                  const store = storeRef.current
+                  const renderer = rendererRef.current
+                  const canvas = interactiveRef.current
+                  if (!store || !renderer || !canvas) return
+                  const rect = canvas.getBoundingClientRect()
+                  const vp = renderer.getViewport()
+                  const center = {
+                    x: vp.scrollX + rect.width / 2 / vp.scale,
+                    y: vp.scrollY + rect.height / 2 / vp.scale,
+                  }
+                  const id = createImageElement(store, image, { center })
+                  selectionRef.current.set(new Set([id]))
+                }}
+              />
+            </>
           )}
         </div>
         <span className="rp-text-secondary hidden md:inline">
