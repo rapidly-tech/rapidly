@@ -62,6 +62,7 @@ import {
   type LaserController,
 } from '@/utils/collab/laser'
 import { makeLaserOverlay } from '@/utils/collab/laser-overlay'
+import { saveTemplate } from '@/utils/collab/library'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
 import {
   detectMermaidChartType,
@@ -138,6 +139,7 @@ import { CommandPalette } from './Whiteboard/CommandPalette'
 import { EmbedsOverlay } from './Whiteboard/EmbedsOverlay'
 import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
 import { ImageCropDialog } from './Whiteboard/ImageCropDialog'
+import { LibraryDialog } from './Whiteboard/LibraryDialog'
 import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
 import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
 import { ServiceWorkerRegistrar } from './Whiteboard/ServiceWorkerRegistrar'
@@ -329,6 +331,9 @@ export function CollabWhiteboard({
   /** Stats overlay — debug HUD with element count, selection size,
    *  viewport scale, and FPS. Toggled via ``Cmd+/``. */
   const [statsOpen, setStatsOpen] = useState(false)
+  /** Template library picker. Opens via the ``library.insert``
+   *  command-palette entry. */
+  const [libraryOpen, setLibraryOpen] = useState(false)
 
   // Subscribe to text-edit requests from tools.
   useEffect(() => {
@@ -1996,6 +2001,37 @@ export function CollabWhiteboard({
         selectionRef.current.set([id])
       },
     })
+    // Library — local-storage saved templates.
+    list.push({
+      id: 'library.save',
+      label: 'Save selection as template…',
+      category: 'Library',
+      keywords: ['library', 'save', 'template', 'preset', 'snippet'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const name = window.prompt('Template name:', 'Untitled')
+        if (!name) return
+        const elements = Array.from(selection.snapshot)
+          .map((id) => store.get(id))
+          .filter((el): el is NonNullable<typeof el> => el !== null)
+        const saved = saveTemplate(
+          name,
+          elements as unknown as Parameters<typeof saveTemplate>[1],
+        )
+        if (!saved) {
+          window.alert('Could not save template.')
+        }
+      },
+    })
+    list.push({
+      id: 'library.insert',
+      label: 'Insert template…',
+      category: 'Library',
+      keywords: ['library', 'insert', 'template', 'preset', 'load'],
+      run: () => setLibraryOpen(true),
+    })
     // Help.
     list.push({
       id: 'help.shortcuts',
@@ -2552,6 +2588,25 @@ export function CollabWhiteboard({
           onClose={() => setMobileStyleOpen(false)}
         />
       ) : null}
+      <LibraryDialog
+        open={libraryOpen}
+        onClose={() => setLibraryOpen(false)}
+        onInsert={(template) => {
+          const store = storeRef.current
+          const renderer = rendererRef.current
+          const canvas = interactiveRef.current
+          if (!store || !renderer || !canvas) return
+          const rect = canvas.getBoundingClientRect()
+          const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
+          // ``insertTemplate`` is module-local because importing it
+          // here would require the helper from ``utils/collab/library``;
+          // call site is small enough to inline. Keep imports tidy.
+          import('@/utils/collab/library').then(({ insertTemplate }) => {
+            const ids = insertTemplate(store, template, center)
+            if (ids.length > 0) selectionRef.current.set(ids)
+          })
+        }}
+      />
       {presentationActive ? (
         <div
           role="status"
