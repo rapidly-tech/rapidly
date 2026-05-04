@@ -29,7 +29,7 @@ dependencies = [
   "email-validator>=2.1.0.post1",
   "python-dateutil>=2.9.0.post0",
   # ── Auth & security ──────────────────────────────────────────
-  "pyjwt>=2.12.0",
+  "pyjwt>=2.12.1",
   "authlib>=1.6.11",
   "httpx-oauth>=0.16.0",
   "cryptography>=46.0.7",
