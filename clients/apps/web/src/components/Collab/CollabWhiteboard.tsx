@@ -996,9 +996,54 @@ export function CollabWhiteboard({
     )
     const hitId = renderer.hitTest(world.x, world.y)
     if (!hitId) return
-    const el = store.get(hitId)
-    if (el?.type === 'text') {
+    const el = store.get(hitId) as
+      | {
+          id: string
+          type: string
+          x: number
+          y: number
+          width: number
+          height: number
+          boundTextId?: string
+        }
+      | undefined
+    if (!el) return
+    if (el.type === 'text') {
       setEditingId(hitId)
+      return
+    }
+    // Double-click a labelable shape → focus its bound text label,
+    // creating a centred one if there isn't one yet. The model has
+    // had ``boundTextId`` / ``containerId`` for a while; this wires
+    // the actual editing affordance.
+    if (el.type === 'rect' || el.type === 'ellipse' || el.type === 'diamond') {
+      if (el.boundTextId && store.get(el.boundTextId)) {
+        setEditingId(el.boundTextId)
+        return
+      }
+      // Create a new text child centred in the shape. Text width is
+      // 80% of the parent's width with 10% padding each side; height
+      // is the default font-size box and grows on edit.
+      const padding = el.width * 0.1
+      const textWidth = el.width - padding * 2
+      const textHeight = 32
+      const textId = store.create({
+        type: 'text',
+        x: el.x + padding,
+        y: el.y + (el.height - textHeight) / 2,
+        width: textWidth,
+        height: textHeight,
+        text: '',
+        fontFamily: 'sans',
+        fontSize: 20,
+        textAlign: 'center',
+        containerId: el.id,
+        // Match parent's stroke colour so the label reads against the
+        // shape; user can recolour from the panel.
+        strokeColor: '#1e1e1e',
+      })
+      store.update(el.id, { boundTextId: textId })
+      setEditingId(textId)
     }
   }, [])
 
