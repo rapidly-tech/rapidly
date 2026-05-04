@@ -1,0 +1,17 @@
+# Rapidly devcontainer reverse proxy — Caddy configuration.
+# Routes /v1/* to the Rapidly API server (port 8000) and everything
+# else to the Rapidly frontend dev server (port 3000).
+:8080 {
+	route /v1/* {
+		reverse_proxy 127.0.0.1:8000 {
+			trusted_proxies private_ranges
+      header_up Host {http.request.header.X-Forwarded-Host}
+		}
+	}
+	route * {
+		reverse_proxy 127.0.0.1:3000 {
+			trusted_proxies private_ranges
+      header_up Host {http.request.header.X-Forwarded-Host}
+		}
+	}
+}

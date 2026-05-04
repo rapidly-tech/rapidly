@@ -1,0 +1,454 @@
+/**
+ * Snap-to-objects (alignment guides) for the Collab v2 whiteboard.
+ *
+ * While the user drags one or more elements, this module looks at the
+ * dragged group's bounding box and the bounding boxes of all other
+ * (stationary) elements. When a candidate edge or centre line is
+ * within a fixed pixel threshold of a stationary element's matching
+ * line, we snap the drag delta so the two lines coincide.
+ *
+ * The tool only consumes a single ``Snap`` per axis — the closest
+ * candidate wins. The guide-render overlay (separate module) reads the
+ * returned ``guides`` to paint a faint dashed line at every aligned
+ * pair so the user sees what they snapped to.
+ *
+ * Threshold lives in **screen pixels** (not world units) so the
+ * affordance feels consistent across zoom levels — at zoom 4 a 6-px
+ * gap in screen-space is 1.5 world units; at zoom 0.5 it's 12 world
+ * units. The caller passes ``scale`` so we can convert internally.
+ *
+ * Pure module — no canvas, no Yjs. ``select.ts`` calls into it during
+ * the move gesture; tests pin the math without a renderer.
+ */
+
+import type { Bounds } from './export'
+
+/** A single alignment match. ``world`` is the world-space coordinate
+ *  of the alignment line (an x for vertical guides, a y for
+ *  horizontal). The select tool uses it to render guides; the snap
+ *  delta itself is computed alongside in ``snapDelta``. */
+export interface SnapGuide {
+  axis: 'x' | 'y'
+  /** World-space coord of the guide line. */
+  world: number
+  /** World-space extent of the guide along the perpendicular axis,
+   *  spanning from the topmost (or leftmost) participant to the
+   *  bottommost (or rightmost). Renderers cap the line to this range
+   *  rather than running it across the entire canvas. */
+  start: number
+  end: number
+}
+
+export interface SnapResult {
+  /** Adjusted drag delta — caller adds it to each anchor in lieu of
+   *  the raw pointer delta. Equal to the input delta on no-snap. */
+  dx: number
+  dy: number
+  guides: SnapGuide[]
+}
+
+/** Default screen-space snap threshold. ~5 CSS pixels feels close
+ *  enough to "deliberate" alignment without grabbing every passing
+ *  edge. Excalidraw uses a similar value. */
+export const DEFAULT_SNAP_THRESHOLD_PX = 5
+
+/** Compute the dragged group's lines (edges + centre) along one axis. */
+function lineSet(
+  bbox: Bounds,
+  axis: 'x' | 'y',
+): { min: number; mid: number; max: number } {
+  if (axis === 'x') {
+    return {
+      min: bbox.x,
+      mid: bbox.x + bbox.width / 2,
+      max: bbox.x + bbox.width,
+    }
+  }
+  return {
+    min: bbox.y,
+    mid: bbox.y + bbox.height / 2,
+    max: bbox.y + bbox.height,
+  }
+}
+
+/** Look for the closest snap candidate on a single axis. Returns the
+ *  delta to add to the dragged bbox to align with the closest static
+ *  line, plus the guide describing the match. */
+function bestSnap(
+  draggedAfterDelta: Bounds,
+  static_: readonly Bounds[],
+  axis: 'x' | 'y',
+  thresholdWorld: number,
+): { delta: number; guide: SnapGuide | null } {
+  const dragged = lineSet(draggedAfterDelta, axis)
+  let bestDelta = 0
+  let bestDistance = thresholdWorld + 1
+  let bestGuide: SnapGuide | null = null
+
+  for (const s of static_) {
+    const target = lineSet(s, axis)
+    // 3 dragged candidates × 3 static candidates = 9 pairings on this
+    // axis. We only consider matching slot-to-slot to avoid weirdness
+    // (e.g. snapping our left to their centre is rarely what the user
+    // wants and is confusing in the UI).
+    for (const slot of ['min', 'mid', 'max'] as const) {
+      const draggedV = dragged[slot]
+      const targetV = target[slot]
+      const distance = Math.abs(targetV - draggedV)
+      if (distance > thresholdWorld) continue
+      if (distance >= bestDistance) continue
+      bestDistance = distance
+      bestDelta = targetV - draggedV
+      // Guide spans across both bboxes on the perpendicular axis.
+      const perp = axis === 'x' ? ['y', 'height'] : ['x', 'width']
+      const a0 = (draggedAfterDelta as unknown as Record<string, number>)[
+        perp[0]
+      ]
+      const a1 =
+        a0 + (draggedAfterDelta as unknown as Record<string, number>)[perp[1]]
+      const b0 = (s as unknown as Record<string, number>)[perp[0]]
+      const b1 = b0 + (s as unknown as Record<string, number>)[perp[1]]
+      bestGuide = {
+        axis,
+        world: targetV,
+        start: Math.min(a0, b0),
+        end: Math.max(a1, b1),
+      }
+    }
+  }
+
+  return { delta: bestDelta, guide: bestGuide }
+}
+
+export interface SnapInputs {
+  /** AABB of the dragged group at the **start** of the gesture (i.e.
+   *  before the current drag delta is applied). */
+  draggedBbox: Bounds
+  /** Raw drag delta in world coordinates, as the caller would apply
+   *  it without any snapping. */
+  dx: number
+  dy: number
+  /** Bboxes of every stationary element to test against. The select
+   *  tool excludes the dragged ids before passing this in. */
+  staticBboxes: readonly Bounds[]
+  /** Current viewport scale — converts threshold from screen px to
+   *  world units. */
+  scale: number
+  /** Optional override for the threshold (screen px). Defaults to 5. */
+  thresholdPx?: number
+}
+
+/** Snap a drag delta to the nearest object alignment along each axis
+ *  independently. Returns the (possibly adjusted) delta plus any
+ *  guides to render. */
+export function snapToObjects(inputs: SnapInputs): SnapResult {
+  const { draggedBbox, dx, dy, staticBboxes, scale } = inputs
+  if (staticBboxes.length === 0) {
+    return { dx, dy, guides: [] }
+  }
+  const thresholdPx = inputs.thresholdPx ?? DEFAULT_SNAP_THRESHOLD_PX
+  const thresholdWorld = thresholdPx / Math.max(scale, 0.01)
+
+  const draggedAfter: Bounds = {
+    x: draggedBbox.x + dx,
+    y: draggedBbox.y + dy,
+    width: draggedBbox.width,
+    height: draggedBbox.height,
+  }
+
+  const xSnap = bestSnap(draggedAfter, staticBboxes, 'x', thresholdWorld)
+  const ySnap = bestSnap(draggedAfter, staticBboxes, 'y', thresholdWorld)
+
+  const guides: SnapGuide[] = []
+  if (xSnap.guide) guides.push(xSnap.guide)
+  if (ySnap.guide) guides.push(ySnap.guide)
+
+  return {
+    dx: dx + xSnap.delta,
+    dy: dy + ySnap.delta,
+    guides,
+  }
+}
+
+/** Bbox helper for an element. Only x/y/width/height, ignoring rotation
+ *  — the alignment heuristic uses the element's local AABB which is
+ *  what the user sees as its "footprint" before rotation. Matching
+ *  Excalidraw behaviour: rotated elements snap by their AABB centre. */
+export function bboxFromElement(el: {
+  x: number
+  y: number
+  width: number
+  height: number
+}): Bounds {
+  return { x: el.x, y: el.y, width: el.width, height: el.height }
+}
+
+/** Which sides of the resize bbox the active handle controls. The
+ *  caller (select tool) maps its 8-direction ``HandleId`` onto this
+ *  shape so the snap helper stays handle-agnostic. */
+export interface ResizeActiveSides {
+  left?: boolean
+  right?: boolean
+  top?: boolean
+  bottom?: boolean
+}
+
+export interface ResizeSnapResult {
+  /** Adjusted bbox — caller writes ``x/y/width/height`` back to the
+   *  element. Equal to the input bbox on no-snap. */
+  bbox: Bounds
+  guides: SnapGuide[]
+}
+
+/** Snap a resize-in-progress bbox so its **active edges** align with
+ *  nearby static elements. Inactive edges are left exactly where the
+ *  caller put them — the user only gets to see the cursor pull on the
+ *  edge they re actually dragging.
+ *
+ *  Width / height stay non-negative: if a snap would invert the bbox
+ *  (e.g. the right edge crosses the left), the snap is dropped on
+ *  that axis and the original value stands. ``applyResize`` already
+ *  enforces the sign elsewhere, but we re defensive here too because
+ *  this helper is called late in the gesture pipeline. */
+export function snapResizeBbox(
+  bbox: Bounds,
+  active: ResizeActiveSides,
+  staticBboxes: readonly Bounds[],
+  scale: number,
+  thresholdPx: number = DEFAULT_SNAP_THRESHOLD_PX,
+): ResizeSnapResult {
+  if (staticBboxes.length === 0) return { bbox, guides: [] }
+  const thresholdWorld = thresholdPx / Math.max(scale, 0.01)
+
+  const xCandidates: number[] = []
+  const xSource: Bounds[] = []
+  const yCandidates: number[] = []
+  const ySource: Bounds[] = []
+  for (const b of staticBboxes) {
+    xCandidates.push(b.x, b.x + b.width / 2, b.x + b.width)
+    yCandidates.push(b.y, b.y + b.height / 2, b.y + b.height)
+    xSource.push(b, b, b)
+    ySource.push(b, b, b)
+  }
+
+  let { x, y, width, height } = bbox
+  const guides: SnapGuide[] = []
+
+  // Helper: snap a single edge value, return the new value + index of
+  // the matched candidate (-1 = no match).
+  const pull = (
+    target: number,
+    cands: readonly number[],
+  ): { value: number; idx: number } => {
+    let bestIdx = -1
+    let bestDist = thresholdWorld + 1
+    for (let i = 0; i < cands.length; i++) {
+      const d = Math.abs(cands[i] - target)
+      if (d > thresholdWorld) continue
+      if (d >= bestDist) continue
+      bestDist = d
+      bestIdx = i
+    }
+    return {
+      value: bestIdx >= 0 ? cands[bestIdx] : target,
+      idx: bestIdx,
+    }
+  }
+
+  // Active sides are checked one axis at a time. Conflicting
+  // left+right snaps would over-constrain the bbox; we let left win
+  // because that s the convention that keeps the un-snapped corner
+  // anchored when both edges are dragged via NW / SW handles.
+  if (active.left) {
+    const r = pull(x, xCandidates)
+    if (r.idx >= 0) {
+      const newWidth = width + (x - r.value)
+      if (newWidth > 0) {
+        x = r.value
+        width = newWidth
+        const b = xSource[r.idx]
+        guides.push({
+          axis: 'x',
+          world: r.value,
+          start: Math.min(y, b.y),
+          end: Math.max(y + height, b.y + b.height),
+        })
+      }
+    }
+  } else if (active.right) {
+    const r = pull(x + width, xCandidates)
+    if (r.idx >= 0) {
+      const newWidth = r.value - x
+      if (newWidth > 0) {
+        width = newWidth
+        const b = xSource[r.idx]
+        guides.push({
+          axis: 'x',
+          world: r.value,
+          start: Math.min(y, b.y),
+          end: Math.max(y + height, b.y + b.height),
+        })
+      }
+    }
+  }
+
+  if (active.top) {
+    const r = pull(y, yCandidates)
+    if (r.idx >= 0) {
+      const newHeight = height + (y - r.value)
+      if (newHeight > 0) {
+        y = r.value
+        height = newHeight
+        const b = ySource[r.idx]
+        guides.push({
+          axis: 'y',
+          world: r.value,
+          start: Math.min(x, b.x),
+          end: Math.max(x + width, b.x + b.width),
+        })
+      }
+    }
+  } else if (active.bottom) {
+    const r = pull(y + height, yCandidates)
+    if (r.idx >= 0) {
+      const newHeight = r.value - y
+      if (newHeight > 0) {
+        height = newHeight
+        const b = ySource[r.idx]
+        guides.push({
+          axis: 'y',
+          world: r.value,
+          start: Math.min(x, b.x),
+          end: Math.max(x + width, b.x + b.width),
+        })
+      }
+    }
+  }
+
+  return { bbox: { x, y, width, height }, guides }
+}
+
+/** Map an 8-way HandleId to the active-sides struct ``snapResizeBbox``
+ *  expects. Pure helper so the select tool stays terse. */
+export function activeSidesForHandle(handle: string): ResizeActiveSides {
+  switch (handle) {
+    case 'n':
+      return { top: true }
+    case 's':
+      return { bottom: true }
+    case 'e':
+      return { right: true }
+    case 'w':
+      return { left: true }
+    case 'ne':
+      return { top: true, right: true }
+    case 'nw':
+      return { top: true, left: true }
+    case 'se':
+      return { bottom: true, right: true }
+    case 'sw':
+      return { bottom: true, left: true }
+    default:
+      return {}
+  }
+}
+
+/** Snap a single world-space point to the nearest edge / centre of a
+ *  static element on each axis. Used by the draw tools so the
+ *  in-progress corner of a rect / ellipse / diamond pulls toward an
+ *  existing element s edge as the user drags.
+ *
+ *  Threshold is screen-space (CSS pixels) so the affordance feels
+ *  identical to ``snapToObjects`` at every zoom level. ``staticBboxes``
+ *  excludes the element being drawn — that one's bbox changes every
+ *  pointer-move and would cause the cursor to chase its own tail.
+ *
+ *  Returns the (possibly adjusted) point plus the guides that fired.
+ *  Empty static set ⇒ identity. */
+export function snapPointToObjects(
+  point: { x: number; y: number },
+  staticBboxes: readonly Bounds[],
+  scale: number,
+  thresholdPx: number = DEFAULT_SNAP_THRESHOLD_PX,
+): { x: number; y: number; guides: SnapGuide[] } {
+  if (staticBboxes.length === 0) {
+    return { x: point.x, y: point.y, guides: [] }
+  }
+  const thresholdWorld = thresholdPx / Math.max(scale, 0.01)
+  const xCandidates: number[] = []
+  const yCandidates: number[] = []
+  // Track the source bbox per candidate so the guide span knows the
+  // perpendicular-axis range to draw across.
+  const xSource: Bounds[] = []
+  const ySource: Bounds[] = []
+  for (const b of staticBboxes) {
+    xCandidates.push(b.x, b.x + b.width / 2, b.x + b.width)
+    yCandidates.push(b.y, b.y + b.height / 2, b.y + b.height)
+    xSource.push(b, b, b)
+    ySource.push(b, b, b)
+  }
+  const x = pickClosest(point.x, xCandidates, thresholdWorld)
+  const y = pickClosest(point.y, yCandidates, thresholdWorld)
+  const guides: SnapGuide[] = []
+  const snappedX = x.idx >= 0 ? xCandidates[x.idx] : point.x
+  const snappedY = y.idx >= 0 ? yCandidates[y.idx] : point.y
+  if (x.idx >= 0) {
+    const b = xSource[x.idx]
+    guides.push({
+      axis: 'x',
+      world: snappedX,
+      start: Math.min(point.y, b.y),
+      end: Math.max(point.y, b.y + b.height),
+    })
+  }
+  if (y.idx >= 0) {
+    const b = ySource[y.idx]
+    guides.push({
+      axis: 'y',
+      world: snappedY,
+      start: Math.min(point.x, b.x),
+      end: Math.max(point.x, b.x + b.width),
+    })
+  }
+  return { x: snappedX, y: snappedY, guides }
+}
+
+/** Closest candidate in ``values`` to ``target`` within ``threshold``.
+ *  Returns ``-1`` when nothing is in range. */
+function pickClosest(
+  target: number,
+  values: readonly number[],
+  threshold: number,
+): { idx: number } {
+  let bestIdx = -1
+  let bestDist = threshold + 1
+  for (let i = 0; i < values.length; i++) {
+    const d = Math.abs(values[i] - target)
+    if (d > threshold) continue
+    if (d >= bestDist) continue
+    bestDist = d
+    bestIdx = i
+  }
+  return { idx: bestIdx }
+}
+
+/** AABB covering many elements. Used for multi-select drag. Returns
+ *  null on empty input — the caller falls back to no-snap. */
+export function unionBbox(
+  els: readonly { x: number; y: number; width: number; height: number }[],
+): Bounds | null {
+  if (els.length === 0) return null
+  let minX = Infinity
+  let minY = Infinity
+  let maxX = -Infinity
+  let maxY = -Infinity
+  for (const el of els) {
+    if (el.x < minX) minX = el.x
+    if (el.y < minY) minY = el.y
+    const ex = el.x + el.width
+    const ey = el.y + el.height
+    if (ex > maxX) maxX = ex
+    if (ey > maxY) maxY = ey
+  }
+  return { x: minX, y: minY, width: maxX - minX, height: maxY - minY }
+}

@@ -1,0 +1,184 @@
+# Rapidly CD — Build Docker images and deploy to sandbox then production
+name: Build and Deploy
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "server/**"
+      - "clients/**"
+      - "!clients/apps/app/**"
+      - ".github/workflows/deploy.yml"
+      - ".github/workflows/deploy-environment.yml"
+      - ".github/workflows/deploy_server.sh"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  # Detect which parts of the repo changed to decide what to build/deploy
+  changes:
+    name: "Detect Changes 🔍"
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.filter.outputs.backend }}
+      frontend: ${{ steps.filter.outputs.frontend }}
+      migrations: ${{ steps.filter.outputs.migrations }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+        id: filter
+        with:
+          filters: |
+            backend:
+              - 'server/**'
+              - '.github/workflows/deploy.yml'
+              - '.github/workflows/deploy-environment.yml'
+              - '.github/workflows/deploy_server.sh'
+            frontend:
+              - 'clients/**'
+              - '.github/workflows/deploy.yml'
+              - '.github/workflows/deploy-environment.yml'
+            migrations:
+              - 'server/migrations/**'
+
+  # Build and push the server Docker image to GHCR (production + playwright targets)
+  build:
+    name: "Build Docker Image 🐳"
+    concurrency:
+      group: build-deploy
+      cancel-in-progress: true
+
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 20
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push.outputs.digest }}
+      digest-playwright: ${{ steps.push-playwright.outputs.digest }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Tag the image with branch, PR, semver, SHA, and "latest" for default branch
+      - name: Docker meta
+        id: meta
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: |
+            ghcr.io/rapidly-tech/rapidly
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        id: push
+        with:
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          context: ./server
+          target: runtime
+          platforms: linux/amd64
+          build-args: |
+            RELEASE_VERSION=${{ github.sha }}
+          secrets: |
+            ipinfo_token=${{ secrets.IPINFO_ACCESS_TOKEN }}
+
+  # Build and push the frontend Docker image to GHCR
+  build-frontend:
+    name: "Build Frontend Image 🌐"
+    concurrency:
+      group: build-frontend
+      cancel-in-progress: true
+
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch'
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+    environment: production
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      digest: ${{ steps.push-web.outputs.digest }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+
+      - name: Log in to the Container registry
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Docker meta (Web)
+        id: meta-web
+        uses: docker/metadata-action@c299e40c65443455700f0fdfc63efafe5b349051 # v5
+        with:
+          images: ghcr.io/rapidly-tech/rapidly-web
+          tags: |
+            type=ref,event=branch
+            type=sha
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        id: push-web
+        with:
+          push: true
+          tags: ${{ steps.meta-web.outputs.tags }}
+          labels: ${{ steps.meta-web.outputs.labels }}
+          context: ./clients
+          file: ./clients/apps/web/Dockerfile
+          platforms: linux/amd64
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.rapidly.tech
+            NEXT_PUBLIC_FRONTEND_BASE_URL=https://rapidly.tech
+            NEXT_PUBLIC_POSTHOG_TOKEN=${{ secrets.NEXT_PUBLIC_POSTHOG_TOKEN }}
+            NEXT_PUBLIC_SENTRY_DSN=${{ secrets.NEXT_PUBLIC_SENTRY_DSN }}
+            # NEXT_PUBLIC_REVOLVER_LANDING intentionally OFF on
+            # production right now — the radial layout is visually
+            # cramped compared to the file-sharing landing. Re-enable
+            # after the Revolver component gets a visual polish pass.
+            NEXT_PUBLIC_REVOLVER_LANDING=false
+            NEXT_PUBLIC_COLLAB_E2EE=true
+
+  # Deploy to Hetzner via SSH
+  deploy-production:
+    name: "Deploy to Production 🚀"
+    needs: [changes, build, build-frontend]
+    if: always() && !failure() && !cancelled() && (needs.build.result == 'success' || needs.build.result == 'skipped') && (needs.changes.outputs.backend == 'true' || needs.changes.outputs.frontend == 'true' || github.event_name == 'workflow_dispatch')
+    uses: ./.github/workflows/deploy-hetzner.yml
+    with:
+      environment: production
+      docker-digest: ${{ needs.build.outputs.digest }}
+      has-migrations: ${{ needs.changes.outputs.migrations == 'true' || github.event_name == 'workflow_dispatch' }}
+      skip-backend: ${{ needs.changes.outputs.backend != 'true' && github.event_name != 'workflow_dispatch' }}
+      skip-frontend: ${{ needs.changes.outputs.frontend != 'true' && github.event_name != 'workflow_dispatch' }}
+    secrets:
+      HETZNER_SSH_KEY: ${{ secrets.HETZNER_SSH_KEY }}
+      HETZNER_HOST: ${{ secrets.HETZNER_HOST }}
+      HETZNER_USER: ${{ secrets.HETZNER_USER }}
+      SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+      SENTRY_ORG: ${{ secrets.SENTRY_ORG }}

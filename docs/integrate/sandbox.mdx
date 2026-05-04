@@ -1,0 +1,62 @@
+---
+title: "Sandbox Environment"
+sidebarTitle: "Sandbox Environment"
+---
+
+A separate environment, isolated from your production data
+
+To test Rapidly or work on your integration without worrying about actual money processing or breaking your live workspace, you can use our [sandbox environment](https://sandbox.rapidly.tech/start).
+
+It's a dedicated server, completely isolated from the production instance where you can do all the experiments you want.
+
+<Note>
+  **Why a dedicated environment instead of a test mode?**
+
+  Since we're dealing with money and need to keep track of all movements, we found it safer to isolate live data from test data so it never interferes. Besides, it allows you to create an unlimited number of account and workspace to test lot of different scenarios. Consider it as your own development server!
+</Note>
+
+## Get started
+
+You can access the sandbox environment directly on [sandbox.rapidly.tech](https://sandbox.rapidly.tech/start) or by clicking on `Go to sandbox` from the workspace switcher.
+
+You'll then need to create a dedicated user account and workspace, the same way described in our [Quick Start guide](/introduction).
+
+### Testing payments
+
+The sandbox environment allows you to experience the complete customer funnel, including checkout. You can perform test payments using Stripe's [test card numbers](https://docs.stripe.com/testing#cards).
+
+The easiest one to test a successful payment is to use the following card number with a future expiration date and random CVC:
+
+```
+4242 4242 4242 4242
+```
+
+## API and SDK
+
+To make requests to our [API](/api-reference), all you need to do is to switch the base URL from `https://api.rapidly.tech` to `https://sandbox-api.rapidly.tech`. You'll also need to create an access token in the **sandbox environment**, the access token created in the production environment can't be used in the sandbox.
+
+
+<CodeGroup>
+  ```ts TypeScript
+  const response = await fetch("https://sandbox-api.rapidly.tech/api/shares/", {
+    headers: {
+      Authorization: `Bearer ${process.env.RAPIDLY_ACCESS_TOKEN!}`,
+      Accept: "application/json",
+    },
+  });
+  ```
+
+  ```py Python
+  import httpx
+
+  client = httpx.Client(
+      base_url="https://sandbox-api.rapidly.tech",
+      headers={"Authorization": "Bearer <YOUR_SANDBOX_OAT>"},
+  )
+  response = client.get("/api/shares/")
+  ```
+</CodeGroup>
+
+## Limitations
+
+The limitations listed below only apply to sandbox and doesn't reflect the behavior in production.
