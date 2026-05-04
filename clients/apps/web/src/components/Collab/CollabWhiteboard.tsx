@@ -70,6 +70,10 @@ import {
   parseMermaid,
 } from '@/utils/collab/mermaid'
 import {
+  classDiagramToElements,
+  parseClassDiagram,
+} from '@/utils/collab/mermaid-class'
+import {
   parseSequence,
   sequenceToElements,
 } from '@/utils/collab/mermaid-sequence'
@@ -1956,15 +1960,33 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // Class diagrams: same dispatch pattern.
+        if (detected === 'classDiagram') {
+          const cls = parseClassDiagram(input)
+          if (!cls) {
+            window.alert('Could not parse the class diagram.')
+            return
+          }
+          const parts = classDiagramToElements(cls, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         if (detected && detected !== 'flowchart' && detected !== 'graph') {
           // Recognised as Mermaid but a kind we don't render yet. Tell
           // the user explicitly so they understand the gap rather than
           // trying to debug their syntax.
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
-              `flowchart, graph, and sequenceDiagram are supported. ` +
-              `Convert to one of those, or paste it as text and we'll ` +
-              `wire the renderer up later.`,
+              `flowchart, graph, sequenceDiagram, and classDiagram are ` +
+              `supported. Convert to one of those, or paste it as text ` +
+              `and we'll wire the renderer up later.`,
           )
           return
         }
