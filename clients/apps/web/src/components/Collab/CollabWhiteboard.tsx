@@ -74,6 +74,7 @@ import {
   parseClassDiagram,
 } from '@/utils/collab/mermaid-class'
 import { erDiagramToElements, parseErDiagram } from '@/utils/collab/mermaid-er'
+import { ganttToElements, parseGantt } from '@/utils/collab/mermaid-gantt'
 import {
   parseSequence,
   sequenceToElements,
@@ -1983,6 +1984,24 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // Gantt: title + axis + section labels + day-positioned bars.
+        if (detected === 'gantt') {
+          const g = parseGantt(input)
+          if (!g) {
+            window.alert('Could not parse the Gantt chart.')
+            return
+          }
+          const parts = ganttToElements(g, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // ER diagrams: entities as boxed tables, relationships as
         // labelled lines with cardinality annotations.
         if (detected === 'erDiagram') {
@@ -2028,9 +2047,9 @@ export function CollabWhiteboard({
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
-              `stateDiagram, and erDiagram are supported. Convert to ` +
-              `one of those, or paste it as text and we'll wire the ` +
-              `renderer up later.`,
+              `stateDiagram, erDiagram, and gantt are supported. ` +
+              `Convert to one of those, or paste it as text and we'll ` +
+              `wire the renderer up later.`,
           )
           return
         }
