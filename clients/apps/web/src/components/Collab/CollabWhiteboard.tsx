@@ -75,6 +75,7 @@ import {
 } from '@/utils/collab/mermaid-class'
 import { erDiagramToElements, parseErDiagram } from '@/utils/collab/mermaid-er'
 import { ganttToElements, parseGantt } from '@/utils/collab/mermaid-gantt'
+import { parsePie, pieToElements } from '@/utils/collab/mermaid-pie'
 import {
   parseSequence,
   sequenceToElements,
@@ -1984,6 +1985,25 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // Pie: circle outline + radial dividers + colour-coded legend
+        // with values + percentages.
+        if (detected === 'pie') {
+          const p = parsePie(input)
+          if (!p) {
+            window.alert('Could not parse the pie chart.')
+            return
+          }
+          const parts = pieToElements(p, {
+            originX: center.x - 100,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const part of parts) created.push(store.create(part))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // Gantt: title + axis + section labels + day-positioned bars.
         if (detected === 'gantt') {
           const g = parseGantt(input)
@@ -2047,7 +2067,7 @@ export function CollabWhiteboard({
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
-              `stateDiagram, erDiagram, and gantt are supported. ` +
+              `stateDiagram, erDiagram, gantt, and pie are supported. ` +
               `Convert to one of those, or paste it as text and we'll ` +
               `wire the renderer up later.`,
           )
