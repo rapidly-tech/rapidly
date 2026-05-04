@@ -34,6 +34,7 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
     entries: [
       { keys: ['H'], description: 'Hand tool — drag to pan' },
       { keys: ['V'], description: 'Select tool' },
+      { keys: ['Q'], description: 'Lasso (free-form area select)' },
       { keys: ['R'], description: 'Rectangle' },
       { keys: ['O'], description: 'Ellipse' },
       { keys: ['D'], description: 'Diamond' },

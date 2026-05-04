@@ -48,7 +48,7 @@ describe('toolIdForKey', () => {
 
   it('returns null for unbound letters', () => {
     expect(toolIdForKey({ key: 'z' })).toBeNull()
-    expect(toolIdForKey({ key: 'q' })).toBeNull()
+    expect(toolIdForKey({ key: 'w' })).toBeNull()
   })
 
   it('returns null for non-letter keys', () => {

@@ -25,6 +25,7 @@ import type { ToolId } from './tools'
 export const TOOL_KEY_MAP: Readonly<Record<string, ToolId>> = {
   h: 'hand',
   v: 'select',
+  q: 'lasso',
   r: 'rect',
   o: 'ellipse',
   d: 'diamond',

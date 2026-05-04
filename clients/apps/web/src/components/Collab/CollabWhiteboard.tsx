@@ -98,6 +98,7 @@ import {
 import { onEditRequest } from '@/utils/collab/text-editing'
 import { toolIdForKey } from '@/utils/collab/tool-keys'
 import {
+  currentLassoPath,
   currentMarqueeRect,
   currentSnapGuides,
   hoverCursor,
@@ -169,6 +170,11 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
     id: 'select',
     label: 'Select',
     hint: 'Click, drag-move, handle-resize, marquee — Delete to remove',
+  },
+  {
+    id: 'lasso',
+    label: 'Lasso',
+    hint: 'Drag a free-form shape; releases selects every element inside',
   },
   { id: 'rect', label: 'Rect', hint: 'Drag to draw a rectangle' },
   { id: 'ellipse', label: 'Ellipse', hint: 'Drag to draw an ellipse' },
@@ -467,6 +473,7 @@ export function CollabWhiteboard({
       store,
       selection,
       getMarquee: () => currentMarqueeRect(),
+      getLasso: () => currentLassoPath(),
       getViewport: () => r.getViewport(),
       getHandleSizePx: () => HANDLE_SIZE_FOR_PRECISION[precisionRef.current],
     })
