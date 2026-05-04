@@ -58,9 +58,9 @@ export interface RendererOptions {
   /** World-units between grid lines. Default 20. */
   gridSize?: number
   /** Snap dragged elements to other objects' edges + centres while
-   *  moving. Default ``true`` — Excalidraw-style alignment guides
-   *  feel like a baseline expectation; users who don't want them can
-   *  toggle from the palette. */
+   *  moving. Default ``true`` — alignment guides are a baseline
+   *  expectation; users who don't want them can toggle from the
+   *  palette. */
   snapToObjectsEnabled?: boolean
 }
 
@@ -91,7 +91,10 @@ export class Renderer {
     | ((ctx: CanvasRenderingContext2D) => void)
     | null = null
   private screenPaintHook:
-    | ((ctx: CanvasRenderingContext2D, size: { width: number; height: number }) => void)
+    | ((
+        ctx: CanvasRenderingContext2D,
+        size: { width: number; height: number },
+      ) => void)
     | null = null
 
   constructor(opts: RendererOptions) {

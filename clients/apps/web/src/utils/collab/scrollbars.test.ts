@@ -66,9 +66,12 @@ describe('unionAabb', () => {
   })
 
   it('grows to cover every element', () => {
-    expect(
-      unionAabb([el(0, 0, 10, 10), el(100, 50, 20, 20)]),
-    ).toEqual({ x: 0, y: 0, width: 120, height: 70 })
+    expect(unionAabb([el(0, 0, 10, 10), el(100, 50, 20, 20)])).toEqual({
+      x: 0,
+      y: 0,
+      width: 120,
+      height: 70,
+    })
   })
 })
 

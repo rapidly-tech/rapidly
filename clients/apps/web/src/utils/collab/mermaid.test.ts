@@ -209,7 +209,7 @@ describe('detectMermaidChartType', () => {
     expect(detectMermaidChartType(src)).toBe('flowchart')
   })
 
-  it('returns null when the first non-comment line isn\'t a known kind', () => {
+  it("returns null when the first non-comment line isn't a known kind", () => {
     expect(
       detectMermaidChartType('%% comment\nsomeUnknownChart\n  body'),
     ).toBeNull()

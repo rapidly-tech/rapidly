@@ -48,7 +48,12 @@ describe('paintFill', () => {
 
   it('no-ops when fillStyle is none', () => {
     const { ctx, calls } = makeCtx()
-    paintFill(ctx, path, { ...base, fillStyle: 'none' }, { width: 100, height: 50 })
+    paintFill(
+      ctx,
+      path,
+      { ...base, fillStyle: 'none' },
+      { width: 100, height: 50 },
+    )
     expect(calls).toEqual([])
   })
 
@@ -128,7 +133,12 @@ describe('paintFill', () => {
   it('balances every save() with a restore()', () => {
     for (const style of ['hatch', 'cross-hatch', 'dots'] as const) {
       const { ctx, calls } = makeCtx()
-      paintFill(ctx, path, { ...base, fillStyle: style }, { width: 40, height: 40 })
+      paintFill(
+        ctx,
+        path,
+        { ...base, fillStyle: style },
+        { width: 40, height: 40 },
+      )
       const saves = calls.filter((c) => c === 'save(0)').length
       const restores = calls.filter((c) => c === 'restore(0)').length
       expect(restores, `${style} balance`).toBe(saves)

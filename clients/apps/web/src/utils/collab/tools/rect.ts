@@ -8,9 +8,8 @@
  *
  * The preview is rendered by the store itself (not a local shadow)
  * so the element exists in the CRDT from the first frame — remote
- * peers see the rect grow live, matching Excalidraw's shared-cursor
- * UX. Shift held constrains the rect to a square; Alt draws from
- * centre outward.
+ * peers see the rect grow live as the host drags. Shift held
+ * constrains the rect to a square; Alt draws from centre outward.
  */
 
 import { snapPoint } from '../grid'
@@ -79,7 +78,7 @@ function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
   }
   // Object snap pulls the in-progress corner toward nearby static
   // edges + centres. Skipped while drawing the very first element
-  // (no static set) and when alt is held (Excalidraw escape hatch).
+  // (no static set) and when alt is held (escape hatch for precise placement).
   if (ctx.renderer.isSnapToObjectsEnabled() && !e.altKey) {
     const drawingId = state?.id
     const statics = ctx.store

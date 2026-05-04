@@ -52,7 +52,7 @@ describe('parseExportedScene', () => {
 
   it('rejects wrong schema marker', () => {
     const result = parseExportedScene({
-      schema: 'excalidraw',
+      schema: 'foreign-format',
       version: 1,
       elements: [],
     })

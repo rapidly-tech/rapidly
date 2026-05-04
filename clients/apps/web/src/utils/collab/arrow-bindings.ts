@@ -33,8 +33,8 @@ export const BIND_RADIUS_PX = 12
 
 /** Shape types that support being the target of an arrow binding.
  *  Lines and arrows are excluded because "arrow into arrow" is
- *  Excalidraw-weird UX; freedraw because its perimeter is ill-
- *  defined. Frame and sticky can opt in later. */
+ *  awkward UX; freedraw because its perimeter is ill-defined. Frame
+ *  and sticky can opt in later. */
 function isBindable(el: CollabElement): boolean {
   return isRect(el) || isEllipse(el) || isDiamond(el)
 }

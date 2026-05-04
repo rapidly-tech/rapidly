@@ -4,9 +4,8 @@
  * The rotation handle sits a fixed screen-pixel offset above the
  * top-mid resize handle, in the rotated frame of the element. Dragging
  * it spins the element around its centre. Holding Shift snaps the
- * angle to 15° increments — same constant Excalidraw + Figma use, fine
- * enough for typical layout work without requiring pixel-perfect
- * pointer control.
+ * angle to 15° increments — fine enough for typical layout work
+ * without requiring pixel-perfect pointer control.
  *
  * Pure module — no DOM, no store writes. The select tool owns the
  * gesture and the selection overlay paints the handle.

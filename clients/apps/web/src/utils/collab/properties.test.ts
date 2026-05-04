@@ -156,7 +156,7 @@ describe('property-picker constants', () => {
     ])
   })
 
-  it('STROKE_STYLES covers Excalidraw\'s three line treatments', () => {
+  it('STROKE_STYLES covers the three line treatments', () => {
     expect([...STROKE_STYLES].sort()).toEqual(['dashed', 'dotted', 'solid'])
   })
 

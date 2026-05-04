@@ -45,7 +45,7 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
       { keys: ['S'], description: 'Sticky note' },
       { keys: ['E'], description: 'Eraser — drag over elements to delete' },
       { keys: ['K'], description: 'Toggle laser pointer' },
-      { keys: ['1–8 / 0'], description: 'Excalidraw-style number aliases' },
+      { keys: ['1–8 / 0'], description: 'Number aliases for the same tools' },
     ],
   },
   {

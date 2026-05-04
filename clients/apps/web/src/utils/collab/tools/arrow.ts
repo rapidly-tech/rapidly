@@ -14,7 +14,11 @@
 import type { ArrowBinding } from '../arrow-bindings'
 import { findBinding, resolveBinding } from '../arrow-bindings'
 import { snapPoint } from '../grid'
-import { bboxFromElement, snapPointToObjects } from '../snap-to-objects'
+import {
+  bboxFromElement,
+  snapPointToObjects,
+  snapToEdgeMidpoint,
+} from '../snap-to-objects'
 import type { Tool, ToolCtx } from './types'
 
 const MIN_LENGTH = 4
@@ -135,12 +139,24 @@ function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
       .filter((el) => el.id !== drawingId)
       .map(bboxFromElement)
     if (statics.length > 0) {
+      // Pass 1: per-axis snap to nearby element edges + centres so
+      // the user gets the alignment-guide feel for arrow endpoints.
       const snapped = snapPointToObjects(
         world,
         statics,
         ctx.renderer.getViewport().scale,
       )
       world = { x: snapped.x, y: snapped.y }
+      // Pass 2: 2-D edge-midpoint snap. When the cursor is close to
+      // an exact edge midpoint or centre of a neighbour, pull both
+      // axes to that anchor as a unit so the arrow lands cleanly on
+      // the connection point.
+      const mid = snapToEdgeMidpoint(
+        world,
+        statics,
+        ctx.renderer.getViewport().scale,
+      )
+      if (mid) world = mid
     }
   }
   return world

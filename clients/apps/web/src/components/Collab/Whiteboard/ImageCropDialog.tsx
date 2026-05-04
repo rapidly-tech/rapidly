@@ -256,7 +256,11 @@ function CropCanvas({
         let w = drag.startCrop.width
         let h = drag.startCrop.height
         if (nx) {
-          x = clamp(drag.startCrop.x + ndx, 0, drag.startCrop.x + drag.startCrop.width - 8)
+          x = clamp(
+            drag.startCrop.x + ndx,
+            0,
+            drag.startCrop.x + drag.startCrop.width - 8,
+          )
           w = drag.startCrop.x + drag.startCrop.width - x
         } else {
           w = clamp(
@@ -266,7 +270,11 @@ function CropCanvas({
           )
         }
         if (ny) {
-          y = clamp(drag.startCrop.y + ndy, 0, drag.startCrop.y + drag.startCrop.height - 8)
+          y = clamp(
+            drag.startCrop.y + ndy,
+            0,
+            drag.startCrop.y + drag.startCrop.height - 8,
+          )
           h = drag.startCrop.y + drag.startCrop.height - y
         } else {
           h = clamp(
@@ -318,7 +326,7 @@ function CropCanvas({
           single mask because we don't need the SVG `<mask>` element
           and overlap-free maths is cheap. */}
       <div
-        className="absolute inset-0 pointer-events-none"
+        className="pointer-events-none absolute inset-0"
         style={{
           background: 'rgba(15, 23, 42, 0.45)',
           clipPath: `polygon(

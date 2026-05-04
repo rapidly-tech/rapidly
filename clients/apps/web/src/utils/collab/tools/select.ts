@@ -65,7 +65,7 @@ interface GestureState {
   shift: boolean
   /** Whether Alt was held at pointer-down. Captured up-front so a user
    *  who releases Alt mid-drag still gets the duplicated copies they
-   *  asked for — Excalidraw + Figma both behave this way. */
+   *  asked for. */
   altOnDown: boolean
   startWorldX: number
   startWorldY: number
@@ -232,8 +232,8 @@ export const selectTool = {
           state.baseIds.has(startedOnHit)
         ) {
           // Alt-drag: duplicate the selection in place, then drag the
-          // copies. The originals stay pinned. Excalidraw + Figma
-          // ship this as the standard ""drag to clone"" gesture.
+          // copies. The originals stay pinned — this is the standard
+          // "drag to clone" gesture.
           if (state.altOnDown) {
             const newIds = duplicateElements(ctx.store, state.baseIds, {
               offset: { x: 0, y: 0 },
@@ -285,7 +285,7 @@ export const selectTool = {
       }
       // Snap-to-objects refines the (possibly grid-snapped) delta by
       // pulling toward nearby static elements' edges + centres. Skip
-      // when alt is held — Excalidraw's escape hatch for "I want this
+      // when alt is held — that's the escape hatch for "I want this
       // exactly where the cursor is".
       if (ctx.renderer.isSnapToObjectsEnabled() && !e.altKey) {
         const movingIds = new Set(state.moveAnchors.keys())
@@ -395,7 +395,7 @@ export const selectTool = {
       // Snap-to-objects on the active edge(s). Skipped for rotated
       // elements because the snap math is axis-aligned and a rotated
       // bbox's snapped edges no longer line up with the user's
-      // pointer. Skipped when alt is held (Excalidraw escape hatch).
+      // pointer. Skipped when alt is held (escape hatch for precise placement).
       // Stash the resulting guides for the alignment-guides overlay
       // so the user sees what they're snapping to.
       if (ctx.renderer.isSnapToObjectsEnabled() && !e.altKey && a.angle === 0) {

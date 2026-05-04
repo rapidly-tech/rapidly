@@ -20,7 +20,7 @@ describe('TOOL_KEY_MAP', () => {
     for (const id of expected) expect(bound).toContain(id)
   })
 
-  it('maps canonical Excalidraw-style letters', () => {
+  it('maps canonical letter shortcuts', () => {
     expect(TOOL_KEY_MAP.h).toBe('hand')
     expect(TOOL_KEY_MAP.v).toBe('select')
     expect(TOOL_KEY_MAP.r).toBe('rect')
@@ -56,7 +56,7 @@ describe('toolIdForKey', () => {
     expect(toolIdForKey({ key: ' ' })).toBeNull()
   })
 
-  it('maps Excalidraw-style number aliases', () => {
+  it('maps number aliases', () => {
     expect(toolIdForKey({ key: '1' })).toBe('select')
     expect(toolIdForKey({ key: '2' })).toBe('rect')
     expect(toolIdForKey({ key: '3' })).toBe('diamond')

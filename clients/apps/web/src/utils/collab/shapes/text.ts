@@ -8,7 +8,8 @@
  * The Path2D we return is the element's axis-aligned bounding rect,
  * kept as a single cheap rectangle for hit-testing + resize handles.
  * This does mean clicking in the "whitespace" of a multi-line text
- * element still selects it — matches Excalidraw's behaviour.
+ * element still selects it — a deliberate trade-off so users don't
+ * have to land their click on a specific glyph.
  */
 
 import type { FontFamily, TextElement } from '../elements'

@@ -16,12 +16,11 @@
  *
  * Hit semantics: an element is included when its centre point lies
  * inside the closed polygon. Centre-point is the simplest defensible
- * rule — Excalidraw uses the same heuristic — and avoids flicker as
- * the user drags through partial overlaps.
+ * rule and avoids flicker as the user drags through partial overlaps.
  *
  * Shift modifier: Shift held on pointer-down appends to the existing
  * selection; otherwise the new lasso replaces it. Mirrors the marquee
- * convention and matches Excalidraw.
+ * convention.
  *
  * The tool exposes ``currentLassoPath()`` so the selection overlay can
  * paint the in-progress polygon. Pattern matches ``currentMarqueeRect``
@@ -122,10 +121,7 @@ export function _resetLassoStateForTests(): void {
 
 // ── Internals ────────────────────────────────────────────────────────
 
-function worldPoint(
-  ctx: ToolCtx,
-  e: PointerEvent,
-): { x: number; y: number } {
+function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
   const rect = (e.target as HTMLElement).getBoundingClientRect()
   return ctx.screenToWorld(e.clientX - rect.left, e.clientY - rect.top)
 }

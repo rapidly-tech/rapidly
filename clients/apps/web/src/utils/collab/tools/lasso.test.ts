@@ -46,9 +46,7 @@ describe('pointInPolygon', () => {
 
   it('handles concave polygons (the whole point of lasso)', () => {
     // C-shape — points inside the indentation should be outside.
-    const cShape = [
-      0, 0, 10, 0, 10, 4, 4, 4, 4, 6, 10, 6, 10, 10, 0, 10,
-    ]
+    const cShape = [0, 0, 10, 0, 10, 4, 4, 4, 4, 6, 10, 6, 10, 10, 0, 10]
     expect(pointInPolygon(2, 5, cShape)).toBe(true) // inside the C body
     expect(pointInPolygon(7, 5, cShape)).toBe(false) // inside the indent
   })
@@ -57,7 +55,13 @@ describe('pointInPolygon', () => {
 describe('elementsInsidePolygon', () => {
   // Helper to build a fake ToolCtx around a list of element AABBs.
   function makeCtx(
-    elements: Array<{ id: string; x: number; y: number; width: number; height: number }>,
+    elements: Array<{
+      id: string
+      x: number
+      y: number
+      width: number
+      height: number
+    }>,
   ): ToolCtx {
     return {
       store: {

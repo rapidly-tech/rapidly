@@ -19,9 +19,8 @@ import { collectBoundArrowPatches } from './arrow-bindings'
 import type { ElementStore } from './element-store'
 import { isLocked } from './locks'
 
-/** Default world-units per arrow keystroke. Excalidraw + Figma both
- *  use 1 world-unit so a tap is precise; Shift bumps to 10 for fast
- *  travel. */
+/** Default world-units per arrow keystroke. 1 unit so a tap is
+ *  precise; Shift bumps to 10 for fast travel. */
 export const DEFAULT_NUDGE_STEP = 1
 export const DEFAULT_NUDGE_LARGE_STEP = 10
 

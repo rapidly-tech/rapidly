@@ -91,8 +91,8 @@ import {
 } from '@/utils/collab/presentation'
 import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
-import { SelectionState } from '@/utils/collab/selection'
 import { makeScrollbarsOverlay } from '@/utils/collab/scrollbars'
+import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
 import { exportToSVG } from '@/utils/collab/svg-export'
 import {
@@ -137,8 +137,8 @@ import { zoomToFit, zoomToSelection } from '@/utils/collab/zoom-to-fit'
 import { CommandPalette } from './Whiteboard/CommandPalette'
 import { EmbedsOverlay } from './Whiteboard/EmbedsOverlay'
 import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
-import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
 import { ImageCropDialog } from './Whiteboard/ImageCropDialog'
+import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
 import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
 import { ServiceWorkerRegistrar } from './Whiteboard/ServiceWorkerRegistrar'
 import { ShortcutsOverlay } from './Whiteboard/ShortcutsOverlay'
@@ -1065,8 +1065,7 @@ export function CollabWhiteboard({
     if (!image) return
     e.preventDefault()
     // Drop the image at the actual cursor world position so the
-    // user's drag-target lands where they expect — Excalidraw + Figma
-    // both behave this way.
+    // user's drop target lands where they expect.
     const id = createImageElement(store, image, { center: cursorWorld })
     selectionRef.current.set([id])
   }, [])
@@ -1216,7 +1215,7 @@ export function CollabWhiteboard({
           }
         }
       }
-      // Shift+1 / Shift+2 / Shift+3 → Excalidraw-style zoom shortcuts.
+      // Shift+1 / Shift+2 / Shift+3 → zoom shortcuts.
       // Plain digits already activate tools; the Shift modifier is
       // reserved for view ops by ``toolIdForKey``.
       // 1 = fit all, 2 = fit selection in viewport, 3 = zoom to selection.
@@ -1228,7 +1227,10 @@ export function CollabWhiteboard({
         !e.metaKey &&
         !e.ctrlKey &&
         !e.altKey &&
-        (e.key === '!' || e.key === '@' || e.key === '#' || /^[123]$/.test(e.key))
+        (e.key === '!' ||
+          e.key === '@' ||
+          e.key === '#' ||
+          /^[123]$/.test(e.key))
       ) {
         const target = e.target as HTMLElement | null
         if (
@@ -1262,7 +1264,7 @@ export function CollabWhiteboard({
         }
         return
       }
-      // K → toggle laser pointer mode (Excalidraw parity). Single-letter
+      // K → toggle laser pointer mode. Single-letter
       // shortcut, no modifiers, ignored in form inputs. Laser is a
       // global presence flag rather than a tool, so it lives outside
       // ``toolIdForKey``.
@@ -1434,14 +1436,11 @@ export function CollabWhiteboard({
           const newIds = clipboardDuplicate(store, selection.snapshot)
           if (newIds.length > 0) selection.set(newIds)
         }
-      } else if (
-        (e.metaKey || e.ctrlKey) &&
-        (e.key === 'l' || e.key === 'L')
-      ) {
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'l' || e.key === 'L')) {
         // Cmd/Ctrl+L (and the legacy Cmd/Ctrl+Shift+L alias) →
-        // toggle lock on selection. Excalidraw's binding is plain
-        // Cmd+L; we accept the older shifted variant too so muscle
-        // memory carries over.
+        // toggle lock on selection. Cmd+L is the new canonical
+        // binding; the shifted variant stays so muscle memory from
+        // the previous version carries over.
         const store = storeRef.current
         const selection = selectionRef.current
         if (!store || selection.size === 0) return
@@ -1498,7 +1497,7 @@ export function CollabWhiteboard({
         else undo.undo()
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
         // Cmd/Ctrl+A → select every (unlocked) element. Shift+Cmd+A
-        // clears selection — matches Excalidraw + Figma. Skipped when
+        // clears selection. Skipped when
         // typing into a form input so the native browser select-all
         // still works there.
         const store = storeRef.current
@@ -1519,7 +1518,7 @@ export function CollabWhiteboard({
         } else {
           // Locked elements are skipped — selecting them would invite
           // accidental Delete / drag attempts the lock then has to
-          // refuse silently. Excalidraw matches.
+          // refuse silently.
           const ids = filterUnlocked(
             store,
             new Set(store.list().map((el) => el.id)),
@@ -2409,15 +2408,13 @@ export function CollabWhiteboard({
           // crashes when a remote peer deletes the image we were about
           // to crop. ``crop`` is optional so the picker starts at the
           // full image when none is set yet.
-          const el = storeRef.current.get(cropImageId) as
-            | {
-                type: string
-                thumbnailDataUrl: string
-                naturalWidth: number
-                naturalHeight: number
-                crop?: { x: number; y: number; width: number; height: number }
-              }
-            | null
+          const el = storeRef.current.get(cropImageId) as {
+            type: string
+            thumbnailDataUrl: string
+            naturalWidth: number
+            naturalHeight: number
+            crop?: { x: number; y: number; width: number; height: number }
+          } | null
           if (!el || el.type !== 'image') return null
           return (
             <ImageCropDialog

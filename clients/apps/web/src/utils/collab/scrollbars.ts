@@ -4,8 +4,8 @@
  * Sits in the bottom + right edges of the canvas and reflects where
  * the visible viewport falls within the union AABB of all elements
  * (or the visible region itself, if it extends past every element).
- * Excalidraw's parity feature for orientation when the canvas is
- * larger than the viewport.
+ * A position indicator for orientation when the canvas is larger than
+ * the viewport.
  *
  * Drag-to-scroll is intentionally out of scope here: the existing
  * Hand tool, space-drag, middle-click, and trackpad pan all already
@@ -57,9 +57,7 @@ export function makeScrollbarsOverlay(
     // Total extent the scrollbars represent: the content AABB unioned
     // with the current view, so the thumb stays inside the track even
     // when the user has panned past every element.
-    const total = content
-      ? unionRects(content, view)
-      : view
+    const total = content ? unionRects(content, view) : view
 
     const trackY = size.height - TRACK_THICKNESS - TRACK_INSET
     const trackX = size.width - TRACK_THICKNESS - TRACK_INSET
@@ -68,13 +66,7 @@ export function makeScrollbarsOverlay(
     const horizMaxLen = size.width - TRACK_INSET * 2 - TRACK_THICKNESS - 2
     const vertMaxLen = size.height - TRACK_INSET * 2 - TRACK_THICKNESS - 2
 
-    paintTrack(
-      ctx,
-      TRACK_INSET,
-      trackY,
-      horizMaxLen,
-      TRACK_THICKNESS,
-    )
+    paintTrack(ctx, TRACK_INSET, trackY, horizMaxLen, TRACK_THICKNESS)
     paintThumb(
       ctx,
       TRACK_INSET,
@@ -87,13 +79,7 @@ export function makeScrollbarsOverlay(
       'h',
     )
 
-    paintTrack(
-      ctx,
-      trackX,
-      TRACK_INSET,
-      TRACK_THICKNESS,
-      vertMaxLen,
-    )
+    paintTrack(ctx, trackX, TRACK_INSET, TRACK_THICKNESS, vertMaxLen)
     paintThumb(
       ctx,
       trackX,

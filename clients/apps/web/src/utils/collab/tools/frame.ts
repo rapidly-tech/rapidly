@@ -26,8 +26,9 @@ let state: DrawState | null = null
 
 /** Auto-naming counter so a deck of frames doesn't ship as a chorus
  *  of indistinguishable ""Frame"". Each new frame on this client gets
- *  the next integer; a peer's frames count independently — Excalidraw
- *  has the same harmless drift. */
+ *  the next integer; a peer's frames count independently, which is
+ *  harmless drift but makes ordering across peers non-deterministic
+ *  by design — names are for the user, not the system. */
 let nextNameSuffix = 1
 
 export const frameTool: Tool = {

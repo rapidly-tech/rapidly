@@ -14,7 +14,7 @@ import { rotationHandlePosition } from './rotation'
 import type { SelectionState } from './selection'
 import type { Viewport } from './viewport'
 
-const SELECTION_STROKE = '#4f46e5' // emerald/indigo pop; matches Excalidraw-ish selection blue
+const SELECTION_STROKE = '#4f46e5' // emerald/indigo selection pop
 const MARQUEE_STROKE = '#4f46e5'
 const MARQUEE_FILL = 'rgba(79, 70, 229, 0.08)'
 

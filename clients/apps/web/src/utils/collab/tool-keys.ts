@@ -1,15 +1,13 @@
 /**
  * Single-key tool-activation shortcuts.
  *
- * Letter bindings (Phase 14b shortcuts overlay):
+ * Letter bindings:
  *
  *   H → hand     V → select    R → rect     O → ellipse
  *   D → diamond  L → line      A → arrow    P → freedraw
  *   T → text     S → sticky    E → eraser
  *
- * Number aliases mirror Excalidraw's muscle-memory mapping so users
- * coming from a whiteboard background land on the same tool with the
- * same keystroke:
+ * Number aliases for users who prefer the home-row digits:
  *
  *   1 → select   2 → rect      3 → diamond  4 → ellipse
  *   5 → arrow    6 → line      7 → freedraw 8 → text     0 → eraser
