@@ -138,6 +138,7 @@ import { CommandPalette } from './Whiteboard/CommandPalette'
 import { EmbedsOverlay } from './Whiteboard/EmbedsOverlay'
 import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
 import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
+import { ImageCropDialog } from './Whiteboard/ImageCropDialog'
 import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
 import { ServiceWorkerRegistrar } from './Whiteboard/ServiceWorkerRegistrar'
 import { ShortcutsOverlay } from './Whiteboard/ShortcutsOverlay'
@@ -305,6 +306,7 @@ export function CollabWhiteboard({
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [cropImageId, setCropImageId] = useState<string | null>(null)
   const [laserActive, setLaserActive] = useState(false)
   const [presentationActive, setPresentationActive] = useState(false)
   const [presentationIndex, setPresentationIndex] = useState(0)
@@ -2386,6 +2388,7 @@ export function CollabWhiteboard({
             <PropertiesPanel
               store={storeRef.current}
               selection={selectionRef.current}
+              onRequestCrop={(id) => setCropImageId(id)}
             />
           </div>
         ) : null}
@@ -2399,6 +2402,38 @@ export function CollabWhiteboard({
         commands={commands}
         onClose={() => setPaletteOpen(false)}
       />
+      {cropImageId &&
+        storeRef.current &&
+        (() => {
+          // The dialog is gated on the live element to avoid stale-id
+          // crashes when a remote peer deletes the image we were about
+          // to crop. ``crop`` is optional so the picker starts at the
+          // full image when none is set yet.
+          const el = storeRef.current.get(cropImageId) as
+            | {
+                type: string
+                thumbnailDataUrl: string
+                naturalWidth: number
+                naturalHeight: number
+                crop?: { x: number; y: number; width: number; height: number }
+              }
+            | null
+          if (!el || el.type !== 'image') return null
+          return (
+            <ImageCropDialog
+              open
+              dataUrl={el.thumbnailDataUrl}
+              naturalWidth={el.naturalWidth}
+              naturalHeight={el.naturalHeight}
+              initialCrop={el.crop}
+              onApply={(crop) => {
+                storeRef.current?.update(cropImageId, { crop })
+                setCropImageId(null)
+              }}
+              onCancel={() => setCropImageId(null)}
+            />
+          )
+        })()}
       {storeRef.current ? (
         <MobilePropertiesSheet
           open={mobileStyleOpen}

@@ -157,6 +157,12 @@ export interface ImageElement extends BaseElement {
   mimeType: string
   naturalWidth: number
   naturalHeight: number
+  /** Optional crop region in *natural-image pixel coordinates* (so it
+   *  survives resize of the on-canvas element). When set, the painter
+   *  uses it as the source rect of ``ctx.drawImage`` so only the
+   *  cropped portion shows; ``naturalWidth/Height`` stay original so
+   *  a future "reset crop" action can restore. */
+  crop?: { x: number; y: number; width: number; height: number }
 }
 
 export interface FrameElement extends BaseElement {

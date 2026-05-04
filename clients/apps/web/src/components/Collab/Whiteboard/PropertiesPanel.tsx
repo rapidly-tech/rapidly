@@ -39,9 +39,14 @@ import type { SelectionState } from '@/utils/collab/selection'
 interface Props {
   store: ElementStore
   selection: SelectionState
+  /** Optional: invoked when the user clicks the "Crop image" button
+   *  on a single image selection. The owning component opens the
+   *  modal — keeping the dialog out of this panel keeps the panel
+   *  pure presentation. */
+  onRequestCrop?: (imageId: string) => void
 }
 
-export function PropertiesPanel({ store, selection }: Props) {
+export function PropertiesPanel({ store, selection, onRequestCrop }: Props) {
   // Force re-render on selection or store change so shared values
   // stay fresh without prop-drilling them from the parent.
   const [, tick] = useState(0)
@@ -91,9 +96,25 @@ export function PropertiesPanel({ store, selection }: Props) {
   const convertibleType = convertibleId
     ? ((store.get(convertibleId) as { type: string } | null)?.type ?? null)
     : null
+  // Crop is single-image only — the dialog needs the source image and
+  // its natural dimensions, which only make sense for one element.
+  const cropableImageId = singleImageId(store, ids)
 
   return (
     <aside className="flex w-60 flex-col gap-5 border-l border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
+      {cropableImageId && onRequestCrop && (
+        <FieldGroup label="Image">
+          <Row>
+            <PillButton
+              active={false}
+              onClick={() => onRequestCrop(cropableImageId)}
+            >
+              Crop…
+            </PillButton>
+          </Row>
+        </FieldGroup>
+      )}
+
       {convertibleId && convertibleType && (
         <FieldGroup label="Convert to">
           <Row>
@@ -473,6 +494,18 @@ function Mixed() {
       mixed
     </span>
   )
+}
+
+/** Returns the id of the single selected element when it's an image,
+ *  else ``null``. */
+function singleImageId(
+  store: ElementStore,
+  ids: ReadonlySet<string>,
+): string | null {
+  if (ids.size !== 1) return null
+  const [id] = ids
+  const el = store.get(id) as { type?: string } | undefined
+  return el?.type === 'image' ? id : null
 }
 
 /** Returns the id of the single selected element when it's a
