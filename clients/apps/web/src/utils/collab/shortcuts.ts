@@ -121,6 +121,8 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
     entries: [
       { keys: ['?'], description: 'Show this shortcuts overlay' },
       { keys: ['Mod', 'Shift', 'P'], description: 'Open command palette' },
+      { keys: ['Mod', '.'], description: 'Toggle zen mode (hide chrome)' },
+      { keys: ['Mod', '/'], description: 'Toggle stats overlay' },
     ],
   },
 ]
