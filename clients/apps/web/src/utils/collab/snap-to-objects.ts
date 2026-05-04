@@ -49,7 +49,7 @@ export interface SnapResult {
 
 /** Default screen-space snap threshold. ~5 CSS pixels feels close
  *  enough to "deliberate" alignment without grabbing every passing
- *  edge. Excalidraw uses a similar value. */
+ *  edge. */
 export const DEFAULT_SNAP_THRESHOLD_PX = 5
 
 /** Compute the dragged group's lines (edges + centre) along one axis. */
@@ -172,8 +172,8 @@ export function snapToObjects(inputs: SnapInputs): SnapResult {
 
 /** Bbox helper for an element. Only x/y/width/height, ignoring rotation
  *  — the alignment heuristic uses the element's local AABB which is
- *  what the user sees as its "footprint" before rotation. Matching
- *  Excalidraw behaviour: rotated elements snap by their AABB centre. */
+ *  what the user sees as its "footprint" before rotation. Rotated
+ *  elements snap by their AABB centre. */
 export function bboxFromElement(el: {
   x: number
   y: number
@@ -411,6 +411,47 @@ export function snapPointToObjects(
     })
   }
   return { x: snappedX, y: snappedY, guides }
+}
+
+/** 2-D edge-midpoint snap. Each static bbox contributes five anchor
+ *  points: the four edge midpoints (top, right, bottom, left) and
+ *  the centre. The pointer snaps to whichever anchor is closest in
+ *  Euclidean distance within the threshold; ``null`` when nothing is
+ *  in range. The arrow tool calls this *after* the per-axis
+ *  ``snapPointToObjects`` so a cursor hovering near an exact edge
+ *  midpoint binds to it as a unit rather than separately on x and y.
+ *
+ *  This lets the user drag arrow endpoints onto a clean attachment
+ *  point on a neighbour shape without first eyeballing the centre. */
+export function snapToEdgeMidpoint(
+  point: { x: number; y: number },
+  staticBboxes: readonly Bounds[],
+  scale: number,
+  thresholdPx: number = DEFAULT_SNAP_THRESHOLD_PX,
+): { x: number; y: number } | null {
+  if (staticBboxes.length === 0) return null
+  const thresholdWorld = thresholdPx / Math.max(scale, 0.01)
+  let best: { x: number; y: number; dist: number } | null = null
+  for (const b of staticBboxes) {
+    const cx = b.x + b.width / 2
+    const cy = b.y + b.height / 2
+    const candidates: Array<{ x: number; y: number }> = [
+      { x: cx, y: b.y }, // top midpoint
+      { x: b.x + b.width, y: cy }, // right midpoint
+      { x: cx, y: b.y + b.height }, // bottom midpoint
+      { x: b.x, y: cy }, // left midpoint
+      { x: cx, y: cy }, // centre
+    ]
+    for (const c of candidates) {
+      const dx = c.x - point.x
+      const dy = c.y - point.y
+      const dist = Math.hypot(dx, dy)
+      if (dist > thresholdWorld) continue
+      if (!best || dist < best.dist) best = { x: c.x, y: c.y, dist }
+    }
+  }
+  if (!best) return null
+  return { x: best.x, y: best.y }
 }
 
 /** Closest candidate in ``values`` to ``target`` within ``threshold``.

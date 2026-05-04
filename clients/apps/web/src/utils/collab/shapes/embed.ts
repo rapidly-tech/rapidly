@@ -7,9 +7,9 @@
  * any zoom — the iframe overlay can mount on top of this without
  * interfering with the canvas hit-test.
  *
- * Visual: rounded outline + a small ""embed"" badge in the top-left
- * + the URL hostname centred. Resembles the Excalidraw embed-stub at
- * a glance without copying it.
+ * Visual: rounded outline + a small "embed" badge in the top-left
+ * + the URL hostname centred — enough to read as a placeholder for
+ * the iframe that the DOM overlay paints over the top.
  */
 
 import type { EmbedElement } from '../elements'

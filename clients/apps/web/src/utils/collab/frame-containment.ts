@@ -14,8 +14,8 @@
  * --------------------------------------------------
  * Full containment (every corner inside the frame) would force users
  * to drag elements deep into a frame to hand them over, which feels
- * sticky. Centre-of-element matches Figma's drag-into-group rule and
- * is what most users expect.
+ * sticky. Centre-of-element is the standard drag-into-group rule
+ * and matches what most users expect.
  *
  * Pure module — no React, no DOM. The select tool calls in after the
  * move gesture commits.

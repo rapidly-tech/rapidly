@@ -13,14 +13,13 @@
 
 import { clampScale, zoomAt, type Viewport } from './viewport'
 
-/** Multiplicative step per Cmd+= / Cmd+- press. 1.25 matches Figma /
- *  Excalidraw — small enough to feel precise, large enough that two
- *  presses make a visible difference. */
+/** Multiplicative step per Cmd+= / Cmd+- press. 1.25 — small enough
+ *  to feel precise, large enough that two presses make a visible
+ *  difference. */
 export const ZOOM_KEYBOARD_STEP = 1.25
 
-/** Default scale Cmd+0 resets to. Excalidraw resets to 1.0; Figma
- *  resets to ""fit page"". We pick 1.0 — the user can ``view.zoomToFit``
- *  from the palette for the alternative. */
+/** Default scale Cmd+0 resets to. We pick 1.0 — the user can
+ *  ``view.zoomToFit`` from the palette to fit the whole scene. */
 export const ZOOM_RESET_SCALE = 1
 
 export type ZoomDirection = 'in' | 'out' | 'reset'

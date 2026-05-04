@@ -20,7 +20,7 @@ describe('TOOL_KEY_MAP', () => {
     for (const id of expected) expect(bound).toContain(id)
   })
 
-  it('maps canonical Excalidraw-style letters', () => {
+  it('maps canonical letter shortcuts', () => {
     expect(TOOL_KEY_MAP.h).toBe('hand')
     expect(TOOL_KEY_MAP.v).toBe('select')
     expect(TOOL_KEY_MAP.r).toBe('rect')
@@ -48,12 +48,30 @@ describe('toolIdForKey', () => {
 
   it('returns null for unbound letters', () => {
     expect(toolIdForKey({ key: 'z' })).toBeNull()
-    expect(toolIdForKey({ key: 'q' })).toBeNull()
+    expect(toolIdForKey({ key: 'w' })).toBeNull()
   })
 
   it('returns null for non-letter keys', () => {
     expect(toolIdForKey({ key: 'Enter' })).toBeNull()
     expect(toolIdForKey({ key: ' ' })).toBeNull()
+  })
+
+  it('maps number aliases', () => {
+    expect(toolIdForKey({ key: '1' })).toBe('select')
+    expect(toolIdForKey({ key: '2' })).toBe('rect')
+    expect(toolIdForKey({ key: '3' })).toBe('diamond')
+    expect(toolIdForKey({ key: '4' })).toBe('ellipse')
+    expect(toolIdForKey({ key: '5' })).toBe('arrow')
+    expect(toolIdForKey({ key: '6' })).toBe('line')
+    expect(toolIdForKey({ key: '7' })).toBe('freedraw')
+    expect(toolIdForKey({ key: '8' })).toBe('text')
+    expect(toolIdForKey({ key: '0' })).toBe('eraser')
+  })
+
+  it('lets Shift+1/2/3 fall through so zoom shortcuts can claim them', () => {
+    expect(toolIdForKey({ key: '1', shiftKey: true })).toBeNull()
+    expect(toolIdForKey({ key: '2', shiftKey: true })).toBeNull()
+    expect(toolIdForKey({ key: '3', shiftKey: true })).toBeNull()
   })
 
   it('returns null when the event target is a form input', () => {

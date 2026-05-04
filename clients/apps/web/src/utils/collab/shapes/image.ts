@@ -44,7 +44,26 @@ export function paintImage(
   if (cached.status === 'loaded') {
     ctx.save()
     ctx.globalAlpha = (el.opacity ?? 100) / 100
-    ctx.drawImage(cached.image, 0, 0, el.width, el.height)
+    if (el.crop) {
+      // Honour the crop window: ``drawImage`` with the 9-arg form
+      // pulls the named rect out of the source bitmap and stretches
+      // it across the element's on-canvas footprint. Crop coords are
+      // in *natural image pixels*, so we clamp to the image's bounds
+      // to handle stale crops from a peer that swapped the asset.
+      const sx = Math.max(0, el.crop.x)
+      const sy = Math.max(0, el.crop.y)
+      const sw = Math.max(
+        1,
+        Math.min(el.crop.width, cached.image.naturalWidth - sx),
+      )
+      const sh = Math.max(
+        1,
+        Math.min(el.crop.height, cached.image.naturalHeight - sy),
+      )
+      ctx.drawImage(cached.image, sx, sy, sw, sh, 0, 0, el.width, el.height)
+    } else {
+      ctx.drawImage(cached.image, 0, 0, el.width, el.height)
+    }
     ctx.restore()
   } else {
     // Placeholder — filled rect + subtle outline. Uses the element's

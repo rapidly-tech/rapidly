@@ -5,8 +5,8 @@
  * perturbed-midpoint Bezier for lines, sampled-point loop for
  * ellipses) and re-implemented it from scratch to match our
  * ``clean_room_policy`` memo. The numbers chosen here are our own —
- * they aim for "close to Excalidraw's feel" without claiming pixel
- * parity.
+ * tuned to feel like a confident pen stroke without aiming for any
+ * specific upstream's pixel output.
  *
  * Seed discipline
  * ---------------
@@ -133,8 +133,8 @@ export function roughLine(
   const off = offsetFor(opts.roughness, length)
 
   const drawOne = () => {
-    // Jitter the endpoints a little too — the start of an Excalidraw
-    // line isn't perfectly on the grid either.
+    // Jitter the endpoints a little too — a hand-drawn line never
+    // starts perfectly on the grid either.
     const [sx, sy] = perturb(ax, ay, off * 0.5, rng)
     const [ex, ey] = perturb(bx, by, off * 0.5, rng)
 

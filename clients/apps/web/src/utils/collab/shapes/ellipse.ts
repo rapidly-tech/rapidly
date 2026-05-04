@@ -9,6 +9,7 @@
 
 import type { EllipseElement } from '../elements'
 import { makeRng, roughEllipse } from '../rough'
+import { paintFill } from './fills'
 
 export function pathFor(el: EllipseElement): Path2D {
   const path = new Path2D()
@@ -37,10 +38,7 @@ export function paintEllipse(
 ): void {
   ctx.save()
   applyStrokeStyle(ctx, el)
-  if (el.fillColor !== 'transparent' && el.fillStyle !== 'none') {
-    ctx.fillStyle = el.fillColor
-    ctx.fill(path)
-  }
+  paintFill(ctx, path, el, { width: el.width, height: el.height })
   ctx.stroke(path)
   ctx.restore()
 }

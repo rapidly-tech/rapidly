@@ -2,9 +2,7 @@
  * Flip operations for the Collab v2 whiteboard.
  *
  * ``flipHorizontal`` and ``flipVertical`` mirror the selected
- * elements across the centre line of their collective bounding box,
- * matching the behaviour of every other diagramming tool (Figma,
- * Excalidraw, Miro, …):
+ * elements across the centre line of their collective bounding box:
  *
  *   - Single element: mirror across its own centre — the element
  *     stays in place.

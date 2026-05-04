@@ -73,8 +73,8 @@ export function paintSticky(
  *  the context's current ``font``. Split on ``\n`` first, then on
  *  whitespace when a line overflows. A token longer than
  *  ``maxWidth`` stays on its own line rather than being chopped
- *  mid-word — matches what sticky-note apps (Miro, Figma FigJam)
- *  typically do. */
+ *  mid-word — long unbreakable tokens stay readable rather than
+ *  being chopped at an arbitrary character. */
 function wrapLines(
   ctx: CanvasRenderingContext2D,
   text: string,

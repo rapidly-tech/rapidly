@@ -44,6 +44,7 @@ import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
 import { hasLink, setLink } from '@/utils/collab/hyperlinks'
 import {
   createImageElement,
+  extractImageFile,
   extractPastedImage,
 } from '@/utils/collab/image-paste'
 import {
@@ -62,7 +63,11 @@ import {
 } from '@/utils/collab/laser'
 import { makeLaserOverlay } from '@/utils/collab/laser-overlay'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
-import { mermaidToElements, parseMermaid } from '@/utils/collab/mermaid'
+import {
+  detectMermaidChartType,
+  mermaidToElements,
+  parseMermaid,
+} from '@/utils/collab/mermaid'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -86,6 +91,7 @@ import {
 } from '@/utils/collab/presentation'
 import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
+import { makeScrollbarsOverlay } from '@/utils/collab/scrollbars'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
 import { exportToSVG } from '@/utils/collab/svg-export'
@@ -97,6 +103,7 @@ import {
 import { onEditRequest } from '@/utils/collab/text-editing'
 import { toolIdForKey } from '@/utils/collab/tool-keys'
 import {
+  currentLassoPath,
   currentMarqueeRect,
   currentSnapGuides,
   hoverCursor,
@@ -130,6 +137,7 @@ import { zoomToFit, zoomToSelection } from '@/utils/collab/zoom-to-fit'
 import { CommandPalette } from './Whiteboard/CommandPalette'
 import { EmbedsOverlay } from './Whiteboard/EmbedsOverlay'
 import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
+import { ImageCropDialog } from './Whiteboard/ImageCropDialog'
 import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
 import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
 import { ServiceWorkerRegistrar } from './Whiteboard/ServiceWorkerRegistrar'
@@ -168,6 +176,11 @@ const TOOL_CHOICES: Array<{ id: ToolId; label: string; hint: string }> = [
     id: 'select',
     label: 'Select',
     hint: 'Click, drag-move, handle-resize, marquee — Delete to remove',
+  },
+  {
+    id: 'lasso',
+    label: 'Lasso',
+    hint: 'Drag a free-form shape; releases selects every element inside',
   },
   { id: 'rect', label: 'Rect', hint: 'Drag to draw a rectangle' },
   { id: 'ellipse', label: 'Ellipse', hint: 'Drag to draw an ellipse' },
@@ -228,6 +241,7 @@ export function CollabWhiteboard({
   const staticRef = useRef<HTMLCanvasElement | null>(null)
   const interactiveRef = useRef<HTMLCanvasElement | null>(null)
   const rendererRef = useRef<Renderer | null>(null)
+  const imageInputRef = useRef<HTMLInputElement | null>(null)
   const storeRef = useRef<ElementStore | null>(null)
   const selectionRef = useRef<SelectionState>(new SelectionState())
   const activeToolRef = useRef<Tool | null>(null)
@@ -292,6 +306,7 @@ export function CollabWhiteboard({
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [cropImageId, setCropImageId] = useState<string | null>(null)
   const [laserActive, setLaserActive] = useState(false)
   const [presentationActive, setPresentationActive] = useState(false)
   const [presentationIndex, setPresentationIndex] = useState(0)
@@ -465,6 +480,7 @@ export function CollabWhiteboard({
       store,
       selection,
       getMarquee: () => currentMarqueeRect(),
+      getLasso: () => currentLassoPath(),
       getViewport: () => r.getViewport(),
       getHandleSizePx: () => HANDLE_SIZE_FOR_PRECISION[precisionRef.current],
     })
@@ -547,6 +563,15 @@ export function CollabWhiteboard({
       laserPaint(ctx)
       selfLaserPaint(ctx)
       cursorPaint(ctx)
+    })
+    // Scrollbars live on the screen-space overlay so they stay pinned
+    // to the bottom-right corner regardless of zoom or pan.
+    const scrollbarsPaint = makeScrollbarsOverlay({
+      getElements: () => store.list(),
+      getViewport: () => r.getViewport(),
+    })
+    r.setScreenPaint((ctx, size) => {
+      scrollbarsPaint(ctx, size)
     })
 
     // Re-paint whenever a remote cursor updates.
@@ -1040,8 +1065,7 @@ export function CollabWhiteboard({
     if (!image) return
     e.preventDefault()
     // Drop the image at the actual cursor world position so the
-    // user's drag-target lands where they expect — Excalidraw + Figma
-    // both behave this way.
+    // user's drop target lands where they expect.
     const id = createImageElement(store, image, { center: cursorWorld })
     selectionRef.current.set([id])
   }, [])
@@ -1190,6 +1214,78 @@ export function CollabWhiteboard({
             return
           }
         }
+      }
+      // Shift+1 / Shift+2 / Shift+3 → zoom shortcuts.
+      // Plain digits already activate tools; the Shift modifier is
+      // reserved for view ops by ``toolIdForKey``.
+      // 1 = fit all, 2 = fit selection in viewport, 3 = zoom to selection.
+      // We treat 2 and 3 as the same op for now since our
+      // ``zoomToSelection`` is a single implementation; users still get
+      // the muscle-memory shortcut.
+      if (
+        e.shiftKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        (e.key === '!' ||
+          e.key === '@' ||
+          e.key === '#' ||
+          /^[123]$/.test(e.key))
+      ) {
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        const renderer = rendererRef.current
+        const store = storeRef.current
+        const canvas = interactiveRef.current
+        if (!renderer || !store || !canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const isFitAll = e.key === '!' || e.key === '1'
+        const vp = isFitAll
+          ? zoomToFit(store.list(), rect.width, rect.height)
+          : zoomToSelection(
+              store.list(),
+              selectionRef.current.snapshot,
+              rect.width,
+              rect.height,
+            )
+        if (vp) {
+          e.preventDefault()
+          renderer.setViewport(vp)
+          vpRef.current = vp
+          setZoom(Math.round(vp.scale * 100) / 100)
+          publishViewport()
+        }
+        return
+      }
+      // K → toggle laser pointer mode. Single-letter
+      // shortcut, no modifiers, ignored in form inputs. Laser is a
+      // global presence flag rather than a tool, so it lives outside
+      // ``toolIdForKey``.
+      if (
+        (e.key === 'k' || e.key === 'K') &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        setLaserActive((v) => !v)
+        return
       }
       if (
         (e.metaKey || e.ctrlKey) &&
@@ -1340,12 +1436,11 @@ export function CollabWhiteboard({
           const newIds = clipboardDuplicate(store, selection.snapshot)
           if (newIds.length > 0) selection.set(newIds)
         }
-      } else if (
-        (e.metaKey || e.ctrlKey) &&
-        e.shiftKey &&
-        (e.key === 'l' || e.key === 'L')
-      ) {
-        // Cmd/Ctrl+Shift+L → toggle lock on selection.
+      } else if ((e.metaKey || e.ctrlKey) && (e.key === 'l' || e.key === 'L')) {
+        // Cmd/Ctrl+L (and the legacy Cmd/Ctrl+Shift+L alias) →
+        // toggle lock on selection. Cmd+L is the new canonical
+        // binding; the shifted variant stays so muscle memory from
+        // the previous version carries over.
         const store = storeRef.current
         const selection = selectionRef.current
         if (!store || selection.size === 0) return
@@ -1402,7 +1497,7 @@ export function CollabWhiteboard({
         else undo.undo()
       } else if ((e.metaKey || e.ctrlKey) && (e.key === 'a' || e.key === 'A')) {
         // Cmd/Ctrl+A → select every (unlocked) element. Shift+Cmd+A
-        // clears selection — matches Excalidraw + Figma. Skipped when
+        // clears selection. Skipped when
         // typing into a form input so the native browser select-all
         // still works there.
         const store = storeRef.current
@@ -1423,7 +1518,7 @@ export function CollabWhiteboard({
         } else {
           // Locked elements are skipped — selecting them would invite
           // accidental Delete / drag attempts the lock then has to
-          // refuse silently. Excalidraw matches.
+          // refuse silently.
           const ids = filterUnlocked(
             store,
             new Set(store.list().map((el) => el.id)),
@@ -1736,6 +1831,18 @@ export function CollabWhiteboard({
           'flowchart TD\n  A[Start] --> B{Decision}\n  B --> C[Yes]\n  B --> D[No]',
         )
         if (!input) return
+        const detected = detectMermaidChartType(input)
+        if (detected && detected !== 'flowchart' && detected !== 'graph') {
+          // Recognised as Mermaid but a kind we don't render. Tell the
+          // user explicitly so they understand the gap rather than
+          // trying to debug their syntax.
+          window.alert(
+            `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
+              `flowchart and graph are supported. Convert to a flowchart, ` +
+              `or paste it as text and we'll wire the renderer up later.`,
+          )
+          return
+        }
         const diagram = parseMermaid(input)
         if (!diagram) {
           window.alert(
@@ -1966,6 +2073,48 @@ export function CollabWhiteboard({
                 {t.label}
               </button>
             ),
+          )}
+          {!viewMode && (
+            <>
+              {/* Image isn't a draw-to-create tool — it opens the file
+                  picker, decodes the chosen image, and drops it at the
+                  current viewport centre. Sits in the same visual
+                  group as the tool radios so it reads as part of the
+                  toolbar, but it's a plain button (no aria-checked). */}
+              <button
+                type="button"
+                onClick={() => imageInputRef.current?.click()}
+                className="rp-text-secondary hover:rp-text-primary rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm"
+                aria-label="Insert image from file"
+                title="Insert image (or paste / drag-drop)"
+              >
+                Image
+              </button>
+              <input
+                ref={imageInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={async (e) => {
+                  const file = e.target.files?.[0] ?? null
+                  e.target.value = '' // allow re-selecting the same file
+                  const image = await extractImageFile(file)
+                  if (!image) return
+                  const store = storeRef.current
+                  const renderer = rendererRef.current
+                  const canvas = interactiveRef.current
+                  if (!store || !renderer || !canvas) return
+                  const rect = canvas.getBoundingClientRect()
+                  const vp = renderer.getViewport()
+                  const center = {
+                    x: vp.scrollX + rect.width / 2 / vp.scale,
+                    y: vp.scrollY + rect.height / 2 / vp.scale,
+                  }
+                  const id = createImageElement(store, image, { center })
+                  selectionRef.current.set(new Set([id]))
+                }}
+              />
+            </>
           )}
         </div>
         <span className="rp-text-secondary hidden md:inline">
@@ -2238,6 +2387,7 @@ export function CollabWhiteboard({
             <PropertiesPanel
               store={storeRef.current}
               selection={selectionRef.current}
+              onRequestCrop={(id) => setCropImageId(id)}
             />
           </div>
         ) : null}
@@ -2251,6 +2401,36 @@ export function CollabWhiteboard({
         commands={commands}
         onClose={() => setPaletteOpen(false)}
       />
+      {cropImageId &&
+        storeRef.current &&
+        (() => {
+          // The dialog is gated on the live element to avoid stale-id
+          // crashes when a remote peer deletes the image we were about
+          // to crop. ``crop`` is optional so the picker starts at the
+          // full image when none is set yet.
+          const el = storeRef.current.get(cropImageId) as {
+            type: string
+            thumbnailDataUrl: string
+            naturalWidth: number
+            naturalHeight: number
+            crop?: { x: number; y: number; width: number; height: number }
+          } | null
+          if (!el || el.type !== 'image') return null
+          return (
+            <ImageCropDialog
+              open
+              dataUrl={el.thumbnailDataUrl}
+              naturalWidth={el.naturalWidth}
+              naturalHeight={el.naturalHeight}
+              initialCrop={el.crop}
+              onApply={(crop) => {
+                storeRef.current?.update(cropImageId, { crop })
+                setCropImageId(null)
+              }}
+              onCancel={() => setCropImageId(null)}
+            />
+          )
+        })()}
       {storeRef.current ? (
         <MobilePropertiesSheet
           open={mobileStyleOpen}

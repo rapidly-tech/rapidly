@@ -10,7 +10,7 @@
  *
  * Group records don't exist as first-class objects — a "group" is
  * implicit: the set of elements that share a given string id in their
- * ``groupIds``. That matches Excalidraw's approach and survives Yjs
+ * ``groupIds``. The implicit-group representation survives Yjs
  * concurrency trivially: two peers grouping overlapping selections
  * with different new-group-ids just end up with both ids present on
  * the shared elements, which renders as a single visual group anyway.

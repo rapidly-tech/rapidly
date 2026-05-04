@@ -1,5 +1,5 @@
 /**
- * Frame shape adapter — Phase 18 (Excalidraw-style containers).
+ * Frame shape adapter — labelled rectangular containers.
  *
  * A frame is a labelled rectangle that holds child elements (tracked
  * by ``childIds`` on the model). The renderer just paints the
@@ -20,7 +20,7 @@ import type { FrameElement } from '../elements'
 
 /** Element-local Path2D — just the AABB. The label sits outside this
  *  path so hit-tests against the frame body don't accidentally pick
- *  up label clicks; that's a UX preference matching Excalidraw. */
+ *  up label clicks. */
 export function pathFor(el: FrameElement): Path2D {
   const path = new Path2D()
   path.rect(0, 0, el.width, el.height)

@@ -157,6 +157,12 @@ export interface ImageElement extends BaseElement {
   mimeType: string
   naturalWidth: number
   naturalHeight: number
+  /** Optional crop region in *natural-image pixel coordinates* (so it
+   *  survives resize of the on-canvas element). When set, the painter
+   *  uses it as the source rect of ``ctx.drawImage`` so only the
+   *  cropped portion shows; ``naturalWidth/Height`` stay original so
+   *  a future "reset crop" action can restore. */
+  crop?: { x: number; y: number; width: number; height: number }
 }
 
 export interface FrameElement extends BaseElement {
@@ -197,8 +203,8 @@ export type CommonElement = Pick<BaseElement, keyof BaseElement>
 
 // ── Defaults ──────────────────────────────────────────────────────────
 
-/** Visual defaults — chosen to match Excalidraw's muted light palette
- *  without copying any specific colour values. */
+/** Visual defaults — a muted light palette tuned to read well on
+ *  every background colour we ship. */
 export const DEFAULT_STROKE_COLOR = '#1e1e1e'
 export const DEFAULT_FILL_COLOR = 'transparent'
 export const DEFAULT_STROKE_WIDTH = 2

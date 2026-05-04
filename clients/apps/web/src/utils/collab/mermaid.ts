@@ -40,6 +40,90 @@ import type { CreateElementInput } from './element-store'
 
 export type Direction = 'TD' | 'TB' | 'BT' | 'LR' | 'RL'
 
+/** Every Mermaid chart kind the upstream parser knows about — we only
+ *  *render* ``flowchart`` and ``graph`` ourselves, but detecting the
+ *  rest lets the consumer surface a friendly "kind X not supported
+ *  yet" message instead of a generic parse error. The detector is
+ *  case-insensitive on the keyword and tolerant of leading whitespace
+ *  and ``%%`` comment lines. */
+export type MermaidChartType =
+  | 'flowchart'
+  | 'graph'
+  | 'sequenceDiagram'
+  | 'classDiagram'
+  | 'stateDiagram'
+  | 'erDiagram'
+  | 'journey'
+  | 'gantt'
+  | 'pie'
+  | 'requirementDiagram'
+  | 'gitGraph'
+  | 'C4Context'
+  | 'mindmap'
+  | 'timeline'
+  | 'zenuml'
+  | 'sankey'
+  | 'xychart'
+  | 'block'
+  | 'quadrantChart'
+  | 'packet'
+
+const MERMAID_KEYWORDS: readonly MermaidChartType[] = [
+  'flowchart',
+  'graph',
+  'sequenceDiagram',
+  'classDiagram',
+  'stateDiagram',
+  'erDiagram',
+  'journey',
+  'gantt',
+  'pie',
+  'requirementDiagram',
+  'gitGraph',
+  'C4Context',
+  'mindmap',
+  'timeline',
+  'zenuml',
+  'sankey',
+  'xychart',
+  'block',
+  'quadrantChart',
+  'packet',
+]
+
+/** Sniff the first non-blank, non-comment line for a Mermaid diagram
+ *  keyword. Returns the matched chart type or ``null`` when the input
+ *  isn't recognisably Mermaid. Use before ``parseMermaid`` to give the
+ *  user a chart-kind-specific message ("``sequenceDiagram`` isn't
+ *  rendered yet") for kinds we don't render rather than a generic
+ *  parse error. */
+export function detectMermaidChartType(
+  source: string,
+): MermaidChartType | null {
+  const lines = source.split(/\r?\n/)
+  for (const raw of lines) {
+    const line = raw.trim()
+    if (line.length === 0) continue
+    if (line.startsWith('%%')) continue
+    // Many diagrams accept a direction/argument suffix, e.g.
+    // ``flowchart TD``, ``stateDiagram-v2``, ``gitGraph TB:``,
+    // ``xychart-beta horizontal``. We match the keyword as a prefix.
+    for (const kw of MERMAID_KEYWORDS) {
+      const re = new RegExp(`^${kw}(?:[\\s\\-\\:]|$)`, 'i')
+      if (re.test(line)) {
+        // Special-case: ``stateDiagram-v2`` and ``xychart-beta`` are
+        // versioned suffixes; normalise back to the bare type so the
+        // caller doesn't need to think about variants.
+        return kw
+      }
+    }
+    // First non-comment line didn't match any keyword — definitely
+    // not Mermaid we recognise.
+    return null
+  }
+  return null
+}
+
 export interface MermaidNode {
   id: string
   label: string

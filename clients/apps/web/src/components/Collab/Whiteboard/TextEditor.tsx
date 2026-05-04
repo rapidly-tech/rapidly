@@ -119,7 +119,7 @@ export function TextEditor({ id, store, renderer, onDone }: TextEditorProps) {
   }
 
   // Update store on every keystroke so other peers see the text grow
-  // live (matches Excalidraw's "watch me type" feel). Text elements
+  // live — the "watch me type" feel users expect. Text elements
   // auto-resize to the string; stickies keep their fixed size and
   // let the wrapper inside ``shapes/sticky.ts`` word-wrap.
   const onInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {

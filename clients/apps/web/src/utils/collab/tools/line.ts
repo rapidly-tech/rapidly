@@ -83,7 +83,7 @@ function worldPoint(ctx: ToolCtx, e: PointerEvent): { x: number; y: number } {
   }
   // Snap each endpoint to nearby element edges + centres so a line s
   // start or end lands cleanly on another shape. Skipped while alt is
-  // held (Excalidraw escape hatch) and excludes the in-progress line
+  // held (escape hatch for precise placement) and excludes the in-progress line
   // so the cursor doesn t chase its own bbox.
   if (ctx.renderer.isSnapToObjectsEnabled() && !e.altKey) {
     const drawingId = state?.id

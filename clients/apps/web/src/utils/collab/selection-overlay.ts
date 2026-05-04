@@ -14,7 +14,7 @@ import { rotationHandlePosition } from './rotation'
 import type { SelectionState } from './selection'
 import type { Viewport } from './viewport'
 
-const SELECTION_STROKE = '#4f46e5' // emerald/indigo pop; matches Excalidraw-ish selection blue
+const SELECTION_STROKE = '#4f46e5' // emerald/indigo selection pop
 const MARQUEE_STROKE = '#4f46e5'
 const MARQUEE_FILL = 'rgba(79, 70, 229, 0.08)'
 
@@ -42,6 +42,10 @@ export interface SelectionOverlayOptions {
    *  (``fine``) preset. Touch hosts pass the ``coarse`` preset from
    *  ``pointer-preference.ts`` so handles stay tappable. */
   getHandleSizePx?: () => number
+  /** Vertices of the in-progress lasso polygon (flat ``[x0,y0,…]``)
+   *  in world coords, or ``null`` when no lasso gesture is active.
+   *  The lasso tool owns the state; this overlay just renders it. */
+  getLasso?: () => readonly number[] | null
 }
 
 /** Build a paint function suitable for ``renderer.setInteractivePaint``.
@@ -54,6 +58,7 @@ export function makeSelectionOverlay(
     paintSelectedBounds(ctx, opts)
     paintHandles(ctx, opts)
     paintMarquee(ctx, opts)
+    paintLasso(ctx, opts)
   }
 }
 
@@ -209,5 +214,28 @@ function paintMarquee(
   ctx.setLineDash([4, 2])
   ctx.fillRect(m.x, m.y, m.width, m.height)
   ctx.strokeRect(m.x, m.y, m.width, m.height)
+  ctx.restore()
+}
+
+function paintLasso(
+  ctx: CanvasRenderingContext2D,
+  { getLasso }: SelectionOverlayOptions,
+): void {
+  const poly = getLasso?.()
+  if (!poly || poly.length < 4) return
+  ctx.save()
+  ctx.fillStyle = MARQUEE_FILL
+  ctx.strokeStyle = MARQUEE_STROKE
+  ctx.lineWidth = 1
+  ctx.setLineDash([4, 2])
+  ctx.lineJoin = 'round'
+  ctx.beginPath()
+  ctx.moveTo(poly[0], poly[1])
+  for (let i = 2; i < poly.length; i += 2) {
+    ctx.lineTo(poly[i], poly[i + 1])
+  }
+  ctx.closePath()
+  ctx.fill()
+  ctx.stroke()
   ctx.restore()
 }

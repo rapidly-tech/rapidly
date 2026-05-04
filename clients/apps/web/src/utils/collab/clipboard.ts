@@ -148,7 +148,7 @@ export function paste(
 }
 
 /** Duplicate — shortcut for copy + paste without touching the buffer.
- *  Matches Cmd+D in Figma / Excalidraw. Returns new ids. */
+ *  Bound to Cmd+D. Returns new ids. */
 export function duplicate(
   store: ElementStore,
   selected: ReadonlySet<string>,

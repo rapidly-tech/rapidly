@@ -73,7 +73,9 @@ describe('payloadToText / parseClipboardText', () => {
 
   it('rejects wrong magic', () => {
     expect(
-      parseClipboardText(JSON.stringify({ magic: 'figma', elements: [] })),
+      parseClipboardText(
+        JSON.stringify({ magic: 'foreign-tool', elements: [] }),
+      ),
     ).toBeNull()
   })
 

@@ -2,8 +2,8 @@
  * SVG export for the Collab v2 whiteboard.
  *
  * Serialises the scene as a vector-format SVG document — good for
- * scaling without aliasing, editing in Illustrator / Figma / Inkscape,
- * and embedding in design docs. Complements the PNG rasteriser from
+ * scaling without aliasing, editing in any vector tool, and embedding
+ * in design docs. Complements the PNG rasteriser from
  * Phase 14a.
  *
  * Rough-style caveat

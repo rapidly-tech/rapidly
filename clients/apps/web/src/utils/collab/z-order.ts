@@ -2,7 +2,7 @@
  * z-order actions for the Collab v2 whiteboard.
  *
  * Four standard operations that reshuffle selected elements relative
- * to the rest of the scene, matching Excalidraw / Figma conventions:
+ * to the rest of the scene:
  *
  *  - ``bringToFront``  — selected go to the top of the paint order
  *  - ``sendToBack``    — selected go to the bottom

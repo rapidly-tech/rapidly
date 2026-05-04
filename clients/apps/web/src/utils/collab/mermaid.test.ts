@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest'
 
-import { mermaidToElements, parseMermaid } from './mermaid'
+import {
+  detectMermaidChartType,
+  mermaidToElements,
+  parseMermaid,
+} from './mermaid'
 
 describe('parseMermaid', () => {
   it('returns null when the source is not a recognisable flowchart', () => {
@@ -159,5 +163,55 @@ describe('mermaidToElements', () => {
       A --> B
       B --> A`)!
     expect(() => mermaidToElements(diagram)).not.toThrow()
+  })
+})
+
+describe('detectMermaidChartType', () => {
+  it('returns null for non-Mermaid input', () => {
+    expect(detectMermaidChartType('')).toBeNull()
+    expect(detectMermaidChartType('hello world')).toBeNull()
+    expect(detectMermaidChartType('def foo():\n  pass')).toBeNull()
+  })
+
+  it('detects flowchart and graph (the two we render)', () => {
+    expect(detectMermaidChartType('flowchart TD\n A --> B')).toBe('flowchart')
+    expect(detectMermaidChartType('graph LR\n A --> B')).toBe('graph')
+    // Case-insensitive on the keyword.
+    expect(detectMermaidChartType('FLOWCHART TD\n A --> B')).toBe('flowchart')
+  })
+
+  it.each([
+    ['sequenceDiagram', 'sequenceDiagram\n  A->>B: hi'],
+    ['classDiagram', 'classDiagram\n  class Foo'],
+    ['stateDiagram', 'stateDiagram\n  [*] --> Idle'],
+    ['stateDiagram', 'stateDiagram-v2\n  [*] --> Idle'], // versioned variant
+    ['erDiagram', 'erDiagram\n  CUSTOMER ||--o{ ORDER : places'],
+    ['journey', 'journey\n  title My day'],
+    ['gantt', 'gantt\n  title Schedule'],
+    ['pie', 'pie\n  title Slices'],
+    ['requirementDiagram', 'requirementDiagram\n  requirement test_req'],
+    ['gitGraph', 'gitGraph\n  commit'],
+    ['C4Context', 'C4Context\n  title System Context'],
+    ['mindmap', 'mindmap\n  root((Centre))'],
+    ['timeline', 'timeline\n  title Roadmap'],
+    ['zenuml', 'zenuml\n  A.do_thing()'],
+    ['sankey', 'sankey\n  Source,Sink,5'],
+    ['xychart', 'xychart-beta\n  title XY'],
+    ['block', 'block\n  columns 3'],
+    ['quadrantChart', 'quadrantChart\n  title Reach vs Effort'],
+    ['packet', 'packet\n  0-15: src'],
+  ])('detects %s', (expected, source) => {
+    expect(detectMermaidChartType(source)).toBe(expected)
+  })
+
+  it('skips leading blank and comment lines', () => {
+    const src = '\n\n%% leading comment\n\nflowchart TD\n  A --> B'
+    expect(detectMermaidChartType(src)).toBe('flowchart')
+  })
+
+  it("returns null when the first non-comment line isn't a known kind", () => {
+    expect(
+      detectMermaidChartType('%% comment\nsomeUnknownChart\n  body'),
+    ).toBeNull()
   })
 })

@@ -148,7 +148,7 @@ export function anchorFrom(el: CollabElement): ResizeAnchor {
  *  the anchor's width/height ratio: the dominant axis (longer
  *  effective drag) wins and the other axis derives from the locked
  *  ratio. Edge handles ignore the flag — there's no second axis to
- *  constrain. Excalidraw + Figma both behave this way.
+ *  constrain.
  *
  *  Minimum width / height is 1 so a handle can't collapse the element
  *  to a degenerate rect that hit-testing rejects.

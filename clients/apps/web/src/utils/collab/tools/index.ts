@@ -14,6 +14,7 @@ import { eraserTool } from './eraser'
 import { frameTool } from './frame'
 import { freedrawTool } from './freedraw'
 import { handTool } from './hand'
+import { lassoTool } from './lasso'
 import { lineTool } from './line'
 import { rectTool } from './rect'
 import { selectTool } from './select'
@@ -24,6 +25,7 @@ import type { Tool, ToolId } from './types'
 const TOOLS: Partial<Record<ToolId, Tool>> = {
   hand: handTool,
   select: selectTool,
+  lasso: lassoTool,
   rect: rectTool,
   ellipse: ellipseTool,
   diamond: diamondTool,
@@ -40,6 +42,7 @@ export function toolFor(id: ToolId): Tool | null {
   return TOOLS[id] ?? null
 }
 
+export { currentLassoPath } from './lasso'
 export { currentMarqueeRect, currentSnapGuides, hoverCursor } from './select'
 export type { SelectToolCtx } from './select'
 export type { Tool, ToolCtx, ToolId } from './types'
@@ -51,6 +54,7 @@ export {
   frameTool,
   freedrawTool,
   handTool,
+  lassoTool,
   lineTool,
   rectTool,
   selectTool,

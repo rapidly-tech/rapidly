@@ -59,6 +59,23 @@ export async function extractPastedImage(
   return null
 }
 
+/** Same shape as ``extractPastedImage`` for the file-input flow used
+ *  by the toolbar's Image button. Returns ``null`` for non-image
+ *  files so the caller can show a friendly error rather than crash on
+ *  a wrong drop. */
+export async function extractImageFile(
+  file: File | null,
+  options: ExtractOptions = {},
+): Promise<PastedImage | null> {
+  if (!file) return null
+  if (!file.type.startsWith('image/')) return null
+  const readDataUrl = options.readDataUrl ?? defaultReadDataUrl
+  const loadImage = options.loadImage ?? defaultLoadImage
+  const dataUrl = await readDataUrl(file)
+  const { width, height } = await loadImage(dataUrl)
+  return { dataUrl, mimeType: file.type, width, height }
+}
+
 export interface CreateImageOptions {
   /** Where the new element's centre should land (world coords). The
    *  demo uses the current viewport centre; ``useCollabRoom`` would

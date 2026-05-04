@@ -27,6 +27,7 @@ import type { Viewport } from '../viewport'
 export type ToolId =
   | 'hand'
   | 'select'
+  | 'lasso'
   | 'rect'
   | 'ellipse'
   | 'diamond'

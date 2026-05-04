@@ -10,8 +10,8 @@
  *    local user. Remote peers with their own unlock can still edit,
  *    exactly like any Yjs field — lock is advisory, not crypto.
  *  - Style / colour edits **still apply** to a locked element when
- *    explicitly selected. This matches Excalidraw / Figma and means
- *    ""locked"" reads as ""pinned in place"" rather than ""frozen"".
+ *    explicitly selected. "Locked" reads as "pinned in place" rather
+ *    than "frozen".
  *
  * The tools + demo keyboard handlers call ``filterUnlocked`` on their
  * target set before mutating so the invariants above hold without a
