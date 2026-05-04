@@ -69,6 +69,10 @@ import {
   mermaidToElements,
   parseMermaid,
 } from '@/utils/collab/mermaid'
+import {
+  parseSequence,
+  sequenceToElements,
+} from '@/utils/collab/mermaid-sequence'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -1927,14 +1931,40 @@ export function CollabWhiteboard({
         )
         if (!input) return
         const detected = detectMermaidChartType(input)
+        const canvas = interactiveRef.current
+        if (!canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
+
+        // Sequence diagrams have their own parser + layout (lifelines,
+        // messages, notes). Dispatch before the generic flowchart path
+        // so the kind-specific message doesn't fire for them.
+        if (detected === 'sequenceDiagram') {
+          const seq = parseSequence(input)
+          if (!seq) {
+            window.alert('Could not parse the sequence diagram.')
+            return
+          }
+          const parts = sequenceToElements(seq, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         if (detected && detected !== 'flowchart' && detected !== 'graph') {
-          // Recognised as Mermaid but a kind we don't render. Tell the
-          // user explicitly so they understand the gap rather than
+          // Recognised as Mermaid but a kind we don't render yet. Tell
+          // the user explicitly so they understand the gap rather than
           // trying to debug their syntax.
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
-              `flowchart and graph are supported. Convert to a flowchart, ` +
-              `or paste it as text and we'll wire the renderer up later.`,
+              `flowchart, graph, and sequenceDiagram are supported. ` +
+              `Convert to one of those, or paste it as text and we'll ` +
+              `wire the renderer up later.`,
           )
           return
         }
@@ -1947,10 +1977,6 @@ export function CollabWhiteboard({
           return
         }
         // Drop new elements near the viewport centre.
-        const canvas = interactiveRef.current
-        if (!canvas) return
-        const rect = canvas.getBoundingClientRect()
-        const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
         const parts = mermaidToElements(diagram, {
           originX: center.x - 200,
           originY: center.y - 100,
