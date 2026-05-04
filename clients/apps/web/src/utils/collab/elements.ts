@@ -136,6 +136,18 @@ export interface TextElement extends BaseElement {
   textAlign: TextAlign
   /** If this text is bound to a parent shape, the parent's id. */
   containerId?: string
+  /** Optional weight (default ``'normal'``); ``'bold'`` paints the
+   *  whole element bold. We deliberately don't carry per-character
+   *  runs — that's a far larger subsystem. */
+  fontWeight?: 'normal' | 'bold'
+  /** Optional italic toggle, same per-element semantics as
+   *  ``fontWeight``. */
+  fontStyle?: 'normal' | 'italic'
+  /** Multiplier on the font size to compute line height. Default
+   *  ``1.2`` (matches the previous hard-coded value). */
+  lineHeight?: number
+  /** Tracking — em-units of extra space between glyphs. Default 0. */
+  letterSpacing?: number
 }
 
 export interface StickyElement extends BaseElement {
@@ -144,6 +156,10 @@ export interface StickyElement extends BaseElement {
   fontFamily: FontFamily
   fontSize: number
   textAlign: TextAlign
+  fontWeight?: 'normal' | 'bold'
+  fontStyle?: 'normal' | 'italic'
+  lineHeight?: number
+  letterSpacing?: number
 }
 
 export interface ImageElement extends BaseElement {

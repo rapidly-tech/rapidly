@@ -25,6 +25,8 @@ import {
   FILL_STYLES,
   FONT_FAMILIES,
   FONT_SIZES,
+  LETTER_SPACINGS,
+  LINE_HEIGHTS,
   ROUGHNESS_LEVELS,
   ROUNDNESS_PRESETS,
   sharedField,
@@ -87,6 +89,10 @@ export function PropertiesPanel({ store, selection, onRequestCrop }: Props) {
   const fontFamily = sharedTextField<string>(store, ids, 'fontFamily')
   const fontSize = sharedTextField<number>(store, ids, 'fontSize')
   const textAlign = sharedTextField<string>(store, ids, 'textAlign')
+  const fontWeight = sharedTextField<string>(store, ids, 'fontWeight')
+  const fontStyle = sharedTextField<string>(store, ids, 'fontStyle')
+  const lineHeight = sharedTextField<number>(store, ids, 'lineHeight')
+  const letterSpacing = sharedTextField<number>(store, ids, 'letterSpacing')
   const showText =
     fontFamily !== null || fontSize !== null || textAlign !== null
   // Convert picker only shows for a single rect/ellipse/diamond.
@@ -356,6 +362,70 @@ export function PropertiesPanel({ store, selection, onRequestCrop }: Props) {
               {textAlign === 'mixed' && <Mixed />}
             </Row>
           </FieldGroup>
+
+          <FieldGroup label="Style">
+            <Row>
+              <PillButton
+                active={fontWeight === 'bold'}
+                onClick={() =>
+                  applyToSelection(store, ids, {
+                    fontWeight: fontWeight === 'bold' ? 'normal' : 'bold',
+                  })
+                }
+              >
+                <span style={{ fontWeight: 700 }} aria-label="Bold">
+                  B
+                </span>
+              </PillButton>
+              <PillButton
+                active={fontStyle === 'italic'}
+                onClick={() =>
+                  applyToSelection(store, ids, {
+                    fontStyle: fontStyle === 'italic' ? 'normal' : 'italic',
+                  })
+                }
+              >
+                <span style={{ fontStyle: 'italic' }} aria-label="Italic">
+                  I
+                </span>
+              </PillButton>
+              {(fontWeight === 'mixed' || fontStyle === 'mixed') && <Mixed />}
+            </Row>
+          </FieldGroup>
+
+          <FieldGroup label="Line height">
+            <Row>
+              {LINE_HEIGHTS.map((h) => (
+                <PillButton
+                  key={h.id}
+                  active={(lineHeight ?? 1.2) === h.value}
+                  onClick={() =>
+                    applyToSelection(store, ids, { lineHeight: h.value })
+                  }
+                >
+                  {h.label}
+                </PillButton>
+              ))}
+              {lineHeight === 'mixed' && <Mixed />}
+            </Row>
+          </FieldGroup>
+
+          <FieldGroup label="Letter spacing">
+            <Row>
+              {LETTER_SPACINGS.map((s) => (
+                <PillButton
+                  key={s.id}
+                  active={(letterSpacing ?? 0) === s.value}
+                  onClick={() =>
+                    applyToSelection(store, ids, { letterSpacing: s.value })
+                  }
+                >
+                  {s.label}
+                </PillButton>
+              ))}
+              {letterSpacing === 'mixed' && <Mixed />}
+            </Row>
+          </FieldGroup>
         </>
       )}
     </aside>
@@ -556,7 +626,14 @@ function sharedRoundness(
 function sharedTextField<T>(
   store: ElementStore,
   ids: ReadonlySet<string>,
-  key: 'fontFamily' | 'fontSize' | 'textAlign',
+  key:
+    | 'fontFamily'
+    | 'fontSize'
+    | 'textAlign'
+    | 'fontWeight'
+    | 'fontStyle'
+    | 'lineHeight'
+    | 'letterSpacing',
 ): SharedValue<T> {
   let value: T | undefined
   let initialised = false

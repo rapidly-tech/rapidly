@@ -47,10 +47,21 @@ export function paintText(
   ctx.fillStyle = el.strokeColor
   ctx.textBaseline = 'top'
   ctx.textAlign = el.textAlign
-  ctx.font = `${el.fontSize}px ${fontCssFor(el.fontFamily)}`
+  // Optional weight + style toggle on the per-element font field.
+  // We don't carry per-character runs — that's a far larger
+  // subsystem — so the whole element renders bold or italic.
+  const weight = el.fontWeight === 'bold' ? '700 ' : ''
+  const style = el.fontStyle === 'italic' ? 'italic ' : ''
+  ctx.font = `${style}${weight}${el.fontSize}px ${fontCssFor(el.fontFamily)}`
+  // Letter spacing is honoured when the browser supports it (Chromium
+  // 99+, Firefox 117+). Older browsers silently ignore the property
+  // — text just paints with default tracking.
+  ;(ctx as unknown as { letterSpacing?: string }).letterSpacing = `${
+    (el.letterSpacing ?? 0) * el.fontSize
+  }px`
 
   const lines = el.text.split('\n')
-  const lineHeight = el.fontSize * 1.2
+  const lineHeight = el.fontSize * (el.lineHeight ?? 1.2)
   // textAlign is applied at draw-call time; we pick the anchor X
   // based on it so left-aligned text hugs the element's left edge,
   // right-aligned hugs the right, centre splits the middle.
