@@ -316,6 +316,19 @@ export function CollabWhiteboard({
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
   const [editingId, setEditingId] = useState<string | null>(null)
+  /** Zen mode hides the toolbar + properties panel for a focused
+   *  drawing surface. Toggled via ``Cmd+.`` and the Esc-to-exit hint
+   *  in the corner. */
+  const [zenMode, setZenMode] = useState(false)
+  /** Mirror in a ref so the keydown handler reads the live value
+   *  without re-binding the listener on every toggle. */
+  const zenModeRef = useRef(false)
+  useEffect(() => {
+    zenModeRef.current = zenMode
+  }, [zenMode])
+  /** Stats overlay — debug HUD with element count, selection size,
+   *  viewport scale, and FPS. Toggled via ``Cmd+/``. */
+  const [statsOpen, setStatsOpen] = useState(false)
 
   // Subscribe to text-edit requests from tools.
   useEffect(() => {
@@ -1332,6 +1345,38 @@ export function CollabWhiteboard({
         setLaserActive((v) => !v)
         return
       }
+      // Cmd/Ctrl+. → toggle Zen mode (hide chrome). Cmd/Ctrl+/ →
+      // toggle the stats overlay. Both ignore form inputs so typing
+      // these chars in the text editor works normally.
+      if (
+        (e.metaKey || e.ctrlKey) &&
+        !e.shiftKey &&
+        !e.altKey &&
+        (e.key === '.' || e.key === '/')
+      ) {
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        if (e.key === '.') setZenMode((v) => !v)
+        else setStatsOpen((v) => !v)
+        return
+      }
+      // Esc exits Zen mode (in addition to its existing role of
+      // cancelling the active gesture / clearing selection). Read the
+      // live value from the ref so we don't rebind this whole handler
+      // every time zenMode flips.
+      if (e.key === 'Escape' && zenModeRef.current) {
+        e.preventDefault()
+        setZenMode(false)
+        return
+      }
       if (
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey &&
@@ -2085,304 +2130,316 @@ export function CollabWhiteboard({
   return (
     <div className="flex h-full w-full flex-col bg-slate-50 dark:bg-slate-950">
       <ServiceWorkerRegistrar />
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
-        <span className="font-semibold">Collab v2 demo</span>
-        {viewMode ? (
-          <span
-            className="rounded-md border border-amber-400 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 dark:border-amber-500/60 dark:bg-amber-950/40 dark:text-amber-200"
-            aria-label="Read-only viewer mode"
-          >
-            View only
-          </span>
-        ) : null}
-        <div
-          role="radiogroup"
-          aria-label="Active tool"
-          className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
+      {zenMode && (
+        <button
+          type="button"
+          onClick={() => setZenMode(false)}
+          className="fixed top-3 right-3 z-40 rounded-md border border-slate-300 bg-white/90 px-2 py-1 text-xs text-slate-600 shadow-sm hover:bg-white dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-300 dark:hover:bg-slate-900"
+          title="Exit zen mode (Esc or ⌘.)"
         >
-          {TOOL_CHOICES.filter((t) => !viewMode || isReadOnlyTool(t.id)).map(
-            (t) => (
-              <button
-                key={t.id}
-                type="button"
-                role="radio"
-                aria-checked={t.id === toolId}
-                onClick={() => setToolId(t.id)}
-                className={
-                  'rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm ' +
-                  (t.id === toolId
-                    ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-50'
-                    : 'rp-text-secondary hover:rp-text-primary')
-                }
-              >
-                {t.label}
-              </button>
-            ),
-          )}
-          {!viewMode && (
-            <>
-              {/* Image isn't a draw-to-create tool — it opens the file
+          Exit zen
+        </button>
+      )}
+      {!zenMode && (
+        <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
+          <span className="font-semibold">Collab v2 demo</span>
+          {viewMode ? (
+            <span
+              className="rounded-md border border-amber-400 bg-amber-50 px-2 py-1 text-xs font-medium text-amber-800 dark:border-amber-500/60 dark:bg-amber-950/40 dark:text-amber-200"
+              aria-label="Read-only viewer mode"
+            >
+              View only
+            </span>
+          ) : null}
+          <div
+            role="radiogroup"
+            aria-label="Active tool"
+            className="flex flex-wrap gap-1 rounded-lg bg-slate-100 p-1 dark:bg-slate-800"
+          >
+            {TOOL_CHOICES.filter((t) => !viewMode || isReadOnlyTool(t.id)).map(
+              (t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={t.id === toolId}
+                  onClick={() => setToolId(t.id)}
+                  className={
+                    'rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm ' +
+                    (t.id === toolId
+                      ? 'bg-white text-slate-900 shadow-xs dark:bg-slate-700 dark:text-slate-50'
+                      : 'rp-text-secondary hover:rp-text-primary')
+                  }
+                >
+                  {t.label}
+                </button>
+              ),
+            )}
+            {!viewMode && (
+              <>
+                {/* Image isn't a draw-to-create tool — it opens the file
                   picker, decodes the chosen image, and drops it at the
                   current viewport centre. Sits in the same visual
                   group as the tool radios so it reads as part of the
                   toolbar, but it's a plain button (no aria-checked). */}
-              <button
-                type="button"
-                onClick={() => imageInputRef.current?.click()}
-                className="rp-text-secondary hover:rp-text-primary rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm"
-                aria-label="Insert image from file"
-                title="Insert image (or paste / drag-drop)"
-              >
-                Image
-              </button>
-              <input
-                ref={imageInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={async (e) => {
-                  const file = e.target.files?.[0] ?? null
-                  e.target.value = '' // allow re-selecting the same file
-                  const image = await extractImageFile(file)
-                  if (!image) return
-                  const store = storeRef.current
-                  const renderer = rendererRef.current
-                  const canvas = interactiveRef.current
-                  if (!store || !renderer || !canvas) return
-                  const rect = canvas.getBoundingClientRect()
-                  const vp = renderer.getViewport()
-                  const center = {
-                    x: vp.scrollX + rect.width / 2 / vp.scale,
-                    y: vp.scrollY + rect.height / 2 / vp.scale,
-                  }
-                  const id = createImageElement(store, image, { center })
-                  selectionRef.current.set(new Set([id]))
-                }}
-              />
-            </>
-          )}
-        </div>
-        <span className="rp-text-secondary hidden md:inline">
-          {activeChoice?.hint}
-        </span>
-        <span className="ml-auto flex items-center gap-3">
-          {externalPresence ? null : (
-            <>
-              <label className="hidden items-center gap-1 text-xs lg:flex">
+                <button
+                  type="button"
+                  onClick={() => imageInputRef.current?.click()}
+                  className="rp-text-secondary hover:rp-text-primary rounded-md px-2 py-1 text-xs transition-colors sm:px-3 sm:text-sm"
+                  aria-label="Insert image from file"
+                  title="Insert image (or paste / drag-drop)"
+                >
+                  Image
+                </button>
                 <input
-                  type="checkbox"
-                  checked={demoPeerActive}
-                  onChange={(e) => {
-                    setDemoPeerActive(e.target.checked)
-                    if (!e.target.checked) setFollowingDemoPeer(false)
+                  ref={imageInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0] ?? null
+                    e.target.value = '' // allow re-selecting the same file
+                    const image = await extractImageFile(file)
+                    if (!image) return
+                    const store = storeRef.current
+                    const renderer = rendererRef.current
+                    const canvas = interactiveRef.current
+                    if (!store || !renderer || !canvas) return
+                    const rect = canvas.getBoundingClientRect()
+                    const vp = renderer.getViewport()
+                    const center = {
+                      x: vp.scrollX + rect.width / 2 / vp.scale,
+                      y: vp.scrollY + rect.height / 2 / vp.scale,
+                    }
+                    const id = createImageElement(store, image, { center })
+                    selectionRef.current.set(new Set([id]))
                   }}
                 />
-                Demo peer cursor
-              </label>
-              <label className="hidden items-center gap-1 text-xs lg:flex">
-                <input
-                  type="checkbox"
-                  checked={followingDemoPeer}
-                  disabled={!demoPeerActive}
-                  onChange={(e) => setFollowingDemoPeer(e.target.checked)}
-                />
-                Follow demo peer
-              </label>
-            </>
-          )}
-          <label className="hidden items-center gap-1 text-xs lg:flex">
-            <input
-              type="checkbox"
-              checked={laserActive}
-              onChange={(e) => setLaserActive(e.target.checked)}
-            />
-            Laser pointer
-          </label>
-          {selectionSize > 0 ? (
+              </>
+            )}
+          </div>
+          <span className="rp-text-secondary hidden md:inline">
+            {activeChoice?.hint}
+          </span>
+          <span className="ml-auto flex items-center gap-3">
+            {externalPresence ? null : (
+              <>
+                <label className="hidden items-center gap-1 text-xs lg:flex">
+                  <input
+                    type="checkbox"
+                    checked={demoPeerActive}
+                    onChange={(e) => {
+                      setDemoPeerActive(e.target.checked)
+                      if (!e.target.checked) setFollowingDemoPeer(false)
+                    }}
+                  />
+                  Demo peer cursor
+                </label>
+                <label className="hidden items-center gap-1 text-xs lg:flex">
+                  <input
+                    type="checkbox"
+                    checked={followingDemoPeer}
+                    disabled={!demoPeerActive}
+                    onChange={(e) => setFollowingDemoPeer(e.target.checked)}
+                  />
+                  Follow demo peer
+                </label>
+              </>
+            )}
+            <label className="hidden items-center gap-1 text-xs lg:flex">
+              <input
+                type="checkbox"
+                checked={laserActive}
+                onChange={(e) => setLaserActive(e.target.checked)}
+              />
+              Laser pointer
+            </label>
+            {selectionSize > 0 ? (
+              <button
+                type="button"
+                onClick={() => setMobileStyleOpen(true)}
+                aria-label="Open style panel"
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 md:hidden dark:border-slate-700"
+              >
+                Style
+              </button>
+            ) : null}
             <button
               type="button"
-              onClick={() => setMobileStyleOpen(true)}
-              aria-label="Open style panel"
-              className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 md:hidden dark:border-slate-700"
+              onClick={() => setShortcutsOpen(true)}
+              aria-label="Show keyboard shortcuts"
+              title="Shortcuts (?)"
+              className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
             >
-              Style
+              ?
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setShortcutsOpen(true)}
-            aria-label="Show keyboard shortcuts"
-            title="Shortcuts (?)"
-            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
-          >
-            ?
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              setPresentationIndex(0)
-              setPresentationActive(true)
-            }}
-            aria-label="Start presentation mode"
-            title="Present (arrow keys, Esc to exit)"
-            className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
-          >
-            Present
-          </button>
-          {canInstall ? (
             <button
               type="button"
-              onClick={async () => {
-                await installRef.current?.install()
+              onClick={() => {
+                setPresentationIndex(0)
+                setPresentationActive(true)
               }}
-              aria-label="Install Rapidly as an app"
-              title="Install this app on your device"
-              className="rounded-md border border-emerald-500 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200"
+              aria-label="Start presentation mode"
+              title="Present (arrow keys, Esc to exit)"
+              className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
             >
-              Install app
+              Present
             </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={async () => {
-              const store = storeRef.current
-              if (!store) return
-              const blob = await exportToPNG(store.list())
-              if (blob) downloadBlob(blob, 'rapidly-collab.png')
-            }}
-            className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
-          >
-            Export PNG
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const store = storeRef.current
-              if (!store) return
-              const payload = exportToJSON(store.list())
-              const blob = new Blob([JSON.stringify(payload, null, 2)], {
-                type: 'application/json',
-              })
-              downloadBlob(blob, 'rapidly-collab.json')
-            }}
-            className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
-          >
-            Export JSON
-          </button>
-          <button
-            type="button"
-            onClick={() => {
-              const store = storeRef.current
-              if (!store) return
-              const svg = exportToSVG(store.list())
-              const blob = new Blob([svg], { type: 'image/svg+xml' })
-              downloadBlob(blob, 'rapidly-collab.svg')
-            }}
-            className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
-          >
-            Export SVG
-          </button>
-          {/* ""More"" disclosure for narrow viewports — gives touch
-              users a way to reach the toggles + exports that are
-              hidden above without squeezing the toolbar. */}
-          <details className="relative lg:hidden">
-            <summary
-              className="cursor-pointer list-none rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
-              aria-label="More actions"
-            >
-              ⋯
-            </summary>
-            <div className="absolute right-0 z-20 mt-1 flex min-w-[180px] flex-col gap-2 rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
-              {externalPresence ? null : (
-                <>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={demoPeerActive}
-                      onChange={(e) => {
-                        setDemoPeerActive(e.target.checked)
-                        if (!e.target.checked) setFollowingDemoPeer(false)
-                      }}
-                    />
-                    Demo peer cursor
-                  </label>
-                  <label className="flex items-center gap-2">
-                    <input
-                      type="checkbox"
-                      checked={followingDemoPeer}
-                      disabled={!demoPeerActive}
-                      onChange={(e) => setFollowingDemoPeer(e.target.checked)}
-                    />
-                    Follow demo peer
-                  </label>
-                </>
-              )}
-              <label className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  checked={laserActive}
-                  onChange={(e) => setLaserActive(e.target.checked)}
-                />
-                Laser pointer
-              </label>
+            {canInstall ? (
               <button
                 type="button"
                 onClick={async () => {
-                  const store = storeRef.current
-                  if (!store) return
-                  const blob = await exportToPNG(store.list())
-                  if (blob) downloadBlob(blob, 'rapidly-collab.png')
+                  await installRef.current?.install()
                 }}
-                className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
+                aria-label="Install Rapidly as an app"
+                title="Install this app on your device"
+                className="rounded-md border border-emerald-500 bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100 dark:bg-emerald-950/40 dark:text-emerald-200"
               >
-                Export PNG
+                Install app
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const store = storeRef.current
-                  if (!store) return
-                  const payload = exportToJSON(store.list())
-                  const blob = new Blob([JSON.stringify(payload, null, 2)], {
-                    type: 'application/json',
-                  })
-                  downloadBlob(blob, 'rapidly-collab.json')
-                }}
-                className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
+            ) : null}
+            <button
+              type="button"
+              onClick={async () => {
+                const store = storeRef.current
+                if (!store) return
+                const blob = await exportToPNG(store.list())
+                if (blob) downloadBlob(blob, 'rapidly-collab.png')
+              }}
+              className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
+            >
+              Export PNG
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const store = storeRef.current
+                if (!store) return
+                const payload = exportToJSON(store.list())
+                const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                  type: 'application/json',
+                })
+                downloadBlob(blob, 'rapidly-collab.json')
+              }}
+              className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
+            >
+              Export JSON
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const store = storeRef.current
+                if (!store) return
+                const svg = exportToSVG(store.list())
+                const blob = new Blob([svg], { type: 'image/svg+xml' })
+                downloadBlob(blob, 'rapidly-collab.svg')
+              }}
+              className="hidden rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 sm:inline-block dark:border-slate-700"
+            >
+              Export SVG
+            </button>
+            {/* ""More"" disclosure for narrow viewports — gives touch
+              users a way to reach the toggles + exports that are
+              hidden above without squeezing the toolbar. */}
+            <details className="relative lg:hidden">
+              <summary
+                className="cursor-pointer list-none rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 dark:border-slate-700"
+                aria-label="More actions"
               >
-                Export JSON
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const store = storeRef.current
-                  if (!store) return
-                  const svg = exportToSVG(store.list())
-                  const blob = new Blob([svg], { type: 'image/svg+xml' })
-                  downloadBlob(blob, 'rapidly-collab.svg')
-                }}
-                className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
-              >
-                Export SVG
-              </button>
-            </div>
-          </details>
-          <span className="rp-text-secondary hidden md:inline">
-            elements:{' '}
-            <span className="rp-text-primary font-mono">{elementCount}</span>
-          </span>
-          <span className="rp-text-secondary hidden md:inline">
-            selected:{' '}
-            <span className="rp-text-primary font-mono">{selectionSize}</span>
-          </span>
-          <span className="rp-text-secondary hidden sm:inline">
-            zoom:{' '}
-            <span className="rp-text-primary font-mono">
-              {zoom.toFixed(2)}×
+                ⋯
+              </summary>
+              <div className="absolute right-0 z-20 mt-1 flex min-w-[180px] flex-col gap-2 rounded-md border border-slate-200 bg-white p-3 text-xs shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                {externalPresence ? null : (
+                  <>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={demoPeerActive}
+                        onChange={(e) => {
+                          setDemoPeerActive(e.target.checked)
+                          if (!e.target.checked) setFollowingDemoPeer(false)
+                        }}
+                      />
+                      Demo peer cursor
+                    </label>
+                    <label className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={followingDemoPeer}
+                        disabled={!demoPeerActive}
+                        onChange={(e) => setFollowingDemoPeer(e.target.checked)}
+                      />
+                      Follow demo peer
+                    </label>
+                  </>
+                )}
+                <label className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    checked={laserActive}
+                    onChange={(e) => setLaserActive(e.target.checked)}
+                  />
+                  Laser pointer
+                </label>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const store = storeRef.current
+                    if (!store) return
+                    const blob = await exportToPNG(store.list())
+                    if (blob) downloadBlob(blob, 'rapidly-collab.png')
+                  }}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
+                >
+                  Export PNG
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const store = storeRef.current
+                    if (!store) return
+                    const payload = exportToJSON(store.list())
+                    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+                      type: 'application/json',
+                    })
+                    downloadBlob(blob, 'rapidly-collab.json')
+                  }}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
+                >
+                  Export JSON
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const store = storeRef.current
+                    if (!store) return
+                    const svg = exportToSVG(store.list())
+                    const blob = new Blob([svg], { type: 'image/svg+xml' })
+                    downloadBlob(blob, 'rapidly-collab.svg')
+                  }}
+                  className="rounded-md border border-slate-300 px-2 py-1 text-left hover:border-slate-500 sm:hidden dark:border-slate-700"
+                >
+                  Export SVG
+                </button>
+              </div>
+            </details>
+            <span className="rp-text-secondary hidden md:inline">
+              elements:{' '}
+              <span className="rp-text-primary font-mono">{elementCount}</span>
+            </span>
+            <span className="rp-text-secondary hidden md:inline">
+              selected:{' '}
+              <span className="rp-text-primary font-mono">{selectionSize}</span>
+            </span>
+            <span className="rp-text-secondary hidden sm:inline">
+              zoom:{' '}
+              <span className="rp-text-primary font-mono">
+                {zoom.toFixed(2)}×
+              </span>
             </span>
           </span>
-        </span>
-      </div>
+        </div>
+      )}
       <div className="flex flex-1">
         <div className="relative flex-1">
           <canvas
@@ -2427,7 +2484,7 @@ export function CollabWhiteboard({
             />
           ) : null}
         </div>
-        {storeRef.current ? (
+        {storeRef.current && !zenMode ? (
           <div className="hidden md:flex">
             <PropertiesPanel
               store={storeRef.current}
@@ -2437,6 +2494,17 @@ export function CollabWhiteboard({
           </div>
         ) : null}
       </div>
+      {statsOpen && (
+        <div
+          role="status"
+          aria-label="Whiteboard stats"
+          className="fixed right-3 bottom-3 z-40 rounded-md border border-slate-200 bg-white/90 px-3 py-2 font-mono text-xs text-slate-600 shadow-sm dark:border-slate-700 dark:bg-slate-900/90 dark:text-slate-300"
+        >
+          <div>elements: {elementCount}</div>
+          <div>selected: {selectionSize}</div>
+          <div>zoom: {zoom.toFixed(2)}×</div>
+        </div>
+      )}
       <ShortcutsOverlay
         open={shortcutsOpen}
         onClose={() => setShortcutsOpen(false)}
