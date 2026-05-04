@@ -52,9 +52,14 @@ export function paintSticky(
   ctx.fillStyle = el.strokeColor
   ctx.textBaseline = 'top'
   ctx.textAlign = (el.textAlign ?? 'left') as TextAlign
-  ctx.font = `${el.fontSize}px ${fontCssFor(el.fontFamily as FontFamily)}`
+  const weight = el.fontWeight === 'bold' ? '700 ' : ''
+  const style = el.fontStyle === 'italic' ? 'italic ' : ''
+  ctx.font = `${style}${weight}${el.fontSize}px ${fontCssFor(el.fontFamily as FontFamily)}`
+  ;(ctx as unknown as { letterSpacing?: string }).letterSpacing = `${
+    (el.letterSpacing ?? 0) * el.fontSize
+  }px`
   const maxWidth = el.width - padding * 2
-  const lineHeight = el.fontSize * 1.25
+  const lineHeight = el.fontSize * (el.lineHeight ?? 1.25)
 
   let anchorX = padding
   if (ctx.textAlign === 'center') anchorX = el.width / 2

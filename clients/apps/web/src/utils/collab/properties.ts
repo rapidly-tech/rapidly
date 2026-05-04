@@ -139,3 +139,21 @@ export const CONVERTIBLE_TYPES = [
   { id: 'ellipse', label: 'Ellipse' },
   { id: 'diamond', label: 'Diamond' },
 ] as const
+
+/** Discrete line-height multipliers for the text-style picker. Tiered
+ *  rather than continuous so users land on common values; the model
+ *  field accepts any number, the picker just exposes these. */
+export const LINE_HEIGHTS = [
+  { id: 'tight', label: '1.0', value: 1.0 },
+  { id: 'normal', label: '1.2', value: 1.2 },
+  { id: 'loose', label: '1.5', value: 1.5 },
+  { id: 'double', label: '2.0', value: 2.0 },
+] as const
+
+/** Letter-spacing presets in em units (multiplier on font size). */
+export const LETTER_SPACINGS = [
+  { id: 'tight', label: 'A A', value: -0.02 },
+  { id: 'normal', label: 'AA', value: 0 },
+  { id: 'wide', label: 'A·A', value: 0.05 },
+  { id: 'wider', label: 'A   A', value: 0.1 },
+] as const
