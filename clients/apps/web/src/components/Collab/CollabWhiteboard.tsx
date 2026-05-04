@@ -69,6 +69,20 @@ import {
   mermaidToElements,
   parseMermaid,
 } from '@/utils/collab/mermaid'
+import {
+  classDiagramToElements,
+  parseClassDiagram,
+} from '@/utils/collab/mermaid-class'
+import { erDiagramToElements, parseErDiagram } from '@/utils/collab/mermaid-er'
+import { ganttToElements, parseGantt } from '@/utils/collab/mermaid-gantt'
+import {
+  parseSequence,
+  sequenceToElements,
+} from '@/utils/collab/mermaid-sequence'
+import {
+  parseStateDiagram,
+  stateDiagramToElements,
+} from '@/utils/collab/mermaid-state'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -1927,14 +1941,115 @@ export function CollabWhiteboard({
         )
         if (!input) return
         const detected = detectMermaidChartType(input)
+        const canvas = interactiveRef.current
+        if (!canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
+
+        // Sequence diagrams have their own parser + layout (lifelines,
+        // messages, notes). Dispatch before the generic flowchart path
+        // so the kind-specific message doesn't fire for them.
+        if (detected === 'sequenceDiagram') {
+          const seq = parseSequence(input)
+          if (!seq) {
+            window.alert('Could not parse the sequence diagram.')
+            return
+          }
+          const parts = sequenceToElements(seq, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // Class diagrams: same dispatch pattern.
+        if (detected === 'classDiagram') {
+          const cls = parseClassDiagram(input)
+          if (!cls) {
+            window.alert('Could not parse the class diagram.')
+            return
+          }
+          const parts = classDiagramToElements(cls, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // Gantt: title + axis + section labels + day-positioned bars.
+        if (detected === 'gantt') {
+          const g = parseGantt(input)
+          if (!g) {
+            window.alert('Could not parse the Gantt chart.')
+            return
+          }
+          const parts = ganttToElements(g, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // ER diagrams: entities as boxed tables, relationships as
+        // labelled lines with cardinality annotations.
+        if (detected === 'erDiagram') {
+          const er = parseErDiagram(input)
+          if (!er) {
+            window.alert('Could not parse the ER diagram.')
+            return
+          }
+          const parts = erDiagramToElements(er, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // State diagrams: longest-path layout, terminal pseudo-state
+        // ([*]) renders as a small filled circle.
+        if (detected === 'stateDiagram') {
+          const sd = parseStateDiagram(input)
+          if (!sd) {
+            window.alert('Could not parse the state diagram.')
+            return
+          }
+          const parts = stateDiagramToElements(sd, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         if (detected && detected !== 'flowchart' && detected !== 'graph') {
-          // Recognised as Mermaid but a kind we don't render. Tell the
-          // user explicitly so they understand the gap rather than
+          // Recognised as Mermaid but a kind we don't render yet. Tell
+          // the user explicitly so they understand the gap rather than
           // trying to debug their syntax.
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
-              `flowchart and graph are supported. Convert to a flowchart, ` +
-              `or paste it as text and we'll wire the renderer up later.`,
+              `flowchart, graph, sequenceDiagram, classDiagram, ` +
+              `stateDiagram, erDiagram, and gantt are supported. ` +
+              `Convert to one of those, or paste it as text and we'll ` +
+              `wire the renderer up later.`,
           )
           return
         }
@@ -1947,10 +2062,6 @@ export function CollabWhiteboard({
           return
         }
         // Drop new elements near the viewport centre.
-        const canvas = interactiveRef.current
-        if (!canvas) return
-        const rect = canvas.getBoundingClientRect()
-        const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
         const parts = mermaidToElements(diagram, {
           originX: center.x - 200,
           originY: center.y - 100,
