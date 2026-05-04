@@ -77,6 +77,10 @@ import {
   parseSequence,
   sequenceToElements,
 } from '@/utils/collab/mermaid-sequence'
+import {
+  parseStateDiagram,
+  stateDiagramToElements,
+} from '@/utils/collab/mermaid-state'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -1978,15 +1982,34 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // State diagrams: longest-path layout, terminal pseudo-state
+        // ([*]) renders as a small filled circle.
+        if (detected === 'stateDiagram') {
+          const sd = parseStateDiagram(input)
+          if (!sd) {
+            window.alert('Could not parse the state diagram.')
+            return
+          }
+          const parts = stateDiagramToElements(sd, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         if (detected && detected !== 'flowchart' && detected !== 'graph') {
           // Recognised as Mermaid but a kind we don't render yet. Tell
           // the user explicitly so they understand the gap rather than
           // trying to debug their syntax.
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
-              `flowchart, graph, sequenceDiagram, and classDiagram are ` +
-              `supported. Convert to one of those, or paste it as text ` +
-              `and we'll wire the renderer up later.`,
+              `flowchart, graph, sequenceDiagram, classDiagram, and ` +
+              `stateDiagram are supported. Convert to one of those, or ` +
+              `paste it as text and we'll wire the renderer up later.`,
           )
           return
         }
