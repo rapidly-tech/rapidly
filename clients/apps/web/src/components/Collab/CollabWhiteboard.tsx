@@ -63,7 +63,11 @@ import {
 } from '@/utils/collab/laser'
 import { makeLaserOverlay } from '@/utils/collab/laser-overlay'
 import { filterUnlocked, toggleLock } from '@/utils/collab/locks'
-import { mermaidToElements, parseMermaid } from '@/utils/collab/mermaid'
+import {
+  detectMermaidChartType,
+  mermaidToElements,
+  parseMermaid,
+} from '@/utils/collab/mermaid'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -1826,6 +1830,18 @@ export function CollabWhiteboard({
           'flowchart TD\n  A[Start] --> B{Decision}\n  B --> C[Yes]\n  B --> D[No]',
         )
         if (!input) return
+        const detected = detectMermaidChartType(input)
+        if (detected && detected !== 'flowchart' && detected !== 'graph') {
+          // Recognised as Mermaid but a kind we don't render. Tell the
+          // user explicitly so they understand the gap rather than
+          // trying to debug their syntax.
+          window.alert(
+            `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
+              `flowchart and graph are supported. Convert to a flowchart, ` +
+              `or paste it as text and we'll wire the renderer up later.`,
+          )
+          return
+        }
         const diagram = parseMermaid(input)
         if (!diagram) {
           window.alert(
