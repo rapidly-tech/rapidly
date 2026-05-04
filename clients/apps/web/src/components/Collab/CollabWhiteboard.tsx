@@ -1191,6 +1191,75 @@ export function CollabWhiteboard({
           }
         }
       }
+      // Shift+1 / Shift+2 / Shift+3 → Excalidraw-style zoom shortcuts.
+      // Plain digits already activate tools; the Shift modifier is
+      // reserved for view ops by ``toolIdForKey``.
+      // 1 = fit all, 2 = fit selection in viewport, 3 = zoom to selection.
+      // We treat 2 and 3 as the same op for now since our
+      // ``zoomToSelection`` is a single implementation; users still get
+      // the muscle-memory shortcut.
+      if (
+        e.shiftKey &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        (e.key === '!' || e.key === '@' || e.key === '#' || /^[123]$/.test(e.key))
+      ) {
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        const renderer = rendererRef.current
+        const store = storeRef.current
+        const canvas = interactiveRef.current
+        if (!renderer || !store || !canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const isFitAll = e.key === '!' || e.key === '1'
+        const vp = isFitAll
+          ? zoomToFit(store.list(), rect.width, rect.height)
+          : zoomToSelection(
+              store.list(),
+              selectionRef.current.snapshot,
+              rect.width,
+              rect.height,
+            )
+        if (vp) {
+          e.preventDefault()
+          renderer.setViewport(vp)
+          vpRef.current = vp
+          setZoom(Math.round(vp.scale * 100) / 100)
+          publishViewport()
+        }
+        return
+      }
+      // K → toggle laser pointer mode (Excalidraw parity). Single-letter
+      // shortcut, no modifiers, ignored in form inputs. Laser is a
+      // global presence flag rather than a tool, so it lives outside
+      // ``toolIdForKey``.
+      if (
+        (e.key === 'k' || e.key === 'K') &&
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey
+      ) {
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        setLaserActive((v) => !v)
+        return
+      }
       if (
         (e.metaKey || e.ctrlKey) &&
         e.shiftKey &&
@@ -1342,10 +1411,12 @@ export function CollabWhiteboard({
         }
       } else if (
         (e.metaKey || e.ctrlKey) &&
-        e.shiftKey &&
         (e.key === 'l' || e.key === 'L')
       ) {
-        // Cmd/Ctrl+Shift+L → toggle lock on selection.
+        // Cmd/Ctrl+L (and the legacy Cmd/Ctrl+Shift+L alias) →
+        // toggle lock on selection. Excalidraw's binding is plain
+        // Cmd+L; we accept the older shifted variant too so muscle
+        // memory carries over.
         const store = storeRef.current
         const selection = selectionRef.current
         if (!store || selection.size === 0) return

@@ -56,6 +56,24 @@ describe('toolIdForKey', () => {
     expect(toolIdForKey({ key: ' ' })).toBeNull()
   })
 
+  it('maps Excalidraw-style number aliases', () => {
+    expect(toolIdForKey({ key: '1' })).toBe('select')
+    expect(toolIdForKey({ key: '2' })).toBe('rect')
+    expect(toolIdForKey({ key: '3' })).toBe('diamond')
+    expect(toolIdForKey({ key: '4' })).toBe('ellipse')
+    expect(toolIdForKey({ key: '5' })).toBe('arrow')
+    expect(toolIdForKey({ key: '6' })).toBe('line')
+    expect(toolIdForKey({ key: '7' })).toBe('freedraw')
+    expect(toolIdForKey({ key: '8' })).toBe('text')
+    expect(toolIdForKey({ key: '0' })).toBe('eraser')
+  })
+
+  it('lets Shift+1/2/3 fall through so zoom shortcuts can claim them', () => {
+    expect(toolIdForKey({ key: '1', shiftKey: true })).toBeNull()
+    expect(toolIdForKey({ key: '2', shiftKey: true })).toBeNull()
+    expect(toolIdForKey({ key: '3', shiftKey: true })).toBeNull()
+  })
+
   it('returns null when the event target is a form input', () => {
     const target = { tagName: 'INPUT' } as unknown as HTMLElement
     expect(toolIdForKey({ key: 'r', target })).toBeNull()

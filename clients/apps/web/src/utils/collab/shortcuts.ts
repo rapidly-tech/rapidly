@@ -43,6 +43,8 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
       { keys: ['T'], description: 'Text' },
       { keys: ['S'], description: 'Sticky note' },
       { keys: ['E'], description: 'Eraser — drag over elements to delete' },
+      { keys: ['K'], description: 'Toggle laser pointer' },
+      { keys: ['1–8 / 0'], description: 'Excalidraw-style number aliases' },
     ],
   },
   {
@@ -86,7 +88,10 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
         keys: ['Mod', 'click'],
         description: 'Open the clicked element s link in a new tab',
       },
-      { keys: ['Mod', 'Shift', 'L'], description: 'Toggle lock' },
+      {
+        keys: ['Mod', 'L'],
+        description: 'Toggle lock (Mod+Shift+L still works)',
+      },
       {
         keys: ['Drag', 'rotation handle'],
         description: 'Rotate the selected element around its centre',
@@ -105,6 +110,9 @@ export const SHORTCUT_CATEGORIES: readonly ShortcutCategory[] = [
       { keys: ['Mod', '='], description: 'Zoom in' },
       { keys: ['Mod', '-'], description: 'Zoom out' },
       { keys: ['Mod', '0'], description: 'Reset zoom to 100%' },
+      { keys: ['Shift', '1'], description: 'Zoom to fit all elements' },
+      { keys: ['Shift', '2'], description: 'Zoom to selection (in viewport)' },
+      { keys: ['Shift', '3'], description: 'Zoom to selection' },
     ],
   },
   {

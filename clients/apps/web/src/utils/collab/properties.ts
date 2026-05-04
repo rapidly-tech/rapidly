@@ -78,3 +78,17 @@ export const FILL_PALETTE = [
 
 export const STROKE_WIDTHS = [1, 2, 4] as const
 export const ROUGHNESS_LEVELS = [0, 1, 2] as const
+
+/** Stroke style options exposed in the panel — mirrors the
+ *  ``StrokeStyle`` element field. Excalidraw parity. */
+export const STROKE_STYLES = ['solid', 'dashed', 'dotted'] as const
+
+/** Edge roundness presets in world units. ``0`` is a sharp corner;
+ *  the larger values match Excalidraw's "round" preset for shapes
+ *  that opt into corner rounding (rect, diamond). The picker is only
+ *  meaningful for elements whose ``roundness`` field actually drives
+ *  rendering — others ignore it. */
+export const ROUNDNESS_PRESETS = [
+  { id: 'sharp', label: 'Sharp', value: 0 },
+  { id: 'round', label: 'Round', value: 16 },
+] as const

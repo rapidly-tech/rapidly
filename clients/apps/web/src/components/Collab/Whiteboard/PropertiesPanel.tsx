@@ -22,8 +22,10 @@ import {
   applyToSelection,
   FILL_PALETTE,
   ROUGHNESS_LEVELS,
+  ROUNDNESS_PRESETS,
   sharedField,
   STROKE_PALETTE,
+  STROKE_STYLES,
   STROKE_WIDTHS,
   type SharedValue,
 } from '@/utils/collab/properties'
@@ -59,8 +61,14 @@ export function PropertiesPanel({ store, selection }: Props) {
   const strokeColor = sharedField(store, ids, 'strokeColor')
   const fillColor = sharedField(store, ids, 'fillColor')
   const strokeWidth = sharedField(store, ids, 'strokeWidth')
+  const strokeStyle = sharedField(store, ids, 'strokeStyle')
   const roughness = sharedField(store, ids, 'roughness')
   const opacity = sharedField(store, ids, 'opacity')
+  // ``roundness`` is only on rect + diamond, so it isn't on
+  // ``BaseElement``. Probe the selection by hand and only show the
+  // picker when at least one element actually supports it.
+  const roundness = sharedRoundness(store, ids)
+  const showRoundness = roundness !== null
 
   return (
     <aside className="flex w-60 flex-col gap-5 border-l border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
@@ -105,6 +113,50 @@ export function PropertiesPanel({ store, selection }: Props) {
           {strokeWidth === 'mixed' && <Mixed />}
         </Row>
       </FieldGroup>
+
+      <FieldGroup label="Stroke style">
+        <Row>
+          {STROKE_STYLES.map((s) => (
+            <PillButton
+              key={s}
+              active={strokeStyle === s}
+              onClick={() => applyToSelection(store, ids, { strokeStyle: s })}
+            >
+              <span
+                className="inline-block align-middle"
+                aria-hidden
+                style={{
+                  width: 28,
+                  height: 0,
+                  borderTopWidth: 2,
+                  borderTopStyle: s,
+                  borderColor: 'currentColor',
+                }}
+              />
+            </PillButton>
+          ))}
+          {strokeStyle === 'mixed' && <Mixed />}
+        </Row>
+      </FieldGroup>
+
+      {showRoundness && (
+        <FieldGroup label="Edges">
+          <Row>
+            {ROUNDNESS_PRESETS.map((p) => (
+              <PillButton
+                key={p.id}
+                active={roundness === p.value}
+                onClick={() =>
+                  applyToSelection(store, ids, { roundness: p.value })
+                }
+              >
+                {p.label}
+              </PillButton>
+            ))}
+            {roundness === 'mixed' && <Mixed />}
+          </Row>
+        </FieldGroup>
+      )}
 
       <FieldGroup label="Roughness">
         <Row>
@@ -237,4 +289,27 @@ function Mixed() {
       mixed
     </span>
   )
+}
+
+/** ``roundness`` only exists on rect + diamond, so we can't use the
+ *  ``BaseElement``-typed ``sharedField`` helper. Returns ``null`` if
+ *  no selected element supports the field, the shared numeric value
+ *  if all roundness-bearing elements agree, or ``'mixed'`` otherwise. */
+function sharedRoundness(
+  store: ElementStore,
+  ids: ReadonlySet<string>,
+): SharedValue<number> {
+  let value: number | undefined
+  let initialised = false
+  for (const id of ids) {
+    const el = store.get(id) as { roundness?: number } | undefined
+    if (!el || typeof el.roundness !== 'number') continue
+    if (!initialised) {
+      value = el.roundness
+      initialised = true
+      continue
+    }
+    if (el.roundness !== value) return 'mixed'
+  }
+  return initialised ? (value as number) : null
 }
