@@ -21,6 +21,7 @@ import type { ElementStore } from '@/utils/collab/element-store'
 import {
   applyToSelection,
   FILL_PALETTE,
+  FILL_STYLES,
   FONT_FAMILIES,
   FONT_SIZES,
   ROUGHNESS_LEVELS,
@@ -63,6 +64,7 @@ export function PropertiesPanel({ store, selection }: Props) {
   const ids = selection.snapshot
   const strokeColor = sharedField(store, ids, 'strokeColor')
   const fillColor = sharedField(store, ids, 'fillColor')
+  const fillStyle = sharedField(store, ids, 'fillStyle')
   const strokeWidth = sharedField(store, ids, 'strokeWidth')
   const strokeStyle = sharedField(store, ids, 'strokeStyle')
   const roughness = sharedField(store, ids, 'roughness')
@@ -98,15 +100,43 @@ export function PropertiesPanel({ store, selection }: Props) {
           value={fillColor}
           onChange={(c) =>
             applyToSelection(store, ids, {
+              // Picking transparent collapses the fill to ``none``;
+              // picking any colour promotes a previously-``none`` fill
+              // back to ``solid`` so the colour is actually visible.
+              // The fill-style picker below lets the user pick
+              // hatch / cross-hatch / dots after a colour is set.
               fillColor: c,
-              // Toggle fillStyle to match: transparent → none,
-              // anything else → solid. A fuller hatch/dots picker
-              // can come with a proper Phase 8b.
-              fillStyle: c === 'transparent' ? 'none' : 'solid',
+              fillStyle:
+                c === 'transparent'
+                  ? 'none'
+                  : fillStyle === 'none' ||
+                      fillStyle === 'mixed' ||
+                      fillStyle === null
+                    ? 'solid'
+                    : fillStyle,
             })
           }
         />
       </FieldGroup>
+
+      {fillColor !== 'transparent' && fillStyle !== 'none' && (
+        <FieldGroup label="Fill style">
+          <Row>
+            {FILL_STYLES.map((s) => (
+              <PillButton
+                key={s.id}
+                active={fillStyle === s.id}
+                onClick={() =>
+                  applyToSelection(store, ids, { fillStyle: s.id })
+                }
+              >
+                <span aria-label={s.aria}>{s.label}</span>
+              </PillButton>
+            ))}
+            {fillStyle === 'mixed' && <Mixed />}
+          </Row>
+        </FieldGroup>
+      )}
 
       <FieldGroup label="Stroke width">
         <Row>

@@ -13,6 +13,7 @@
 
 import type { RectElement } from '../elements'
 import { makeRng, roughRect } from '../rough'
+import { paintFill } from './fills'
 
 /** Build the hit + paint Path2D in the element's own coordinate space.
  *  Caller positions/rotates the context before stroking.
@@ -62,10 +63,7 @@ export function paintRect(
 ): void {
   ctx.save()
   applyStrokeStyle(ctx, el)
-  if (el.fillColor !== 'transparent' && el.fillStyle !== 'none') {
-    ctx.fillStyle = el.fillColor
-    ctx.fill(path)
-  }
+  paintFill(ctx, path, el, { width: el.width, height: el.height })
   ctx.stroke(path)
   ctx.restore()
 }

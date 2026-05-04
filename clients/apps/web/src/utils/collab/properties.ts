@@ -118,3 +118,13 @@ export const TEXT_ALIGNMENTS = [
   { id: 'center', label: '⇔', aria: 'Align text center' },
   { id: 'right', label: '⟹', aria: 'Align text right' },
 ] as const
+
+/** Fill style options exposed in the panel. ``solid`` and ``none`` are
+ *  the defaults; ``hatch`` / ``cross-hatch`` / ``dots`` produce the
+ *  Excalidraw-style patterned fills via ``shapes/fills.ts``. */
+export const FILL_STYLES = [
+  { id: 'solid', label: '■', aria: 'Solid fill' },
+  { id: 'hatch', label: '╱╱', aria: 'Hatch fill' },
+  { id: 'cross-hatch', label: '╳', aria: 'Cross-hatch fill' },
+  { id: 'dots', label: '⋮⋮', aria: 'Dotted fill' },
+] as const
