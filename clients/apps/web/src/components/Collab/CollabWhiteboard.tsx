@@ -88,6 +88,7 @@ import {
 import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
 import { SelectionState } from '@/utils/collab/selection'
+import { makeScrollbarsOverlay } from '@/utils/collab/scrollbars'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
 import { exportToSVG } from '@/utils/collab/svg-export'
 import {
@@ -556,6 +557,15 @@ export function CollabWhiteboard({
       laserPaint(ctx)
       selfLaserPaint(ctx)
       cursorPaint(ctx)
+    })
+    // Scrollbars live on the screen-space overlay so they stay pinned
+    // to the bottom-right corner regardless of zoom or pan.
+    const scrollbarsPaint = makeScrollbarsOverlay({
+      getElements: () => store.list(),
+      getViewport: () => r.getViewport(),
+    })
+    r.setScreenPaint((ctx, size) => {
+      scrollbarsPaint(ctx, size)
     })
 
     // Re-paint whenever a remote cursor updates.

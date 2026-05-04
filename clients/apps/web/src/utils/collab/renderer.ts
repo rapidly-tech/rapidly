@@ -90,6 +90,9 @@ export class Renderer {
   private interactivePaintHook:
     | ((ctx: CanvasRenderingContext2D) => void)
     | null = null
+  private screenPaintHook:
+    | ((ctx: CanvasRenderingContext2D, size: { width: number; height: number }) => void)
+    | null = null
 
   constructor(opts: RendererOptions) {
     this.staticCanvas = opts.staticCanvas
@@ -174,6 +177,24 @@ export class Renderer {
     fn: ((ctx: CanvasRenderingContext2D) => void) | null,
   ): void {
     this.interactivePaintHook = fn
+    this.scheduleRepaint()
+  }
+
+  /** Hook for drawing screen-space chrome (scrollbars, debug HUDs)
+   *  on top of the world-space overlay. The callback runs after the
+   *  interactive hook with the canvas transform reset to identity
+   *  (1 device-pixel = 1 unit), so scrollbar tracks pinned to the
+   *  bottom-right corner stay there regardless of zoom or pan. The
+   *  ``size`` argument is the canvas's CSS pixel extent. */
+  setScreenPaint(
+    fn:
+      | ((
+          ctx: CanvasRenderingContext2D,
+          size: { width: number; height: number },
+        ) => void)
+      | null,
+  ): void {
+    this.screenPaintHook = fn
     this.scheduleRepaint()
   }
 
@@ -321,17 +342,24 @@ export class Renderer {
     const rect = this.interactiveCanvas.getBoundingClientRect()
     ctx.setTransform(1, 0, 0, 1, 0, 0)
     ctx.clearRect(0, 0, rect.width * this.dpr, rect.height * this.dpr)
-    if (!this.interactivePaintHook) return
-    const vp = this.viewport
-    ctx.setTransform(
-      vp.scale * this.dpr,
-      0,
-      0,
-      vp.scale * this.dpr,
-      -vp.scrollX * vp.scale * this.dpr,
-      -vp.scrollY * vp.scale * this.dpr,
-    )
-    this.interactivePaintHook(ctx)
+    if (this.interactivePaintHook) {
+      const vp = this.viewport
+      ctx.setTransform(
+        vp.scale * this.dpr,
+        0,
+        0,
+        vp.scale * this.dpr,
+        -vp.scrollX * vp.scale * this.dpr,
+        -vp.scrollY * vp.scale * this.dpr,
+      )
+      this.interactivePaintHook(ctx)
+    }
+    if (this.screenPaintHook) {
+      // Reset to a CSS-pixel transform (DPR-aware) so screen chrome
+      // can position by CSS pixels without thinking about devicePixelRatio.
+      ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0)
+      this.screenPaintHook(ctx, { width: rect.width, height: rect.height })
+    }
   }
 
   private getCachedPath(
