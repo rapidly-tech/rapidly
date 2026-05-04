@@ -73,6 +73,7 @@ import {
   classDiagramToElements,
   parseClassDiagram,
 } from '@/utils/collab/mermaid-class'
+import { erDiagramToElements, parseErDiagram } from '@/utils/collab/mermaid-er'
 import {
   parseSequence,
   sequenceToElements,
@@ -1982,6 +1983,25 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // ER diagrams: entities as boxed tables, relationships as
+        // labelled lines with cardinality annotations.
+        if (detected === 'erDiagram') {
+          const er = parseErDiagram(input)
+          if (!er) {
+            window.alert('Could not parse the ER diagram.')
+            return
+          }
+          const parts = erDiagramToElements(er, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // State diagrams: longest-path layout, terminal pseudo-state
         // ([*]) renders as a small filled circle.
         if (detected === 'stateDiagram') {
@@ -2007,9 +2027,10 @@ export function CollabWhiteboard({
           // trying to debug their syntax.
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
-              `flowchart, graph, sequenceDiagram, classDiagram, and ` +
-              `stateDiagram are supported. Convert to one of those, or ` +
-              `paste it as text and we'll wire the renderer up later.`,
+              `flowchart, graph, sequenceDiagram, classDiagram, ` +
+              `stateDiagram, and erDiagram are supported. Convert to ` +
+              `one of those, or paste it as text and we'll wire the ` +
+              `renderer up later.`,
           )
           return
         }
