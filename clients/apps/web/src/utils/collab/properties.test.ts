@@ -2,7 +2,17 @@ import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 
 import { createElementStore } from './element-store'
-import { applyToSelection, sharedField } from './properties'
+import {
+  applyToSelection,
+  CONVERTIBLE_TYPES,
+  FILL_STYLES,
+  FONT_FAMILIES,
+  FONT_SIZES,
+  ROUNDNESS_PRESETS,
+  sharedField,
+  STROKE_STYLES,
+  TEXT_ALIGNMENTS,
+} from './properties'
 
 describe('sharedField', () => {
   it('returns null for an empty selection', () => {
@@ -125,5 +135,41 @@ describe('applyToSelection', () => {
     })
     applyToSelection(store, new Set(), { opacity: 50 })
     expect(updates).toBe(0)
+  })
+})
+
+describe('property-picker constants', () => {
+  it('CONVERTIBLE_TYPES exposes the three closed shape types', () => {
+    expect(CONVERTIBLE_TYPES.map((t) => t.id).sort()).toEqual([
+      'diamond',
+      'ellipse',
+      'rect',
+    ])
+  })
+
+  it('FILL_STYLES covers solid + the three patterned variants', () => {
+    expect(FILL_STYLES.map((s) => s.id).sort()).toEqual([
+      'cross-hatch',
+      'dots',
+      'hatch',
+      'solid',
+    ])
+  })
+
+  it('STROKE_STYLES covers Excalidraw\'s three line treatments', () => {
+    expect([...STROKE_STYLES].sort()).toEqual(['dashed', 'dotted', 'solid'])
+  })
+
+  it('FONT_FAMILIES, FONT_SIZES, TEXT_ALIGNMENTS are non-empty', () => {
+    expect(FONT_FAMILIES.length).toBeGreaterThan(0)
+    expect(FONT_SIZES.length).toBeGreaterThan(0)
+    expect(TEXT_ALIGNMENTS.length).toBeGreaterThan(0)
+  })
+
+  it('ROUNDNESS_PRESETS has sharp + round entries', () => {
+    expect(ROUNDNESS_PRESETS.map((p) => p.id).sort()).toEqual([
+      'round',
+      'sharp',
+    ])
   })
 })

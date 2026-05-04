@@ -128,3 +128,15 @@ export const FILL_STYLES = [
   { id: 'cross-hatch', label: '╳', aria: 'Cross-hatch fill' },
   { id: 'dots', label: '⋮⋮', aria: 'Dotted fill' },
 ] as const
+
+/** Closed shape types the user can flip between via the Convert
+ *  picker. Position / size / rotation / styles all carry over —
+ *  ``store.update`` mutates the discriminant in place. Sticky and
+ *  text aren't here because they own extra structural fields
+ *  (text content, font, container binding) that don't translate
+ *  cleanly to a generic shape. */
+export const CONVERTIBLE_TYPES = [
+  { id: 'rect', label: 'Rect' },
+  { id: 'ellipse', label: 'Ellipse' },
+  { id: 'diamond', label: 'Diamond' },
+] as const

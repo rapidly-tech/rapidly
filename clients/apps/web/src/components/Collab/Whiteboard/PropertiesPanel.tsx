@@ -20,6 +20,7 @@ import { useEffect, useState } from 'react'
 import type { ElementStore } from '@/utils/collab/element-store'
 import {
   applyToSelection,
+  CONVERTIBLE_TYPES,
   FILL_PALETTE,
   FILL_STYLES,
   FONT_FAMILIES,
@@ -83,14 +84,40 @@ export function PropertiesPanel({ store, selection }: Props) {
   const textAlign = sharedTextField<string>(store, ids, 'textAlign')
   const showText =
     fontFamily !== null || fontSize !== null || textAlign !== null
+  // Convert picker only shows for a single rect/ellipse/diamond.
+  // Multi-selection or sticky/text/freedraw/etc. would need extra
+  // structural translation we don't try to do silently.
+  const convertibleId = singleConvertibleId(store, ids)
+  const convertibleType = convertibleId
+    ? ((store.get(convertibleId) as { type: string } | null)?.type ?? null)
+    : null
 
   return (
     <aside className="flex w-60 flex-col gap-5 border-l border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
+      {convertibleId && convertibleType && (
+        <FieldGroup label="Convert to">
+          <Row>
+            {CONVERTIBLE_TYPES.filter((t) => t.id !== convertibleType).map(
+              (t) => (
+                <PillButton
+                  key={t.id}
+                  active={false}
+                  onClick={() => store.update(convertibleId, { type: t.id })}
+                >
+                  {t.label}
+                </PillButton>
+              ),
+            )}
+          </Row>
+        </FieldGroup>
+      )}
+
       <FieldGroup label="Stroke">
         <Swatches
           palette={STROKE_PALETTE}
           value={strokeColor}
           onChange={(c) => applyToSelection(store, ids, { strokeColor: c })}
+          onPick={(c) => applyToSelection(store, ids, { strokeColor: c })}
         />
       </FieldGroup>
 
@@ -114,6 +141,17 @@ export function PropertiesPanel({ store, selection }: Props) {
                       fillStyle === null
                     ? 'solid'
                     : fillStyle,
+            })
+          }
+          onPick={(c) =>
+            applyToSelection(store, ids, {
+              fillColor: c,
+              fillStyle:
+                fillStyle === 'none' ||
+                fillStyle === 'mixed' ||
+                fillStyle === null
+                  ? 'solid'
+                  : fillStyle,
             })
           }
         />
@@ -330,10 +368,15 @@ function Swatches({
   palette,
   value,
   onChange,
+  onPick,
 }: {
   palette: readonly string[]
   value: SharedValue<string>
   onChange: (c: string) => void
+  /** Optional eye-dropper handler. When provided AND the browser
+   *  exposes ``window.EyeDropper`` (Chrome / Edge as of writing),
+   *  a small picker button is shown after the swatches. */
+  onPick?: (c: string) => void
 }) {
   return (
     <Row>
@@ -358,8 +401,41 @@ function Swatches({
           }}
         />
       ))}
+      {onPick && <EyeDropperButton onPick={onPick} />}
       {value === 'mixed' && <Mixed />}
     </Row>
+  )
+}
+
+/** Eye-dropper button — feature-detects ``window.EyeDropper`` (the
+ *  native HTML EyeDropper API, available in Chromium-based browsers).
+ *  Falls back to nothing when unsupported so Safari/Firefox users
+ *  don't see a non-functional button. */
+function EyeDropperButton({ onPick }: { onPick: (c: string) => void }) {
+  type EyeDropperCtor = new () => { open: () => Promise<{ sRGBHex: string }> }
+  const ctor =
+    typeof window !== 'undefined'
+      ? ((window as unknown as { EyeDropper?: EyeDropperCtor }).EyeDropper ??
+        null)
+      : null
+  if (!ctor) return null
+  return (
+    <button
+      type="button"
+      aria-label="Pick colour from screen"
+      title="Pick colour from screen"
+      onClick={async () => {
+        try {
+          const result = await new ctor().open()
+          if (result?.sRGBHex) onPick(result.sRGBHex)
+        } catch {
+          /* user dismissed picker; treat as no-op */
+        }
+      }}
+      className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-sm hover:border-slate-500 dark:border-slate-700"
+    >
+      <span aria-hidden>⌖</span>
+    </button>
   )
 }
 
@@ -397,6 +473,24 @@ function Mixed() {
       mixed
     </span>
   )
+}
+
+/** Returns the id of the single selected element when it's a
+ *  convertible shape (rect / ellipse / diamond), else ``null``. The
+ *  Convert picker is intentionally a single-element affordance —
+ *  bulk conversions across mixed types invite surprise. */
+function singleConvertibleId(
+  store: ElementStore,
+  ids: ReadonlySet<string>,
+): string | null {
+  if (ids.size !== 1) return null
+  const [id] = ids
+  const el = store.get(id) as { type?: string } | undefined
+  if (!el) return null
+  if (el.type !== 'rect' && el.type !== 'ellipse' && el.type !== 'diamond') {
+    return null
+  }
+  return id
 }
 
 /** ``roundness`` only exists on rect + diamond, so we can't use the
