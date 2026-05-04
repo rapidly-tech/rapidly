@@ -13,7 +13,7 @@ import Button from '@rapidly-tech/ui/components/forms/Button'
 import { useEffect, useState } from 'react'
 
 import { useCollabRoom } from '@/hooks/collab/useCollabRoom'
-import { CollabDisabledError, type CollabKind } from '@/utils/collab/api'
+import { CollabDisabledError } from '@/utils/collab/api'
 import { effectiveDisplayName } from '@/utils/collab/display-name'
 import {
   encodeInviteFragment,
@@ -25,7 +25,6 @@ import { isViewModeUrl } from '@/utils/collab/view-mode'
 
 import { useDisplayName } from './useDisplayName'
 
-import { CollabEditor } from './CollabEditor'
 import { CollabWhiteboard } from './CollabWhiteboard'
 import { EncryptionBadge } from './EncryptionBadge'
 import { PresenceStrip } from './PresenceStrip'
@@ -33,7 +32,6 @@ import { PresenceStrip } from './PresenceStrip'
 const E2EE_ENABLED = process.env.NEXT_PUBLIC_COLLAB_E2EE !== 'false'
 
 export function CollabHostClient() {
-  const [kind, setKind] = useState<CollabKind>('text')
   // Same view-mode URL gate as the guest client. The host is unlikely
   // to load their own session in view mode, but we honour the param
   // for parity so a host who pastes a ``?view=1`` link in a second
@@ -61,7 +59,7 @@ export function CollabHostClient() {
 
   const room = useCollabRoom({
     options: {
-      kind,
+      kind: 'canvas',
       maxParticipants: 4,
       masterKey: fragmentKeys?.masterKey,
       salt: fragmentKeys?.salt,
@@ -79,39 +77,18 @@ export function CollabHostClient() {
     return (
       <div className="glass-elevated mx-auto flex max-w-lg flex-col items-center gap-5 rounded-2xl bg-slate-50 p-7 text-center shadow-xs dark:bg-slate-900">
         <Icon
-          icon="lucide:users"
+          icon="lucide:pen-tool"
           width={48}
           height={48}
           className="text-emerald-600"
           aria-hidden
         />
         <p className="rp-text-secondary text-sm">
-          Up to 4 people today; nothing is saved on our servers.
+          Whiteboard for up to 4 people; nothing is saved on our servers.
         </p>
 
-        <div
-          className="flex w-full items-center gap-2"
-          role="radiogroup"
-          aria-label="Session kind"
-        >
-          <KindButton
-            active={kind === 'text'}
-            onClick={() => setKind('text')}
-            icon="lucide:file-text"
-            label="Document"
-            hint="Textarea bound to a CRDT"
-          />
-          <KindButton
-            active={kind === 'canvas'}
-            onClick={() => setKind('canvas')}
-            icon="lucide:pen-tool"
-            label="Whiteboard"
-            hint="Freehand canvas"
-          />
-        </div>
-
         <Button size="lg" onClick={() => void room.startAsHost()}>
-          Start session
+          Start whiteboard
         </Button>
         {room.status === 'closed' && (
           <p className="rp-text-muted text-xs">Session ended.</p>
@@ -139,30 +116,67 @@ export function CollabHostClient() {
     )
   }
 
+  // Active session escapes the chamber-shell's centered ``max-w-2xl``
+  // wrapper via ``fixed inset-0`` — otherwise the whiteboard (which
+  // sizes to its parent) would be clipped to the right half of the
+  // viewport and read as off-center.
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-      <div className="flex items-center justify-end">
-        <EncryptionBadge state={room.encryption} />
-      </div>
-      <PresenceStrip
-        peers={room.peers}
-        selfLabel={`You (host) · ${broadcastName}`}
-      />
-      <label className="flex items-center gap-2 text-xs">
-        <span className="rp-text-secondary">Your name:</span>
-        <input
-          type="text"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="e.g. Ada"
-          maxLength={32}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
-          aria-label="Your display name for remote peers"
+    <div className="fixed inset-0 z-40 flex flex-col bg-slate-50 dark:bg-slate-950">
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 text-xs dark:border-slate-800 dark:bg-slate-900">
+        <PresenceStrip
+          peers={room.peers}
+          selfLabel={`You (host) · ${broadcastName}`}
         />
-      </label>
+        <label className="flex items-center gap-2">
+          <span className="rp-text-secondary">Your name:</span>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="e.g. Ada"
+            maxLength={32}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+            aria-label="Your display name for remote peers"
+          />
+        </label>
+        <span className="ml-auto flex items-center gap-2">
+          <EncryptionBadge state={room.encryption} />
+          <Button
+            size="sm"
+            onClick={async () => {
+              const url = await room.copyInvite()
+              if (!url) return
+              // Append the E2EE fragment. Browsers strip ``#...`` from
+              // HTTP requests, so the server never sees the key.
+              let full = url
+              if (fragmentKeys) {
+                const fragment = await encodeInviteFragment(fragmentKeys)
+                full = `${url}#${fragment}`
+                try {
+                  await navigator.clipboard.writeText(full)
+                } catch {
+                  /* ignore — the pill below still shows the URL */
+                }
+              }
+              setLastInvite(full)
+            }}
+          >
+            <Icon icon="lucide:link" width={16} height={16} aria-hidden />
+            Copy invite
+          </Button>
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => void room.leave()}
+          >
+            <Icon icon="lucide:log-out" width={16} height={16} aria-hidden />
+            End session
+          </Button>
+        </span>
+      </div>
 
-      {room.doc &&
-        (kind === 'canvas' && room.clientID !== null ? (
+      <div className="min-h-0 flex-1">
+        {room.doc && room.clientID !== null && (
           <CollabWhiteboard
             doc={room.doc}
             presence={room.presence ?? undefined}
@@ -173,47 +187,11 @@ export function CollabHostClient() {
             }}
             viewMode={viewMode}
           />
-        ) : (
-          <CollabEditor doc={room.doc} />
-        ))}
-
-      <div className="glass-elevated flex flex-wrap items-center justify-end gap-2 rounded-2xl bg-slate-50 p-3 shadow-xs dark:bg-slate-900">
-        <Button
-          size="sm"
-          onClick={async () => {
-            const url = await room.copyInvite()
-            if (!url) return
-            // Append the E2EE fragment. Browsers strip ``#...`` from
-            // HTTP requests, so the server never sees the key.
-            let full = url
-            if (fragmentKeys) {
-              const fragment = await encodeInviteFragment(fragmentKeys)
-              full = `${url}#${fragment}`
-              try {
-                await navigator.clipboard.writeText(full)
-              } catch {
-                /* ignore — the pill below still shows the URL */
-              }
-            }
-            setLastInvite(full)
-          }}
-        >
-          <Icon icon="lucide:link" width={16} height={16} aria-hidden />
-          Copy invite
-        </Button>
-
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => void room.leave()}
-        >
-          <Icon icon="lucide:log-out" width={16} height={16} aria-hidden />
-          End session
-        </Button>
+        )}
       </div>
 
       {lastInvite && (
-        <p className="rp-text-secondary truncate rounded-xl bg-slate-50 px-3 py-2 font-mono text-xs dark:bg-slate-800">
+        <p className="rp-text-secondary truncate border-t border-slate-200 bg-slate-50 px-3 py-2 font-mono text-xs dark:border-slate-800 dark:bg-slate-800">
           {lastInvite}
         </p>
       )}
@@ -229,34 +207,5 @@ function DisabledCard() {
         Ask your operator to flip <code>FILE_SHARING_COLLAB_ENABLED</code> on.
       </p>
     </div>
-  )
-}
-
-interface KindButtonProps {
-  active: boolean
-  onClick: () => void
-  icon: string
-  label: string
-  hint: string
-}
-
-function KindButton({ active, onClick, icon, label, hint }: KindButtonProps) {
-  return (
-    <button
-      type="button"
-      role="radio"
-      aria-checked={active}
-      onClick={onClick}
-      className={
-        'flex flex-1 flex-col items-center gap-1 rounded-2xl border px-3 py-3 text-sm transition ' +
-        (active
-          ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-100'
-          : 'rp-text-secondary hover:rp-text-primary border-(--beige-border)/30 bg-white hover:bg-slate-50 dark:border-white/6 dark:bg-white/3 dark:hover:bg-(--beige-item-hover)')
-      }
-    >
-      <Icon icon={icon} width={22} height={22} aria-hidden />
-      <span className="rp-text-primary font-medium">{label}</span>
-      <span className="rp-text-muted text-xs">{hint}</span>
-    </button>
   )
 }

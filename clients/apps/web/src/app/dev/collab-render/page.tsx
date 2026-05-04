@@ -13,5 +13,12 @@ export const metadata: Metadata = {
 }
 
 export default function CollabWhiteboardDemoPage() {
-  return <CollabWhiteboard />
+  // CollabWhiteboard sizes to its parent (``h-full w-full``); on this
+  // bare demo page we give it the viewport explicitly via fixed
+  // positioning so the canvas has somewhere to render.
+  return (
+    <div className="fixed inset-0">
+      <CollabWhiteboard />
+    </div>
+  )
 }

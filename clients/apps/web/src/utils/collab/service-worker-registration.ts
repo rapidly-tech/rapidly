@@ -53,12 +53,21 @@ export interface NavigatorLike {
       scriptURL: string,
       options?: { scope?: string },
     ): Promise<ServiceWorkerRegistrationLike>
+    /** Active SW controlling the page. ``null`` on the very first
+     *  install — used to distinguish a true update from the initial
+     *  registration so we don't surface a "new version" banner on the
+     *  user's first visit. */
+    controller?: unknown | null
   }
 }
 
 export interface ServiceWorkerRegistrationLike {
   installing?: {
     addEventListener(type: 'statechange', fn: () => void): void
+    /** Lifecycle phase. We only flag "update available" once the
+     *  installing worker reaches ``installed`` — earlier transitions
+     *  (``parsed``, ``installing``) shouldn't fire user-facing UI. */
+    state?: string
   } | null
   waiting?: unknown | null
   active?: unknown | null
@@ -106,16 +115,22 @@ export function registerServiceWorker(
       // Wire the ``updatefound`` → ``statechange(installed)`` path so
       // consumers get one coherent notification when an update is
       // ready to be applied.
+      let notified = false
       reg.addEventListener('updatefound', () => {
         const installing = reg.installing
         if (!installing) return
         installing.addEventListener('statechange', () => {
-          // ``state`` is exposed on the ServiceWorker object in real
-          // browsers; our minimal type doesn't surface it — callers
-          // that want state names read through the real DOM type.
-          // Firing on every statechange is harmless: ``installed`` is
-          // the last transition before ``activated``, and consumers
-          // typically debounce a banner render anyway.
+          // Only treat this as an "update available" once the
+          // installing worker has reached ``installed`` AND the page
+          // is currently controlled by an older SW. On the very first
+          // registration there's no controller yet, so an installed
+          // worker is just the initial cache priming — surfacing a
+          // "new version available" banner there is misleading and
+          // led to users seeing the prompt on every fresh visit.
+          if (notified) return
+          if (installing.state !== 'installed') return
+          if (!nav.serviceWorker?.controller) return
+          notified = true
           options.onUpdateAvailable?.()
         })
       })

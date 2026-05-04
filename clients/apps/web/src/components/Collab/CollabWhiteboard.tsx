@@ -1931,7 +1931,7 @@ export function CollabWhiteboard({
   const cursor = hoverCursorStyle ?? activeToolRef.current?.cursor ?? 'default'
 
   return (
-    <div className="flex h-screen w-screen flex-col bg-slate-50 dark:bg-slate-950">
+    <div className="flex h-full w-full flex-col bg-slate-50 dark:bg-slate-950">
       <ServiceWorkerRegistrar />
       <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900">
         <span className="font-semibold">Collab v2 demo</span>

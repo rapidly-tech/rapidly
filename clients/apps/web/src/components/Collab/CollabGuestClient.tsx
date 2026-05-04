@@ -23,7 +23,6 @@ import { isViewModeUrl } from '@/utils/collab/view-mode'
 
 import { useDisplayName } from './useDisplayName'
 
-import { CollabEditor } from './CollabEditor'
 import { CollabWhiteboard } from './CollabWhiteboard'
 import { EncryptionBadge } from './EncryptionBadge'
 import { PresenceStrip } from './PresenceStrip'
@@ -148,49 +147,68 @@ export function CollabGuestClient({ slug, token }: Props) {
     )
   }
 
+  if (room.view?.kind && room.view.kind !== 'canvas') {
+    return (
+      <WarnCard
+        title="Unsupported session type."
+        body={
+          <>
+            This invite is for a document session. Collab only supports
+            whiteboards now — ask the host to start a new whiteboard session.
+          </>
+        }
+      />
+    )
+  }
+
+  // Active session escapes the centred guest-page wrapper via
+  // ``fixed inset-0`` so the whiteboard fills the viewport instead of
+  // being clipped to the right of a centred column.
   return (
-    <div className="mx-auto flex w-full max-w-4xl flex-col gap-4">
-      <div className="flex items-center justify-end">
-        <EncryptionBadge state={room.encryption} />
+    <div className="fixed inset-0 z-40 flex flex-col bg-slate-50 dark:bg-slate-950">
+      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 bg-white px-4 py-2 text-xs dark:border-slate-800 dark:bg-slate-900">
+        <PresenceStrip
+          peers={room.peers}
+          selfLabel={`You · ${broadcastName}`}
+        />
+        <label className="flex items-center gap-2">
+          <span className="rp-text-secondary">Your name:</span>
+          <input
+            type="text"
+            value={displayName}
+            onChange={(e) => setDisplayName(e.target.value)}
+            placeholder="e.g. Ada"
+            maxLength={32}
+            className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
+            aria-label="Your display name for remote peers"
+          />
+        </label>
+        <span className="ml-auto flex items-center gap-2">
+          <EncryptionBadge state={room.encryption} />
+          <Button
+            size="sm"
+            variant="destructive"
+            onClick={() => void room.leave()}
+          >
+            <Icon icon="lucide:log-out" width={16} height={16} aria-hidden />
+            Leave
+          </Button>
+        </span>
       </div>
-      <PresenceStrip peers={room.peers} selfLabel={`You · ${broadcastName}`} />
-      <label className="flex items-center gap-2 text-xs">
-        <span className="rp-text-secondary">Your name:</span>
-        <input
-          type="text"
-          value={displayName}
-          onChange={(e) => setDisplayName(e.target.value)}
-          placeholder="e.g. Ada"
-          maxLength={32}
-          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-xs dark:border-slate-700 dark:bg-slate-900"
-          aria-label="Your display name for remote peers"
-        />
-      </label>
 
-      {room.view?.kind === 'canvas' && room.clientID !== null ? (
-        <CollabWhiteboard
-          doc={room.doc}
-          presence={room.presence ?? undefined}
-          selfUser={{
-            id: String(room.clientID),
-            name: broadcastName,
-            color: stableColor(room.clientID),
-          }}
-          viewMode={viewMode}
-        />
-      ) : (
-        <CollabEditor doc={room.doc} />
-      )}
-
-      <div className="glass-elevated flex items-center justify-end gap-2 rounded-2xl bg-slate-50 p-3 shadow-xs dark:bg-slate-900">
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={() => void room.leave()}
-        >
-          <Icon icon="lucide:log-out" width={16} height={16} aria-hidden />
-          Leave
-        </Button>
+      <div className="min-h-0 flex-1">
+        {room.clientID !== null && (
+          <CollabWhiteboard
+            doc={room.doc}
+            presence={room.presence ?? undefined}
+            selfUser={{
+              id: String(room.clientID),
+              name: broadcastName,
+              color: stableColor(room.clientID),
+            }}
+            viewMode={viewMode}
+          />
+        )}
       </div>
     </div>
   )
