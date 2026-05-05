@@ -70,6 +70,10 @@ import {
   parseMermaid,
 } from '@/utils/collab/mermaid'
 import {
+  blockDiagramToElements,
+  parseBlockDiagram,
+} from '@/utils/collab/mermaid-block'
+import {
   classDiagramToElements,
   parseClassDiagram,
 } from '@/utils/collab/mermaid-class'
@@ -2057,6 +2061,25 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // block: grid layout where each block lands in its declared
+        // position with optional column-spanning.
+        if (detected === 'block') {
+          const b = parseBlockDiagram(input)
+          if (!b) {
+            window.alert('Could not parse the block diagram.')
+            return
+          }
+          const parts = blockDiagramToElements(b, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // xychart: cartesian chart with title + axes + bar/line series.
         if (detected === 'xychart') {
           const x = parseXYChart(input)
@@ -2217,9 +2240,10 @@ export function CollabWhiteboard({
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
               `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
-              `gitGraph, timeline, requirementDiagram, sankey, and ` +
-              `xychart are supported. Convert to one of those, or ` +
-              `paste it as text and we'll wire the renderer up later.`,
+              `gitGraph, timeline, requirementDiagram, sankey, ` +
+              `xychart, and block are supported. Convert to one of ` +
+              `those, or paste it as text and we'll wire the renderer ` +
+              `up later.`,
           )
           return
         }
