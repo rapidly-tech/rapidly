@@ -90,6 +90,10 @@ import {
   parseStateDiagram,
   stateDiagramToElements,
 } from '@/utils/collab/mermaid-state'
+import {
+  parseTimeline,
+  timelineToElements,
+} from '@/utils/collab/mermaid-timeline'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -2047,6 +2051,25 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // Timeline: horizontal axis with period markers + per-period
+        // event cards stacked underneath.
+        if (detected === 'timeline') {
+          const t = parseTimeline(input)
+          if (!t) {
+            window.alert('Could not parse the timeline.')
+            return
+          }
+          const parts = timelineToElements(t, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // Pie: circle outline + radial dividers + colour-coded legend
         // with values + percentages.
         if (detected === 'pie') {
@@ -2130,8 +2153,9 @@ export function CollabWhiteboard({
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
               `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
-              `and gitGraph are supported. Convert to one of those, ` +
-              `or paste it as text and we'll wire the renderer up later.`,
+              `gitGraph, and timeline are supported. Convert to one ` +
+              `of those, or paste it as text and we'll wire the ` +
+              `renderer up later.`,
           )
           return
         }
