@@ -99,6 +99,7 @@ import {
   parseTimeline,
   timelineToElements,
 } from '@/utils/collab/mermaid-timeline'
+import { parseXYChart, xyChartToElements } from '@/utils/collab/mermaid-xychart'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -2056,6 +2057,24 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // xychart: cartesian chart with title + axes + bar/line series.
+        if (detected === 'xychart') {
+          const x = parseXYChart(input)
+          if (!x) {
+            window.alert('Could not parse the xychart.')
+            return
+          }
+          const parts = xyChartToElements(x, {
+            originX: center.x - 250,
+            originY: center.y - 150,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // sankey: column layout, node bars sized by total flow, links
         // as weighted lines whose stroke width is proportional to
         // the value field of each row.
@@ -2198,9 +2217,9 @@ export function CollabWhiteboard({
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
               `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
-              `gitGraph, timeline, requirementDiagram, and sankey ` +
-              `are supported. Convert to one of those, or paste it ` +
-              `as text and we'll wire the renderer up later.`,
+              `gitGraph, timeline, requirementDiagram, sankey, and ` +
+              `xychart are supported. Convert to one of those, or ` +
+              `paste it as text and we'll wire the renderer up later.`,
           )
           return
         }
