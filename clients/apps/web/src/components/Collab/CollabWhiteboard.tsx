@@ -87,6 +87,10 @@ import { journeyToElements, parseJourney } from '@/utils/collab/mermaid-journey'
 import { mindmapToElements, parseMindmap } from '@/utils/collab/mermaid-mindmap'
 import { parsePie, pieToElements } from '@/utils/collab/mermaid-pie'
 import {
+  parseQuadrantChart,
+  quadrantChartToElements,
+} from '@/utils/collab/mermaid-quadrant'
+import {
   parseRequirementDiagram,
   requirementDiagramToElements,
 } from '@/utils/collab/mermaid-requirement'
@@ -2061,6 +2065,25 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // quadrantChart: 2x2 background grid + axes + data points
+        // mapped from the 0..1 unit square.
+        if (detected === 'quadrantChart') {
+          const q = parseQuadrantChart(input)
+          if (!q) {
+            window.alert('Could not parse the quadrant chart.')
+            return
+          }
+          const parts = quadrantChartToElements(q, {
+            originX: center.x - 200,
+            originY: center.y - 200,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // block: grid layout where each block lands in its declared
         // position with optional column-spanning.
         if (detected === 'block') {
@@ -2241,9 +2264,9 @@ export function CollabWhiteboard({
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
               `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
               `gitGraph, timeline, requirementDiagram, sankey, ` +
-              `xychart, and block are supported. Convert to one of ` +
-              `those, or paste it as text and we'll wire the renderer ` +
-              `up later.`,
+              `xychart, block, and quadrantChart are supported. ` +
+              `Convert to one of those, or paste it as text and we'll ` +
+              `wire the renderer up later.`,
           )
           return
         }
