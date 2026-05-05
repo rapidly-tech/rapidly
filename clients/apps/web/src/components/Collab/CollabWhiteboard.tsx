@@ -75,6 +75,7 @@ import {
 } from '@/utils/collab/mermaid-class'
 import { erDiagramToElements, parseErDiagram } from '@/utils/collab/mermaid-er'
 import { ganttToElements, parseGantt } from '@/utils/collab/mermaid-gantt'
+import { journeyToElements, parseJourney } from '@/utils/collab/mermaid-journey'
 import { mindmapToElements, parseMindmap } from '@/utils/collab/mermaid-mindmap'
 import { parsePie, pieToElements } from '@/utils/collab/mermaid-pie'
 import {
@@ -1986,6 +1987,25 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // Journey: horizontal strip of section-grouped task cells with
+        // 0–5 score chips and actor lists.
+        if (detected === 'journey') {
+          const j = parseJourney(input)
+          if (!j) {
+            window.alert('Could not parse the journey.')
+            return
+          }
+          const parts = journeyToElements(j, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // Mindmap: radial layout with the root at the centre.
         if (detected === 'mindmap') {
           const m = parseMindmap(input)
@@ -2086,9 +2106,9 @@ export function CollabWhiteboard({
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
-              `stateDiagram, erDiagram, gantt, pie, and mindmap are ` +
-              `supported. Convert to one of those, or paste it as ` +
-              `text and we'll wire the renderer up later.`,
+              `stateDiagram, erDiagram, gantt, pie, mindmap, and ` +
+              `journey are supported. Convert to one of those, or ` +
+              `paste it as text and we'll wire the renderer up later.`,
           )
           return
         }
