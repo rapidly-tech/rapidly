@@ -110,6 +110,7 @@ import {
   timelineToElements,
 } from '@/utils/collab/mermaid-timeline'
 import { parseXYChart, xyChartToElements } from '@/utils/collab/mermaid-xychart'
+import { parseZenUml, zenUmlToElements } from '@/utils/collab/mermaid-zenuml'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -2296,6 +2297,25 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // ZenUML diagrams: lifeline-style sequence layout — one
+        // column per participant, messages as horizontal arrows.
+        if (detected === 'zenuml') {
+          const zen = parseZenUml(input)
+          if (!zen) {
+            window.alert('Could not parse the ZenUML diagram.')
+            return
+          }
+          const parts = zenUmlToElements(zen, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         if (detected && detected !== 'flowchart' && detected !== 'graph') {
           // Recognised as Mermaid but a kind we don't render yet. Tell
           // the user explicitly so they understand the gap rather than
@@ -2305,7 +2325,7 @@ export function CollabWhiteboard({
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
               `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
               `gitGraph, timeline, requirementDiagram, sankey, ` +
-              `xychart, block, quadrantChart, packet, and C4 are ` +
+              `xychart, block, quadrantChart, packet, C4, and zenuml are ` +
               `supported. Convert to one of those, or paste it as ` +
               `text and we'll wire the renderer up later.`,
           )
