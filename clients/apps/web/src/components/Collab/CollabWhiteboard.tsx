@@ -184,6 +184,7 @@ import { ImageCropDialog } from './Whiteboard/ImageCropDialog'
 import { LibraryDialog } from './Whiteboard/LibraryDialog'
 import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
 import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
+import { SceneSearchPalette } from './Whiteboard/SceneSearchPalette'
 import { ServiceWorkerRegistrar } from './Whiteboard/ServiceWorkerRegistrar'
 import { ShortcutsOverlay } from './Whiteboard/ShortcutsOverlay'
 import { TextEditor } from './Whiteboard/TextEditor'
@@ -350,6 +351,7 @@ export function CollabWhiteboard({
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
   const [shortcutsOpen, setShortcutsOpen] = useState(false)
   const [paletteOpen, setPaletteOpen] = useState(false)
+  const [searchOpen, setSearchOpen] = useState(false)
   const [cropImageId, setCropImageId] = useState<string | null>(null)
   const [laserActive, setLaserActive] = useState(false)
   const [presentationActive, setPresentationActive] = useState(false)
@@ -1443,6 +1445,23 @@ export function CollabWhiteboard({
         setPaletteOpen(true)
         return
       }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'f' || e.key === 'F')) {
+        // Cmd/Ctrl+F → open the scene-search palette to find an
+        // element by its text content. We swallow the browser's
+        // native Find since the in-app one is what matters here.
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        setSearchOpen(true)
+        return
+      }
       if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
         // Shift+/ on US layouts. Skip when the pointer is inside a
         // form input so typing "?" in the text editor works normally.
@@ -2421,6 +2440,14 @@ export function CollabWhiteboard({
       keywords: ['library', 'insert', 'template', 'preset', 'load'],
       run: () => setLibraryOpen(true),
     })
+    list.push({
+      id: 'find.scene',
+      label: 'Find on whiteboard…',
+      category: 'View',
+      shortcut: ['Mod', 'F'],
+      keywords: ['find', 'search', 'locate', 'jump', 'go to'],
+      run: () => setSearchOpen(true),
+    })
     // Help.
     list.push({
       id: 'help.shortcuts',
@@ -2938,6 +2965,35 @@ export function CollabWhiteboard({
         open={paletteOpen}
         commands={commands}
         onClose={() => setPaletteOpen(false)}
+      />
+      <SceneSearchPalette
+        open={searchOpen}
+        elements={
+          searchOpen
+            ? ((storeRef.current?.list() ?? []) as React.ComponentProps<
+                typeof SceneSearchPalette
+              >['elements'])
+            : []
+        }
+        onPick={(hit) => {
+          // Centre the viewport on the picked element and select it
+          // so the user can start operating on it immediately.
+          const renderer = rendererRef.current
+          const canvas = interactiveRef.current
+          if (!renderer || !canvas) return
+          const vp = renderer.getViewport()
+          const rect = canvas.getBoundingClientRect()
+          const next = {
+            scale: vp.scale,
+            scrollX: hit.centerX - rect.width / vp.scale / 2,
+            scrollY: hit.centerY - rect.height / vp.scale / 2,
+          }
+          vpRef.current = next
+          renderer.setViewport(next)
+          publishViewport()
+          selectionRef.current.set([hit.elementId])
+        }}
+        onClose={() => setSearchOpen(false)}
       />
       {cropImageId &&
         storeRef.current &&
