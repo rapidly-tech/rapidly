@@ -184,6 +184,7 @@ import { ImageCropDialog } from './Whiteboard/ImageCropDialog'
 import { LibraryDialog } from './Whiteboard/LibraryDialog'
 import { Minimap } from './Whiteboard/Minimap'
 import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
+import { OutlinePanel } from './Whiteboard/OutlinePanel'
 import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
 import { SceneSearchPalette } from './Whiteboard/SceneSearchPalette'
 import { ServiceWorkerRegistrar } from './Whiteboard/ServiceWorkerRegistrar'
@@ -357,6 +358,7 @@ export function CollabWhiteboard({
   const [storeVersion, setStoreVersion] = useState(0)
   const [viewportTick, setViewportTick] = useState(0)
   const [minimapEnabled, setMinimapEnabled] = useState(true)
+  const [outlineOpen, setOutlineOpen] = useState(false)
   const [selectionSize, setSelectionSize] = useState(0)
   const [demoPeerActive, setDemoPeerActive] = useState(false)
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
@@ -2467,6 +2469,13 @@ export function CollabWhiteboard({
       keywords: ['minimap', 'overview', 'navigator', 'thumbnail'],
       run: () => setMinimapEnabled((on) => !on),
     })
+    list.push({
+      id: 'view.toggleOutline',
+      label: 'Toggle outline panel',
+      category: 'View',
+      keywords: ['outline', 'layers', 'tree', 'list', 'navigator'],
+      run: () => setOutlineOpen((on) => !on),
+    })
     // Help.
     list.push({
       id: 'help.shortcuts',
@@ -2985,6 +2994,39 @@ export function CollabWhiteboard({
         commands={commands}
         onClose={() => setPaletteOpen(false)}
       />
+      {outlineOpen && !presentationActive && storeRef.current
+        ? (() => {
+            void storeVersion
+            return (
+              <OutlinePanel
+                open
+                elements={
+                  storeRef.current!.list() as React.ComponentProps<
+                    typeof OutlinePanel
+                  >['elements']
+                }
+                selectedIds={selectionRef.current.snapshot}
+                onPick={({ elementId, centerX, centerY }) => {
+                  const renderer = rendererRef.current
+                  const canvas = interactiveRef.current
+                  if (!renderer || !canvas) return
+                  const vp = renderer.getViewport()
+                  const rect = canvas.getBoundingClientRect()
+                  const next = {
+                    scale: vp.scale,
+                    scrollX: centerX - rect.width / vp.scale / 2,
+                    scrollY: centerY - rect.height / vp.scale / 2,
+                  }
+                  vpRef.current = next
+                  renderer.setViewport(next)
+                  publishViewport()
+                  selectionRef.current.set([elementId])
+                }}
+                onClose={() => setOutlineOpen(false)}
+              />
+            )
+          })()
+        : null}
       {minimapEnabled &&
         !presentationActive &&
         storeRef.current &&
