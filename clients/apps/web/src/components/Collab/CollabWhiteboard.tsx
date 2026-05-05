@@ -83,6 +83,10 @@ import { journeyToElements, parseJourney } from '@/utils/collab/mermaid-journey'
 import { mindmapToElements, parseMindmap } from '@/utils/collab/mermaid-mindmap'
 import { parsePie, pieToElements } from '@/utils/collab/mermaid-pie'
 import {
+  parseRequirementDiagram,
+  requirementDiagramToElements,
+} from '@/utils/collab/mermaid-requirement'
+import {
   parseSequence,
   sequenceToElements,
 } from '@/utils/collab/mermaid-sequence'
@@ -2051,6 +2055,26 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // requirementDiagram: grid of boxed blocks with header
+        // stereotype + name + key:value attribute rows; relations
+        // render as labelled arrows between blocks.
+        if (detected === 'requirementDiagram') {
+          const r = parseRequirementDiagram(input)
+          if (!r) {
+            window.alert('Could not parse the requirement diagram.')
+            return
+          }
+          const parts = requirementDiagramToElements(r, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // Timeline: horizontal axis with period markers + per-period
         // event cards stacked underneath.
         if (detected === 'timeline') {
@@ -2153,9 +2177,9 @@ export function CollabWhiteboard({
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
               `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
-              `gitGraph, and timeline are supported. Convert to one ` +
-              `of those, or paste it as text and we'll wire the ` +
-              `renderer up later.`,
+              `gitGraph, timeline, and requirementDiagram are ` +
+              `supported. Convert to one of those, or paste it as ` +
+              `text and we'll wire the renderer up later.`,
           )
           return
         }
