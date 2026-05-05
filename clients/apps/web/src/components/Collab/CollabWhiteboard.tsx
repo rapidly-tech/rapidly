@@ -73,6 +73,7 @@ import {
   blockDiagramToElements,
   parseBlockDiagram,
 } from '@/utils/collab/mermaid-block'
+import { c4ToElements, parseC4 } from '@/utils/collab/mermaid-c4'
 import {
   classDiagramToElements,
   parseClassDiagram,
@@ -2275,6 +2276,26 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // C4 diagrams: nodes grouped by boundary, rels as straight
+        // arrows between centres. Covers Context/Container/Component
+        // (+ Dynamic / Deployment headers, same node grammar).
+        if (detected === 'C4Context') {
+          const c4 = parseC4(input)
+          if (!c4) {
+            window.alert('Could not parse the C4 diagram.')
+            return
+          }
+          const parts = c4ToElements(c4, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         if (detected && detected !== 'flowchart' && detected !== 'graph') {
           // Recognised as Mermaid but a kind we don't render yet. Tell
           // the user explicitly so they understand the gap rather than
@@ -2284,7 +2305,7 @@ export function CollabWhiteboard({
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
               `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
               `gitGraph, timeline, requirementDiagram, sankey, ` +
-              `xychart, block, quadrantChart, and packet are ` +
+              `xychart, block, quadrantChart, packet, and C4 are ` +
               `supported. Convert to one of those, or paste it as ` +
               `text and we'll wire the renderer up later.`,
           )
