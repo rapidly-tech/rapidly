@@ -86,6 +86,7 @@ import {
   parseRequirementDiagram,
   requirementDiagramToElements,
 } from '@/utils/collab/mermaid-requirement'
+import { parseSankey, sankeyToElements } from '@/utils/collab/mermaid-sankey'
 import {
   parseSequence,
   sequenceToElements,
@@ -2055,6 +2056,26 @@ export function CollabWhiteboard({
           selectionRef.current.set(created)
           return
         }
+        // sankey: column layout, node bars sized by total flow, links
+        // as weighted lines whose stroke width is proportional to
+        // the value field of each row.
+        if (detected === 'sankey') {
+          const s = parseSankey(input)
+          if (!s) {
+            window.alert('Could not parse the sankey diagram.')
+            return
+          }
+          const parts = sankeyToElements(s, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         // requirementDiagram: grid of boxed blocks with header
         // stereotype + name + key:value attribute rows; relations
         // render as labelled arrows between blocks.
@@ -2177,9 +2198,9 @@ export function CollabWhiteboard({
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
               `flowchart, graph, sequenceDiagram, classDiagram, ` +
               `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
-              `gitGraph, timeline, and requirementDiagram are ` +
-              `supported. Convert to one of those, or paste it as ` +
-              `text and we'll wire the renderer up later.`,
+              `gitGraph, timeline, requirementDiagram, and sankey ` +
+              `are supported. Convert to one of those, or paste it ` +
+              `as text and we'll wire the renderer up later.`,
           )
           return
         }
