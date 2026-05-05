@@ -182,6 +182,7 @@ import { EmbedsOverlay } from './Whiteboard/EmbedsOverlay'
 import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
 import { ImageCropDialog } from './Whiteboard/ImageCropDialog'
 import { LibraryDialog } from './Whiteboard/LibraryDialog'
+import { Minimap } from './Whiteboard/Minimap'
 import { MobilePropertiesSheet } from './Whiteboard/MobilePropertiesSheet'
 import { PropertiesPanel } from './Whiteboard/PropertiesPanel'
 import { SceneSearchPalette } from './Whiteboard/SceneSearchPalette'
@@ -320,6 +321,10 @@ export function CollabWhiteboard({
    *  transition — but **not** from the follow-me apply path, which
    *  would create a mirror-a-peer feedback loop. */
   const publishViewport = useCallback(() => {
+    // Bump unconditionally so the minimap (and any other consumer
+    // that mirrors viewport state into React) re-renders even when
+    // there's no external presence service to broadcast through.
+    setViewportTick((t) => t + 1)
     if (!externalPresence || !selfUserRef.current) return
     const vp = vpRef.current
     externalPresence.setLocal({
@@ -346,6 +351,12 @@ export function CollabWhiteboard({
   const [toolId, setToolId] = useState<ToolId>('hand')
   const [zoom, setZoom] = useState(1)
   const [elementCount, setElementCount] = useState(0)
+  /** Counter bumped on every store observe so the minimap (which
+   *  reads ``store.list()`` on render) re-projects when an element
+   *  moves — count alone wouldn't change for a drag. */
+  const [storeVersion, setStoreVersion] = useState(0)
+  const [viewportTick, setViewportTick] = useState(0)
+  const [minimapEnabled, setMinimapEnabled] = useState(true)
   const [selectionSize, setSelectionSize] = useState(0)
   const [demoPeerActive, setDemoPeerActive] = useState(false)
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
@@ -517,6 +528,7 @@ export function CollabWhiteboard({
     // selection too (matches §3.4 of the plan).
     const unobserveStore = store.observe(() => {
       setElementCount(store.size)
+      setStoreVersion((v) => v + 1)
       const liveIds = new Set<string>()
       for (const el of store.list()) liveIds.add(el.id)
       selection.reconcile(liveIds)
@@ -2448,6 +2460,13 @@ export function CollabWhiteboard({
       keywords: ['find', 'search', 'locate', 'jump', 'go to'],
       run: () => setSearchOpen(true),
     })
+    list.push({
+      id: 'view.toggleMinimap',
+      label: 'Toggle minimap',
+      category: 'View',
+      keywords: ['minimap', 'overview', 'navigator', 'thumbnail'],
+      run: () => setMinimapEnabled((on) => !on),
+    })
     // Help.
     list.push({
       id: 'help.shortcuts',
@@ -2966,6 +2985,37 @@ export function CollabWhiteboard({
         commands={commands}
         onClose={() => setPaletteOpen(false)}
       />
+      {minimapEnabled &&
+        !presentationActive &&
+        storeRef.current &&
+        interactiveRef.current &&
+        (() => {
+          // Re-read the store + viewport on every render keyed by the
+          // bump counters above so pan/zoom/element changes update the
+          // minimap. The dependencies aren't passed as props; the keys
+          // do the invalidation work.
+          void storeVersion
+          void viewportTick
+          const canvas = interactiveRef.current!
+          return (
+            <Minimap
+              elements={
+                storeRef.current!.list() as React.ComponentProps<
+                  typeof Minimap
+                >['elements']
+              }
+              viewport={vpRef.current}
+              canvasWidth={canvas.clientWidth}
+              canvasHeight={canvas.clientHeight}
+              onViewportChange={(next) => {
+                vpRef.current = next
+                rendererRef.current?.setViewport(next)
+                setZoom(Math.round(next.scale * 100) / 100)
+                publishViewport()
+              }}
+            />
+          )
+        })()}
       <SceneSearchPalette
         open={searchOpen}
         elements={
