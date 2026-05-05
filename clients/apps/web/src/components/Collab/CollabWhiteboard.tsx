@@ -69,6 +69,46 @@ import {
   mermaidToElements,
   parseMermaid,
 } from '@/utils/collab/mermaid'
+import {
+  blockDiagramToElements,
+  parseBlockDiagram,
+} from '@/utils/collab/mermaid-block'
+import {
+  classDiagramToElements,
+  parseClassDiagram,
+} from '@/utils/collab/mermaid-class'
+import { erDiagramToElements, parseErDiagram } from '@/utils/collab/mermaid-er'
+import { ganttToElements, parseGantt } from '@/utils/collab/mermaid-gantt'
+import {
+  gitGraphToElements,
+  parseGitGraph,
+} from '@/utils/collab/mermaid-gitgraph'
+import { journeyToElements, parseJourney } from '@/utils/collab/mermaid-journey'
+import { mindmapToElements, parseMindmap } from '@/utils/collab/mermaid-mindmap'
+import { packetToElements, parsePacket } from '@/utils/collab/mermaid-packet'
+import { parsePie, pieToElements } from '@/utils/collab/mermaid-pie'
+import {
+  parseQuadrantChart,
+  quadrantChartToElements,
+} from '@/utils/collab/mermaid-quadrant'
+import {
+  parseRequirementDiagram,
+  requirementDiagramToElements,
+} from '@/utils/collab/mermaid-requirement'
+import { parseSankey, sankeyToElements } from '@/utils/collab/mermaid-sankey'
+import {
+  parseSequence,
+  sequenceToElements,
+} from '@/utils/collab/mermaid-sequence'
+import {
+  parseStateDiagram,
+  stateDiagramToElements,
+} from '@/utils/collab/mermaid-state'
+import {
+  parseTimeline,
+  timelineToElements,
+} from '@/utils/collab/mermaid-timeline'
+import { parseXYChart, xyChartToElements } from '@/utils/collab/mermaid-xychart'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
 import {
   createPinchPanGesture,
@@ -1927,14 +1967,326 @@ export function CollabWhiteboard({
         )
         if (!input) return
         const detected = detectMermaidChartType(input)
+        const canvas = interactiveRef.current
+        if (!canvas) return
+        const rect = canvas.getBoundingClientRect()
+        const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
+
+        // Sequence diagrams have their own parser + layout (lifelines,
+        // messages, notes). Dispatch before the generic flowchart path
+        // so the kind-specific message doesn't fire for them.
+        if (detected === 'sequenceDiagram') {
+          const seq = parseSequence(input)
+          if (!seq) {
+            window.alert('Could not parse the sequence diagram.')
+            return
+          }
+          const parts = sequenceToElements(seq, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // Class diagrams: same dispatch pattern.
+        if (detected === 'classDiagram') {
+          const cls = parseClassDiagram(input)
+          if (!cls) {
+            window.alert('Could not parse the class diagram.')
+            return
+          }
+          const parts = classDiagramToElements(cls, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // gitGraph: horizontal lanes (one per branch) with commit
+        // circles + lane lines + fork/merge connectors.
+        if (detected === 'gitGraph') {
+          const g = parseGitGraph(input)
+          if (!g) {
+            window.alert('Could not parse the gitGraph.')
+            return
+          }
+          const parts = gitGraphToElements(g, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // Journey: horizontal strip of section-grouped task cells with
+        // 0–5 score chips and actor lists.
+        if (detected === 'journey') {
+          const j = parseJourney(input)
+          if (!j) {
+            window.alert('Could not parse the journey.')
+            return
+          }
+          const parts = journeyToElements(j, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // Mindmap: radial layout with the root at the centre.
+        if (detected === 'mindmap') {
+          const m = parseMindmap(input)
+          if (!m) {
+            window.alert('Could not parse the mindmap.')
+            return
+          }
+          const parts = mindmapToElements(m, {
+            originX: center.x,
+            originY: center.y,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // packet: bit-range field cells laid out as a 32-bit-wide
+        // network-packet diagram.
+        if (detected === 'packet') {
+          const p = parsePacket(input)
+          if (!p) {
+            window.alert('Could not parse the packet diagram.')
+            return
+          }
+          const parts = packetToElements(p, {
+            originX: center.x - 320,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const part of parts) created.push(store.create(part))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // quadrantChart: 2x2 background grid + axes + data points
+        // mapped from the 0..1 unit square.
+        if (detected === 'quadrantChart') {
+          const q = parseQuadrantChart(input)
+          if (!q) {
+            window.alert('Could not parse the quadrant chart.')
+            return
+          }
+          const parts = quadrantChartToElements(q, {
+            originX: center.x - 200,
+            originY: center.y - 200,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // block: grid layout where each block lands in its declared
+        // position with optional column-spanning.
+        if (detected === 'block') {
+          const b = parseBlockDiagram(input)
+          if (!b) {
+            window.alert('Could not parse the block diagram.')
+            return
+          }
+          const parts = blockDiagramToElements(b, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // xychart: cartesian chart with title + axes + bar/line series.
+        if (detected === 'xychart') {
+          const x = parseXYChart(input)
+          if (!x) {
+            window.alert('Could not parse the xychart.')
+            return
+          }
+          const parts = xyChartToElements(x, {
+            originX: center.x - 250,
+            originY: center.y - 150,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // sankey: column layout, node bars sized by total flow, links
+        // as weighted lines whose stroke width is proportional to
+        // the value field of each row.
+        if (detected === 'sankey') {
+          const s = parseSankey(input)
+          if (!s) {
+            window.alert('Could not parse the sankey diagram.')
+            return
+          }
+          const parts = sankeyToElements(s, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // requirementDiagram: grid of boxed blocks with header
+        // stereotype + name + key:value attribute rows; relations
+        // render as labelled arrows between blocks.
+        if (detected === 'requirementDiagram') {
+          const r = parseRequirementDiagram(input)
+          if (!r) {
+            window.alert('Could not parse the requirement diagram.')
+            return
+          }
+          const parts = requirementDiagramToElements(r, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // Timeline: horizontal axis with period markers + per-period
+        // event cards stacked underneath.
+        if (detected === 'timeline') {
+          const t = parseTimeline(input)
+          if (!t) {
+            window.alert('Could not parse the timeline.')
+            return
+          }
+          const parts = timelineToElements(t, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // Pie: circle outline + radial dividers + colour-coded legend
+        // with values + percentages.
+        if (detected === 'pie') {
+          const p = parsePie(input)
+          if (!p) {
+            window.alert('Could not parse the pie chart.')
+            return
+          }
+          const parts = pieToElements(p, {
+            originX: center.x - 100,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const part of parts) created.push(store.create(part))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // Gantt: title + axis + section labels + day-positioned bars.
+        if (detected === 'gantt') {
+          const g = parseGantt(input)
+          if (!g) {
+            window.alert('Could not parse the Gantt chart.')
+            return
+          }
+          const parts = ganttToElements(g, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // ER diagrams: entities as boxed tables, relationships as
+        // labelled lines with cardinality annotations.
+        if (detected === 'erDiagram') {
+          const er = parseErDiagram(input)
+          if (!er) {
+            window.alert('Could not parse the ER diagram.')
+            return
+          }
+          const parts = erDiagramToElements(er, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
+        // State diagrams: longest-path layout, terminal pseudo-state
+        // ([*]) renders as a small filled circle.
+        if (detected === 'stateDiagram') {
+          const sd = parseStateDiagram(input)
+          if (!sd) {
+            window.alert('Could not parse the state diagram.')
+            return
+          }
+          const parts = stateDiagramToElements(sd, {
+            originX: center.x - 200,
+            originY: center.y - 100,
+          })
+          const created: string[] = []
+          store.transact(() => {
+            for (const p of parts) created.push(store.create(p))
+          })
+          selectionRef.current.set(created)
+          return
+        }
         if (detected && detected !== 'flowchart' && detected !== 'graph') {
-          // Recognised as Mermaid but a kind we don't render. Tell the
-          // user explicitly so they understand the gap rather than
+          // Recognised as Mermaid but a kind we don't render yet. Tell
+          // the user explicitly so they understand the gap rather than
           // trying to debug their syntax.
           window.alert(
             `Mermaid "${detected}" diagrams aren't rendered yet — only ` +
-              `flowchart and graph are supported. Convert to a flowchart, ` +
-              `or paste it as text and we'll wire the renderer up later.`,
+              `flowchart, graph, sequenceDiagram, classDiagram, ` +
+              `stateDiagram, erDiagram, gantt, pie, mindmap, journey, ` +
+              `gitGraph, timeline, requirementDiagram, sankey, ` +
+              `xychart, block, quadrantChart, and packet are ` +
+              `supported. Convert to one of those, or paste it as ` +
+              `text and we'll wire the renderer up later.`,
           )
           return
         }
@@ -1947,10 +2299,6 @@ export function CollabWhiteboard({
           return
         }
         // Drop new elements near the viewport centre.
-        const canvas = interactiveRef.current
-        if (!canvas) return
-        const rect = canvas.getBoundingClientRect()
-        const center = renderer.screenToWorld(rect.width / 2, rect.height / 2)
         const parts = mermaidToElements(diagram, {
           originX: center.x - 200,
           originY: center.y - 100,
