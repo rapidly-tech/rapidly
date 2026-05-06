@@ -41,28 +41,46 @@ describe('RadialRings (smoke)', () => {
     expect(html).toContain('viewBox="-150 -150 300 300"')
   })
 
-  it('renders labels only when showLabels is on AND the arc fits', () => {
+  it('renders labels for each arc that has room', () => {
+    // The two children sweep π each — plenty of room → both labels
+    // appear when ``getLabel`` provides text. Fall-back uses each
+    // arc's ``label`` (defaulting to its id).
     const html = renderToStaticMarkup(
-      <RadialRings data={data} showLabels excludeRoot />,
+      <RadialRings
+        data={data}
+        excludeRoot
+        getLabel={(arc) => `${arc.id}-label`}
+      />,
     )
     expect(countMatches(html, '<text')).toBe(2)
+    expect(html).toContain('a-label')
+    expect(html).toContain('b-label')
   })
 
-  it('hides labels by default', () => {
-    const html = renderToStaticMarkup(<RadialRings data={data} />)
+  it('hides labels when getLabel returns undefined for an arc', () => {
+    const html = renderToStaticMarkup(
+      <RadialRings data={data} excludeRoot getLabel={() => undefined} />,
+    )
     expect(html).not.toContain('<text')
   })
 
-  it('forwards className to the outer svg', () => {
+  it('forwards className to the wrapper element', () => {
     const html = renderToStaticMarkup(
       <RadialRings data={data} className="custom-class" />,
     )
-    expect(html).toContain('class="custom-class"')
+    expect(html).toContain('custom-class')
   })
 
-  it('marks the svg aria-hidden so it stays out of the a11y tree', () => {
+  it('marks the svg aria-hidden when no click handler is supplied', () => {
     const html = renderToStaticMarkup(<RadialRings data={data} />)
     expect(html).toContain('aria-hidden="true"')
+  })
+
+  it('drops aria-hidden when an onArcClick handler is supplied', () => {
+    const html = renderToStaticMarkup(
+      <RadialRings data={data} onArcClick={() => {}} />,
+    )
+    expect(html).not.toContain('aria-hidden')
   })
 
   it('paints each arc with the supplied colour', () => {
