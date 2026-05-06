@@ -1,21 +1,20 @@
 /**
- * Tests for the Revolver chamber registry.
+ * Tests for the chamber registry.
  *
  * These are pure data assertions — no React rendering. Their purpose is
  * to fail loudly if someone reorders, deletes, or misconfigures a
- * chamber in a way that would break the hexagonal 60° layout or send a
- * visitor to a dead route.
+ * chamber in a way that breaks the chamber-strip nav, sitemap coverage,
+ * or sends a visitor to a dead route.
  */
 
 import { describe, expect, it } from 'vitest'
 
 import { CHAMBERS } from './chambers'
 
-describe('Revolver chamber registry', () => {
-  it('has exactly 6 chambers (hexagonal layout)', () => {
-    // 6 is a geometric invariant: the Revolver component places each
-    // chamber at index * 60° around the ring. Adding or removing entries
-    // silently breaks the layout, so pin the count at the test boundary.
+describe('chamber registry', () => {
+  it('has exactly 6 chambers', () => {
+    // The product is positioned around six chambers; pin the count at
+    // the test boundary so adds / drops surface in review.
     expect(CHAMBERS).toHaveLength(6)
   })
 

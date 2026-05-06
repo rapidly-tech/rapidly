@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 
-import { ChamberPageShell } from '@/components/Revolver/ChamberPageShell'
+import { ChamberPageShell } from '@/components/Chamber/ChamberPageShell'
 import { WatchHostClient } from '@/components/Watch/WatchHostClient'
 
 export const metadata: Metadata = {

@@ -10,11 +10,6 @@ const FileSharingLandingPage = dynamic(() =>
     (m) => m.FileSharingLandingPage,
   ),
 )
-const RevolverLanding = dynamic(() =>
-  import('@/components/Revolver/RevolverLanding').then(
-    (m) => m.RevolverLanding,
-  ),
-)
 
 export const metadata: Metadata = {
   title: 'Home',
@@ -46,21 +41,8 @@ export const metadata: Metadata = {
   },
 }
 
-/** Landing page for secure P2P file sharing with secret viewer integration.
- *
- * When ``NEXT_PUBLIC_REVOLVER_LANDING=true`` at build time, the 6-chamber
- * Revolver replaces the file-sharing hero so we can roll the new surface
- * out on a staging domain before flipping production traffic.
- */
+/** Landing page for secure P2P file sharing with secret viewer integration. */
 export default function Page() {
-  if (CONFIG.REVOLVER_LANDING_ENABLED) {
-    return (
-      <>
-        <SecretViewer />
-        <RevolverLanding />
-      </>
-    )
-  }
   return (
     <>
       <SecretViewer />

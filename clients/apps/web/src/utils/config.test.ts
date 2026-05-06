@@ -26,7 +26,6 @@ describe('CONFIG — shape', () => {
       'POSTHOG_TOKEN',
       'APPLE_DOMAIN_ASSOCIATION',
       'ADMIN_EMAIL',
-      'REVOLVER_LANDING_ENABLED',
       'IS_SANDBOX',
       'SANDBOX_URL',
       'OG_IMAGE_URL',
@@ -49,10 +48,6 @@ describe('CONFIG — shape', () => {
     expect(typeof CONFIG.BASE_URL).toBe('string')
     expect(typeof CONFIG.AUTH_COOKIE_KEY).toBe('string')
     expect(typeof CONFIG.LOGIN_PATH).toBe('string')
-  })
-
-  it('REVOLVER_LANDING_ENABLED is a boolean (explicit opt-in flag)', () => {
-    expect(typeof CONFIG.REVOLVER_LANDING_ENABLED).toBe('boolean')
   })
 
   it('IS_SANDBOX stays coherent with ENVIRONMENT', () => {

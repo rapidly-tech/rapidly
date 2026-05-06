@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
 import { CallHostClient } from '@/components/Call/CallHostClient'
-import { ChamberPageShell } from '@/components/Revolver/ChamberPageShell'
+import { ChamberPageShell } from '@/components/Chamber/ChamberPageShell'
 
 export const metadata: Metadata = {
   title: 'Call — Rapidly',
