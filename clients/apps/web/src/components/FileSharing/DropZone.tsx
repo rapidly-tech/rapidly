@@ -1,10 +1,77 @@
 'use client'
 
+import { RadialRings } from '@/components/Revolver/RadialRings'
 import { extractFileList } from '@/utils/file-sharing/fs'
+import type { RingNode } from '@/utils/visualisation/radial-rings'
 import { Icon } from '@iconify/react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import React, { JSX, useCallback, useEffect, useRef, useState } from 'react'
 import TermsAcceptance from './TermsAcceptance'
+
+// ── Decorative ring data ──
+//
+// Six chambers as the inner ring + a few sub-features per chamber as
+// the outer ring. Equal-weighted so the inner ring divides cleanly
+// into 60° wedges and the outer ring stays balanced. Colours are the
+// muted slate / chamber-tint palette already used elsewhere in the
+// product so the rings feel like decoration, not a chart.
+const RING_DATA: RingNode = {
+  id: 'rapidly',
+  color: 'rgba(148, 163, 184, 0.04)',
+  children: [
+    {
+      id: 'files',
+      color: 'rgba(165, 216, 255, 0.18)',
+      children: [
+        { id: 'files-p2p', value: 1, color: 'rgba(165, 216, 255, 0.32)' },
+        { id: 'files-e2ee', value: 1, color: 'rgba(165, 216, 255, 0.22)' },
+        { id: 'files-link', value: 1, color: 'rgba(165, 216, 255, 0.14)' },
+      ],
+    },
+    {
+      id: 'secret',
+      color: 'rgba(224, 169, 240, 0.18)',
+      children: [
+        { id: 'secret-vault', value: 1, color: 'rgba(224, 169, 240, 0.28)' },
+        { id: 'secret-burn', value: 1, color: 'rgba(224, 169, 240, 0.18)' },
+      ],
+    },
+    {
+      id: 'screen',
+      color: 'rgba(178, 242, 187, 0.18)',
+      children: [
+        { id: 'screen-share', value: 1, color: 'rgba(178, 242, 187, 0.30)' },
+        { id: 'screen-record', value: 1, color: 'rgba(178, 242, 187, 0.20)' },
+        { id: 'screen-cast', value: 1, color: 'rgba(178, 242, 187, 0.14)' },
+      ],
+    },
+    {
+      id: 'watch',
+      color: 'rgba(255, 217, 168, 0.18)',
+      children: [
+        { id: 'watch-sync', value: 1, color: 'rgba(255, 217, 168, 0.30)' },
+        { id: 'watch-rooms', value: 1, color: 'rgba(255, 217, 168, 0.18)' },
+      ],
+    },
+    {
+      id: 'call',
+      color: 'rgba(255, 236, 153, 0.18)',
+      children: [
+        { id: 'call-voice', value: 1, color: 'rgba(255, 236, 153, 0.30)' },
+        { id: 'call-video', value: 1, color: 'rgba(255, 236, 153, 0.20)' },
+        { id: 'call-mesh', value: 1, color: 'rgba(255, 236, 153, 0.14)' },
+      ],
+    },
+    {
+      id: 'collab',
+      color: 'rgba(252, 194, 215, 0.18)',
+      children: [
+        { id: 'collab-docs', value: 1, color: 'rgba(252, 194, 215, 0.30)' },
+        { id: 'collab-board', value: 1, color: 'rgba(252, 194, 215, 0.20)' },
+      ],
+    },
+  ],
+}
 
 // ── Main Component ──
 
@@ -31,11 +98,10 @@ export default function DropZone({
   const smoothX = useSpring(mouseX, springCfg)
   const smoothY = useSpring(mouseY, springCfg)
 
-  // Parallax offsets — top and bottom rings shift in opposite directions for depth
+  // Parallax offset — single visualisation shifts subtly toward the
+  // cursor for depth.
   const topRingX = useTransform(smoothX, [-1, 1], [-5, 5])
   const topRingY = useTransform(smoothY, [-1, 1], [-5, 5])
-  const bottomRingX = useTransform(smoothX, [-1, 1], [6, -6])
-  const bottomRingY = useTransform(smoothY, [-1, 1], [6, -6])
 
   // ── Drag & Drop Handlers ──
   const handleDragEnter = useCallback((e: DragEvent) => {
@@ -151,20 +217,11 @@ export default function DropZone({
   const circleClass =
     'border border-white/50 bg-white/70 backdrop-blur-xl shadow-[0_4px_60px_rgba(120,100,80,0.06)] dark:border-(--border) dark:bg-(--surface) dark:backdrop-blur-xl dark:shadow-[0_4px_60px_rgba(0,0,0,0.2)]'
 
-  // Inner ring — always visible, strong
+  // Stroke colour for the radial-rings outline. Lifts on hover so
+  // the visualisation reads as alive without distracting at rest.
   const ringColor = isDragging
     ? 'text-slate-400/60 dark:text-slate-400/50'
     : 'text-slate-400/35 group-hover:text-slate-400/65 dark:text-slate-400/20 dark:group-hover:text-slate-400/50'
-
-  // Middle ring — always visible at half tone
-  const ringColorMiddle = isDragging
-    ? 'text-slate-400/45 dark:text-slate-400/35'
-    : 'text-slate-400/15 group-hover:text-slate-400/45 dark:text-slate-400/8 dark:group-hover:text-slate-400/35'
-
-  // Outer ring — always visible at quarter tone
-  const ringColorOuter = isDragging
-    ? 'text-slate-400/30 dark:text-slate-400/25'
-    : 'text-slate-400/5 group-hover:text-slate-400/30 dark:text-slate-400/3 dark:group-hover:text-slate-400/23'
 
   // ── Render ──
   return (
@@ -196,147 +253,46 @@ export default function DropZone({
           }
         }}
       >
-        {/* Container — circles extend freely beyond, no clipping */}
+        {/* Container — visualisation extends freely beyond, no clipping */}
         <div className="relative flex items-center justify-center">
-          {/* ===== Top white circle — only bottom curve visible ===== */}
+          {/* Soft backdrop disc behind the rings — keeps the centre
+               legible against busy page backgrounds. The ``circleClass``
+               glass treatment is preserved here so the visual identity
+               of the previous half-circle pair carries over. */}
           <div
-            className={`pointer-events-none absolute left-1/2 h-[866px] w-[866px] -translate-x-1/2 -translate-y-[36%] rounded-full transition-all duration-500 ${circleClass}`}
+            className={`pointer-events-none absolute left-1/2 h-[866px] w-[866px] -translate-x-1/2 rounded-full transition-all duration-500 ${circleClass}`}
           />
 
-          {/* ===== Bottom white circle — only top curve visible ===== */}
-          <div
-            className={`pointer-events-none absolute left-1/2 h-[866px] w-[866px] -translate-x-1/2 translate-y-[36%] rounded-full transition-all duration-500 ${circleClass}`}
-          />
-
-          {/* ===== Top circle — spinning rings with parallax ===== */}
+          {/* ===== Radial multi-ring visualisation — chamber tree
+               laid out as concentric segmented rings. Replaces the
+               static dual-circle Venn so the surface reads as a
+               product map rather than two flat half-circles. ===== */}
           <motion.div
-            className="pointer-events-none absolute left-1/2 z-1 h-[866px] w-[866px] -translate-x-1/2 -translate-y-[36%]"
+            className="pointer-events-none absolute left-1/2 z-1 h-[866px] w-[866px] -translate-x-1/2"
             style={{ x: topRingX, y: topRingY }}
             animate={{ scale: isDragging ? 1.02 : 1 }}
             transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
           >
-            <svg
-              className="absolute inset-0 overflow-visible"
-              viewBox="0 0 866 866"
-              fill="none"
-              aria-hidden="true"
+            <div
+              className={`absolute inset-0 transition-colors duration-500 ${ringColor}`}
+              style={{
+                animation: 'ring-spin 240s linear infinite',
+                transformOrigin: 'center',
+              }}
             >
-              <g
-                style={{
-                  animation: 'ring-spin 200s linear infinite',
-                  transformOrigin: '433px 433px',
-                }}
-              >
-                <circle
-                  cx="433"
-                  cy="433"
-                  r="441"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  fill="none"
-                  className={`transition-colors duration-500 ${ringColor}`}
-                />
-              </g>
-              <g
-                style={{
-                  animation: 'ring-spin 260s linear infinite reverse',
-                  transformOrigin: '433px 433px',
-                }}
-              >
-                <circle
-                  cx="433"
-                  cy="433"
-                  r="450"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  fill="none"
-                  className={`transition-colors duration-500 ${ringColorMiddle}`}
-                />
-              </g>
-              <g
-                style={{
-                  animation: 'ring-spin 320s linear infinite',
-                  transformOrigin: '433px 433px',
-                }}
-              >
-                <circle
-                  cx="433"
-                  cy="433"
-                  r="457"
-                  stroke="currentColor"
-                  strokeWidth="0.5"
-                  fill="none"
-                  className={`transition-colors duration-500 ${ringColorOuter}`}
-                />
-              </g>
-            </svg>
+              <RadialRings
+                data={RING_DATA}
+                radius={433}
+                centerRadius={0.18}
+                radiusScaleExponent={0.5}
+                excludeRoot
+                strokeColor="currentColor"
+                strokeWidth={0.5}
+                className="h-full w-full overflow-visible"
+              />
+            </div>
           </motion.div>
-
-          {/* ===== Bottom circle — spinning rings with parallax ===== */}
-          <motion.div
-            className="pointer-events-none absolute left-1/2 z-1 h-[866px] w-[866px] -translate-x-1/2 translate-y-[36%]"
-            style={{ x: bottomRingX, y: bottomRingY }}
-            animate={{ scale: isDragging ? 1.02 : 1 }}
-            transition={{ duration: 0.7, ease: [0.4, 0, 0.2, 1] }}
-          >
-            <svg
-              className="absolute inset-0 overflow-visible"
-              viewBox="0 0 866 866"
-              fill="none"
-              aria-hidden="true"
-            >
-              <g
-                style={{
-                  animation: 'ring-spin 220s linear infinite reverse',
-                  transformOrigin: '433px 433px',
-                }}
-              >
-                <circle
-                  cx="433"
-                  cy="433"
-                  r="441"
-                  stroke="currentColor"
-                  strokeWidth="1.5"
-                  fill="none"
-                  className={`transition-colors duration-500 ${ringColor}`}
-                />
-              </g>
-              <g
-                style={{
-                  animation: 'ring-spin 280s linear infinite',
-                  transformOrigin: '433px 433px',
-                }}
-              >
-                <circle
-                  cx="433"
-                  cy="433"
-                  r="450"
-                  stroke="currentColor"
-                  strokeWidth="1"
-                  fill="none"
-                  className={`transition-colors duration-500 ${ringColorMiddle}`}
-                />
-              </g>
-              <g
-                style={{
-                  animation: 'ring-spin 340s linear infinite reverse',
-                  transformOrigin: '433px 433px',
-                }}
-              >
-                <circle
-                  cx="433"
-                  cy="433"
-                  r="457"
-                  stroke="currentColor"
-                  strokeWidth="0.5"
-                  fill="none"
-                  className={`transition-colors duration-500 ${ringColorOuter}`}
-                />
-              </g>
-            </svg>
-          </motion.div>
-
-          {/* ===== Content — centered in the eye opening, slight
+          {/* ===== Content — centered in the rings, slight
                nudge up so the stack doesn't crowd the bottom half. ===== */}
           <div className="relative z-10 flex h-64 w-64 -translate-y-1 flex-col items-center justify-center pt-2 md:h-80 md:w-80">
             {/* Upload icon container */}
