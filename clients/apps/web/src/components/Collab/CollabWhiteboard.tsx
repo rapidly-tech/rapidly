@@ -23,6 +23,7 @@ import {
   serialiseSelection,
 } from '@/utils/collab/clipboard'
 import { type Command } from '@/utils/collab/command-palette'
+import { copyElementsAsPng } from '@/utils/collab/copy-as-image'
 import { makeCursorOverlay } from '@/utils/collab/cursor-overlay'
 import { makeDimensionsOverlay } from '@/utils/collab/dimensions-overlay'
 import {
@@ -1585,7 +1586,21 @@ export function CollabWhiteboard({
           return
         }
         const key = e.key.toLowerCase()
-        if (key === 'c') {
+        if (key === 'c' && e.shiftKey) {
+          // Cmd/Ctrl+Shift+C → copy the selection (or the whole
+          // scene if nothing is selected) as a PNG image written to
+          // the system clipboard. Pastes natively into Slack /
+          // Notion / email apps.
+          e.preventDefault()
+          const ids =
+            selection.size > 0
+              ? selection.snapshot
+              : new Set(store.list().map((el) => el.id))
+          const elements = Array.from(ids)
+            .map((id) => store.get(id))
+            .filter((el): el is NonNullable<typeof el> => el !== undefined)
+          void copyElementsAsPng(elements)
+        } else if (key === 'c') {
           if (selection.size === 0) return
           e.preventDefault()
           clipboardCopy(store, selection.snapshot)
@@ -1775,6 +1790,26 @@ export function CollabWhiteboard({
         if (!store) return
         const blob = await exportToPNG(store.list())
         if (blob) downloadBlob(blob, 'rapidly-collab.png')
+      },
+    })
+    list.push({
+      id: 'export.copyAsPng',
+      label: 'Copy selection as PNG',
+      category: 'Export',
+      shortcut: ['Mod', 'Shift', 'C'],
+      keywords: ['copy', 'image', 'png', 'clipboard', 'paste'],
+      run: async () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store) return
+        const ids =
+          selection.size > 0
+            ? selection.snapshot
+            : new Set(store.list().map((el) => el.id))
+        const elements = Array.from(ids)
+          .map((id) => store.get(id))
+          .filter((el): el is NonNullable<typeof el> => el !== undefined)
+        await copyElementsAsPng(elements)
       },
     })
     list.push({
