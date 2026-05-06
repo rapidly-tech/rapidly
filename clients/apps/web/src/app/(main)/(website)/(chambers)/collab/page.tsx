@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 
-import { CollabHostClient } from '@/components/Collab/CollabHostClient'
 import { ChamberPageShell } from '@/components/Chamber/ChamberPageShell'
+import { CollabHostClient } from '@/components/Collab/CollabHostClient'
 
 export const metadata: Metadata = {
   title: 'Collab — Rapidly',
