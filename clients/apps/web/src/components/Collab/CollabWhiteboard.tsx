@@ -24,6 +24,7 @@ import {
 } from '@/utils/collab/clipboard'
 import { type Command } from '@/utils/collab/command-palette'
 import { makeCursorOverlay } from '@/utils/collab/cursor-overlay'
+import { makeDimensionsOverlay } from '@/utils/collab/dimensions-overlay'
 import {
   createElementStore,
   type ElementStore,
@@ -359,6 +360,13 @@ export function CollabWhiteboard({
   const [viewportTick, setViewportTick] = useState(0)
   const [minimapEnabled, setMinimapEnabled] = useState(true)
   const [outlineOpen, setOutlineOpen] = useState(false)
+  const [dimensionsEnabled, setDimensionsEnabled] = useState(true)
+  /** Mirror in a ref so the paint function reads the live value
+   *  without re-binding the renderer when the user toggles. */
+  const dimensionsEnabledRef = useRef(true)
+  useEffect(() => {
+    dimensionsEnabledRef.current = dimensionsEnabled
+  }, [dimensionsEnabled])
   const [selectionSize, setSelectionSize] = useState(0)
   const [demoPeerActive, setDemoPeerActive] = useState(false)
   const [followingDemoPeer, setFollowingDemoPeer] = useState(false)
@@ -586,6 +594,12 @@ export function CollabWhiteboard({
       getGuides: () => currentSnapGuides(),
       getViewport: () => r.getViewport(),
     })
+    const dimensionsPaint = makeDimensionsOverlay({
+      store,
+      selection,
+      getViewport: () => r.getViewport(),
+      getEnabled: () => dimensionsEnabledRef.current,
+    })
     // Self-laser paint pass for chamber mode: the external source's
     // ``getRemotes`` excludes the local client, so without this the
     // user can't see their own laser trail even while peers do. On
@@ -636,6 +650,7 @@ export function CollabWhiteboard({
       remoteSelectionPaint(ctx)
       selectionPaint(ctx)
       alignmentGuidesPaint(ctx)
+      dimensionsPaint(ctx)
       laserPaint(ctx)
       selfLaserPaint(ctx)
       cursorPaint(ctx)
@@ -2475,6 +2490,16 @@ export function CollabWhiteboard({
       category: 'View',
       keywords: ['outline', 'layers', 'tree', 'list', 'navigator'],
       run: () => setOutlineOpen((on) => !on),
+    })
+    list.push({
+      id: 'view.toggleDimensions',
+      label: 'Toggle dimensions overlay',
+      category: 'View',
+      keywords: ['dimensions', 'size', 'measure', 'wxh', 'inspector'],
+      run: () => {
+        setDimensionsEnabled((on) => !on)
+        rendererRef.current?.invalidate()
+      },
     })
     // Help.
     list.push({
