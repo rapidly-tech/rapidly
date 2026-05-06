@@ -17,7 +17,7 @@ describe('landing sitemap', () => {
   const urls = entries.map((e) => e.url)
 
   // Each live chamber's feature page must appear. If this list ever
-  // lags behind ``components/Revolver/chambers.ts``, a chamber ships
+  // lags behind ``components/Chamber/chambers.ts``, a chamber ships
   // without SEO coverage — that's why we pin every expected suffix.
   it.each([
     '/features/shares',
@@ -29,10 +29,6 @@ describe('landing sitemap', () => {
   ])('includes %s', (suffix) => {
     const matches = urls.filter((u) => u.endsWith(suffix))
     expect(matches).toHaveLength(1)
-  })
-
-  it('includes /revolver (the canonical six-chamber landing)', () => {
-    expect(urls.some((u) => u.endsWith('/revolver'))).toBe(true)
   })
 
   it('every entry has an absolute URL', () => {

@@ -1,5 +1,7 @@
 /**
- * Registry of the 6 chambers rendered by the Revolver landing.
+ * Registry of the 6 product chambers (Files / Secret / Screen / Watch
+ * / Call / Collab). Used by the chamber-strip nav on the file-sharing
+ * landing and by per-chamber page metadata.
  *
  * "live" chambers link to a working route. "soon" chambers render with a
  * muted treatment and surface a "coming soon" pill so visitors learn what
@@ -15,7 +17,7 @@ export interface Chamber {
   icon: string
   href: string
   status: ChamberStatus
-  /** One-line positioning used in tooltips and the chamber card aria-label. */
+  /** One-line positioning used in chamber-page metadata + nav strip. */
   tagline: string
 }
 

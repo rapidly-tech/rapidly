@@ -3,7 +3,7 @@
 import { motion } from 'framer-motion'
 import Link from 'next/link'
 
-import { CHAMBERS } from '@/components/Revolver/chambers'
+import { CHAMBERS } from '@/components/Chamber/chambers'
 
 /**
  * Horizontal badge strip linking to the other chambers. Icons are
