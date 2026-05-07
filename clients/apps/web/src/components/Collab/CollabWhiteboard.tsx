@@ -142,6 +142,12 @@ import {
 import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
 import { makeScrollbarsOverlay } from '@/utils/collab/scrollbars'
+import {
+  selectSameFillColor,
+  selectSameFontFamily,
+  selectSameStrokeColor,
+  selectSameType,
+} from '@/utils/collab/select-same'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
 import {
@@ -2020,6 +2026,58 @@ export function CollabWhiteboard({
           new Set(store.list().map((el) => el.id)),
         )
         selectionRef.current.set(ids)
+      },
+    })
+    list.push({
+      id: 'select.sameType',
+      label: 'Select all of same type',
+      category: 'Select',
+      keywords: ['select', 'same', 'type', 'kind'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const ids = selectSameType(store, selection.snapshot)
+        if (ids.length > 0) selection.set(ids)
+      },
+    })
+    list.push({
+      id: 'select.sameStroke',
+      label: 'Select all with same stroke colour',
+      category: 'Select',
+      keywords: ['select', 'same', 'stroke', 'color', 'colour'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const ids = selectSameStrokeColor(store, selection.snapshot)
+        if (ids.length > 0) selection.set(ids)
+      },
+    })
+    list.push({
+      id: 'select.sameFill',
+      label: 'Select all with same fill colour',
+      category: 'Select',
+      keywords: ['select', 'same', 'fill', 'color', 'colour'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const ids = selectSameFillColor(store, selection.snapshot)
+        if (ids.length > 0) selection.set(ids)
+      },
+    })
+    list.push({
+      id: 'select.sameFont',
+      label: 'Select all with same font family',
+      category: 'Select',
+      keywords: ['select', 'same', 'font', 'family', 'typography'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const ids = selectSameFontFamily(store, selection.snapshot)
+        if (ids.length > 0) selection.set(ids)
       },
     })
     list.push({
