@@ -194,6 +194,7 @@ import {
 } from '@/utils/collab/zoom-keyboard'
 import { zoomToFit, zoomToSelection } from '@/utils/collab/zoom-to-fit'
 
+import { CanvasContextMenu } from './Whiteboard/CanvasContextMenu'
 import { CommandPalette } from './Whiteboard/CommandPalette'
 import { EmbedsOverlay } from './Whiteboard/EmbedsOverlay'
 import { HyperlinkBadge } from './Whiteboard/HyperlinkBadge'
@@ -410,6 +411,10 @@ export function CollabWhiteboard({
   const [presentationIndex, setPresentationIndex] = useState(0)
   const [canInstall, setCanInstall] = useState(false)
   const [mobileStyleOpen, setMobileStyleOpen] = useState(false)
+  const [contextMenu, setContextMenu] = useState<{
+    x: number
+    y: number
+  } | null>(null)
   /** When the text tool fires an edit request (or the user double-
    *  clicks a text element), we mount the TextEditor overlay on
    *  this id. Null = no editor active. */
@@ -3254,6 +3259,11 @@ export function CollabWhiteboard({
             onWheel={onWheel}
             onDragOver={onDragOver}
             onDrop={onDrop}
+            onContextMenu={(e) => {
+              if (presentationActive || viewMode) return
+              e.preventDefault()
+              setContextMenu({ x: e.clientX, y: e.clientY })
+            }}
             className="absolute inset-0 h-full w-full touch-none"
             style={{ cursor }}
             aria-label="Renderer demo canvas"
@@ -3375,6 +3385,111 @@ export function CollabWhiteboard({
             />
           )
         })()}
+      {contextMenu && storeRef.current ? (
+        <CanvasContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          onClose={() => setContextMenu(null)}
+          items={(() => {
+            const store = storeRef.current!
+            const selection = selectionRef.current
+            const hasSelection = selection.size > 0
+            const firstSelected = hasSelection
+              ? store.get(Array.from(selection.snapshot)[0]!)
+              : undefined
+            const allLocked =
+              hasSelection &&
+              Array.from(selection.snapshot).every(
+                (id) => store.get(id)?.locked === true,
+              )
+            return [
+              {
+                id: 'paste',
+                label: 'Paste',
+                enabled: getClipboard() !== null,
+                onClick: () => {
+                  const payload = getClipboard()
+                  if (!payload) return
+                  const newIds = clipboardPaste(store, payload)
+                  if (newIds.length > 0) selection.set(newIds)
+                },
+              },
+              {
+                id: 'duplicate',
+                label: 'Duplicate',
+                enabled: hasSelection,
+                onClick: () => {
+                  const newIds = clipboardDuplicate(store, selection.snapshot)
+                  if (newIds.length > 0) selection.set(newIds)
+                },
+              },
+              {
+                id: 'cut',
+                label: 'Cut',
+                enabled: hasSelection,
+                divider: true,
+                onClick: () => {
+                  const payload = serialiseSelection(store, selection.snapshot)
+                  clipboardCut(store, selection.snapshot)
+                  selection.clear()
+                  if (payload) void writeSystemClipboard(payload)
+                },
+              },
+              {
+                id: 'copy',
+                label: 'Copy',
+                enabled: hasSelection,
+                onClick: () => {
+                  clipboardCopy(store, selection.snapshot)
+                  const payload = serialiseSelection(store, selection.snapshot)
+                  if (payload) void writeSystemClipboard(payload)
+                },
+              },
+              {
+                id: 'delete',
+                label: 'Delete',
+                enabled: hasSelection,
+                onClick: deleteSelection,
+              },
+              {
+                id: 'bringToFront',
+                label: 'Bring to front',
+                enabled: hasSelection,
+                divider: true,
+                onClick: () => bringToFront(store, selection.snapshot),
+              },
+              {
+                id: 'sendToBack',
+                label: 'Send to back',
+                enabled: hasSelection,
+                onClick: () => sendToBack(store, selection.snapshot),
+              },
+              {
+                id: 'lock',
+                label: allLocked ? 'Unlock' : 'Lock',
+                enabled: hasSelection,
+                divider: true,
+                onClick: () => toggleLock(store, selection.snapshot),
+              },
+              {
+                id: 'rename',
+                label: 'Rename…',
+                enabled: hasSelection && firstSelected !== undefined,
+                onClick: () => {
+                  if (!firstSelected) return
+                  const seed = displayElementName(firstSelected)
+                  const input = window.prompt(
+                    'Element name (empty to clear):',
+                    seed,
+                  )
+                  if (input === null) return
+                  setElementName(store, selection.snapshot, input)
+                },
+              },
+            ]
+          })()}
+        />
+      ) : null}
       <SceneSearchPalette
         open={searchOpen}
         elements={
