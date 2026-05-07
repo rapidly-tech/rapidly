@@ -348,6 +348,21 @@ export function CollabWhiteboard({
       },
     })
   }, [externalPresence])
+  /** Delete the unlocked elements in the current selection. Shared
+   *  between the Delete / Backspace keyboard handler and the
+   *  mobile-only delete button (which mirrors the keyboard for
+   *  touch devices that have no Delete key). */
+  const deleteSelection = useCallback((): void => {
+    const store = storeRef.current
+    const selection = selectionRef.current
+    if (!store || selection.size === 0) return
+    const deletable = filterUnlocked(store, selection.snapshot)
+    if (deletable.size === 0) return
+    store.deleteMany(Array.from(deletable))
+    const survivors = new Set(selection.snapshot)
+    for (const id of deletable) survivors.delete(id)
+    selection.set(survivors)
+  }, [])
   const demoPeerFrameRef = useRef<number | null>(null)
   const followControllerRef = useRef<FollowMeController | null>(null)
   const undoRef = useRef<UndoController | null>(null)
@@ -1518,9 +1533,8 @@ export function CollabWhiteboard({
         return
       }
       if (e.key === 'Delete' || e.key === 'Backspace') {
-        const store = storeRef.current
         const selection = selectionRef.current
-        if (!store || selection.size === 0) return
+        if (selection.size === 0) return
         // Avoid deleting form input fields elsewhere on the page —
         // our demo doesn't have any, but robust defence.
         const target = e.target as HTMLElement | null
@@ -1534,12 +1548,7 @@ export function CollabWhiteboard({
         // Skip locked elements — delete only those the user has
         // explicitly unlocked. Selection drops the deleted ids, keeps
         // the locked ones still selected so the user sees what stayed.
-        const deletable = filterUnlocked(store, selection.snapshot)
-        if (deletable.size === 0) return
-        store.deleteMany(Array.from(deletable))
-        const survivors = new Set(selection.snapshot)
-        for (const id of deletable) survivors.delete(id)
-        selection.set(survivors)
+        deleteSelection()
       } else if (e.key === 'Escape') {
         const tool = gestureToolRef.current
         const ctx = toolCtx()
@@ -1811,7 +1820,7 @@ export function CollabWhiteboard({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toolCtx, presentationActive, viewMode, publishViewport])
+  }, [toolCtx, presentationActive, viewMode, publishViewport, deleteSelection])
 
   const activeChoice = TOOL_CHOICES.find((t) => t.id === toolId)
 
@@ -1896,6 +1905,14 @@ export function CollabWhiteboard({
           .filter((el): el is NonNullable<typeof el> => el !== undefined)
         await copyElementsAsPng(elements)
       },
+    })
+    list.push({
+      id: 'edit.delete',
+      label: 'Delete selection',
+      category: 'Edit',
+      shortcut: ['Delete'],
+      keywords: ['delete', 'remove', 'erase', 'backspace'],
+      run: () => deleteSelection(),
     })
     list.push({
       id: 'edit.rename',
@@ -2796,7 +2813,7 @@ export function CollabWhiteboard({
     // export / zoom / help / tool toggles between hand and select.
     if (viewMode) return list.filter((c) => isReadOnlyPaletteCommand(c.id))
     return list
-  }, [viewMode, publishViewport])
+  }, [viewMode, publishViewport, deleteSelection])
   const cursor = hoverCursorStyle ?? activeToolRef.current?.cursor ?? 'default'
 
   return (
@@ -2934,6 +2951,17 @@ export function CollabWhiteboard({
                 className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 md:hidden dark:border-slate-700"
               >
                 Style
+              </button>
+            ) : null}
+            {selectionSize > 0 ? (
+              <button
+                type="button"
+                onClick={deleteSelection}
+                aria-label="Delete selected"
+                title="Delete selected"
+                className="rounded-md border border-red-300 px-2 py-1 text-xs text-red-600 hover:border-red-500 hover:bg-red-50 md:hidden dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/40"
+              >
+                Delete
               </button>
             ) : null}
             <button
