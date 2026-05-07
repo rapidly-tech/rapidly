@@ -139,6 +139,10 @@ import { Renderer } from '@/utils/collab/renderer'
 import { makeScrollbarsOverlay } from '@/utils/collab/scrollbars'
 import { SelectionState } from '@/utils/collab/selection'
 import { makeSelectionOverlay } from '@/utils/collab/selection-overlay'
+import {
+  copyStyle as copyElementStyle,
+  pasteStyle as pasteElementStyle,
+} from '@/utils/collab/style-clipboard'
 import { exportToSVG } from '@/utils/collab/svg-export'
 import {
   parseClipboardText,
@@ -1586,7 +1590,24 @@ export function CollabWhiteboard({
           return
         }
         const key = e.key.toLowerCase()
-        if (key === 'c' && e.shiftKey) {
+        if (key === 'c' && e.altKey) {
+          // Cmd/Ctrl+Alt+C → copy the focused element's *style*
+          // (stroke / fill / typography fields) into a local
+          // buffer. Cmd/Ctrl+Alt+V pastes it onto whatever's
+          // selected. Geometry / position / id are deliberately
+          // excluded so paste is a visual transfer, not a clone.
+          if (selection.size === 0) return
+          e.preventDefault()
+          const [firstId] = selection.snapshot
+          const source = firstId ? store.get(firstId) : undefined
+          if (source) copyElementStyle(source)
+        } else if (key === 'v' && e.altKey) {
+          // Cmd/Ctrl+Alt+V → paste the buffered style onto every
+          // currently-selected element.
+          if (selection.size === 0) return
+          e.preventDefault()
+          pasteElementStyle(store, selection.snapshot)
+        } else if (key === 'c' && e.shiftKey) {
           // Cmd/Ctrl+Shift+C → copy the selection (or the whole
           // scene if nothing is selected) as a PNG image written to
           // the system clipboard. Pastes natively into Slack /
@@ -1810,6 +1831,34 @@ export function CollabWhiteboard({
           .map((id) => store.get(id))
           .filter((el): el is NonNullable<typeof el> => el !== undefined)
         await copyElementsAsPng(elements)
+      },
+    })
+    list.push({
+      id: 'edit.copyStyle',
+      label: 'Copy style',
+      category: 'Edit',
+      shortcut: ['Mod', 'Alt', 'C'],
+      keywords: ['style', 'copy', 'fill', 'stroke', 'font'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const [firstId] = selection.snapshot
+        const source = firstId ? store.get(firstId) : undefined
+        if (source) copyElementStyle(source)
+      },
+    })
+    list.push({
+      id: 'edit.pasteStyle',
+      label: 'Paste style',
+      category: 'Edit',
+      shortcut: ['Mod', 'Alt', 'V'],
+      keywords: ['style', 'paste', 'apply', 'fill', 'stroke', 'font'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        pasteElementStyle(store, selection.snapshot)
       },
     })
     list.push({
