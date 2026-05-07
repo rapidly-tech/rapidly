@@ -27,6 +27,10 @@ import { copyElementsAsPng } from '@/utils/collab/copy-as-image'
 import { makeCursorOverlay } from '@/utils/collab/cursor-overlay'
 import { makeDimensionsOverlay } from '@/utils/collab/dimensions-overlay'
 import {
+  displayName as displayElementName,
+  setName as setElementName,
+} from '@/utils/collab/element-name'
+import {
   createElementStore,
   type ElementStore,
 } from '@/utils/collab/element-store'
@@ -1696,6 +1700,31 @@ export function CollabWhiteboard({
         const input = window.prompt('Link URL (empty to clear):', existing)
         if (input === null) return
         setLink(store, selection.snapshot, input)
+      } else if (e.key === 'F2' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // F2 → rename the focused element. Prompts with the current
+        // name (or the type fallback) so the user can edit in place.
+        // Empty input clears the name and falls back to the type
+        // label; the prompt being cancelled is a no-op.
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        const [firstId] = selection.snapshot
+        const source = firstId ? store.get(firstId) : undefined
+        if (!source) return
+        const seed = displayElementName(source)
+        const input = window.prompt('Element name (empty to clear):', seed)
+        if (input === null) return
+        setElementName(store, selection.snapshot, input)
       } else if (
         (e.metaKey || e.ctrlKey) &&
         (e.key === 'z' || e.key === 'Z' || e.key === 'y' || e.key === 'Y')
@@ -1831,6 +1860,25 @@ export function CollabWhiteboard({
           .map((id) => store.get(id))
           .filter((el): el is NonNullable<typeof el> => el !== undefined)
         await copyElementsAsPng(elements)
+      },
+    })
+    list.push({
+      id: 'edit.rename',
+      label: 'Rename element…',
+      category: 'Edit',
+      shortcut: ['F2'],
+      keywords: ['rename', 'name', 'label', 'title'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const [firstId] = selection.snapshot
+        const source = firstId ? store.get(firstId) : undefined
+        if (!source) return
+        const seed = displayElementName(source)
+        const input = window.prompt('Element name (empty to clear):', seed)
+        if (input === null) return
+        setElementName(store, selection.snapshot, input)
       },
     })
     list.push({

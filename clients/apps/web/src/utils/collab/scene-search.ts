@@ -117,17 +117,31 @@ interface Haystack {
 }
 
 function haystacksFor(el: CollabElement): Haystack[] {
+  // ``BaseElement.name`` (optional, applies to every kind) is the
+  // user's friendly label — match it first so a search by the name
+  // a user assigned beats matches in raw content. Frames have their
+  // own required ``name`` field which we consume below in the
+  // ``frame`` branch instead.
+  const haystacks: Haystack[] = []
+  const generic = (el as { name?: string }).name?.trim()
+  if (generic && el.type !== 'frame') {
+    haystacks.push({ text: generic, kindLabel: `${el.type} name` })
+  }
   switch (el.type) {
     case 'text':
-      return el.text ? [{ text: el.text, kindLabel: 'text' }] : []
+      if (el.text) haystacks.push({ text: el.text, kindLabel: 'text' })
+      return haystacks
     case 'sticky':
-      return el.text ? [{ text: el.text, kindLabel: 'sticky' }] : []
+      if (el.text) haystacks.push({ text: el.text, kindLabel: 'sticky' })
+      return haystacks
     case 'frame':
-      return el.name ? [{ text: el.name, kindLabel: 'frame' }] : []
+      if (el.name) haystacks.push({ text: el.name, kindLabel: 'frame' })
+      return haystacks
     case 'embed':
-      return el.url ? [{ text: el.url, kindLabel: 'embed' }] : []
+      if (el.url) haystacks.push({ text: el.url, kindLabel: 'embed' })
+      return haystacks
     default:
-      return []
+      return haystacks
   }
 }
 

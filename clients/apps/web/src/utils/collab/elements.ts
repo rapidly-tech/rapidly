@@ -77,6 +77,11 @@ export interface BaseElement {
   link?: string
   /** Rect / diamond / ellipse can own a text child — this is its id. */
   boundTextId?: string
+  /** Optional human-friendly name. When set, surfaces in the
+   *  outline panel and scores high in scene search, so users can
+   *  find specific elements by a memorable name. Distinct from a
+   *  Frame's required ``name`` field — that's the frame label. */
+  name?: string
 }
 
 export interface RectElement extends BaseElement {
