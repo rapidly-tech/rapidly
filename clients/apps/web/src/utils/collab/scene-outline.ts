@@ -88,6 +88,12 @@ function toLeafNode(el: CollabElement): OutlineNode {
 }
 
 function displayLabel(el: CollabElement): string {
+  // Explicit ``BaseElement.name`` wins over the type-derived
+  // fallback so a renamed shape shows the user-chosen label.
+  const explicit = (el as { name?: string }).name
+  if (explicit && explicit.trim().length > 0 && el.type !== 'frame') {
+    return explicit.trim()
+  }
   switch (el.type) {
     case 'text':
       return (el as TextElement).text || 'Text'
