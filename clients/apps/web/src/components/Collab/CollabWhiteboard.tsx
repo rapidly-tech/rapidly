@@ -46,6 +46,7 @@ import {
   createFollowMeController,
   type FollowMeController,
 } from '@/utils/collab/follow-me'
+import { exportFrameAsPng } from '@/utils/collab/frame-export'
 import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
 import { hasLink, setLink } from '@/utils/collab/hyperlinks'
 import {
@@ -1840,6 +1841,40 @@ export function CollabWhiteboard({
         if (!store) return
         const blob = await exportToPNG(store.list())
         if (blob) downloadBlob(blob, 'rapidly-collab.png')
+      },
+    })
+    list.push({
+      id: 'export.framePng',
+      label: 'Export selected frame as PNG',
+      category: 'Export',
+      keywords: ['frame', 'export', 'png', 'artboard', 'screen'],
+      run: async () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        // First selected frame wins — multi-frame selections export
+        // each one as a separate file would surprise the user, so
+        // pick deterministic and let them re-run for the next.
+        let frameId: string | null = null
+        let frameName = ''
+        for (const id of selection.snapshot) {
+          const el = store.get(id)
+          if (el?.type === 'frame') {
+            frameId = id
+            frameName = (el as { name: string }).name || 'frame'
+            break
+          }
+        }
+        if (!frameId) {
+          window.alert(
+            'Select a frame to export — only frames have a defined export region.',
+          )
+          return
+        }
+        const blob = await exportFrameAsPng(store, frameId)
+        if (!blob) return
+        const safe = frameName.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
+        downloadBlob(blob, `rapidly-${safe || 'frame'}.png`)
       },
     })
     list.push({
