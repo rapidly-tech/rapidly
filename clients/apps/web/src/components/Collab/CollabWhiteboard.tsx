@@ -2943,6 +2943,45 @@ export function CollabWhiteboard({
               />
               Laser pointer
             </label>
+            {/* Mobile-only action buttons — touch devices don't have
+                Delete / Cmd+Z / Cmd+D, so these surface the same
+                paths as keyboard buttons. ``md:hidden`` keeps them
+                off desktop where the keyboard handles it. */}
+            <button
+              type="button"
+              onClick={() => undoRef.current?.undo()}
+              aria-label="Undo"
+              title="Undo"
+              className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 md:hidden dark:border-slate-700"
+            >
+              Undo
+            </button>
+            <button
+              type="button"
+              onClick={() => undoRef.current?.redo()}
+              aria-label="Redo"
+              title="Redo"
+              className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 md:hidden dark:border-slate-700"
+            >
+              Redo
+            </button>
+            {selectionSize > 0 ? (
+              <button
+                type="button"
+                onClick={() => {
+                  const store = storeRef.current
+                  const selection = selectionRef.current
+                  if (!store || selection.size === 0) return
+                  const newIds = clipboardDuplicate(store, selection.snapshot)
+                  if (newIds.length > 0) selection.set(newIds)
+                }}
+                aria-label="Duplicate selected"
+                title="Duplicate selected"
+                className="rounded-md border border-slate-300 px-2 py-1 text-xs hover:border-slate-500 md:hidden dark:border-slate-700"
+              >
+                Dup
+              </button>
+            ) : null}
             {selectionSize > 0 ? (
               <button
                 type="button"
