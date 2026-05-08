@@ -15,6 +15,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 
 import type { CollabElement } from '@/utils/collab/elements'
+import { recordSearchPick } from '@/utils/collab/find-next'
 import { searchScene, type SearchHit } from '@/utils/collab/scene-search'
 
 interface Props {
@@ -52,6 +53,9 @@ export function SceneSearchPalette({ open, elements, onPick, onClose }: Props) {
   const pickHighlighted = (): void => {
     const hit = hits[highlight]
     if (!hit) return
+    // Record so Cmd+G / Cmd+Shift+G can step through the result
+    // set without re-opening the palette.
+    recordSearchPick(query, hit.elementId)
     onClose()
     onPick(hit)
   }
