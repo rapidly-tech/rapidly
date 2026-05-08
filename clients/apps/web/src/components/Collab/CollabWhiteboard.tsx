@@ -182,6 +182,7 @@ import {
 } from '@/utils/collab/view-mode'
 import { makeViewport, zoomAt, type Viewport } from '@/utils/collab/viewport'
 import { animateViewport } from '@/utils/collab/viewport-transitions'
+import { setHidden, toggleHidden } from '@/utils/collab/visibility'
 import {
   bringForward,
   bringToFront,
@@ -1721,6 +1722,27 @@ export function CollabWhiteboard({
         const input = window.prompt('Link URL (empty to clear):', existing)
         if (input === null) return
         setLink(store, selection.snapshot, input)
+      } else if (
+        (e.metaKey || e.ctrlKey) &&
+        e.shiftKey &&
+        (e.key === 'h' || e.key === 'H')
+      ) {
+        // Cmd/Ctrl+Shift+H → toggle visibility on the selection.
+        // (Cmd+H is reserved by macOS for "hide app".)
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        e.preventDefault()
+        toggleHidden(store, selection.snapshot)
       } else if (e.key === 'F2' && !e.metaKey && !e.ctrlKey && !e.altKey) {
         // F2 → rename the focused element. Prompts with the current
         // name (or the type fallback) so the user can edit in place.
@@ -1924,6 +1946,19 @@ export function CollabWhiteboard({
       shortcut: ['Delete'],
       keywords: ['delete', 'remove', 'erase', 'backspace'],
       run: () => deleteSelection(),
+    })
+    list.push({
+      id: 'edit.toggleVisibility',
+      label: 'Toggle visibility',
+      category: 'Edit',
+      shortcut: ['Mod', 'Shift', 'H'],
+      keywords: ['hide', 'show', 'visible', 'eye', 'reveal'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        toggleHidden(store, selection.snapshot)
+      },
     })
     list.push({
       id: 'edit.rename',
@@ -3348,6 +3383,13 @@ export function CollabWhiteboard({
                   renderer.setViewport(next)
                   publishViewport()
                   selectionRef.current.set([elementId])
+                }}
+                onToggleHidden={(id) => {
+                  const store = storeRef.current
+                  if (!store) return
+                  const el = store.get(id)
+                  if (!el) return
+                  setHidden(store, new Set([id]), !el.hidden)
                 }}
                 onClose={() => setOutlineOpen(false)}
               />

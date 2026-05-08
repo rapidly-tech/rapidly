@@ -208,6 +208,9 @@ export class Renderer {
     const elements = this.store.list()
     let found: string | null = null
     for (const el of elements) {
+      // Same gate as the paint pass — hidden elements aren't on
+      // screen so they shouldn't be hit-test targets either.
+      if (el.hidden) continue
       const path = this.getCachedPath(el)
       if (!path) continue
       // Hit test in element-local space by inverting the world
@@ -320,6 +323,10 @@ export class Renderer {
     )
 
     for (const el of this.store.list()) {
+      // Hidden elements are excluded from the static paint pass and
+      // from hit-testing — the outline panel's eye toggle flips this
+      // flag.
+      if (el.hidden) continue
       const adapter = adapterFor(el)
       if (!adapter) continue
       const path = this.getCachedPath(el, adapter.pathFor)

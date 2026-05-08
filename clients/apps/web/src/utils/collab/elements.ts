@@ -82,6 +82,11 @@ export interface BaseElement {
    *  find specific elements by a memorable name. Distinct from a
    *  Frame's required ``name`` field — that's the frame label. */
   name?: string
+  /** When ``true`` the renderer skips painting + hit-testing this
+   *  element. Surfaces in the outline panel as a dimmed row + eye
+   *  toggle. Defaults to undefined (visible) so existing data is
+   *  unaffected. */
+  hidden?: boolean
 }
 
 export interface RectElement extends BaseElement {
