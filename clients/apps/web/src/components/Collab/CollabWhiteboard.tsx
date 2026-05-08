@@ -41,6 +41,7 @@ import {
   exportToJSON,
   exportToPNG,
 } from '@/utils/collab/export'
+import { findNext, findPrevious } from '@/utils/collab/find-next'
 import { flipHorizontal, flipVertical } from '@/utils/collab/flip'
 import {
   createFollowMeController,
@@ -359,6 +360,28 @@ export function CollabWhiteboard({
       },
     })
   }, [externalPresence])
+  /** Pan the viewport to centre on a search hit + select it.
+   *  Shared between the scene-search palette and the Cmd+G /
+   *  Cmd+Shift+G "find next / previous" keyboard handlers. */
+  const focusSearchHit = useCallback(
+    (hit: { elementId: string; centerX: number; centerY: number }): void => {
+      const renderer = rendererRef.current
+      const canvas = interactiveRef.current
+      if (!renderer || !canvas) return
+      const vp = renderer.getViewport()
+      const rect = canvas.getBoundingClientRect()
+      const next = {
+        scale: vp.scale,
+        scrollX: hit.centerX - rect.width / vp.scale / 2,
+        scrollY: hit.centerY - rect.height / vp.scale / 2,
+      }
+      vpRef.current = next
+      renderer.setViewport(next)
+      publishViewport()
+      selectionRef.current.set([hit.elementId])
+    },
+    [publishViewport],
+  )
   /** Delete the unlocked elements in the current selection. Shared
    *  between the Delete / Backspace keyboard handler and the
    *  mobile-only delete button (which mirrors the keyboard for
@@ -1565,6 +1588,27 @@ export function CollabWhiteboard({
         setSearchOpen(true)
         return
       }
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'g' || e.key === 'G')) {
+        // Cmd/Ctrl+G → next scene-search hit. Cmd/Ctrl+Shift+G →
+        // previous. Both no-op when no search has been recorded
+        // yet so the keyboard binding is safe to fire at any time.
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        const store = storeRef.current
+        if (!store) return
+        e.preventDefault()
+        const elements = store.list() as Parameters<typeof findNext>[0]
+        const hit = e.shiftKey ? findPrevious(elements) : findNext(elements)
+        if (hit) focusSearchHit(hit)
+        return
+      }
       if (e.key === '?' && !e.metaKey && !e.ctrlKey) {
         // Shift+/ on US layouts. Skip when the pointer is inside a
         // form input so typing "?" in the text editor works normally.
@@ -1897,7 +1941,14 @@ export function CollabWhiteboard({
     }
     window.addEventListener('keydown', onKeyDown)
     return () => window.removeEventListener('keydown', onKeyDown)
-  }, [toolCtx, presentationActive, viewMode, publishViewport, deleteSelection])
+  }, [
+    toolCtx,
+    presentationActive,
+    viewMode,
+    publishViewport,
+    deleteSelection,
+    focusSearchHit,
+  ])
 
   const activeChoice = TOOL_CHOICES.find((t) => t.id === toolId)
 
@@ -2817,6 +2868,34 @@ export function CollabWhiteboard({
       run: () => setSearchOpen(true),
     })
     list.push({
+      id: 'find.next',
+      label: 'Find next match',
+      category: 'View',
+      shortcut: ['Mod', 'G'],
+      keywords: ['find', 'next', 'search'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const hit = findNext(store.list() as Parameters<typeof findNext>[0])
+        if (hit) focusSearchHit(hit)
+      },
+    })
+    list.push({
+      id: 'find.previous',
+      label: 'Find previous match',
+      category: 'View',
+      shortcut: ['Mod', 'Shift', 'G'],
+      keywords: ['find', 'previous', 'prev', 'search'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const hit = findPrevious(
+          store.list() as Parameters<typeof findPrevious>[0],
+        )
+        if (hit) focusSearchHit(hit)
+      },
+    })
+    list.push({
       id: 'view.toggleMinimap',
       label: 'Toggle minimap',
       category: 'View',
@@ -2968,7 +3047,7 @@ export function CollabWhiteboard({
     // export / zoom / help / tool toggles between hand and select.
     if (viewMode) return list.filter((c) => isReadOnlyPaletteCommand(c.id))
     return list
-  }, [viewMode, publishViewport, deleteSelection])
+  }, [viewMode, publishViewport, deleteSelection, focusSearchHit])
   const cursor = hoverCursorStyle ?? activeToolRef.current?.cursor ?? 'default'
 
   return (
@@ -3613,24 +3692,7 @@ export function CollabWhiteboard({
               >['elements'])
             : []
         }
-        onPick={(hit) => {
-          // Centre the viewport on the picked element and select it
-          // so the user can start operating on it immediately.
-          const renderer = rendererRef.current
-          const canvas = interactiveRef.current
-          if (!renderer || !canvas) return
-          const vp = renderer.getViewport()
-          const rect = canvas.getBoundingClientRect()
-          const next = {
-            scale: vp.scale,
-            scrollX: hit.centerX - rect.width / vp.scale / 2,
-            scrollY: hit.centerY - rect.height / vp.scale / 2,
-          }
-          vpRef.current = next
-          renderer.setViewport(next)
-          publishViewport()
-          selectionRef.current.set([hit.elementId])
-        }}
+        onPick={(hit) => focusSearchHit(hit)}
         onClose={() => setSearchOpen(false)}
       />
       {cropImageId &&
