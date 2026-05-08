@@ -155,6 +155,7 @@ import {
   pasteStyle as pasteElementStyle,
 } from '@/utils/collab/style-clipboard'
 import { exportToSVG } from '@/utils/collab/svg-export'
+import { swapStrokeAndFill } from '@/utils/collab/swap-colors'
 import {
   parseClipboardText,
   readSystemClipboardPayload,
@@ -1657,6 +1658,13 @@ export function CollabWhiteboard({
           // and any error is swallowed by ``writeSystemClipboard``.
           const payload = serialiseSelection(store, selection.snapshot)
           if (payload) void writeSystemClipboard(payload)
+        } else if (key === 'x' && e.shiftKey) {
+          // Cmd/Ctrl+Shift+X → swap stroke and fill on the
+          // selection (Figma muscle memory). Plain Cmd+X is the
+          // in-app cut handled in the next branch.
+          if (selection.size === 0) return
+          e.preventDefault()
+          swapStrokeAndFill(store, selection.snapshot)
         } else if (key === 'x') {
           if (selection.size === 0) return
           e.preventDefault()
@@ -1946,6 +1954,19 @@ export function CollabWhiteboard({
       shortcut: ['Delete'],
       keywords: ['delete', 'remove', 'erase', 'backspace'],
       run: () => deleteSelection(),
+    })
+    list.push({
+      id: 'edit.swapColors',
+      label: 'Swap stroke and fill',
+      category: 'Edit',
+      shortcut: ['Mod', 'Shift', 'X'],
+      keywords: ['swap', 'stroke', 'fill', 'colour', 'color', 'invert'],
+      run: () => {
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store || selection.size === 0) return
+        swapStrokeAndFill(store, selection.snapshot)
+      },
     })
     list.push({
       id: 'edit.toggleVisibility',
