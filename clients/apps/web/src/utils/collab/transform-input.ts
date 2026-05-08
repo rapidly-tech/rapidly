@@ -55,3 +55,28 @@ export function formatDimension(
   const rounded = Number(value.toFixed(decimals))
   return String(rounded)
 }
+
+/** Convert radians to degrees. Identity for ``0``. */
+export function radToDeg(rad: number): number {
+  return (rad * 180) / Math.PI
+}
+
+/** Convert degrees to radians. Identity for ``0``. */
+export function degToRad(deg: number): number {
+  return (deg * Math.PI) / 180
+}
+
+/** Normalise an angle in degrees to ``[0, 360)``. The whiteboard
+ *  stores rotation in radians without a normalisation contract,
+ *  but the rotation input wants the user-visible value to live
+ *  in a single rotation so ``360°`` displays as ``0°`` and
+ *  ``-90°`` as ``270°``. */
+export function normaliseDegrees(deg: number): number {
+  if (!Number.isFinite(deg)) return 0
+  const wrapped = deg % 360
+  // ``deg % 360`` returns ``-0`` for negative multiples of 360 in
+  // JS — coerce to ``+0`` so callers (and equality checks in tests)
+  // see a clean zero.
+  if (wrapped === 0) return 0
+  return wrapped < 0 ? wrapped + 360 : wrapped
+}
