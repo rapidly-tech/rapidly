@@ -3448,6 +3448,21 @@ export function CollabWhiteboard({
                   if (!el) return
                   setHidden(store, new Set([id]), !el.hidden)
                 }}
+                onToggleLocked={(id) => {
+                  const store = storeRef.current
+                  if (!store) return
+                  toggleLock(store, new Set([id]))
+                }}
+                onBringForward={(id) => {
+                  const store = storeRef.current
+                  if (!store) return
+                  bringForward(store, new Set([id]))
+                }}
+                onSendBackward={(id) => {
+                  const store = storeRef.current
+                  if (!store) return
+                  sendBackward(store, new Set([id]))
+                }}
                 onClose={() => setOutlineOpen(false)}
               />
             )

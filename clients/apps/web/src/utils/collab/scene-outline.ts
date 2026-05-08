@@ -29,6 +29,9 @@ export interface OutlineNode {
   /** Mirrors the element's ``hidden`` flag so the panel can render
    *  the eye toggle without re-reading the store. */
   hidden: boolean
+  /** Mirrors the element's ``locked`` flag so the panel can render
+   *  the lock toggle without re-reading the store. */
+  locked: boolean
   /** Children when the node represents a frame; empty otherwise. */
   children: OutlineNode[]
 }
@@ -68,6 +71,7 @@ export function buildSceneOutline(elements: CollabElement[]): OutlineNode[] {
         kind: 'frame',
         label: clampLabel(f.name || 'Frame'),
         hidden: f.hidden === true,
+        locked: f.locked === true,
         children: f.childIds
           .map((id) => byId.get(id))
           .filter((c): c is CollabElement => c !== undefined)
@@ -88,6 +92,7 @@ function toLeafNode(el: CollabElement): OutlineNode {
     kind: el.type,
     label: clampLabel(displayLabel(el)),
     hidden: el.hidden === true,
+    locked: el.locked === true,
     children: [],
   }
 }
