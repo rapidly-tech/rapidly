@@ -34,6 +34,12 @@ interface Props {
   /** Toggle visibility on a single element. The panel's eye button
    *  fires this — the host wires it through ``setHidden``. */
   onToggleHidden: (id: string) => void
+  /** Toggle the lock flag on a single element. */
+  onToggleLocked: (id: string) => void
+  /** Bump z-index by ±1 — host wires through ``bringForward`` /
+   *  ``sendBackward``. */
+  onBringForward: (id: string) => void
+  onSendBackward: (id: string) => void
   onClose: () => void
 }
 
@@ -57,6 +63,9 @@ export function OutlinePanel({
   selectedIds,
   onPick,
   onToggleHidden,
+  onToggleLocked,
+  onBringForward,
+  onSendBackward,
   onClose,
 }: Props) {
   const tree = useMemo(() => buildSceneOutline(elements), [elements])
@@ -118,6 +127,9 @@ export function OutlinePanel({
               pickRow,
               selectedIds,
               onToggleHidden,
+              onToggleLocked,
+              onBringForward,
+              onSendBackward,
             }),
           )
         )}
@@ -132,6 +144,9 @@ interface RenderCtx {
   pickRow: (id: string) => void
   selectedIds: ReadonlySet<string>
   onToggleHidden: (id: string) => void
+  onToggleLocked: (id: string) => void
+  onBringForward: (id: string) => void
+  onSendBackward: (id: string) => void
 }
 
 function renderNode(
@@ -171,6 +186,45 @@ function renderNode(
           {ICONS[node.kind]}
         </span>
         <span className="truncate">{node.label}</span>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          ctx.onSendBackward(node.id)
+        }}
+        aria-label="Send backward"
+        title="Send backward"
+        className="px-1 text-xs text-slate-400 opacity-0 group-hover/row:opacity-100 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+      >
+        ↓
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          ctx.onBringForward(node.id)
+        }}
+        aria-label="Bring forward"
+        title="Bring forward"
+        className="px-1 text-xs text-slate-400 opacity-0 group-hover/row:opacity-100 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300"
+      >
+        ↑
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          ctx.onToggleLocked(node.id)
+        }}
+        aria-label={node.locked ? 'Unlock element' : 'Lock element'}
+        title={node.locked ? 'Unlock element' : 'Lock element'}
+        className={
+          'px-1 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300 ' +
+          (node.locked ? '' : 'opacity-0 group-hover/row:opacity-100')
+        }
+      >
+        {node.locked ? '🔒' : '🔓'}
       </button>
       <button
         type="button"
