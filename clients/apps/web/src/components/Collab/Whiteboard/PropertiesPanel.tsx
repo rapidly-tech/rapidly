@@ -43,6 +43,7 @@ import {
   subscribeRecentColors,
 } from '@/utils/collab/recent-colors'
 import type { SelectionState } from '@/utils/collab/selection'
+import { formatDimension, parseDimension } from '@/utils/collab/transform-input'
 
 interface Props {
   store: ElementStore
@@ -112,6 +113,14 @@ export function PropertiesPanel({ store, selection, onRequestCrop }: Props) {
   // its natural dimensions, which only make sense for one element.
   const cropableImageId = singleImageId(store, ids)
 
+  // Position + size — shared values across the selection. ``null``
+  // when mixed (the field shows blank); set with ``applyToSelection``
+  // so a single typed value rewrites every element in one go.
+  const x = sharedField(store, ids, 'x')
+  const y = sharedField(store, ids, 'y')
+  const width = sharedField(store, ids, 'width')
+  const height = sharedField(store, ids, 'height')
+
   return (
     <aside className="flex w-60 flex-col gap-5 border-l border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
       {cropableImageId && onRequestCrop && (
@@ -144,6 +153,35 @@ export function PropertiesPanel({ store, selection, onRequestCrop }: Props) {
           </Row>
         </FieldGroup>
       )}
+
+      <FieldGroup label="Position & size">
+        <Row>
+          <NumberInput
+            ariaLabel="X"
+            value={x}
+            onApply={(v) => applyToSelection(store, ids, { x: v })}
+          />
+          <NumberInput
+            ariaLabel="Y"
+            value={y}
+            onApply={(v) => applyToSelection(store, ids, { y: v })}
+          />
+        </Row>
+        <Row>
+          <NumberInput
+            ariaLabel="W"
+            value={width}
+            min={1}
+            onApply={(v) => applyToSelection(store, ids, { width: v })}
+          />
+          <NumberInput
+            ariaLabel="H"
+            value={height}
+            min={1}
+            onApply={(v) => applyToSelection(store, ids, { height: v })}
+          />
+        </Row>
+      </FieldGroup>
 
       <FieldGroup label="Stroke">
         <Swatches
@@ -459,6 +497,69 @@ function FieldGroup({
 
 function Row({ children }: { children: React.ReactNode }) {
   return <div className="flex flex-wrap items-center gap-1.5">{children}</div>
+}
+
+/** Numeric input for a transform field (X / Y / W / H). Seeded
+ *  with the shared value of the selection (blank when mixed),
+ *  parses through ``parseDimension`` so locale comma-separators
+ *  and leading + are tolerated. Commits on Enter or blur — never
+ *  per-keystroke, so half-typed values don't churn the canvas. */
+function NumberInput({
+  ariaLabel,
+  value,
+  onApply,
+  min,
+}: {
+  ariaLabel: string
+  value: SharedValue<number>
+  onApply: (n: number) => void
+  min?: number
+}) {
+  const [draft, setDraft] = useState<string>(() =>
+    typeof value === 'number' ? formatDimension(value) : '',
+  )
+  // Reset when the shared value changes from outside (e.g. user
+  // dragged the element on the canvas — keep the field in sync).
+  useEffect(() => {
+    setDraft(typeof value === 'number' ? formatDimension(value) : '')
+  }, [value])
+
+  const commit = (): void => {
+    const parsed = parseDimension(draft, { min })
+    if (parsed === null) {
+      // Bad input — restore the displayed value to the canonical
+      // shared value so the field doesn't show garbage.
+      setDraft(typeof value === 'number' ? formatDimension(value) : '')
+      return
+    }
+    onApply(parsed)
+  }
+
+  return (
+    <label className="flex items-center gap-1 text-xs text-slate-500 dark:text-slate-400">
+      <span className="w-3">{ariaLabel}</span>
+      <input
+        type="text"
+        inputMode="decimal"
+        aria-label={ariaLabel}
+        value={draft}
+        onChange={(e) => setDraft(e.target.value)}
+        onBlur={commit}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          } else if (e.key === 'Escape') {
+            // Cancel — restore canonical value.
+            setDraft(typeof value === 'number' ? formatDimension(value) : '')
+            ;(e.target as HTMLInputElement).blur()
+          }
+        }}
+        placeholder={value === 'mixed' ? '—' : ''}
+        className="w-14 rounded border border-slate-200 bg-transparent px-1.5 py-0.5 text-right font-mono text-xs text-slate-700 outline-none focus:border-indigo-500 dark:border-slate-700 dark:text-slate-200"
+      />
+    </label>
+  )
 }
 
 function Swatches({
