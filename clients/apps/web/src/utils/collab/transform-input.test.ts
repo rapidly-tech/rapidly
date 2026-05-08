@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest'
 
-import { formatDimension, parseDimension } from './transform-input'
+import {
+  degToRad,
+  formatDimension,
+  normaliseDegrees,
+  parseDimension,
+  radToDeg,
+} from './transform-input'
 
 describe('parseDimension', () => {
   it('parses a plain integer', () => {
@@ -89,5 +95,53 @@ describe('formatDimension', () => {
   it('returns empty string for Infinity', () => {
     expect(formatDimension(Number.POSITIVE_INFINITY)).toBe('')
     expect(formatDimension(Number.NEGATIVE_INFINITY)).toBe('')
+  })
+})
+
+describe('radToDeg / degToRad', () => {
+  it('round-trips at the cardinal angles', () => {
+    for (const deg of [0, 30, 45, 90, 180, 270, 359]) {
+      expect(radToDeg(degToRad(deg))).toBeCloseTo(deg)
+    }
+  })
+
+  it('radToDeg(0) = 0', () => {
+    expect(radToDeg(0)).toBe(0)
+  })
+
+  it('degToRad(180) = π', () => {
+    expect(degToRad(180)).toBeCloseTo(Math.PI)
+  })
+
+  it('handles negative input symmetrically', () => {
+    expect(radToDeg(-Math.PI / 2)).toBeCloseTo(-90)
+    expect(degToRad(-90)).toBeCloseTo(-Math.PI / 2)
+  })
+})
+
+describe('normaliseDegrees', () => {
+  it('passes 0..359 through unchanged', () => {
+    expect(normaliseDegrees(0)).toBe(0)
+    expect(normaliseDegrees(45)).toBe(45)
+    expect(normaliseDegrees(359)).toBe(359)
+  })
+
+  it('wraps 360 → 0', () => {
+    expect(normaliseDegrees(360)).toBe(0)
+  })
+
+  it('wraps values above 360 into [0, 360)', () => {
+    expect(normaliseDegrees(450)).toBe(90)
+    expect(normaliseDegrees(720)).toBe(0)
+  })
+
+  it('wraps negative values into [0, 360)', () => {
+    expect(normaliseDegrees(-90)).toBe(270)
+    expect(normaliseDegrees(-360)).toBe(0)
+  })
+
+  it('falls back to 0 for non-finite input', () => {
+    expect(normaliseDegrees(Number.NaN)).toBe(0)
+    expect(normaliseDegrees(Number.POSITIVE_INFINITY)).toBe(0)
   })
 })

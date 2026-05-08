@@ -43,7 +43,13 @@ import {
   subscribeRecentColors,
 } from '@/utils/collab/recent-colors'
 import type { SelectionState } from '@/utils/collab/selection'
-import { formatDimension, parseDimension } from '@/utils/collab/transform-input'
+import {
+  degToRad,
+  formatDimension,
+  normaliseDegrees,
+  parseDimension,
+  radToDeg,
+} from '@/utils/collab/transform-input'
 
 interface Props {
   store: ElementStore
@@ -120,6 +126,15 @@ export function PropertiesPanel({ store, selection, onRequestCrop }: Props) {
   const y = sharedField(store, ids, 'y')
   const width = sharedField(store, ids, 'width')
   const height = sharedField(store, ids, 'height')
+  // Rotation lives on the element as ``angle`` (radians); the
+  // input renders it in degrees + writes back through ``degToRad``.
+  const angle = sharedField(store, ids, 'angle')
+  const angleDeg: SharedValue<number> =
+    angle === null
+      ? null
+      : angle === 'mixed'
+        ? 'mixed'
+        : normaliseDegrees(radToDeg(angle))
 
   return (
     <aside className="flex w-60 flex-col gap-5 border-l border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900">
@@ -180,6 +195,18 @@ export function PropertiesPanel({ store, selection, onRequestCrop }: Props) {
             min={1}
             onApply={(v) => applyToSelection(store, ids, { height: v })}
           />
+        </Row>
+        <Row>
+          <NumberInput
+            ariaLabel="∠"
+            value={angleDeg}
+            onApply={(v) =>
+              applyToSelection(store, ids, {
+                angle: degToRad(normaliseDegrees(v)),
+              })
+            }
+          />
+          <span className="text-xs text-slate-400 dark:text-slate-500">°</span>
         </Row>
       </FieldGroup>
 
