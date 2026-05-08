@@ -119,6 +119,7 @@ import {
 import { parseXYChart, xyChartToElements } from '@/utils/collab/mermaid-xychart'
 import { parseZenUml, zenUmlToElements } from '@/utils/collab/mermaid-zenuml'
 import { deltaFromArrowKey, nudge } from '@/utils/collab/nudge'
+import { digitToOpacity } from '@/utils/collab/opacity-quickkey'
 import {
   createPinchPanGesture,
   type PinchPanGesture,
@@ -139,6 +140,7 @@ import {
   computeFrames,
   viewportForBounds,
 } from '@/utils/collab/presentation'
+import { applyToSelection } from '@/utils/collab/properties'
 import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
 import { makeScrollbarsOverlay } from '@/utils/collab/scrollbars'
@@ -1437,6 +1439,40 @@ export function CollabWhiteboard({
           publishViewport()
         }
         return
+      }
+      // 0..9 (no modifiers) → set selection opacity to N×10% (0
+      // maps to 100 to match Figma "max" muscle memory). Skipped
+      // when nothing is selected, when the user is typing in a
+      // form input, or when modifiers are held (Shift+1/2/3 are
+      // the zoom-preset branch above; Cmd+digit is reserved for
+      // future tab-switching shortcuts).
+      if (
+        !e.metaKey &&
+        !e.ctrlKey &&
+        !e.altKey &&
+        !e.shiftKey &&
+        /^[0-9]$/.test(e.key)
+      ) {
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          // Fall through — typing digits in a text editor must work.
+        } else {
+          const store = storeRef.current
+          const selection = selectionRef.current
+          if (store && selection.size > 0) {
+            const opacity = digitToOpacity(e.key)
+            if (opacity !== null) {
+              e.preventDefault()
+              applyToSelection(store, selection.snapshot, { opacity })
+              return
+            }
+          }
+        }
       }
       // K → toggle laser pointer mode. Single-letter
       // shortcut, no modifiers, ignored in form inputs. Laser is a
