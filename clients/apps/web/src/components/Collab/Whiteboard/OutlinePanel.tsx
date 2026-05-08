@@ -31,6 +31,9 @@ interface Props {
   /** Currently-selected element ids — rows render with a highlight. */
   selectedIds: ReadonlySet<string>
   onPick: (arg: PickArg) => void
+  /** Toggle visibility on a single element. The panel's eye button
+   *  fires this — the host wires it through ``setHidden``. */
+  onToggleHidden: (id: string) => void
   onClose: () => void
 }
 
@@ -53,6 +56,7 @@ export function OutlinePanel({
   elements,
   selectedIds,
   onPick,
+  onToggleHidden,
   onClose,
 }: Props) {
   const tree = useMemo(() => buildSceneOutline(elements), [elements])
@@ -113,6 +117,7 @@ export function OutlinePanel({
               toggle,
               pickRow,
               selectedIds,
+              onToggleHidden,
             }),
           )
         )}
@@ -126,6 +131,7 @@ interface RenderCtx {
   toggle: (id: string) => void
   pickRow: (id: string) => void
   selectedIds: ReadonlySet<string>
+  onToggleHidden: (id: string) => void
 }
 
 function renderNode(
@@ -138,7 +144,7 @@ function renderNode(
   const isSelected = ctx.selectedIds.has(node.id)
   const indent = depth * 12 + 8
   return (
-    <li key={node.id}>
+    <li key={node.id} className="group/row flex items-stretch">
       <button
         type="button"
         onClick={() => {
@@ -147,7 +153,8 @@ function renderNode(
         }}
         style={{ paddingLeft: indent }}
         className={
-          'flex w-full items-center gap-2 px-3 py-1 text-left text-xs ' +
+          'flex flex-1 items-center gap-2 px-3 py-1 text-left text-xs ' +
+          (node.hidden ? 'opacity-50 ' : '') +
           (isSelected
             ? 'bg-indigo-50 text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-100'
             : 'text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800')
@@ -164,6 +171,24 @@ function renderNode(
           {ICONS[node.kind]}
         </span>
         <span className="truncate">{node.label}</span>
+      </button>
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          ctx.onToggleHidden(node.id)
+        }}
+        aria-label={node.hidden ? 'Show element' : 'Hide element'}
+        title={node.hidden ? 'Show element' : 'Hide element'}
+        className={
+          'px-2 text-xs text-slate-400 hover:text-slate-700 dark:text-slate-500 dark:hover:text-slate-300 ' +
+          // Always-visible when hidden so the user can find their way
+          // back; otherwise only-on-row-hover so the panel stays
+          // visually quiet.
+          (node.hidden ? '' : 'opacity-0 group-hover/row:opacity-100')
+        }
+      >
+        {node.hidden ? '∅' : '◉'}
       </button>
       {isFrame && !isCollapsed
         ? node.children.map((child) => renderNode(child, depth + 1, ctx))

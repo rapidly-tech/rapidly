@@ -26,6 +26,9 @@ export interface OutlineNode {
   /** Human-readable label — text content, frame name, sticky text,
    *  or a fallback like ``Rectangle``. Capped at ~60 chars. */
   label: string
+  /** Mirrors the element's ``hidden`` flag so the panel can render
+   *  the eye toggle without re-reading the store. */
+  hidden: boolean
   /** Children when the node represents a frame; empty otherwise. */
   children: OutlineNode[]
 }
@@ -64,6 +67,7 @@ export function buildSceneOutline(elements: CollabElement[]): OutlineNode[] {
         id: f.id,
         kind: 'frame',
         label: clampLabel(f.name || 'Frame'),
+        hidden: f.hidden === true,
         children: f.childIds
           .map((id) => byId.get(id))
           .filter((c): c is CollabElement => c !== undefined)
@@ -83,6 +87,7 @@ function toLeafNode(el: CollabElement): OutlineNode {
     id: el.id,
     kind: el.type,
     label: clampLabel(displayLabel(el)),
+    hidden: el.hidden === true,
     children: [],
   }
 }
