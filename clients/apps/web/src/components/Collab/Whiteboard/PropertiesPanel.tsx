@@ -15,9 +15,10 @@
  * corresponding control shows an indeterminate dash.
  */
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import type { ElementStore } from '@/utils/collab/element-store'
+import { isValidHex, normaliseHex } from '@/utils/collab/hex-color'
 import {
   applyToSelection,
   CONVERTIBLE_TYPES,
@@ -492,9 +493,116 @@ function Swatches({
           }}
         />
       ))}
+      <HexColorButton current={value} onPick={onChange} />
       {onPick && <EyeDropperButton onPick={onPick} />}
       {value === 'mixed' && <Mixed />}
     </Row>
+  )
+}
+
+/** Custom-hex picker — opens a small popover with the native
+ *  ``<input type="color">`` (cross-browser) plus a free-form hex
+ *  text field for users who want to type a brand colour. The text
+ *  field accepts ``#abc`` shorthand, missing-hash forms, and mixed
+ *  case via ``normaliseHex``. */
+function HexColorButton({
+  current,
+  onPick,
+}: {
+  current: SharedValue<string>
+  onPick: (c: string) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+  const popoverRef = useRef<HTMLDivElement | null>(null)
+
+  // Click-outside / Esc closes the popover.
+  useEffect(() => {
+    if (!open) return
+    const onPointer = (e: PointerEvent): void => {
+      if (!popoverRef.current) return
+      if (!popoverRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    const onKey = (e: KeyboardEvent): void => {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('pointerdown', onPointer, true)
+    document.addEventListener('keydown', onKey)
+    return () => {
+      document.removeEventListener('pointerdown', onPointer, true)
+      document.removeEventListener('keydown', onKey)
+    }
+  }, [open])
+
+  // Seed the text field with the current value so the user can edit
+  // a small adjustment without retyping the whole code.
+  useEffect(() => {
+    if (open) setDraft(typeof current === 'string' ? current : '')
+  }, [open, current])
+
+  const apply = (raw: string): void => {
+    const next = normaliseHex(raw)
+    if (next) {
+      onPick(next)
+      setOpen(false)
+    }
+  }
+
+  return (
+    <div className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-label="Pick custom colour"
+        title="Pick custom colour"
+        className="flex h-7 w-7 items-center justify-center rounded-md border border-slate-300 text-sm hover:border-slate-500 dark:border-slate-700"
+      >
+        <span aria-hidden>＋</span>
+      </button>
+      {open ? (
+        <div
+          ref={popoverRef}
+          className="absolute top-full left-0 z-50 mt-1 flex flex-col gap-2 rounded-md border border-slate-200 bg-white p-2 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+        >
+          <input
+            type="color"
+            value={
+              typeof current === 'string' && /^#[0-9a-fA-F]{6}$/.test(current)
+                ? current
+                : '#1e1e1e'
+            }
+            onChange={(e) => onPick(e.target.value)}
+            className="h-8 w-32 cursor-pointer rounded border border-slate-200 bg-transparent dark:border-slate-700"
+          />
+          <input
+            type="text"
+            value={draft}
+            placeholder="#abc or #aabbcc"
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                apply(draft)
+              }
+            }}
+            className={
+              'h-8 w-32 rounded border bg-transparent px-2 font-mono text-xs outline-none ' +
+              (draft.length === 0 || isValidHex(draft)
+                ? 'border-slate-200 dark:border-slate-700'
+                : 'border-red-400 dark:border-red-700')
+            }
+          />
+          <button
+            type="button"
+            onClick={() => apply(draft)}
+            disabled={!isValidHex(draft)}
+            className="h-7 rounded bg-slate-900 px-2 text-xs text-white disabled:cursor-not-allowed disabled:bg-slate-300 dark:bg-slate-100 dark:text-slate-900 dark:disabled:bg-slate-700"
+          >
+            Apply
+          </button>
+        </div>
+      ) : null}
+    </div>
   )
 }
 
