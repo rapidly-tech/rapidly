@@ -144,6 +144,7 @@ import {
 import { applyToSelection } from '@/utils/collab/properties'
 import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
+import { applyReplacements } from '@/utils/collab/replace-text'
 import {
   rotate90Clockwise,
   rotate90CounterClockwise,
@@ -2892,6 +2893,25 @@ export function CollabWhiteboard({
       shortcut: ['Mod', 'F'],
       keywords: ['find', 'search', 'locate', 'jump', 'go to'],
       run: () => setSearchOpen(true),
+    })
+    list.push({
+      id: 'find.replace',
+      label: 'Find and replace…',
+      category: 'View',
+      keywords: ['find', 'replace', 'rename', 'substitute', 'bulk'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const query = window.prompt('Find:', '')
+        if (!query) return
+        const replacement = window.prompt(`Replace "${query}" with:`, '')
+        if (replacement === null) return
+        const elements = store.list() as Parameters<typeof applyReplacements>[1]
+        const count = applyReplacements(store, elements, query, replacement)
+        if (count === 0) {
+          window.alert(`No matches found for "${query}".`)
+        }
+      },
     })
     list.push({
       id: 'find.next',
