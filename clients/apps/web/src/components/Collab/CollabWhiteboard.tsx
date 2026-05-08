@@ -144,6 +144,10 @@ import {
 import { applyToSelection } from '@/utils/collab/properties'
 import { makeRemoteSelectionOverlay } from '@/utils/collab/remote-selection-overlay'
 import { Renderer } from '@/utils/collab/renderer'
+import {
+  rotate90Clockwise,
+  rotate90CounterClockwise,
+} from '@/utils/collab/rotate-by'
 import { makeScrollbarsOverlay } from '@/utils/collab/scrollbars'
 import {
   selectSameFillColor,
@@ -2301,6 +2305,28 @@ export function CollabWhiteboard({
         const store = storeRef.current
         if (!store) return
         flipVertical(store, selectionRef.current.snapshot)
+      },
+    })
+    list.push({
+      id: 'edit.rotate90Cw',
+      label: 'Rotate 90° clockwise',
+      category: 'Edit',
+      keywords: ['rotate', 'turn', 'clockwise', '90'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        rotate90Clockwise(store, selectionRef.current.snapshot)
+      },
+    })
+    list.push({
+      id: 'edit.rotate90Ccw',
+      label: 'Rotate 90° counter-clockwise',
+      category: 'Edit',
+      keywords: ['rotate', 'turn', 'counterclockwise', 'anticlockwise', '90'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        rotate90CounterClockwise(store, selectionRef.current.snapshot)
       },
     })
     // Align (multi-element edge / centre snapping).
