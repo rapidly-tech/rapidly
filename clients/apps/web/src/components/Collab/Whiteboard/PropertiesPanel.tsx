@@ -37,6 +37,11 @@ import {
   TEXT_ALIGNMENTS,
   type SharedValue,
 } from '@/utils/collab/properties'
+import {
+  addRecentColor,
+  getRecentColors,
+  subscribeRecentColors,
+} from '@/utils/collab/recent-colors'
 import type { SelectionState } from '@/utils/collab/selection'
 
 interface Props {
@@ -470,32 +475,96 @@ function Swatches({
    *  a small picker button is shown after the swatches. */
   onPick?: (c: string) => void
 }) {
+  // Mirror the recent-colours LRU into local state so the row
+  // repaints the moment a colour is picked from anywhere in the
+  // panel (preset / hex picker / eye-dropper).
+  const [recent, setRecent] = useState<readonly string[]>(() =>
+    getRecentColors(),
+  )
+  useEffect(() => {
+    return subscribeRecentColors(setRecent)
+  }, [])
+
+  // Wrap callbacks so every successful pick pushes to the LRU.
+  const handleChange = (c: string): void => {
+    onChange(c)
+    addRecentColor(c)
+  }
+  const handlePick = onPick
+    ? (c: string): void => {
+        onPick(c)
+        addRecentColor(c)
+      }
+    : undefined
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <Row>
+        {palette.map((c) => (
+          <button
+            key={c}
+            type="button"
+            aria-label={c}
+            onClick={() => handleChange(c)}
+            className={
+              'h-7 w-7 rounded-md border transition ' +
+              (value === c
+                ? 'border-indigo-500 ring-2 ring-indigo-500/40'
+                : 'border-slate-300 hover:border-slate-500 dark:border-slate-700')
+            }
+            style={{
+              backgroundColor: c === 'transparent' ? undefined : c,
+              backgroundImage:
+                c === 'transparent'
+                  ? 'repeating-linear-gradient(45deg, #f1f5f9 0 6px, #fff 6px 12px)'
+                  : undefined,
+            }}
+          />
+        ))}
+        <HexColorButton current={value} onPick={handleChange} />
+        {handlePick && <EyeDropperButton onPick={handlePick} />}
+        {value === 'mixed' && <Mixed />}
+      </Row>
+      {recent.length > 0 ? (
+        <RecentRow colors={recent} value={value} onChange={handleChange} />
+      ) : null}
+    </div>
+  )
+}
+
+function RecentRow({
+  colors,
+  value,
+  onChange,
+}: {
+  colors: readonly string[]
+  value: SharedValue<string>
+  onChange: (c: string) => void
+}) {
   return (
     <Row>
-      {palette.map((c) => (
+      <span
+        aria-hidden
+        className="text-[10px] text-slate-400 dark:text-slate-500"
+        title="Recent colours"
+      >
+        ↺
+      </span>
+      {colors.map((c) => (
         <button
-          key={c}
+          key={`recent-${c}`}
           type="button"
-          aria-label={c}
+          aria-label={`Recent ${c}`}
           onClick={() => onChange(c)}
           className={
-            'h-7 w-7 rounded-md border transition ' +
+            'h-5 w-5 rounded border transition ' +
             (value === c
-              ? 'border-indigo-500 ring-2 ring-indigo-500/40'
+              ? 'border-indigo-500 ring-1 ring-indigo-500/40'
               : 'border-slate-300 hover:border-slate-500 dark:border-slate-700')
           }
-          style={{
-            backgroundColor: c === 'transparent' ? undefined : c,
-            backgroundImage:
-              c === 'transparent'
-                ? 'repeating-linear-gradient(45deg, #f1f5f9 0 6px, #fff 6px 12px)'
-                : undefined,
-          }}
+          style={{ backgroundColor: c }}
         />
       ))}
-      <HexColorButton current={value} onPick={onChange} />
-      {onPick && <EyeDropperButton onPick={onPick} />}
-      {value === 'mixed' && <Mixed />}
     </Row>
   )
 }
