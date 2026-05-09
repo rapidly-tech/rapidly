@@ -1,7 +1,6 @@
 'use client'
 
 import { FILE_SHARING_API } from '@/utils/file-sharing/constants'
-import { motion, useSpring, useTransform } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
 // Inlined ``solar:share-linear`` SVG so the icon paints on first
@@ -105,16 +104,10 @@ export const ShareCounter = ({
   }, [fetchCount, initialCount])
 
   // Reserve the slot's vertical space via ``min-h`` so the landing
-  // layout doesn't reflow when the number arrives, BUT only mount
-  // the AnimatedNumber once we have a real value — otherwise the
-  // spring initialises to 0 and animates 0→N on every page refresh,
-  // which is the wrong UX (industry standard for "live stats" is to
-  // show the current value immediately and only animate in-session
-  // delta updates).
-  //
-  // ``count === 0`` keeps the slot reserved but empty — there's
-  // genuinely nothing to brag about, but reflowing later if the
-  // first share lands during the visit would be jarring.
+  // layout doesn't reflow when the number arrives. ``count === 0``
+  // keeps the slot reserved but empty — nothing to brag about yet,
+  // and reflowing later if the first share lands during the visit
+  // would be jarring.
   const ready = count !== null && count > 0
   return (
     <div
@@ -123,8 +116,12 @@ export const ShareCounter = ({
     >
       {ready ? (
         <>
+          {/* Render the value directly — no spring, no easing.
+              Any tween puts a perceptible beat between ``setCount``
+              and the digit changing; for single-digit deltas on a
+              small number, a clean snap reads as more responsive. */}
           <span className="text-lg font-semibold tracking-tight text-slate-500 tabular-nums dark:text-slate-400">
-            <AnimatedNumber value={count} />
+            {count.toLocaleString('en-US')}
           </span>
           <div className="flex items-center gap-x-1.5">
             <ShareIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />
@@ -136,29 +133,4 @@ export const ShareCounter = ({
       ) : null}
     </div>
   )
-}
-
-/** Static-on-mount, animated-on-update counter. The spring is
- *  initialised to the FIRST value the component sees so there's no
- *  zero-to-N animation on initial paint. Subsequent in-session
- *  changes (poll tick, share-created event) animate the delta. */
-const AnimatedNumber = ({ value }: { value: number }) => {
-  const prevRef = useRef(value)
-  // Snappier spring (was stiffness 80 / damping 20) so the digit
-  // settles in ~150 ms instead of a sluggish ~1 s — the previous
-  // values made the counter look like it was lagging the share
-  // event by a beat even when the data was already in hand.
-  const spring = useSpring(value, { stiffness: 260, damping: 28, mass: 0.4 })
-  const display = useTransform(spring, (v) =>
-    Math.round(v).toLocaleString('en-US'),
-  )
-
-  useEffect(() => {
-    if (prevRef.current !== value) {
-      prevRef.current = value
-      spring.set(value)
-    }
-  }, [spring, value])
-
-  return <motion.span>{display}</motion.span>
 }
