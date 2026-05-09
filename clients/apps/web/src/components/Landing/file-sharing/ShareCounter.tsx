@@ -1,7 +1,7 @@
 'use client'
 
 import { FILE_SHARING_API } from '@/utils/file-sharing/constants'
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 
 // Inlined ``solar:share-linear`` SVG so the icon paints on first
 // render rather than chasing a runtime fetch from
@@ -39,58 +39,43 @@ export const ShareCounter = ({
   initialCount,
 }: {
   workspaceId?: string
-  /** Server-rendered count for the public landing — when supplied
-   *  the counter paints the live number on first render with no
-   *  waiting for a client-side fetch. The poll + share-created
-   *  listener still run on top so in-session updates animate. */
+  /** Server-rendered count for first paint. Ignored when
+   *  ``workspaceId`` is set — the SSR fetch is anonymous and
+   *  returns the global public total, which would mismatch the
+   *  workspace-scoped client fetch and make the counter visibly
+   *  drop on the first poll. */
   initialCount?: number
 }) => {
-  // ── Combined count (sessions + secrets) via /stats endpoint ──
   const [count, setCount] = useState<number | null>(
-    typeof initialCount === 'number' ? initialCount : null,
+    workspaceId == null && typeof initialCount === 'number'
+      ? initialCount
+      : null,
   )
-  const hasFetched = useRef(false)
 
   const fetchCount = useCallback(async () => {
     try {
       const url = workspaceId
         ? `${FILE_SHARING_API}/stats?workspace_id=${workspaceId}`
         : `${FILE_SHARING_API}/stats`
-      // ``cache: 'no-store'`` so the share-created event always sees
-      // a live number — without it the browser HTTP cache may serve
-      // a stale response from the previous poll, making new shares
-      // appear "after some time" instead of immediately.
       const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setCount(data.total_shares)
       }
     } catch {
-      // Silently ignore — counter is cosmetic
+      // cosmetic — silently ignore
     }
   }, [workspaceId])
 
   useEffect(() => {
-    if (!hasFetched.current) {
-      hasFetched.current = true
-      // Skip the first fetch when the server already gave us a
-      // count — we trust the SSR value until the next poll tick
-      // refreshes it. Saves a redundant network round-trip on
-      // first paint.
-      if (typeof initialCount !== 'number') {
-        fetchCount()
-      }
-    }
+    fetchCount()
     const id = setInterval(fetchCount, POLL_INTERVAL)
 
-    // Optimistic +1 on share-created so the number ticks visibly the
-    // instant the user finishes the share — the network round-trip
-    // for ``/stats`` (request + cache-miss recompute + response) was
-    // adding ~300-700 ms of dead air before the digit changed, which
-    // the user perceived as "doesn't update immediately". The
-    // following ``fetchCount`` reconciles to the authoritative value
-    // a moment later; if the optimistic and real values match (the
-    // common case), there's no second visual change.
+    // Optimistic +1 on share-created so the digit ticks the instant
+    // the share completes, before the /stats round-trip lands.
+    // ``fetchCount`` reconciles immediately after; if the optimistic
+    // value matches the real one (the common case), no second
+    // visual change.
     const onShareCreated = () => {
       setCount((c) => (typeof c === 'number' ? c + 1 : c))
       fetchCount()
@@ -101,7 +86,7 @@ export const ShareCounter = ({
       clearInterval(id)
       window.removeEventListener(SHARE_CREATED_EVENT, onShareCreated)
     }
-  }, [fetchCount, initialCount])
+  }, [fetchCount])
 
   // Reserve the slot's vertical space via ``min-h`` so the landing
   // layout doesn't reflow when the number arrives. ``count === 0``
