@@ -1,7 +1,15 @@
 'use client'
 
-import { FILE_SHARING_API } from '@/utils/file-sharing/constants'
+import { CONFIG } from '@/utils/config'
 import { useCallback, useEffect, useState } from 'react'
+
+// Hit the backend directly (api.rapidly.tech) instead of routing the
+// stats request through the same-origin Next.js rewrite. Measured on
+// prod: rewrite path ~990 ms, direct ~230 ms. The rewrite runs every
+// request through the auth middleware (proxy.ts → /api/users/me),
+// which the public stats endpoint doesn't need. CORS on api.rapidly.tech
+// allows ``https://rapidly.tech`` with credentials, so this is safe.
+const STATS_URL = `${CONFIG.BASE_URL}/api/file-sharing/stats`
 
 // Inlined ``solar:share-linear`` SVG so the icon paints on first
 // render rather than chasing a runtime fetch from
@@ -40,9 +48,14 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
   const fetchCount = useCallback(async () => {
     try {
       const url = workspaceId
-        ? `${FILE_SHARING_API}/stats?workspace_id=${workspaceId}`
-        : `${FILE_SHARING_API}/stats`
-      const res = await fetch(url, { cache: 'no-store' })
+        ? `${STATS_URL}?workspace_id=${workspaceId}`
+        : STATS_URL
+      // ``credentials: 'include'`` so the backend's workspace-membership
+      // check (#613) sees the auth cookie when ``workspaceId`` is set.
+      const res = await fetch(url, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
       if (res.ok) {
         const data = await res.json()
         setCount(data.total_shares)
