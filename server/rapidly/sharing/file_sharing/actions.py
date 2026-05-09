@@ -784,6 +784,13 @@ async def create_channel(
             share_id=share_id,
             creator_ip_hash=creator_ip_hash,
         )
+    else:
+        # No PG row written → ``get_total_count()`` won't see this
+        # channel. Bump the dedicated anonymous-channels counter so
+        # the public "shares so far" stat reflects landing-page
+        # creates from anonymous visitors.
+        secret_repo = SecretRepository(redis)
+        await secret_repo.increment_anon_channel_count()
 
     # Invalidate the cached stats so the counter updates immediately
     await redis.delete(_STATS_CACHE_KEY)
@@ -1563,7 +1570,11 @@ async def get_public_stats(session: AsyncReadSession, redis: Redis) -> int:
     pg_count = await pg_repo.get_total_count()
     secret_count = await secret_repo.get_created_count()
     no_server_count = await secret_repo.get_no_server_created_count()
-    total = pg_count + secret_count + no_server_count
+    # Anonymous channels are Redis-only (no PG row), so they're not
+    # in ``pg_count``. Counted separately to keep the public stat
+    # complete.
+    anon_channel_count = await secret_repo.get_anon_channel_count()
+    total = pg_count + secret_count + no_server_count + anon_channel_count
 
     await redis.setex(_STATS_CACHE_KEY, _STATS_CACHE_TTL, str(total))
     return total
