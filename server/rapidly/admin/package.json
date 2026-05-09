@@ -3,6 +3,7 @@
   "description": "Rapidly admin backoffice — HTMX + DaisyUI static asset pipeline",
   "private": true,
   "version": "1.0.0",
+  "packageManager": "pnpm@9.15.0",
   "scripts": {
     "build:icons": "node generate-icons.mjs",
     "build:css": "npm run build:icons && tailwindcss -i ./styles.css -o ./static/styles.css",

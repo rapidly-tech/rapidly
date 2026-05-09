@@ -35,6 +35,12 @@ RUN corepack enable
 WORKDIR /app
 
 COPY ./rapidly/admin/pnpm-lock.yaml ./rapidly/admin/package.json ./rapidly/admin/.npmrc ./
+# Pin to the pnpm version declared in package.json's
+# ``packageManager`` field. Without ``prepare`` corepack ignores
+# the field and pulls whichever pnpm minor is current — which
+# broke this build twice when pnpm 10/11 made
+# ``ERR_PNPM_IGNORED_BUILDS`` fatal.
+RUN corepack prepare --activate
 RUN pnpm install --no-frozen-lockfile
 
 COPY ./rapidly/admin/ .
