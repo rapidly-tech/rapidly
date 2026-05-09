@@ -57,7 +57,11 @@ export const ShareCounter = ({
       const url = workspaceId
         ? `${FILE_SHARING_API}/stats?workspace_id=${workspaceId}`
         : `${FILE_SHARING_API}/stats`
-      const res = await fetch(url)
+      // ``cache: 'no-store'`` so the share-created event always sees
+      // a live number — without it the browser HTTP cache may serve
+      // a stale response from the previous poll, making new shares
+      // appear "after some time" instead of immediately.
+      const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setCount(data.total_shares)
