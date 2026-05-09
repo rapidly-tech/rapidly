@@ -14,6 +14,7 @@
 import { type ReactElement, useMemo, useState } from 'react'
 
 import type { CollabElement, ElementType } from '@/utils/collab/elements'
+import { filterOutline } from '@/utils/collab/outline-filter'
 import {
   buildSceneOutline,
   type OutlineNode,
@@ -74,6 +75,11 @@ export function OutlinePanel({
   const [collapsedFrames, setCollapsedFrames] = useState<ReadonlySet<string>>(
     () => new Set(),
   )
+  // Substring filter — narrows the visible rows by matching each
+  // node's label. Empty / whitespace-only query disables the
+  // filter (renders the full tree).
+  const [filter, setFilter] = useState('')
+  const visibleTree = useMemo(() => filterOutline(tree, filter), [tree, filter])
 
   if (!open) return null
 
@@ -114,13 +120,23 @@ export function OutlinePanel({
           ×
         </button>
       </header>
+      <div className="border-b border-slate-200 px-2 py-1.5 dark:border-slate-700">
+        <input
+          type="text"
+          value={filter}
+          onChange={(e) => setFilter(e.target.value)}
+          placeholder="Filter…"
+          aria-label="Filter outline"
+          className="w-full rounded border border-slate-200 bg-transparent px-2 py-1 text-xs text-slate-700 outline-none placeholder:text-slate-400 focus:border-indigo-500 dark:border-slate-700 dark:text-slate-200 dark:placeholder:text-slate-500"
+        />
+      </div>
       <ul className="overflow-y-auto py-1 text-sm">
-        {tree.length === 0 ? (
+        {visibleTree.length === 0 ? (
           <li className="px-3 py-3 text-xs text-slate-500 dark:text-slate-400">
-            Nothing on the canvas yet.
+            {tree.length === 0 ? 'Nothing on the canvas yet.' : 'No matches.'}
           </li>
         ) : (
-          tree.map((node) =>
+          visibleTree.map((node) =>
             renderNode(node, 0, {
               collapsedFrames,
               toggle,
