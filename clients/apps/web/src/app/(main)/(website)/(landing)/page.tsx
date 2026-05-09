@@ -51,19 +51,32 @@ export const metadata: Metadata = {
  *  contract so the count appears in the initial HTML and the
  *  client component doesn't have to wait for its first fetch.
  *
- *  Failures fall through to ``undefined`` — the client poll then
- *  runs as before, so a backend hiccup degrades to "counter shows
- *  up a moment later" rather than blowing up the page render. */
+ *  Capped with a 2 s ``AbortController`` so a hanging backend
+ *  can't slow the page render — the whole point of the SSR
+ *  optimisation is making the page faster, so we'd rather fall
+ *  through to the client-side poll than block.
+ *
+ *  Failures (network, non-OK status, malformed payload, timeout)
+ *  fall through to ``undefined``. The client poll then runs as
+ *  before, so a backend hiccup degrades to "counter shows up a
+ *  moment later" rather than blowing up the page render. */
+const STATS_FETCH_TIMEOUT_MS = 2_000
+
 async function fetchInitialShareCount(): Promise<number | undefined> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), STATS_FETCH_TIMEOUT_MS)
   try {
     const res = await fetch(`${CONFIG.BASE_URL}/v1/file-sharing/stats`, {
       next: { revalidate: 60 },
+      signal: controller.signal,
     })
     if (!res.ok) return undefined
     const data = (await res.json()) as { total_shares?: unknown }
     return typeof data.total_shares === 'number' ? data.total_shares : undefined
   } catch {
     return undefined
+  } finally {
+    clearTimeout(timer)
   }
 }
 
