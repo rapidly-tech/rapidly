@@ -35,9 +35,21 @@ export const SHARE_CREATED_EVENT = 'rapidly:share-created'
  * from the authenticated API. Otherwise falls back to the public global
  * stats endpoint (used on the public landing page).
  */
-export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
+export const ShareCounter = ({
+  workspaceId,
+  initialCount,
+}: {
+  workspaceId?: string
+  /** Server-rendered count for the public landing — when supplied
+   *  the counter paints the live number on first render with no
+   *  waiting for a client-side fetch. The poll + share-created
+   *  listener still run on top so in-session updates animate. */
+  initialCount?: number
+}) => {
   // ── Combined count (sessions + secrets) via /stats endpoint ──
-  const [count, setCount] = useState<number | null>(null)
+  const [count, setCount] = useState<number | null>(
+    typeof initialCount === 'number' ? initialCount : null,
+  )
   const hasFetched = useRef(false)
 
   const fetchCount = useCallback(async () => {
@@ -58,7 +70,13 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
   useEffect(() => {
     if (!hasFetched.current) {
       hasFetched.current = true
-      fetchCount()
+      // Skip the first fetch when the server already gave us a
+      // count — we trust the SSR value until the next poll tick
+      // refreshes it. Saves a redundant network round-trip on
+      // first paint.
+      if (typeof initialCount !== 'number') {
+        fetchCount()
+      }
     }
     const id = setInterval(fetchCount, POLL_INTERVAL)
 
@@ -69,7 +87,7 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
       clearInterval(id)
       window.removeEventListener(SHARE_CREATED_EVENT, onShareCreated)
     }
-  }, [fetchCount])
+  }, [fetchCount, initialCount])
 
   // Reserve the slot's vertical space via ``min-h`` so the landing
   // layout doesn't reflow when the number arrives, BUT only mount
