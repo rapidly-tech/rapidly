@@ -25,6 +25,7 @@ import {
 import { type Command } from '@/utils/collab/command-palette'
 import { copyElementsAsPng } from '@/utils/collab/copy-as-image'
 import { makeCursorOverlay } from '@/utils/collab/cursor-overlay'
+import { cycleNext, cyclePrev } from '@/utils/collab/cycle-selection'
 import { makeDimensionsOverlay } from '@/utils/collab/dimensions-overlay'
 import {
   displayName as displayElementName,
@@ -1653,6 +1654,42 @@ export function CollabWhiteboard({
         if (tool && ctx) tool.onCancel?.(ctx)
         gestureToolRef.current = null
         selectionRef.current.clear()
+      } else if (e.key === 'Tab' && !e.metaKey && !e.ctrlKey && !e.altKey) {
+        // Tab → next element in reading order; Shift+Tab → previous.
+        // Skipped when the user is typing in a form input so Tab
+        // still moves focus through palette / panel inputs.
+        const target = e.target as HTMLElement | null
+        if (
+          target &&
+          (target.tagName === 'INPUT' ||
+            target.tagName === 'TEXTAREA' ||
+            target.isContentEditable)
+        ) {
+          return
+        }
+        const store = storeRef.current
+        const selection = selectionRef.current
+        if (!store) return
+        e.preventDefault()
+        const elements = store.list() as Parameters<typeof cycleNext>[0]
+        const [firstId] = selection.snapshot
+        const nextId = e.shiftKey
+          ? cyclePrev(elements, firstId ?? null)
+          : cycleNext(elements, firstId ?? null)
+        if (nextId) {
+          selection.set([nextId])
+          // Pan the viewport so the newly-selected element comes
+          // into view — same path the search-hit + outline-pick
+          // routes use.
+          const el = store.get(nextId)
+          if (el) {
+            focusSearchHit({
+              elementId: nextId,
+              centerX: el.x + el.width / 2,
+              centerY: el.y + el.height / 2,
+            })
+          }
+        }
       } else if ((e.metaKey || e.ctrlKey) && (e.key === ']' || e.key === '[')) {
         // Cmd/Ctrl+] / [ → z-order controls. Shift modifier jumps
         // to front / back; plain is forward / backward one step.
