@@ -84,7 +84,18 @@ export const ShareCounter = ({
     }
     const id = setInterval(fetchCount, POLL_INTERVAL)
 
-    const onShareCreated = () => fetchCount()
+    // Optimistic +1 on share-created so the number ticks visibly the
+    // instant the user finishes the share — the network round-trip
+    // for ``/stats`` (request + cache-miss recompute + response) was
+    // adding ~300-700 ms of dead air before the digit changed, which
+    // the user perceived as "doesn't update immediately". The
+    // following ``fetchCount`` reconciles to the authoritative value
+    // a moment later; if the optimistic and real values match (the
+    // common case), there's no second visual change.
+    const onShareCreated = () => {
+      setCount((c) => (typeof c === 'number' ? c + 1 : c))
+      fetchCount()
+    }
     window.addEventListener(SHARE_CREATED_EVENT, onShareCreated)
 
     return () => {
@@ -133,7 +144,11 @@ export const ShareCounter = ({
  *  changes (poll tick, share-created event) animate the delta. */
 const AnimatedNumber = ({ value }: { value: number }) => {
   const prevRef = useRef(value)
-  const spring = useSpring(value, { stiffness: 80, damping: 20, mass: 0.5 })
+  // Snappier spring (was stiffness 80 / damping 20) so the digit
+  // settles in ~150 ms instead of a sluggish ~1 s — the previous
+  // values made the counter look like it was lagging the share
+  // event by a beat even when the data was already in hand.
+  const spring = useSpring(value, { stiffness: 260, damping: 28, mass: 0.4 })
   const display = useTransform(spring, (v) =>
     Math.round(v).toLocaleString('en-US'),
   )
