@@ -795,6 +795,11 @@ async def create_channel(
     # fires regardless of whether the PG dual-write happened.
     secret_repo = SecretRepository(redis)
     await secret_repo.increment_channels_total()
+    # Mirror into the per-workspace counter so workspace dashboards
+    # also tick instantly. Workspace ``get_workspace_stats`` reads
+    # from this Redis key (not PG) for the same no-lag reason.
+    if workspace_id:
+        await secret_repo.increment_workspace_channels_total(workspace_id)
 
     # Invalidate the cached stats so the counter updates immediately
     await redis.delete(_STATS_CACHE_KEY)
@@ -1600,15 +1605,34 @@ async def get_public_stats(session: AsyncReadSession, redis: Redis) -> int:
 async def get_workspace_stats(
     session: AsyncReadSession, redis: Redis, workspace_id: UUID
 ) -> int:
-    """Return combined share count (PG sessions + Redis secrets) for a workspace."""
-    pg_repo = FileShareSessionRepository.from_session(session)
+    """Return combined share count (Redis-backed) for a workspace.
+
+    Reads the per-workspace channel counter from Redis (not PG) for
+    the same reason as :func:`get_public_stats`: PG goes through the
+    read replica with commit + replication lag, so the dashboard
+    counter would lag the share by 100-1000 ms — long enough that
+    the optimistic ``+1`` on the client gets clobbered by the stale
+    fetch and the visible count snaps back. Redis has no such lag.
+    """
     secret_repo = SecretRepository(redis)
-    pg_count = await pg_repo.get_count_by_workspace(workspace_id)
-    secret_count = await secret_repo.get_workspace_created_count(str(workspace_id))
+    workspace_id_str = str(workspace_id)
+
+    # Backfill the per-workspace channel counter from PG once. The
+    # marker keeps it idempotent — every subsequent call short-
+    # circuits to a single Redis read.
+    if not await secret_repo.workspace_channels_initialized(workspace_id_str):
+        pg_repo = FileShareSessionRepository.from_session(session)
+        baseline = await pg_repo.get_count_by_workspace(workspace_id)
+        await secret_repo.seed_workspace_channels_total_if_needed(
+            workspace_id_str, baseline
+        )
+
+    channels_count = await secret_repo.get_workspace_channels_total(workspace_id_str)
+    secret_count = await secret_repo.get_workspace_created_count(workspace_id_str)
     no_server_count = await secret_repo.get_workspace_no_server_created_count(
-        str(workspace_id)
+        workspace_id_str
     )
-    return pg_count + secret_count + no_server_count
+    return channels_count + secret_count + no_server_count
 
 
 async def record_no_server_secret(

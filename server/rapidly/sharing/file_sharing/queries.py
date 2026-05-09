@@ -1101,6 +1101,25 @@ class SecretRepository:
     _CHANNELS_TOTAL_KEY = "file-sharing:stats:channels_total"
     _CHANNELS_INITIALIZED_KEY = "file-sharing:stats:channels_total:initialized"
 
+    # Per-workspace channel counter — same Redis-backed pattern as the
+    # global ``_CHANNELS_TOTAL_KEY`` so workspace dashboards don't
+    # have to read PG (which goes through the read replica with
+    # commit + replication lag, perceived as "the counter takes 30 s
+    # to update after a share"). Seeded race-safely from a PG
+    # ``COUNT(*) WHERE workspace_id = ?`` baseline on first read.
+    _WORKSPACE_CHANNELS_PREFIX = "file-sharing:stats:workspace_channels"
+    _WORKSPACE_CHANNELS_INIT_PREFIX = (
+        "file-sharing:stats:workspace_channels:initialized"
+    )
+
+    @classmethod
+    def _workspace_channels_key(cls, workspace_id: str) -> str:
+        return f"{cls._WORKSPACE_CHANNELS_PREFIX}:{workspace_id}"
+
+    @classmethod
+    def _workspace_channels_init_key(cls, workspace_id: str) -> str:
+        return f"{cls._WORKSPACE_CHANNELS_INIT_PREFIX}:{workspace_id}"
+
     async def increment_created_count(self, workspace_id: str | None = None) -> None:
         """Increment the persistent counter of secrets/files created."""
         await self._redis.incr(self._STATS_KEY)
@@ -1204,6 +1223,40 @@ class SecretRepository:
         if not won:
             return False
         await self._redis.incrby(self._CHANNELS_TOTAL_KEY, pg_baseline)
+        return True
+
+    async def increment_workspace_channels_total(self, workspace_id: str) -> None:
+        """Atomically bump the live per-workspace channel counter."""
+        await self._redis.incr(self._workspace_channels_key(workspace_id))
+
+    async def get_workspace_channels_total(self, workspace_id: str) -> int:
+        """Return the live per-workspace channel total. Returns 0 before
+        the first-read backfill runs."""
+        val = await self._redis.get(self._workspace_channels_key(workspace_id))
+        return int(val) if val else 0
+
+    async def workspace_channels_initialized(self, workspace_id: str) -> bool:
+        """Whether the one-time PG → Redis backfill has run for this
+        workspace."""
+        return bool(
+            await self._redis.exists(self._workspace_channels_init_key(workspace_id))
+        )
+
+    async def seed_workspace_channels_total_if_needed(
+        self, workspace_id: str, pg_baseline: int
+    ) -> bool:
+        """Race-safe one-shot seed of the per-workspace channel
+        counter from a PG baseline. Same pattern as
+        :meth:`seed_channels_total_if_needed` — see that docstring for
+        why ``incrby`` is used instead of ``setnx`` on the count key."""
+        won = await self._redis.set(
+            self._workspace_channels_init_key(workspace_id), "1", nx=True
+        )
+        if not won:
+            return False
+        await self._redis.incrby(
+            self._workspace_channels_key(workspace_id), pg_baseline
+        )
         return True
 
     # Public convenience methods (preserve existing API)
