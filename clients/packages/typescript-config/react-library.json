@@ -1,0 +1,8 @@
+{
+  "_description": "Rapidly — shared TS config for React library packages.",
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "extends": "./bundled.json",
+  "compilerOptions": {
+    "jsx": "react-jsx"
+  }
+}

@@ -1,0 +1,1 @@
+"""Rapidly platform domain group."""

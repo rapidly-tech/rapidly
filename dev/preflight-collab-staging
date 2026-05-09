@@ -1,0 +1,204 @@
+#!/usr/bin/env bash
+#
+# Collab staging rollout — pre-flight check.
+#
+# Run this from a clean clone of main BEFORE sshing to staging. It
+# verifies every local precondition the staging runbook assumes,
+# then prints the exact commands the operator needs to run on the
+# staging box.
+#
+# No side effects. Read-only. Safe to run any number of times.
+#
+# Usage:
+#   ./dev/preflight-collab-staging
+#
+# Exits 0 on pass, non-zero on fail. Failure output names the
+# specific check + remediation.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$REPO_ROOT"
+
+# Colour codes — keep grep-friendly if shelled out.
+red='\033[0;31m'
+grn='\033[0;32m'
+ylw='\033[0;33m'
+dim='\033[2m'
+rst='\033[0m'
+
+pass()  { echo -e "${grn}✓${rst} $*"; }
+fail()  { echo -e "${red}✗${rst} $*"; exit 1; }
+warn()  { echo -e "${ylw}!${rst} $*"; }
+info()  { echo -e "${dim}  $*${rst}"; }
+
+echo "Collab staging pre-flight"
+echo "========================="
+echo
+
+# ── 1. git: on main, clean, synced ──
+
+branch=$(git rev-parse --abbrev-ref HEAD)
+if [[ "$branch" != "main" ]]; then
+  warn "Not on main (currently: $branch). Proceeding but commands below assume main."
+else
+  pass "On main"
+fi
+
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  fail "Working tree has uncommitted changes. Commit or stash first."
+fi
+pass "Working tree clean"
+
+git fetch origin main --quiet 2>&1 || warn "fetch origin main failed (network?)"
+local_sha=$(git rev-parse HEAD)
+remote_sha=$(git rev-parse origin/main)
+if [[ "$local_sha" != "$remote_sha" ]]; then
+  warn "Local HEAD ($local_sha) differs from origin/main ($remote_sha). Consider pulling."
+else
+  pass "Synced with origin/main at $local_sha"
+fi
+
+# ── 2. Key shipped artifacts present ──
+
+declare -a REQUIRED_PATHS=(
+  "server/rapidly/sharing/collab/api.py"
+  "server/rapidly/sharing/collab/actions.py"
+  "server/rapidly/sharing/collab/signaling_validators.py"
+  "clients/apps/web/src/utils/collab/provider.ts"
+  "clients/apps/web/src/utils/crypto/aes-gcm.ts"
+  "clients/apps/web/src/utils/collab/invite-fragment.ts"
+  "clients/apps/web/src/components/Collab/CollabHostClient.tsx"
+  "clients/apps/web/src/components/Collab/EncryptionBadge.tsx"
+  "clients/apps/web/e2e/collab.spec.ts"
+  "specs/collab-staging-rollout.md"
+  "specs/collab-e2ee.md"
+  "dev/run-collab-e2e"
+)
+missing=0
+for p in "${REQUIRED_PATHS[@]}"; do
+  if [[ ! -e "$p" ]]; then
+    echo -e "${red}✗${rst} missing: $p"
+    missing=$((missing + 1))
+  fi
+done
+[[ $missing -eq 0 ]] || fail "$missing required path(s) missing. Recovery PR #94 may not be merged."
+pass "All 12 required paths present"
+
+# ── 3. Config flag exists in Settings ──
+
+if ! grep -q "FILE_SHARING_COLLAB_ENABLED" server/rapidly/config.py; then
+  fail "FILE_SHARING_COLLAB_ENABLED not found in server/rapidly/config.py"
+fi
+pass "FILE_SHARING_COLLAB_ENABLED declared in config.py"
+
+# ── 4. Chamber is live in the revolver registry ──
+
+if ! grep -q "id: 'collab'" clients/apps/web/src/components/Revolver/chambers.ts; then
+  fail "collab chamber missing from chambers.ts"
+fi
+status_line=$(grep -A4 "id: 'collab'" clients/apps/web/src/components/Revolver/chambers.ts | grep "status:" | head -1 | tr -d '[:space:],')
+if [[ "$status_line" != "status:'live'" ]]; then
+  fail "collab chamber is not marked live in chambers.ts (got: $status_line)"
+fi
+pass "Collab chamber marked 'live' in revolver registry"
+
+# ── 5. Env template documents the flag ──
+
+if ! grep -q "RAPIDLY_FILE_SHARING_COLLAB_ENABLED" server/.env.template; then
+  warn "RAPIDLY_FILE_SHARING_COLLAB_ENABLED missing from .env.template — operator won't discover it from the template"
+else
+  pass "Env template documents the flag"
+fi
+
+# ── 6. Playwright spec is discoverable ──
+
+if [[ -d clients/apps/web/node_modules ]]; then
+  spec_count=$(cd clients/apps/web && pnpm test:e2e --list 2>/dev/null | grep -c "collab.spec.ts" || true)
+  if [[ "$spec_count" -ge 1 ]]; then
+    pass "Playwright discovers collab.spec.ts"
+  else
+    warn "Playwright did not list collab.spec.ts (may need pnpm install)"
+  fi
+else
+  warn "clients/apps/web/node_modules absent — skipping Playwright discovery check. Run pnpm install first for full coverage."
+fi
+
+# ── 7. Memory pointer to the runbook ──
+
+if [[ -f /home/admin1/.claude/projects/-home-admin1-Desktop-rapidly/memory/MEMORY.md ]]; then
+  # Soft check — memory is developer-local, not a hard failure
+  if grep -q "collab" /home/admin1/.claude/projects/-home-admin1-Desktop-rapidly/memory/MEMORY.md; then
+    pass "Local memory references Collab (dev-machine only)"
+  fi
+fi
+
+echo
+echo -e "${grn}All pre-flight checks passed.${rst}"
+echo
+
+# Hostnames + SSH host aliases are operator-local, not repo-committed.
+# Source them from an uncommitted ~/.rapidly/staging.env so this
+# script + the printed commands stay infra-agnostic.
+STAGING_ENV_FILE="${RAPIDLY_STAGING_ENV:-$HOME/.rapidly/staging.env}"
+if [[ -f "$STAGING_ENV_FILE" ]]; then
+  # shellcheck disable=SC1090
+  source "$STAGING_ENV_FILE"
+  pass "Staging env sourced from $STAGING_ENV_FILE"
+else
+  warn "No staging env at $STAGING_ENV_FILE — the printed commands will use placeholders."
+  info "Create it with:"
+  info "  mkdir -p ~/.rapidly && cat > $STAGING_ENV_FILE <<EOSENV"
+  info "  STAGING_SSH_HOST=<ssh-config-alias>"
+  info "  STAGING_HTTP_URL=https://<your-staging-host>"
+  info "  STAGING_COMPOSE_FILE=/opt/rapidly/docker-compose.staging.yml"
+  info "  EOSENV"
+fi
+
+: "${STAGING_SSH_HOST:=<STAGING_SSH_HOST>}"
+: "${STAGING_HTTP_URL:=<STAGING_HTTP_URL>}"
+: "${STAGING_COMPOSE_FILE:=/opt/rapidly/docker-compose.staging.yml}"
+
+echo
+echo "Next steps (copy-paste):"
+echo
+cat <<EOF
+  # 1. SSH to staging (resolves via your local ~/.ssh/config)
+  ssh $STAGING_SSH_HOST
+
+  # 2. Flip the backend flag
+  sudo -i
+  cd /opt/rapidly
+  # Edit /opt/rapidly/.env — add or uncomment:
+  #   RAPIDLY_FILE_SHARING_COLLAB_ENABLED=true
+  docker compose -f $STAGING_COMPOSE_FILE up -d api
+  docker compose -f $STAGING_COMPOSE_FILE logs -f api --tail=50
+  #
+  # Leave the logs open — expect \`collab_session_created\` entries
+  # once step 4 runs.
+
+  # 3. From local — API smoke
+  export STAGING=$STAGING_HTTP_URL
+  curl -sS -X POST "\$STAGING/api/v1/collab/session" \\
+    -H 'Content-Type: application/json' \\
+    -d '{"title":"smoke","max_participants":4,"kind":"text"}' | jq .
+
+  # Expect: 200 with { short_slug, long_slug, secret, invite_template }
+  # 404 = flag still false. 422 = body invalid.
+
+  # 4. Two-browser smoke
+  #    Browser A (host): \$STAGING/collab  → Start session → Copy invite
+  #    Browser B (guest): paste the invite URL → guest auto-joins
+  #    Type on A → appears on B. Type on B → appears on A.
+  #    Both show the emerald "End-to-end encrypted" badge.
+  #
+  #    Cross-NAT variant: B on cellular/VPN. Converges within ~15s via TURN.
+
+  # 5. Capture observations per specs/collab-staging-rollout.md §8:
+  #    P95 time from local edit → remote render (target <500ms LAN, <2s cross-NAT)
+  #    % sessions using direct ICE vs TURN relay
+  #    Awareness flicker incidence on slow networks
+EOF
+echo
+echo -e "${dim}Runbook: specs/collab-staging-rollout.md${rst}"
+echo -e "${dim}Rollback: unset RAPIDLY_FILE_SHARING_COLLAB_ENABLED (or set to false) and restart api.${rst}"

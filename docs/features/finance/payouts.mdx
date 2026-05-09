@@ -1,0 +1,93 @@
+---
+title: "Payouts"
+sidebarTitle: "Payouts"
+description: "Easily withdraw money from your Rapidly account at any time"
+---
+
+You can issue a withdrawal, i.e payout, at any time once your balance meets the minimum threshold for your account currency. We will then transfer the balance minus Stripe payout fees (see below) to your Stripe account & issue a payout on their side.
+
+## Minimum Payout Thresholds
+
+The minimum balance required to issue a payout varies based out the payout currency. Certain currencies having a higher limit due to Stripe requirements. These limits can change at a later point.
+
+
+| Currency | Minimum Balance (USD) |
+|----------|----------------------|
+| USD      | $10.00              |
+| EUR      | $13.00              |
+| GBP      | $15.00              |
+| CHF      | $15.00              |
+| AOA      | $30.00              |
+| ALL      | $40.00              |
+| AMD      | $40.00              |
+| AZN      | $40.00              |
+| BAM      | $40.00              |
+| BOB      | $40.00              |
+| BTN      | $40.00              |
+| CLP      | $40.00              |
+| GMD      | $40.00              |
+| GYD      | $40.00              |
+| KHR      | $40.00              |
+| KRW      | $40.00              |
+| LAK      | $40.00              |
+| MDL      | $40.00              |
+| MGA      | $40.00              |
+| MKD      | $40.00              |
+| MNT      | $40.00              |
+| MYR      | $40.00              |
+| MZN      | $40.00              |
+| NAD      | $40.00              |
+| PYG      | $40.00              |
+| RSD      | $40.00              |
+| THB      | $40.00              |
+| TWD      | $40.00              |
+| UZS      | $40.00              |
+| COP      | $50.00              |
+| Other currencies | $10.00 (default) |
+
+## Manual Withdrawal
+
+We require this to be done manually since:
+
+1. Users have requested control for easier accounting vs. frequent & small payouts
+2. Giving users control of Stripe payout fees
+
+## **Stripe Payout Fees**
+
+1. $2 per month of active payout(s)
+2. 0.25% + $0.25 per payout
+3. Cross border fees (currency conversion): 0.25% (EU) - 1% in other countries.
+
+Given the fixed costs, we want to default to manual payouts so you can control when you want to incur them and do it once vs. per each individual transaction in order to reduce the overall fees.
+
+## Reverse invoices
+
+Your customers get an invoice from Rapidly. Thus, for your accounting, you need to issue an invoice to Rapidly for the amount we paid out to you. To ease this process, we can automatically generate a **reverse invoice** for you, detailing the sales processed on your behalf, minus our fees.
+
+You can generate them from the **Payouts** page under **Finance** in your Rapidly dashboard. Click on the ellipsis next to the payout you want to generate a reverse invoice for, and select **Download invoice**.
+
+A modal will open, allowing you to:
+
+- Set your billing name and address.
+- Add information shown below your billing address.
+- Add notes shown at the bottom of the invoice.
+- Customize the invoice number. By default, we generate one like `RAPIDLY-0001`, but you can change it to your own format and sequence.
+
+<Warning>
+  Once the reverse invoice is generated, it cannot be changed. Make sure to
+  double-check the information before generating it.
+</Warning>
+
+## Frequently Asked Questions
+
+<AccordionGroup>
+  <Accordion title="How long do payouts take?">
+    Payouts typically take 4-7 business days.
+  </Accordion>
+  <Accordion title="When are payouts processed after I request them?">
+    Payouts are processed in batches 24 hours after initiation.
+  </Accordion>
+  <Accordion title="Can I use my personal bank account to receive payouts?">
+    For individual accounts, yes. For business accounts, you will need a business bank account.
+  </Accordion>
+</AccordionGroup>

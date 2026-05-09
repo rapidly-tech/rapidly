@@ -1,0 +1,1 @@
+"""Rapidly analytics domain group."""

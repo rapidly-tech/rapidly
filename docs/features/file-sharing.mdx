@@ -1,0 +1,100 @@
+---
+title: "File Sharing"
+sidebarTitle: "File Sharing"
+description: "Securely share files peer-to-peer with end-to-end encryption — no server storage, no size limits"
+---
+
+Share files directly between browsers using peer-to-peer WebRTC connections. Files are encrypted with AES-256-GCM before leaving your device — the server never sees your files or encryption keys.
+
+## How It Works
+
+1. **Select files** — Drag-and-drop or pick files of any size
+2. **Configure** — Set download limits, optional password, and optional pricing
+3. **Share link** — Recipients get a unique URL with the encryption key embedded in the fragment (never sent to the server)
+4. **Direct transfer** — Files stream peer-to-peer via WebRTC, decrypted on the recipient's device
+
+<Note>
+  The encryption key lives in the URL fragment (`#`), which browsers never transmit to the server. This ensures true zero-knowledge architecture.
+</Note>
+
+## Key Features
+
+### End-to-End Encryption
+
+Every file is encrypted with **AES-256-GCM** on your device before transmission. The encryption key is generated client-side and shared only through the URL fragment. The server stores no keys, no files, and no unencrypted content.
+
+### No Size Limits
+
+Share files of any size — from small documents to multi-gigabyte archives. Since files transfer directly between browsers, there are no server-side upload restrictions.
+
+### Download Limits & Expiration
+
+Control how your files are accessed:
+
+- **Custom limit** — Set any download cap from 1 to 1,000
+- **Unlimited** — Set to 0 for no download cap (expires when you close the browser or stop sharing)
+
+Free channels expire after **1 hour** by default; paid channels last **24 hours**. You can renew the TTL from your sharing dashboard.
+
+### Password Protection
+
+Add an optional password for an extra layer of security beyond encryption. The password is hashed client-side (SHA-256) and never transmitted in plaintext to the server.
+
+### Payment Gating
+
+Monetize your file shares with Stripe integration. Recipients complete a Stripe Checkout before downloading. Requires an active Stripe Connect account.
+
+- Configurable pricing in USD, EUR, GBP, CAD, or AUD
+- Platform handles payment processing and payouts
+
+### Real-Time Dashboard
+
+Monitor active downloads from your sharing dashboard:
+
+- Live connection list with per-downloader progress
+- File completion status
+- Auto-stop when the download limit is reached
+- Manual stop sharing at any time
+
+### Checksum Verification
+
+Optional SHA-256 checksums allow recipients to verify file integrity after download.
+
+## Sharing Flow
+
+### For the Uploader
+
+1. Navigate to the file sharing page
+2. Select your files (drag-and-drop or file picker)
+3. Configure download limits, optional password, and optional price
+4. Click **Start Sharing** to generate an encrypted share link
+5. Share the link via the built-in options (copy, QR code, email, or social)
+6. Monitor downloads in real-time from the dashboard
+
+### For the Downloader
+
+1. Open the share link received from the uploader
+2. Complete payment if required (Stripe Checkout)
+3. Enter the password if one was set
+4. Files download and decrypt automatically in your browser
+5. Optionally verify file integrity via checksums
+
+## Security
+
+| Property | Implementation |
+|----------|----------------|
+| **Encryption** | AES-256-GCM, key generated and used entirely client-side |
+| **Zero knowledge** | Server never accesses files, keys, or passwords |
+| **Authenticated transfers** | Reader token derived from encryption key prevents slug enumeration |
+| **Download enforcement** | Server-side counter with slot-based tracking |
+| **Abuse prevention** | Report mechanism to flag and close abusive shares |
+| **Rate limiting** | IP-based connection limits and per-message throttling |
+
+## Relay Fallback
+
+If a direct peer-to-peer connection cannot be established (e.g., restrictive NAT or firewalls), the platform supports two fallback mechanisms:
+
+1. **TURN relay (COTURN)** -- A self-hosted TURN server relays WebRTC media when direct connections fail. Ephemeral credentials are generated per-session for security.
+2. **WebSocket relay** -- The signaling server can relay encrypted file chunks over the existing WebSocket connection.
+
+Since files are already encrypted client-side with AES-256-GCM, neither relay ever has access to unencrypted content.

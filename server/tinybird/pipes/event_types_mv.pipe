@@ -1,0 +1,15 @@
+# Rapidly analytics — aggregates distinct event type names with occurrence counts per organization
+NODE materialize
+SQL >
+    SELECT
+        organization_id,
+        name,
+        source,
+        countState() AS occurrences,
+        minState(timestamp) AS first_seen,
+        maxState(timestamp) AS last_seen
+    FROM events_by_ingested_at
+    GROUP BY organization_id, name, source
+
+TYPE MATERIALIZED
+DATASOURCE event_types

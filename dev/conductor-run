@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+# conductor-run - Rapidly Development Services Runner
+# Version: 1.0.0-rapidly
+#
+# This script is called by Conductor to start the Rapidly development services.
+# It uses the Docker-based development setup for isolation.
+#
+# Environment variables:
+#   CONDUCTOR_WORKSPACE_PATH - Workspace root (optional, falls back to script dir)
+#   CONDUCTOR_PORT           - Port assignment for instance detection
+
+set -euo pipefail
+
+RAPIDLY_CONDUCTOR_START="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+
+# Use CONDUCTOR_WORKSPACE_PATH if available, otherwise fall back to script location
+if [[ -n "${CONDUCTOR_WORKSPACE_PATH:-}" ]]; then
+    ROOT_DIR="$CONDUCTOR_WORKSPACE_PATH"
+else
+    SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+    ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+fi
+
+cd "$ROOT_DIR"
+
+# Generate environment files if needed
+if [[ ! -f "server/.env" ]]; then
+    echo "[rapidly] Generating environment files..."
+    ./dev/setup-environment
+fi
+
+# Build backoffice
+echo "[rapidly] Building backoffice..."
+(cd server && uv run task backoffice)
+
+# Start all services in detached mode (instance auto-detected from CONDUCTOR_PORT)
+echo "[rapidly] Starting services at ${RAPIDLY_CONDUCTOR_START}..."
+./dev/cli/dev docker up -d

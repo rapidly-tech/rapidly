@@ -1,0 +1,19 @@
+services:
+  coturn:
+    image: coturn/coturn:4.8.0-r1
+    network_mode: host
+    volumes:
+      - ./coturn/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    command:
+      - "--static-auth-secret=${RAPIDLY_FILE_SHARING_TURN_SECRET}"
+    restart: unless-stopped
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '1.0'
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"

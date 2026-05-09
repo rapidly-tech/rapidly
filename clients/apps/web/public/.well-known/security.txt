@@ -1,0 +1,8 @@
+# Security Policy for Rapidly File Sharing
+# https://securitytxt.org/
+
+Contact: mailto:security@rapidly.tech
+Preferred-Languages: en
+Canonical: https://rapidly.tech/.well-known/security.txt
+Policy: https://github.com/rapidly-tech/rapidly/security/policy
+Expires: 2027-02-06T00:00:00.000Z

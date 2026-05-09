@@ -1,0 +1,8 @@
+# Rapidly infrastructure — Terraform Cloud upload filter
+*
+!terraform/
+terraform/.terraform/providers/**
+
+# Exclude terraform provider caches
+.terraform/
+**/.terraform/

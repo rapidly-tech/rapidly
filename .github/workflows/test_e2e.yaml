@@ -1,0 +1,113 @@
+name: "E2E Tests"
+
+on:
+  pull_request:
+    types: [opened, synchronize]
+  schedule:
+    - cron: "*/30 * * * *"
+  workflow_dispatch:
+
+defaults:
+  run:
+    working-directory: ./clients/apps/web
+
+permissions:
+  contents: read
+
+jobs:
+  changes:
+    name: "Detect changes"
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    outputs:
+      clients: ${{ steps.filter.outputs.clients }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+      - uses: dorny/paths-filter@d1c1ffe0248fe513906c8e24db8ea791d46f8590 # v3
+        id: filter
+        with:
+          filters: |
+            clients:
+              - 'clients/**'
+              - '.github/workflows/test_e2e.yaml'
+
+  e2e:
+    name: "E2E Tests 🎭"
+    needs: changes
+    if: |
+      github.event_name == 'schedule' ||
+      github.event_name == 'workflow_dispatch' ||
+      needs.changes.outputs.clients == 'true'
+    timeout-minutes: 15
+    runs-on: ubuntu-latest
+
+    env:
+      TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
+      TURBO_TEAM: ${{ vars.TURBO_TEAM }}
+      NEXT_PUBLIC_API_URL: ${{ github.event_name == 'schedule' && vars.E2E_PRODUCTION_API_URL || vars.E2E_API_URL }}
+      E2E_CHECKOUT_LINK: ${{ github.event_name == 'schedule' && secrets.E2E_PRODUCTION_CHECKOUT_LINK || secrets.E2E_CHECKOUT_LINK }}
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      - uses: pnpm/action-setup@b906affcce14559ad1aafd4ab0e942779e9f58b1 # v4
+        with:
+          package_json_file: clients/package.json
+
+      - name: Setup Node.js
+        uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6
+        with:
+          node-version-file: clients/.node-version
+          cache: "pnpm"
+          cache-dependency-path: "clients/pnpm-lock.yaml"
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+        working-directory: ./clients
+
+      - name: Get Playwright version
+        id: playwright-version
+        # ``pnpm exec`` emits warnings to stdout in this workspace
+        # (``pnpm.overrides`` in nested package.json files). Those lines
+        # poison ``$GITHUB_OUTPUT``, which expects strict ``key=value``
+        # entries, yielding "Invalid format 'Command'" step failures.
+        # Silence pnpm and extract only the version-shaped string to
+        # harden the step against future warning noise.
+        run: |
+          version=$(pnpm --silent exec playwright --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
+          echo "version=${version}" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: pnpm exec playwright install chromium
+
+      - name: Run E2E tests
+        run: pnpm test:e2e
+
+      - name: Notify Slack on failure
+        if: failure() && github.event_name == 'schedule'
+        uses: slackapi/slack-github-action@91efab103c0de0a537f72a35f6b8cda0ee76bf0a # v2
+        with:
+          webhook: ${{ secrets.E2E_SLACK_WEBHOOK_URL }}
+          webhook-type: incoming-webhook
+          payload: |
+            {
+              "text": "🚨 E2E tests failed against production",
+              "blocks": [
+                {
+                  "type": "section",
+                  "text": {
+                    "type": "mrkdwn",
+                    "text": "🚨 *E2E tests failed against production*\n<${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}|View run>"
+                  }
+                }
+              ]
+            }

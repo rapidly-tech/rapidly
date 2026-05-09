@@ -1,0 +1,10 @@
+{
+  "include": ["server"],
+  "pythonVersion": "3.14",
+  "executionEnvironments": [
+    {
+      "root": "server",
+      "pythonPlatform": "Linux"
+    }
+  ]
+}

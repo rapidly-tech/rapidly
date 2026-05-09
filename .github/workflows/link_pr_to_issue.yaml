@@ -1,0 +1,69 @@
+# Rapidly — Auto-link a pull request to its corresponding GitHub issue based on the branch name.
+# Branch naming convention: rap-<issue_number>-<description>
+
+name: Link PR to GitHub Issue
+
+on:
+  pull_request:
+    types: [opened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+env:
+  # Rapidly uses "rap-" as the branch ticket prefix (e.g. rap-42-add-checkout-flow)
+  TICKET_PREFIX: "rap-"
+
+jobs:
+  link-pr-to-issue:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Extract issue number from branch name
+        id: extract-ticket
+        env:
+          BRANCH_NAME: ${{ github.head_ref }}
+        run: |
+          echo "Branch name: $BRANCH_NAME"
+
+          # Extract the numeric issue ID following the ticket prefix
+          TICKET_NUMBER=$(echo "$BRANCH_NAME" | sed -nE "s/^${TICKET_PREFIX}([0-9]+).*/\1/p")
+          echo "ticket_number=$TICKET_NUMBER" >> $GITHUB_OUTPUT
+
+          if [ -z "$TICKET_NUMBER" ]; then
+            echo "No issue number found in branch name — skipping"
+            exit 0
+          fi
+
+          echo "Found issue number: $TICKET_NUMBER"
+
+      - name: Prepend fix reference to PR description
+        if: steps.extract-ticket.outputs.ticket_number
+        env:
+          GITHUB_ISSUE_NUMBER: ${{ steps.extract-ticket.outputs.ticket_number }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          CURRENT_BODY: ${{ github.event.pull_request.body }}
+          GITHUB_API_URL: ${{ github.api_url }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          # Skip if the reference is already present (idempotent)
+          if echo "$CURRENT_BODY" | grep -q "Fix #$GITHUB_ISSUE_NUMBER"; then
+            echo "PR description already contains fix reference for issue #$GITHUB_ISSUE_NUMBER"
+            exit 0
+          fi
+
+          # Prepend the fix reference so GitHub auto-closes the issue on merge
+          if [ -n "$CURRENT_BODY" ] && [ "$CURRENT_BODY" != "null" ]; then
+            NEW_BODY=$(printf "Fix #%s\n\n%s" "$GITHUB_ISSUE_NUMBER" "$CURRENT_BODY")
+          else
+            NEW_BODY="Fix #$GITHUB_ISSUE_NUMBER"
+          fi
+
+          # Patch the PR via the GitHub API
+          curl -s -X PATCH \
+            -H "Accept: application/vnd.github.v3+json" \
+            -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -d "{\"body\":$(echo "$NEW_BODY" | jq -Rs .)}" \
+            "$GITHUB_API_URL/repos/$GITHUB_REPOSITORY/pulls/$PR_NUMBER" > /dev/null
+
+          echo "Updated PR #$PR_NUMBER description to link to issue #$GITHUB_ISSUE_NUMBER"

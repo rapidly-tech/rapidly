@@ -1,0 +1,14 @@
+{
+    "_description": "Rapidly monorepo root — VS Code settings. Sub-folders are hidden so each workspace opens its own window.",
+    "files.exclude": {
+        "**/.git": true,
+        /*
+         * Each sub-project (clients, server, docs) has its own VS Code
+         * workspace with tailored settings, so we hide them here to avoid
+         * accidental edits from the wrong workspace root.
+         */
+        "clients": true,
+        "server": true,
+        "docs": true
+    }
+}

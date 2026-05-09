@@ -1,0 +1,42 @@
+# Rapidly — Turn off the Cloudflare maintenance page for both frontend and API.
+# Manual trigger only — used after a maintenance window is complete.
+
+name: Disable Maintenance Mode
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  disable_maintenance:
+    name: Disable Maintenance Mode
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    environment: maintenance
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+
+      # Disable the frontend rule first so users regain access to the dashboard
+      - name: Disable Frontend Maintenance Rule
+        uses: ./.github/actions/maintenance-mode
+        with:
+          enable: "false"
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          cloudflare_ruleset_id: ${{ secrets.CLOUDFLARE_RULESET_ID }}
+          rule_id: ${{ secrets.FRONTEND_MAINTENANCE_RULE_ID }}
+          rule_name: "Frontend"
+
+      # Then disable the API rule so integrations resume
+      - name: Disable API Maintenance Rule
+        uses: ./.github/actions/maintenance-mode
+        with:
+          enable: "false"
+          cloudflare_api_token: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          cloudflare_zone_id: ${{ secrets.CLOUDFLARE_ZONE_ID }}
+          cloudflare_ruleset_id: ${{ secrets.CLOUDFLARE_RULESET_ID }}
+          rule_id: ${{ secrets.API_MAINTENANCE_RULE_ID }}
+          rule_name: "API"

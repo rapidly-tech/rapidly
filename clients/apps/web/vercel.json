@@ -1,0 +1,56 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "buildCommand": "cd ../.. && turbo run build --filter=web",
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/_mintlify/api/:path+",
+      "destination": "https://rapidly.mintlify.app/_mintlify/api/:path+"
+    },
+    {
+      "source": "/api/request",
+      "destination": "https://rapidly.mintlify.app/_mintlify/api/request"
+    },
+    {
+      "source": "/docs",
+      "destination": "https://rapidly.mintlify.dev/docs"
+    },
+    {
+      "source": "/docs/llms.txt",
+      "destination": "https://rapidly.mintlify.app/llms.txt"
+    },
+    {
+      "source": "/docs/llms-full.txt",
+      "destination": "https://rapidly.mintlify.app/llms-full.txt"
+    },
+    {
+      "source": "/docs/sitemap.xml",
+      "destination": "https://rapidly.mintlify.app/sitemap.xml"
+    },
+    {
+      "source": "/docs/robots.txt",
+      "destination": "https://rapidly.mintlify.app/robots.txt"
+    },
+    {
+      "source": "/docs/:path*",
+      "destination": "https://rapidly.mintlify.dev/docs/:path*"
+    },
+    {
+      "source": "/mintlify-assets/:path+",
+      "destination": "https://rapidly.mintlify.app/mintlify-assets/:path+"
+    },
+    {
+      "source": "/ingest/static/(.*)",
+      "destination": "https://us-assets.i.posthog.com/static/$1"
+    },
+    {
+      "source": "/ingest/(.*)",
+      "destination": "https://us.i.posthog.com/$1"
+    }
+  ],
+  "trailingSlash": false
+}

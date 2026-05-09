@@ -1,0 +1,46 @@
+---
+title: "Integrating Webhooks Locally"
+sidebarTitle: "Local Development"
+description: "Setup Webhook delivery to your local machine"
+---
+
+To test webhooks during local development, you need to expose your local server to the internet so Rapidly can deliver events to it.
+
+## Using a tunnel service
+
+Use a tunnel service like [ngrok](https://ngrok.com) or [localtunnel](https://theboroer.github.io/localtunnel-www/) to create a public URL that forwards to your local machine.
+
+### ngrok
+
+```bash
+ngrok http 3000
+```
+
+This gives you a public URL like `https://abc123.ngrok.io` that forwards to `http://localhost:3000`.
+
+### localtunnel
+
+```bash
+npx localtunnel --port 3000
+```
+
+## Configure the webhook endpoint
+
+1. Go to your workspace settings in the Rapidly dashboard
+2. Navigate to **Webhooks** and create a new endpoint
+3. Set the URL to your tunnel URL (e.g. `https://abc123.ngrok.io/api/webhooks`)
+4. Select the events you want to receive
+5. Copy the **webhook secret** and set it in your environment variables:
+
+```bash
+# .env
+RAPIDLY_WEBHOOK_SECRET=your_webhook_secret_here
+```
+
+## Verify webhook signatures
+
+Always verify webhook signatures in your handler to ensure the payload is authentic. Use the secret from step 5 to validate the `webhook-signature` header.
+
+## All set!
+
+Events will now be delivered to your local machine via the tunnel. You'll see them arrive in your terminal and in the Rapidly dashboard under webhook deliveries.

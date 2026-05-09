@@ -1,0 +1,6 @@
+{
+  "name": "rapidly",
+  "description": "Rapidly monorepo workspace root — coordinates pnpm across all packages and apps.",
+  "private": true,
+  "packageManager": "pnpm@10.28.1"
+}

@@ -1,0 +1,13 @@
+# Rapidly analytics — materializes 15-minute user event buckets for active-user metrics
+NODE materialize
+SQL >
+    SELECT
+        organization_id,
+        toStartOfFifteenMinutes(timestamp) AS quarter_hour,
+        customer_id,
+        external_customer_id
+    FROM events_by_ingested_at
+    GROUP BY organization_id, quarter_hour, customer_id, external_customer_id
+
+TYPE MATERIALIZED
+DATASOURCE user_events_by_quarter_hour

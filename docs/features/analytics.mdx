@@ -1,0 +1,116 @@
+---
+title: "Analytics"
+sidebarTitle: "Analytics"
+description: "Track file sharing activity, revenue, and custom events across your workspace"
+---
+
+Rapidly provides built-in analytics for your file sharing workspace: a metrics dashboard, an event ingestion API for custom tracking, and real-time streaming via SSE.
+
+## Metrics Dashboard
+
+The metrics dashboard gives you time-bucketed views of your file sharing activity and revenue. All metrics are scoped to your workspace.
+
+### Filters
+
+Every metric supports the following filters:
+
+- **Interval** -- Hourly, Daily, Weekly, Monthly, or Yearly
+- **Date range** -- Custom start and end dates
+- **Timezone** -- All timestamps adjusted to your selected timezone
+- **Share** -- Filter by specific file share
+- **Customer** -- Filter by customer
+
+### File Sharing Metrics
+
+- **File Share Sessions** -- Total number of file sharing sessions created.
+- **File Share Downloads** -- Total number of file downloads across all sessions.
+- **Avg Downloads Per Share** -- Average downloads per sharing session.
+- **Active Sessions** -- Sessions currently in progress.
+- **Completed Sessions** -- Sessions that finished successfully.
+- **Expired Sessions** -- Sessions that expired before completion.
+- **Free File Shares** -- Sessions with no price attached.
+- **Paid File Shares** -- Sessions that require payment.
+- **Total Data Shared (bytes)** -- Cumulative file size transferred.
+- **Cumulative File Shares** -- Running total of all sessions over time.
+- **Cumulative Downloads** -- Running total of all downloads over time.
+
+### Revenue Metrics
+
+- **File Share Revenue** -- Total revenue from completed file share payments (in cents).
+- **Average Share Price** -- Average price across paid file shares.
+- **Payment Conversion Rate** -- Percentage of paid sessions that resulted in a completed payment.
+- **File Share Platform Fees** -- Platform fees collected from file share payments.
+- **Cumulative Platform Fees** -- Running total of platform fees over time.
+
+### Cost Metrics
+
+- **Costs** -- Aggregate costs from events with `_cost` metadata.
+- **Cumulative Costs** -- Running total of costs over time.
+- **Cost Per User** -- Average cost per active customer.
+- **Active Users** -- Distinct customers with recorded events.
+- **Cashflow** -- Revenue minus costs.
+
+## Event Ingestion API
+
+Rapidly tracks system events automatically (e.g., `customer.created`, `customer.updated`, `customer.deleted`). You can also ingest your own custom events via the API for application-specific tracking.
+
+### Batch Ingestion
+
+Send events in bulk via `POST /api/events/ingest`:
+
+```json
+{
+  "events": [
+    {
+      "name": "file.scanned",
+      "customer_id": "cust_uuid",
+      "timestamp": "2026-03-27T10:00:00Z",
+      "metadata": {
+        "file_type": "pdf",
+        "size_bytes": 1048576
+      }
+    }
+  ]
+}
+```
+
+Each event requires a `name` and either a `customer_id` (Rapidly customer) or `external_customer_id` (your system's ID). Events can include arbitrary key-value `metadata` and support parent-child relationships via `parent_id` and `external_id` for hierarchical tracking.
+
+### Structured Metadata
+
+Two metadata keys receive special handling:
+
+- **`_cost`** -- `{ "amount": 0.0025, "currency": "usd" }` -- tracked and aggregated in cost metrics.
+- **`_llm`** -- `{ "vendor": "...", "model": "...", "input_tokens": 100, "output_tokens": 50, ... }` -- structured LLM usage tracking.
+
+### Deduplication
+
+Set `external_id` on your events to enable deduplication. Duplicate events with the same `external_id` are skipped during ingestion.
+
+## Event Types
+
+Event types act as a schema registry for your events. They are created automatically when new event names are ingested and track:
+
+- Occurrence counts
+- First and last seen timestamps
+- Source (system or user)
+- Custom labels for display in the dashboard
+
+Update labels via `PATCH /api/event-types/{id}` to give events human-readable names in the UI.
+
+## Time-Series Statistics
+
+The `GET /api/events/statistics/timeseries` endpoint returns aggregate statistics grouped by event name over configurable time periods. This powers the event-level analytics view with:
+
+- Per-period occurrence counts and customer counts
+- Aggregated metadata field totals and averages (e.g., cost per trace)
+- Percentile breakdowns (p10, p90, p99) for numeric metadata fields
+
+## Real-Time Streaming
+
+Rapidly streams events to connected clients via Server-Sent Events (SSE) over Redis pub/sub:
+
+- **User stream** -- `GET /api/stream/user` -- events for the authenticated user.
+- **Workspace stream** -- `GET /api/stream/workspaces/{id}` -- events scoped to a workspace.
+
+Use these endpoints to build real-time dashboards or trigger client-side updates when new file shares, payments, or custom events occur.

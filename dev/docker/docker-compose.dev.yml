@@ -1,0 +1,274 @@
+# Docker Compose for full-stack Rapidly development environment
+# Usage: dev docker up
+#
+# This file defines all services needed to run Rapidly in development mode
+# with hot-reloading support. Source code is mounted from the host.
+#
+# For multiple isolated instances, use: dev docker up -i <instance_number>
+# Each instance uses different ports (offset by 100 * instance_number)
+
+# Load environment variables from server/.env
+x-common-env-file: &common-env-file
+  - ../../server/.env
+
+x-common-backend-env: &common-backend-env
+  RAPIDLY_ENV: development
+  RAPIDLY_LOG_LEVEL: DEBUG
+  RAPIDLY_TESTING: "0"
+  RAPIDLY_SQLALCHEMY_DEBUG: "0"
+  RAPIDLY_POSTHOG_DEBUG: "1"
+  # Database - uses service name for container networking
+  RAPIDLY_POSTGRES_USER: ${RAPIDLY_POSTGRES_USER:-rapidly}
+  RAPIDLY_POSTGRES_PWD: ${RAPIDLY_POSTGRES_PWD:-rapidly}
+  RAPIDLY_POSTGRES_HOST: db
+  RAPIDLY_POSTGRES_PORT: "5432"
+  RAPIDLY_POSTGRES_DATABASE: ${RAPIDLY_POSTGRES_DATABASE:-rapidly}
+  RAPIDLY_POSTGRES_READ_USER: ${RAPIDLY_POSTGRES_READ_USER:-rapidly_read}
+  RAPIDLY_POSTGRES_READ_PWD: ${RAPIDLY_POSTGRES_READ_PWD:-rapidly}
+  RAPIDLY_POSTGRES_READ_HOST: db
+  RAPIDLY_POSTGRES_READ_PORT: "5432"
+  RAPIDLY_POSTGRES_READ_DATABASE: ${RAPIDLY_POSTGRES_DATABASE:-rapidly}
+  # Redis - uses service name for container networking
+  RAPIDLY_REDIS_HOST: redis
+  RAPIDLY_REDIS_PORT: "6379"
+  RAPIDLY_REDIS_DB: "0"
+  # S3/MinIO - uses service name for container networking
+  RAPIDLY_S3_ENDPOINT_URL: http://minio:9000
+  RAPIDLY_AWS_ACCESS_KEY_ID: ${RAPIDLY_AWS_ACCESS_KEY_ID:-rapidly-development}
+  RAPIDLY_AWS_SECRET_ACCESS_KEY: ${RAPIDLY_AWS_SECRET_ACCESS_KEY:-rapidly123456789}
+  RAPIDLY_S3_FILES_BUCKET_NAME: ${RAPIDLY_S3_FILES_BUCKET_NAME:-rapidly-s3}
+  RAPIDLY_S3_FILES_PUBLIC_BUCKET_NAME: ${RAPIDLY_S3_FILES_PUBLIC_BUCKET_NAME:-rapidly-s3-public}
+  RAPIDLY_S3_CUSTOMER_INVOICES_BUCKET_NAME: ${RAPIDLY_S3_FILES_BUCKET_NAME:-rapidly-s3}
+  RAPIDLY_S3_PAYOUT_INVOICES_BUCKET_NAME: ${RAPIDLY_S3_FILES_BUCKET_NAME:-rapidly-s3}
+  # CORS and allowed hosts - configured for Docker networking
+  RAPIDLY_CORS_ORIGINS: '["http://localhost:${WEB_PORT:-3000}", "http://127.0.0.1:${WEB_PORT:-3000}", "http://web:3000"]'
+  RAPIDLY_ALLOWED_HOSTS: '["localhost:${WEB_PORT:-3000}", "127.0.0.1:${WEB_PORT:-3000}"]'
+  RAPIDLY_FRONTEND_BASE_URL: http://localhost:${WEB_PORT:-3000}
+  RAPIDLY_CHECKOUT_BASE_URL: http://localhost:${API_PORT:-8000}/v1/checkout-links/{client_secret}/redirect
+  RAPIDLY_USER_SESSION_COOKIE_DOMAIN: localhost
+  # OAuth insecure transport for development
+  AUTHLIB_INSECURE_TRANSPORT: "true"
+  # Note: Secrets like RAPIDLY_GITHUB_CLIENT_ID, RAPIDLY_STRIPE_* are loaded from
+  # env_file (server/.env) and NOT set here. Setting them here with ${VAR:-default}
+  # would read from the HOST shell, not from env_file.
+  # Prometheus (optional)
+  RAPIDLY_PROMETHEUS_REMOTE_WRITE_URL: ${RAPIDLY_PROMETHEUS_REMOTE_WRITE_URL:-}
+
+x-api-volumes: &api-volumes
+  - ../../server:/app/server:cached
+  - ../../dev:/app/dev:cached
+  - server_uv_cache:/root/.cache/uv
+  - api_venv:/app/server/.venv
+  - pnpm_store:/root/.local/share/pnpm/store
+
+x-worker-volumes: &worker-volumes
+  - ../../server:/app/server:cached
+  - ../../dev:/app/dev:cached
+  - server_uv_cache:/root/.cache/uv
+  - worker_venv:/app/server/.venv
+  - pnpm_store:/root/.local/share/pnpm/store
+
+services:
+  # ============================================
+  # Infrastructure Services
+  # ============================================
+
+  db:
+    image: postgres:15.1-bullseye
+    environment:
+      POSTGRES_USER: ${RAPIDLY_POSTGRES_USER:-rapidly}
+      POSTGRES_PASSWORD: ${RAPIDLY_POSTGRES_PWD:-rapidly}
+      POSTGRES_DB: ${RAPIDLY_POSTGRES_DATABASE:-rapidly}
+      RAPIDLY_READ_USER: ${RAPIDLY_POSTGRES_READ_USER:-rapidly_read}
+      RAPIDLY_READ_PASSWORD: ${RAPIDLY_POSTGRES_READ_PWD:-rapidly}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ../../server/init-readonly-user.sql:/docker-entrypoint-initdb.d/init-readonly-user.sql:ro
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "pg_isready",
+          "-q",
+          "-d",
+          "${RAPIDLY_POSTGRES_DATABASE:-rapidly}",
+          "-U",
+          "${RAPIDLY_POSTGRES_USER:-rapidly}",
+        ]
+      interval: 2s
+      timeout: 40s
+      retries: 20
+
+  redis:
+    image: redis:alpine
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 10s
+      retries: 10
+
+  minio:
+    image: bitnamilegacy/minio:2024.5.28
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    volumes:
+      - minio_data:/minio
+    environment:
+      MINIO_ROOT_USER: ${RAPIDLY_MINIO_USER:-rapidly}
+      MINIO_ROOT_PASSWORD: ${RAPIDLY_MINIO_PWD:-rapidlyrapidly}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 5s
+      timeout: 10s
+      retries: 10
+
+  minio-setup:
+    image: bitnamilegacy/minio-client:2024.5.24
+    depends_on:
+      minio:
+        condition: service_healthy
+    volumes:
+      - ../../server/.minio:/tmp/config:ro
+    environment:
+      MINIO_HOST: minio
+      MINIO_ROOT_USER: ${RAPIDLY_MINIO_USER:-rapidly}
+      MINIO_ROOT_PASSWORD: ${RAPIDLY_MINIO_PWD:-rapidlyrapidly}
+      BUCKET_NAME: ${RAPIDLY_S3_FILES_BUCKET_NAME:-rapidly-s3}
+      PUBLIC_BUCKET_NAME: ${RAPIDLY_S3_FILES_PUBLIC_BUCKET_NAME:-rapidly-s3-public}
+      BUCKET_TESTING_NAME: testing-${RAPIDLY_S3_FILES_BUCKET_NAME:-rapidly-s3}
+      ACCESS_KEY: ${RAPIDLY_AWS_ACCESS_KEY_ID:-rapidly-development}
+      SECRET_ACCESS_KEY: ${RAPIDLY_AWS_SECRET_ACCESS_KEY:-rapidly123456789}
+      POLICY_FILE: /tmp/config/policy.json
+    entrypoint:
+      ["bash", "-c", "bash /tmp/config/local.sh /tmp/config/configure.sh"]
+
+  # ============================================
+  # Application Services
+  # ============================================
+
+  api:
+    build:
+      context: ../..
+      dockerfile: dev/docker/Dockerfile.api.dev
+    env_file: *common-env-file
+    environment:
+      <<: *common-backend-env
+    volumes: *api-volumes
+    ports:
+      - "${API_PORT:-8000}:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+    command: ["api"]
+
+  worker:
+    build:
+      context: ../..
+      dockerfile: dev/docker/Dockerfile.api.dev
+    env_file: *common-env-file
+    environment:
+      <<: *common-backend-env
+    volumes: *worker-volumes
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      minio-setup:
+        condition: service_completed_successfully
+      api:
+        condition: service_started
+    command: ["worker"]
+
+  web:
+    build:
+      context: ../..
+      dockerfile: dev/docker/Dockerfile.web.dev
+    env_file: *common-env-file
+    environment:
+      # Node memory limit to prevent OOM (keep well below container limit to leave room for native memory)
+      NODE_OPTIONS: "--max-old-space-size=2560"
+      # NEXT_PUBLIC_* are for browser requests (via host machine)
+      NEXT_PUBLIC_API_URL: http://localhost:${API_PORT:-8000}
+      NEXT_PUBLIC_FRONTEND_BASE_URL: http://localhost:${WEB_PORT:-3000}
+      NEXT_PUBLIC_BACKOFFICE_URL: http://localhost:${API_PORT:-8000}/backoffice
+      # Note: NEXT_PUBLIC_STRIPE_KEY and NEXT_PUBLIC_GITHUB_APP_NAMESPACE
+      # must be set in server/.env (they're loaded via env_file)
+      # RAPIDLY_API_URL is for server-side requests (container-to-container)
+      RAPIDLY_API_URL: http://api:8000
+      S3_PUBLIC_IMAGES_BUCKET_PROTOCOL: http
+      S3_PUBLIC_IMAGES_BUCKET_HOSTNAME: localhost
+      S3_PUBLIC_IMAGES_BUCKET_PORT: "${MINIO_API_PORT:-9000}"
+      S3_PUBLIC_IMAGES_BUCKET_PATHNAME: "**"
+      S3_UPLOAD_ORIGINS: http://localhost:${MINIO_API_PORT:-9000}
+    volumes:
+      - ../../clients:/app/clients:cached
+      - ../../dev:/app/dev:cached
+      - web_node_modules:/app/clients/node_modules
+      - web_next_cache:/app/clients/apps/web/.next
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    depends_on:
+      - api
+    deploy:
+      resources:
+        limits:
+          memory: 6G
+
+  # ============================================
+  # Optional Services (use --profile flag)
+  # ============================================
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ../../server/monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=1d"
+      - "--web.enable-lifecycle"
+      - "--web.enable-remote-write-receiver"
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:12.3.0
+    ports:
+      - "${GRAFANA_PORT:-3001}:3000"
+    volumes:
+      - ../../server/monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ../../server/monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: rapidly
+      GF_SECURITY_ADMIN_PASSWORD: rapidly
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on:
+      - prometheus
+    profiles:
+      - monitoring
+
+volumes:
+  postgres_data:
+  minio_data:
+  server_uv_cache:
+  api_venv:
+  worker_venv:
+  pnpm_store:
+  web_node_modules:
+  web_next_cache:
+  prometheus_data:
+  grafana_data:

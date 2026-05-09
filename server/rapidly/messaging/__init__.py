@@ -1,0 +1,1 @@
+"""Rapidly messaging domain group."""

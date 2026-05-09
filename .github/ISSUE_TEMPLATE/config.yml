@@ -1,0 +1,7 @@
+# Rapidly — Issue template configuration
+# Allow blank issues so contributors can report anything without being constrained by a template.
+blank_issues_enabled: true
+contact_links:
+  - name: Rapidly Documentation
+    url: https://handbook.rapidly.tech/engineering/
+    about: Check the engineering handbook before filing a bug or feature request.

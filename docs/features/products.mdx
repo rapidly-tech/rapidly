@@ -1,0 +1,102 @@
+---
+title: "Shares"
+sidebarTitle: "Shares"
+description: "Create and manage paid file-sharing channels in your workspace"
+---
+
+<Info>
+**Shares are your catalog**
+
+A share is an item in your workspace catalog that represents a paid (or free) file-sharing channel. Shares let you attach pricing, custom fields, and media to your file transfers so you can monetize content distribution.
+</Info>
+
+## Create a Share
+
+### Name & Description
+
+- **Name** -- The title of your share, visible to customers.
+- **Description** -- Supports Markdown for rich formatting.
+
+### Pricing
+
+Set how customers pay for access to this file-sharing channel.
+
+<Steps>
+  <Step title="Pricing type">
+    * **Fixed price** -- Set a specific amount customers must pay for access.
+    * **Pay what you want** -- Let customers choose their price. You can set a minimum and a suggested default.
+    * **Free** -- No charge. Useful for public file distribution or lead generation.
+    * **Metered / Usage-based** -- Charge customers based on consumption (per-unit pricing).
+    * **Seat-based** -- Charge per team member for team customers.
+  </Step>
+  <Step title="Price">
+    For fixed-price shares, set the amount.
+
+    For pay-what-you-want shares, configure a minimum amount and a default amount that will be pre-filled.
+  </Step>
+  <Step title="Currency">
+    Shares support multiple currencies including **USD**, **EUR**, **GBP**, **CAD**, **AUD**, and more.
+  </Step>
+</Steps>
+
+<Info>
+  Pricing type cannot be changed after the share is created. You can update
+  the price amount at any time.
+</Info>
+
+### Visibility
+
+Control who can see and access your share:
+
+- **Draft** -- Only visible to workspace members. Use this while preparing content.
+- **Private** -- Accessible only via direct link. Not listed publicly.
+- **Public** -- Listed on your workspace storefront and discoverable by anyone.
+
+### Media Attachments
+
+- Upload images to showcase what the share contains (previews, thumbnails)
+- Up to 10 MB per image
+- Drag to reorder; click to remove
+
+### Custom Fields
+
+Collect additional information from customers when they access a share. Manage fields from your workspace settings, then attach them per share. Supported field types:
+
+- Text
+- Number
+- Date
+- Checkbox
+- Select
+
+<Info>
+  Making a checkbox field **required** is useful for terms-of-service acceptance.
+</Info>
+
+## Update a Share
+
+You can edit any share details except the **pricing type**. For fixed-price shares, you can change the amount -- existing customers keep their original pricing.
+
+## Archive a Share
+
+Shares cannot be deleted, but they can be **archived**. Click the **Archive** button on the share detail page.
+
+Archived shares are no longer accessible to new customers, but existing customers retain their access. You can unarchive a share via the [Shares Update API](/api-reference/products/update).
+
+## Delete a Share
+
+Shares that have never been purchased can be permanently deleted via the API. Once a share has any associated transactions, it can only be archived.
+
+## API Reference
+
+Manage shares programmatically at `/api/shares/`:
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/api/shares/` | `POST` | Create a new share |
+| `/api/shares/` | `GET` | List shares in your workspace |
+| `/api/shares/{id}` | `GET` | Get share details |
+| `/api/shares/{id}` | `PATCH` | Update a share |
+| `/api/shares/{id}/archive` | `POST` | Archive a share |
+| `/api/shares/{id}` | `DELETE` | Delete a share (if no transactions) |
+
+See the full [Shares API documentation](/api-reference/products/list) for request/response schemas.

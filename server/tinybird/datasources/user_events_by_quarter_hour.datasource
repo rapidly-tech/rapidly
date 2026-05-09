@@ -1,0 +1,9 @@
+# Rapidly analytics — user event activity bucketed by 15-minute intervals for active-user metrics
+SCHEMA >
+    `organization_id` UUID,
+    `quarter_hour` DateTime,
+    `customer_id` Nullable(UUID),
+    `external_customer_id` Nullable(String)
+
+ENGINE MergeTree
+ENGINE_SORTING_KEY organization_id, quarter_hour

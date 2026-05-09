@@ -1,0 +1,40 @@
+#!/usr/bin/env bash
+# conductor-setup - Rapidly Development Environment Setup
+# Version: 1.0.0-rapidly
+#
+# This script is called by Conductor to set up the Rapidly development
+# environment. It uses the Docker-based development setup for isolation.
+#
+# Environment variables:
+#   CONDUCTOR_PORT - Port assignment for instance calculation (default: 55000)
+
+set -euo pipefail
+
+RAPIDLY_PLATFORM="$(uname -s)"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Calculate instance from CONDUCTOR_PORT (default to 0)
+CONDUCTOR_PORT="${CONDUCTOR_PORT:-55000}"
+INSTANCE=$(( (CONDUCTOR_PORT - 55000) / 10 ))
+
+cd "$ROOT_DIR"
+
+echo "Setting up Rapidly development environment (instance $INSTANCE) on ${RAPIDLY_PLATFORM}..."
+
+# Verify essential tools are available
+if ! command -v uv &> /dev/null; then
+    echo "Warning: 'uv' is not installed. Some setup steps may fail."
+fi
+
+# Generate environment files if needed
+if [[ ! -f "server/.env" ]] || [[ ! -f "clients/apps/web/.env.local" ]]; then
+    echo "Generating environment files..."
+    ./dev/setup-environment
+fi
+
+echo ""
+echo "============================================"
+echo "  Rapidly setup complete for instance $INSTANCE"
+echo "============================================"
+echo ""

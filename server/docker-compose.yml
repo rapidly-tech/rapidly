@@ -1,0 +1,142 @@
+# ─────────────────────────────────────────────────────────────────────
+# Rapidly — local development infrastructure
+#
+# Core:        docker compose up -d
+# Monitoring:  docker compose --profile monitoring up -d
+# Security:    docker compose --profile security up -d
+# ─────────────────────────────────────────────────────────────────────
+
+services:
+  # ── Caching & job queue ──────────────────────────────────────────
+
+  redis:
+    image: redis
+    ports:
+      - "${RAPIDLY_REDIS_PORT}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # ── Primary database ────────────────────────────────────────────
+
+  db:
+    image: postgres:16-bookworm
+    environment:
+      POSTGRES_USER: ${RAPIDLY_POSTGRES_USER}
+      POSTGRES_PASSWORD: ${RAPIDLY_POSTGRES_PWD}
+      POSTGRES_DB: ${RAPIDLY_POSTGRES_DATABASE}
+      POSTGRES_PORT: ${RAPIDLY_POSTGRES_PORT}
+      RAPIDLY_READ_USER: ${RAPIDLY_POSTGRES_READ_USER:-rapidly_read}
+      RAPIDLY_READ_PASSWORD: ${RAPIDLY_POSTGRES_READ_PWD}
+    volumes:
+      - rapidly_postgres_data:/var/lib/postgresql/data/
+      - ./init-readonly-user.sql:/docker-entrypoint-initdb.d/init-readonly-user.sql
+    ports:
+      - "${RAPIDLY_POSTGRES_PORT}:5432"
+    expose:
+      - ${RAPIDLY_POSTGRES_PORT}
+    healthcheck:
+      test: ["CMD", "pg_isready", "-q", "-d", "${RAPIDLY_POSTGRES_DATABASE}", "-U", "${RAPIDLY_POSTGRES_USER}"]
+      timeout: 40s
+      interval: 2s
+      retries: 20
+
+  # ── Object storage (S3-compatible) ──────────────────────────────
+
+  minio:
+    image: bitnamilegacy/minio:2024.5.28
+    ports:
+      - "9010:9000"   # API
+      - "9011:9001"   # Console
+    volumes:
+      - rapidly_minio_data:/minio
+    environment:
+      MINIO_ROOT_USER: ${RAPIDLY_MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${RAPIDLY_MINIO_PWD}
+
+  minio-setup:
+    image: bitnamilegacy/minio-client:2024.5.24
+    depends_on: [minio]
+    volumes:
+      - ./.minio:/tmp/config
+    environment:
+      MINIO_HOST: minio
+      MINIO_ROOT_USER: ${RAPIDLY_MINIO_USER}
+      MINIO_ROOT_PASSWORD: ${RAPIDLY_MINIO_PWD}
+      BUCKET_NAME: ${RAPIDLY_S3_FILES_BUCKET_NAME}
+      PUBLIC_BUCKET_NAME: ${RAPIDLY_S3_FILES_PUBLIC_BUCKET_NAME}
+      BUCKET_TESTING_NAME: testing-${RAPIDLY_S3_FILES_BUCKET_NAME}
+      POLICY_FILE: /tmp/config/policy.json
+      ACCESS_KEY: ${RAPIDLY_AWS_ACCESS_KEY_ID}
+      SECRET_ACCESS_KEY: ${RAPIDLY_AWS_SECRET_ACCESS_KEY}
+    entrypoint: ["bash", "-c", "bash /tmp/config/local.sh /tmp/config/configure.sh"]
+
+  # ── Event analytics ─────────────────────────────────────────────
+
+  tinybird:
+    image: tinybirdco/tinybird-local:latest
+    platform: linux/amd64
+    ports:
+      - "7181:7181"   # Query API
+      - "7182:7182"   # Ingest API
+
+  # ── Security scanning (optional) ────────────────────────────────
+
+  clamav:
+    image: clamav/clamav:stable
+    ports:
+      - "3310:3310"
+    volumes:
+      - rapidly_clamav_data:/var/lib/clamav
+    environment:
+      CLAMAV_NO_FRESHCLAMD: "false"
+      CLAMAV_NO_CLAMD: "false"
+    healthcheck:
+      test: ["CMD", "clamdscan", "--version"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 120s
+    profiles: [security]
+
+  # ── Monitoring (optional) ───────────────────────────────────────
+
+  prometheus:
+    image: prom/prometheus:v3.7.3
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - rapidly_prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=1d"
+      - "--web.enable-lifecycle"
+      - "--web.enable-remote-write-receiver"
+    profiles: [monitoring]
+
+  grafana:
+    image: grafana/grafana:12.3.0
+    ports:
+      - "3002:3000"
+    volumes:
+      - ./monitoring/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./monitoring/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - rapidly_grafana_data:/var/lib/grafana
+    environment:
+      GF_SECURITY_ADMIN_USER: rapidly
+      GF_SECURITY_ADMIN_PASSWORD: rapidly
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on: [prometheus]
+    profiles: [monitoring]
+
+volumes:
+  rapidly_postgres_data:
+  rapidly_minio_data:
+    driver: local
+  rapidly_clamav_data:
+  rapidly_prometheus_data:
+  rapidly_grafana_data:

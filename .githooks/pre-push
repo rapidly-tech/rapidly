@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# pre-push — optional local gate that runs verify.sh before any push.
+#
+# Activate per-clone:
+#   git config core.hooksPath .githooks
+#
+# Bypass for an emergency push:
+#   git push --no-verify
+#
+# Intentionally opt-in: nobody is forced into it, but everyone has the option.
+
+exec "$(git rev-parse --show-toplevel)/verify.sh"

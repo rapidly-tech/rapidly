@@ -1,0 +1,107 @@
+"""Auth-validator tests for ``session_kind="collab"``."""
+
+from __future__ import annotations
+
+from typing import Any
+
+import pytest
+
+import rapidly.sharing.collab.signaling_validators  # noqa: F401
+from rapidly.sharing.collab import actions as collab_service
+from rapidly.sharing.file_sharing.queries import ChannelRepository
+from rapidly.sharing.file_sharing.signaling import _AUTH_VALIDATORS, AuthContext
+
+
+class _MockWs:
+    def __init__(self) -> None:
+        self.sent: list[str] = []
+        self.closed: bool = False
+        self.close_code: int | None = None
+        self.cookies: dict[str, str] = {}
+
+    async def send_text(self, data: str) -> None:
+        self.sent.append(data)
+
+    async def close(self, code: int = 1000, reason: str = "") -> None:
+        self.closed = True
+        self.close_code = code
+
+
+@pytest.mark.asyncio
+class TestCollabHostValidator:
+    async def test_valid_host_secret_passes(self, redis: Any) -> None:
+        channel, secret = await collab_service.create_collab_session(
+            redis, title=None, max_participants=3
+        )
+        repo = ChannelRepository(redis)
+        ctx = AuthContext(
+            ws=_MockWs(),  # type: ignore[arg-type]
+            slug=channel.short_slug,
+            role="host",
+            channel=channel,
+            msg={"type": "auth", "role": "host", "secret": secret},
+            repo=repo,
+            client_ip="127.0.0.1",
+        )
+        assert await _AUTH_VALIDATORS[("collab", "host")](ctx) is True
+
+    async def test_wrong_host_secret_fails_4003(self, redis: Any) -> None:
+        channel, _ = await collab_service.create_collab_session(
+            redis, title=None, max_participants=3
+        )
+        repo = ChannelRepository(redis)
+        ws = _MockWs()
+        ctx = AuthContext(
+            ws=ws,  # type: ignore[arg-type]
+            slug=channel.short_slug,
+            role="host",
+            channel=channel,
+            msg={"type": "auth", "role": "host", "secret": "wrong"},
+            repo=repo,
+            client_ip="127.0.0.1",
+        )
+        assert await _AUTH_VALIDATORS[("collab", "host")](ctx) is False
+        assert ws.closed is True
+        assert ws.close_code == 4003
+        assert any("Authentication failed" in m for m in ws.sent)
+
+
+@pytest.mark.asyncio
+class TestCollabGuestValidator:
+    async def test_valid_invite_token_passes(self, redis: Any) -> None:
+        channel, secret = await collab_service.create_collab_session(
+            redis, title=None, max_participants=3
+        )
+        token = await collab_service.mint_invite_token(
+            redis, channel.short_slug, secret
+        )
+        assert token is not None
+        repo = ChannelRepository(redis)
+        ctx = AuthContext(
+            ws=_MockWs(),  # type: ignore[arg-type]
+            slug=channel.short_slug,
+            role="guest",
+            channel=channel,
+            msg={"type": "auth", "role": "guest", "token": token},
+            repo=repo,
+            client_ip="127.0.0.1",
+        )
+        assert await _AUTH_VALIDATORS[("collab", "guest")](ctx) is True
+
+    async def test_unknown_invite_fails_4003(self, redis: Any) -> None:
+        channel, _ = await collab_service.create_collab_session(
+            redis, title=None, max_participants=3
+        )
+        repo = ChannelRepository(redis)
+        ws = _MockWs()
+        ctx = AuthContext(
+            ws=ws,  # type: ignore[arg-type]
+            slug=channel.short_slug,
+            role="guest",
+            channel=channel,
+            msg={"type": "auth", "role": "guest", "token": "not-real"},
+            repo=repo,
+            client_ip="127.0.0.1",
+        )
+        assert await _AUTH_VALIDATORS[("collab", "guest")](ctx) is False
+        assert ws.close_code == 4003
