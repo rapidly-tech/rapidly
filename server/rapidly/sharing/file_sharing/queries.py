@@ -1174,17 +1174,37 @@ class SecretRepository:
         """Whether the one-time PG → Redis backfill has happened."""
         return bool(await self._redis.exists(self._CHANNELS_INITIALIZED_KEY))
 
-    async def seed_channels_total(self, count: int) -> None:
-        """One-shot seed of the channel counter from a PG ``COUNT(*)``
-        baseline. Idempotent — sets the initialised marker so the
-        backfill never runs twice. Uses ``setnx`` so a concurrent
-        first-read can't double-seed."""
-        # ``set`` with ``nx=True`` is the atomic "set only if missing".
-        # Two concurrent first-reads will both compute pg_count and
-        # try to seed; whichever loses the race silently no-ops, so
-        # the counter never gets the count added twice.
-        await self._redis.set(self._CHANNELS_TOTAL_KEY, count, nx=True)
-        await self._redis.set(self._CHANNELS_INITIALIZED_KEY, "1")
+    async def seed_channels_total_if_needed(self, pg_baseline: int) -> bool:
+        """One-shot atomic seed of the channel counter from a PG
+        ``COUNT(*)`` baseline. Returns ``True`` if this call performed
+        the seed, ``False`` if the marker was already set by a
+        previous call (no-op).
+
+        Race-safe design
+        ----------------
+        The naive ``set channels_total = pg_count`` approach lost
+        concurrent ``increment_channels_total`` writes that landed
+        between deploy and the first ``get_public_stats`` call —
+        ``setnx`` with the increment already at ``1`` would fail and
+        the baseline of ``pg_count`` was silently lost, dropping the
+        counter to a tiny number until the next 30 s poll.
+
+        Instead:
+          1. ``set initialized = 1`` with ``nx=True`` — atomic
+             "win the seed race". Only one process / call can win.
+          2. The winner uses ``incrby`` to ADD the baseline to the
+             current counter, preserving any concurrent increments
+             that already happened (channels_total = N + pg_count
+             where N is the count of races we lost to).
+
+        Losers no-op and return False — the marker is already set,
+        someone else seeded.
+        """
+        won = await self._redis.set(self._CHANNELS_INITIALIZED_KEY, "1", nx=True)
+        if not won:
+            return False
+        await self._redis.incrby(self._CHANNELS_TOTAL_KEY, pg_baseline)
+        return True
 
     # Public convenience methods (preserve existing API)
     async def create_secret(
