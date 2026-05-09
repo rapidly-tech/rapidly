@@ -1,14 +1,25 @@
 'use client'
 
-import { FILE_SHARING_API } from '@/utils/file-sharing/constants'
+import { CONFIG } from '@/utils/config'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
-// Same-origin path. The earlier "use ${CONFIG.BASE_URL}" version
-// (#617) didn't actually do what its commit message claimed: on prod
-// CONFIG.BASE_URL is "https://rapidly.tech", not the api subdomain,
-// so the URL was identical to the relative one but with a CORS
-// surface bolted on for no benefit. Reverted.
-const STATS_URL = `${FILE_SHARING_API}/stats`
+// Hit the backend directly. ``CONFIG.BASE_URL`` is the API origin
+// (``https://api.rapidly.tech`` in prod, ``http://127.0.0.1:8000`` in
+// dev) — not the frontend origin. On prod the same-origin
+// ``/api/file-sharing/stats`` is ~990 ms because it pays a full
+// rewrite hop through the Next.js server before reaching the backend;
+// the direct request lands in ~230 ms.
+//
+// CORS on the backend already allows ``https://rapidly.tech`` with
+// credentials, and the auth cookie is scoped to ``.rapidly.tech`` so
+// it crosses to the api subdomain — the workspace-membership check
+// from #613 still fires.
+//
+// (Earlier #619 reverted #617's direct-URL move based on a misread
+// of the bundle: the template literal looked unresolved, but
+// ``CONFIG.BASE_URL`` *does* resolve to the api subdomain at runtime.
+// Verified by inspecting the config chunk.)
+const STATS_URL = `${CONFIG.BASE_URL}/api/file-sharing/stats`
 
 // Inlined ``solar:share-linear`` SVG so the icon paints on first
 // render rather than chasing a runtime fetch from
@@ -54,7 +65,13 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
       const url = workspaceId
         ? `${STATS_URL}?workspace_id=${workspaceId}`
         : STATS_URL
-      const res = await fetch(url, { cache: 'no-store' })
+      // ``credentials: 'include'`` so the auth cookie crosses subdomains
+      // for the workspace-scoped path (otherwise #613's membership check
+      // would 401 logged-in users on the dashboard).
+      const res = await fetch(url, {
+        cache: 'no-store',
+        credentials: 'include',
+      })
       if (res.ok) {
         const data = await res.json()
         setCount(data.total_shares)
