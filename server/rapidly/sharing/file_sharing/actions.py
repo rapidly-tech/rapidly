@@ -1572,11 +1572,16 @@ async def get_public_stats(session: AsyncReadSession, redis: Redis) -> int:
     secret_repo = SecretRepository(redis)
     # Backfill the channel counter from PG once after deploy. The
     # initialised marker makes this idempotent — every subsequent
-    # call short-circuits to a single Redis read.
+    # call short-circuits to a single Redis read. Race-safe: any
+    # concurrent ``increment_channels_total`` calls that land
+    # between deploy and the first read are preserved (the seed
+    # uses ``incrby pg_baseline`` so the post-seed counter equals
+    # ``pg_baseline + N`` where N is the number of un-tracked
+    # creates).
     if not await secret_repo.channels_total_initialized():
         pg_repo = FileShareSessionRepository.from_session(session)
         baseline = await pg_repo.get_total_count()
-        await secret_repo.seed_channels_total(baseline)
+        await secret_repo.seed_channels_total_if_needed(baseline)
 
     # All four counters are Redis reads — instant, no replica lag.
     # ``create_channel`` bumps ``channels_total`` atomically before
