@@ -766,7 +766,11 @@ async def create_channel(
         creator_continent=creator_continent,
     )
 
-    # PG dual-write
+    # PG dual-write — kept for analytics + workspace queries. The
+    # PG row is the source of record but NOT the source of the
+    # live public counter (replica lag would mean the counter
+    # only ticks 100-1000 ms after the share is created — the
+    # "after some time, not immediate" the user reported).
     if session is not None:
         await _pg_create_session(
             session,
@@ -784,13 +788,13 @@ async def create_channel(
             share_id=share_id,
             creator_ip_hash=creator_ip_hash,
         )
-    else:
-        # No PG row written → ``get_total_count()`` won't see this
-        # channel. Bump the dedicated anonymous-channels counter so
-        # the public "shares so far" stat reflects landing-page
-        # creates from anonymous visitors.
-        secret_repo = SecretRepository(redis)
-        await secret_repo.increment_anon_channel_count()
+
+    # Atomic Redis bump of the live channel counter. This is the
+    # source of truth for the public "shares so far" stat — visible
+    # immediately to all readers, no commit / replica lag. Always
+    # fires regardless of whether the PG dual-write happened.
+    secret_repo = SecretRepository(redis)
+    await secret_repo.increment_channels_total()
 
     # Invalidate the cached stats so the counter updates immediately
     await redis.delete(_STATS_CACHE_KEY)
@@ -1565,16 +1569,24 @@ async def get_public_stats(session: AsyncReadSession, redis: Redis) -> int:
     if cached is not None:
         return int(cached)
 
-    pg_repo = FileShareSessionRepository.from_session(session)
     secret_repo = SecretRepository(redis)
-    pg_count = await pg_repo.get_total_count()
+    # Backfill the channel counter from PG once after deploy. The
+    # initialised marker makes this idempotent — every subsequent
+    # call short-circuits to a single Redis read.
+    if not await secret_repo.channels_total_initialized():
+        pg_repo = FileShareSessionRepository.from_session(session)
+        baseline = await pg_repo.get_total_count()
+        await secret_repo.seed_channels_total(baseline)
+
+    # All four counters are Redis reads — instant, no replica lag.
+    # ``create_channel`` bumps ``channels_total`` atomically before
+    # returning, so the next ``get_public_stats`` read sees the new
+    # share immediately (PG had commit + replication lag, which the
+    # user perceived as "the counter doesn't update").
+    channels_count = await secret_repo.get_channels_total()
     secret_count = await secret_repo.get_created_count()
     no_server_count = await secret_repo.get_no_server_created_count()
-    # Anonymous channels are Redis-only (no PG row), so they're not
-    # in ``pg_count``. Counted separately to keep the public stat
-    # complete.
-    anon_channel_count = await secret_repo.get_anon_channel_count()
-    total = pg_count + secret_count + no_server_count + anon_channel_count
+    total = channels_count + secret_count + no_server_count
 
     await redis.setex(_STATS_CACHE_KEY, _STATS_CACHE_TTL, str(total))
     return total
