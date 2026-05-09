@@ -1,10 +1,37 @@
 'use client'
 
 import { extractFileList } from '@/utils/file-sharing/fs'
-import { Icon } from '@iconify/react'
 import { motion, useMotionValue, useSpring, useTransform } from 'framer-motion'
 import React, { JSX, useCallback, useEffect, useRef, useState } from 'react'
 import TermsAcceptance from './TermsAcceptance'
+
+// Inlined ``solar:upload-linear`` SVG. Pulling it through
+// ``@iconify/react`` triggered a runtime fetch from
+// ``api.iconify.design`` even though we bundle ``@iconify-json/solar``
+// — visible delay on phones with cold caches / slow networks where
+// the request can take 1-2 s. Same workaround the chamber-strip
+// pills use.
+function UploadIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      className={className}
+      aria-hidden="true"
+    >
+      <g
+        fill="none"
+        stroke="currentColor"
+        strokeLinecap="round"
+        strokeWidth="1.5"
+      >
+        <path d="M17 9.002c2.175.012 3.353.109 4.121.877C22 10.758 22 12.172 22 15v1c0 2.829 0 4.243-.879 5.122C20.243 22 18.828 22 16 22H8c-2.828 0-4.243 0-5.121-.878C2 20.242 2 18.829 2 16v-1c0-2.828 0-4.242.879-5.121c.768-.768 1.946-.865 4.121-.877" />
+        <path strokeLinejoin="round" d="M12 15V2m0 0l3 3.5M12 2L9 5.5" />
+      </g>
+    </svg>
+  )
+}
 
 // ── Main Component ──
 
@@ -347,14 +374,12 @@ export default function DropZone({
                   : 'bg-slate-100 group-hover:scale-110 group-hover:bg-slate-200 dark:bg-slate-900/40 dark:group-hover:bg-slate-800/40'
               }`}
             >
-              <Icon
-                icon="solar:upload-linear"
+              <UploadIcon
                 className={`h-6 w-6 transition-transform duration-300 ${
                   isDragging
                     ? '-translate-y-1 text-slate-600 dark:text-slate-400'
                     : 'text-slate-500 group-hover:-translate-y-0.5 dark:text-slate-400'
                 }`}
-                aria-hidden="true"
               />
             </div>
             <span
