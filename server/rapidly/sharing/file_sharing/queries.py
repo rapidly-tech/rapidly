@@ -1088,12 +1088,18 @@ class SecretRepository:
     # semantic stays clean.
     _NO_SERVER_STATS_KEY = "file-sharing:stats:no_server_created"
 
-    # Anonymous file-share channels (Redis-only, no PG dual-write).
-    # ``get_total_count()`` only sees PG-persisted sessions, so without
-    # a separate counter, anonymous public-landing shares never tick the
-    # "shares so far" stat — only secrets + workspace-PG sessions do.
-    # Tracked here, summed by ``get_public_stats``.
-    _ANON_CHANNELS_KEY = "file-sharing:stats:anon_channels_created"
+    # Live total of file-share channels created. Bumped on every
+    # ``create_channel`` call, regardless of whether the request also
+    # writes a PG dual-write row. Used by ``get_public_stats`` instead
+    # of a SQL ``COUNT(*)`` so the public counter ticks the moment the
+    # share is created — the SQL count goes through the read replica
+    # which has commit + replication lag (100-1000 ms typical), which
+    # the user perceived as "the counter doesn't update immediately".
+    #
+    # ``_INITIALIZED_KEY`` marks the one-time backfill from PG so the
+    # counter doesn't reset on first deploy.
+    _CHANNELS_TOTAL_KEY = "file-sharing:stats:channels_total"
+    _CHANNELS_INITIALIZED_KEY = "file-sharing:stats:channels_total:initialized"
 
     async def increment_created_count(self, workspace_id: str | None = None) -> None:
         """Increment the persistent counter of secrets/files created."""
@@ -1145,21 +1151,40 @@ class SecretRepository:
         )
         return int(val) if val else 0
 
-    async def increment_anon_channel_count(self) -> None:
-        """Increment the persistent counter of anonymous file-share channels.
+    async def increment_channels_total(self) -> None:
+        """Atomically bump the live channel counter + invalidate cache.
 
-        Anonymous channels are Redis-only (no PG dual-write) so the public
-        ``COUNT(*)`` of file-share sessions misses them — without this key
-        the public counter would never tick on anonymous shares from the
-        landing page.
+        Called on every ``create_channel`` regardless of whether the
+        request also writes a PG dual-write row. The Redis increment
+        is the source of truth for the live public counter — PG
+        ``COUNT(*)`` goes through the read replica with commit +
+        replication lag, which the user can see.
         """
-        await self._redis.incr(self._ANON_CHANNELS_KEY)
+        await self._redis.incr(self._CHANNELS_TOTAL_KEY)
         await self._redis.delete(self._STATS_CACHE_KEY)
 
-    async def get_anon_channel_count(self) -> int:
-        """Return the total number of anonymous channels ever created."""
-        val = await self._redis.get(self._ANON_CHANNELS_KEY)
+    async def get_channels_total(self) -> int:
+        """Return the live channel total. Returns 0 before the
+        first-read backfill runs (callers should pair with
+        ``ensure_channels_total_initialized`` to handle backfill)."""
+        val = await self._redis.get(self._CHANNELS_TOTAL_KEY)
         return int(val) if val else 0
+
+    async def channels_total_initialized(self) -> bool:
+        """Whether the one-time PG → Redis backfill has happened."""
+        return bool(await self._redis.exists(self._CHANNELS_INITIALIZED_KEY))
+
+    async def seed_channels_total(self, count: int) -> None:
+        """One-shot seed of the channel counter from a PG ``COUNT(*)``
+        baseline. Idempotent — sets the initialised marker so the
+        backfill never runs twice. Uses ``setnx`` so a concurrent
+        first-read can't double-seed."""
+        # ``set`` with ``nx=True`` is the atomic "set only if missing".
+        # Two concurrent first-reads will both compute pg_count and
+        # try to seed; whichever loses the race silently no-ops, so
+        # the counter never gets the count added twice.
+        await self._redis.set(self._CHANNELS_TOTAL_KEY, count, nx=True)
+        await self._redis.set(self._CHANNELS_INITIALIZED_KEY, "1")
 
     # Public convenience methods (preserve existing API)
     async def create_secret(

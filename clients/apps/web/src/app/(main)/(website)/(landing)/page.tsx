@@ -66,7 +66,12 @@ async function fetchInitialShareCount(): Promise<number | undefined> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), STATS_FETCH_TIMEOUT_MS)
   try {
-    const res = await fetch(`${CONFIG.BASE_URL}/v1/file-sharing/stats`, {
+    // Backend mounts file-sharing under ``/api/file-sharing`` (the
+    // top-level router has ``prefix="/api"``, the file-sharing
+    // sub-router adds ``/file-sharing``). The earlier ``/v1/...`` URL
+    // here was wrong → 404 → SSR silently returned ``undefined``,
+    // making the prefetch a no-op.
+    const res = await fetch(`${CONFIG.BASE_URL}/api/file-sharing/stats`, {
       next: { revalidate: 60 },
       signal: controller.signal,
     })
