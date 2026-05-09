@@ -1,11 +1,20 @@
 import { CONFIG } from '@/utils/config'
 import { Metadata } from 'next'
-import dynamic from 'next/dynamic'
+import dynamicImport from 'next/dynamic'
 
-const SecretViewer = dynamic(() =>
+// Force dynamic rendering on every request. Without this Next.js
+// fully-cached the rendered HTML (``cache-control: s-maxage=...``,
+// ``x-nextjs-cache: HIT``) regardless of ``cache: 'no-store'`` on
+// the inner stats fetch — visitors were getting an HTML page with
+// a stats value baked in at the time of the first render and only
+// the client-side poll would correct it (visible as "the counter
+// shows a lower number first and then goes back up").
+export const dynamic = 'force-dynamic'
+
+const SecretViewer = dynamicImport(() =>
   import('@/components/Landing/SecretViewer').then((m) => m.SecretViewer),
 )
-const FileSharingLandingPage = dynamic(() =>
+const FileSharingLandingPage = dynamicImport(() =>
   import('@/components/Landing/file-sharing/FileSharingLandingPage').then(
     (m) => m.FileSharingLandingPage,
   ),
