@@ -1184,8 +1184,9 @@ class SecretRepository:
 
     async def get_channels_total(self) -> int:
         """Return the live channel total. Returns 0 before the
-        first-read backfill runs (callers should pair with
-        ``ensure_channels_total_initialized`` to handle backfill)."""
+        first-read backfill runs — callers should check
+        :meth:`channels_total_initialized` and seed via
+        :meth:`seed_channels_total_if_needed` first."""
         val = await self._redis.get(self._CHANNELS_TOTAL_KEY)
         return int(val) if val else 0
 

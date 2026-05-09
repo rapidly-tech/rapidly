@@ -64,9 +64,11 @@ export const FileSharingLandingPage = ({
   workspaceId?: string
   onFlowStateChange?: (state: FileSharingFlowState) => void
   entranceAnimation?: boolean
-  /** Server-rendered share count for the public landing — passed
-   *  through to ``<ShareCounter>`` so the live number paints on
-   *  first render (no waiting for the client-side fetch). */
+  /** Server-rendered public share count for first paint. Honored
+   *  only when the visitor is anonymous; ``<ShareCounter>`` ignores
+   *  it once a workspace is in scope (the SSR fetch is anonymous, so
+   *  the value is the global public total — mismatched against a
+   *  workspace-scoped client fetch). */
   initialShareCount?: number
 } = {}) => {
   const { userWorkspaces } = useAuth()
