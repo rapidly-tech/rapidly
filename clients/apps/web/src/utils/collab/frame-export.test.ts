@@ -2,7 +2,12 @@ import { describe, expect, it } from 'vitest'
 import * as Y from 'yjs'
 
 import { createElementStore } from './element-store'
-import { exportFrameAsPng, frameDescendants } from './frame-export'
+import {
+  exportFrameAsJson,
+  exportFrameAsPng,
+  exportFrameAsSvg,
+  frameDescendants,
+} from './frame-export'
 
 const baseRect = {
   type: 'rect' as const,
@@ -83,5 +88,58 @@ describe('exportFrameAsPng', () => {
     const store = createElementStore(doc)
     const id = store.create(baseRect)
     expect(await exportFrameAsPng(store, id)).toBeNull()
+  })
+})
+
+describe('exportFrameAsSvg', () => {
+  it('returns null when the frame id is unknown', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    expect(exportFrameAsSvg(store, 'missing')).toBeNull()
+  })
+
+  it('returns null when the id resolves to a non-frame element', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const id = store.create(baseRect)
+    expect(exportFrameAsSvg(store, id)).toBeNull()
+  })
+
+  it('returns an SVG string for a real frame', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const a = store.create(baseRect)
+    const frameId = store.create(baseFrame([a]))
+    const svg = exportFrameAsSvg(store, frameId)
+    expect(svg).toBeTypeOf('string')
+    expect(svg).toContain('<svg')
+    expect(svg).toContain('</svg>')
+  })
+})
+
+describe('exportFrameAsJson', () => {
+  it('returns null when the frame id is unknown', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    expect(exportFrameAsJson(store, 'missing')).toBeNull()
+  })
+
+  it('returns null when the id resolves to a non-frame element', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const id = store.create(baseRect)
+    expect(exportFrameAsJson(store, id)).toBeNull()
+  })
+
+  it('returns the versioned envelope with frame + children', () => {
+    const doc = new Y.Doc()
+    const store = createElementStore(doc)
+    const a = store.create(baseRect)
+    const b = store.create(baseRect)
+    const frameId = store.create(baseFrame([a, b]))
+    const scene = exportFrameAsJson(store, frameId)
+    expect(scene).not.toBeNull()
+    expect(scene!.elements.map((e) => e.id)).toEqual([frameId, a, b])
+    expect(scene!.schema).toBe('rapidly-collab-v1')
   })
 })

@@ -48,7 +48,11 @@ import {
   createFollowMeController,
   type FollowMeController,
 } from '@/utils/collab/follow-me'
-import { exportFrameAsPng } from '@/utils/collab/frame-export'
+import {
+  exportFrameAsJson,
+  exportFrameAsPng,
+  exportFrameAsSvg,
+} from '@/utils/collab/frame-export'
 import { expandToGroups, group, ungroup } from '@/utils/collab/groups'
 import { hasLink, setLink } from '@/utils/collab/hyperlinks'
 import {
@@ -2054,6 +2058,67 @@ export function CollabWhiteboard({
         if (!blob) return
         const safe = frameName.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
         downloadBlob(blob, `rapidly-${safe || 'frame'}.png`)
+      },
+    })
+    // Helper used by the SVG + JSON frame variants — the PNG one
+    // is already inlined above. Resolves the first selected frame
+    // and surfaces the same "select a frame" alert when none is.
+    const resolveSelectedFrame = (): { id: string; name: string } | null => {
+      const store = storeRef.current
+      const selection = selectionRef.current
+      if (!store || selection.size === 0) return null
+      for (const id of selection.snapshot) {
+        const el = store.get(id)
+        if (el?.type === 'frame') {
+          return { id, name: (el as { name: string }).name || 'frame' }
+        }
+      }
+      return null
+    }
+    list.push({
+      id: 'export.frameSvg',
+      label: 'Export selected frame as SVG',
+      category: 'Export',
+      keywords: ['frame', 'export', 'svg', 'vector', 'artboard'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const frame = resolveSelectedFrame()
+        if (!frame) {
+          window.alert(
+            'Select a frame to export — only frames have a defined export region.',
+          )
+          return
+        }
+        const svg = exportFrameAsSvg(store, frame.id)
+        if (!svg) return
+        const blob = new Blob([svg], { type: 'image/svg+xml' })
+        const safe = frame.name.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
+        downloadBlob(blob, `rapidly-${safe || 'frame'}.svg`)
+      },
+    })
+    list.push({
+      id: 'export.frameJson',
+      label: 'Export selected frame as JSON',
+      category: 'Export',
+      keywords: ['frame', 'export', 'json', 'data', 'artboard'],
+      run: () => {
+        const store = storeRef.current
+        if (!store) return
+        const frame = resolveSelectedFrame()
+        if (!frame) {
+          window.alert(
+            'Select a frame to export — only frames have a defined export region.',
+          )
+          return
+        }
+        const scene = exportFrameAsJson(store, frame.id)
+        if (!scene) return
+        const blob = new Blob([JSON.stringify(scene, null, 2)], {
+          type: 'application/json',
+        })
+        const safe = frame.name.replace(/[^a-z0-9_-]+/gi, '-').toLowerCase()
+        downloadBlob(blob, `rapidly-${safe || 'frame'}.json`)
       },
     })
     list.push({
