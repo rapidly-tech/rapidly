@@ -12,7 +12,10 @@ const FileSharingLandingPage = dynamic(() =>
 )
 
 export const metadata: Metadata = {
-  title: 'Home',
+  // No ``title`` here — falls back to the root layout's default
+  // (``Rapidly``) instead of formatting through the
+  // ``%s | Rapidly`` template, which would produce
+  // ``Home | Rapidly``. The home tab should read just "Rapidly".
   description:
     'Peer-to-peer file transfers in your browser. No uploads to servers, no size limits, fully encrypted with AES-256-GCM.',
   keywords:
