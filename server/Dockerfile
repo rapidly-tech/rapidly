@@ -34,7 +34,7 @@ ENV PATH="$PNPM_HOME:$PATH"
 RUN corepack enable
 WORKDIR /app
 
-COPY ./rapidly/admin/pnpm-lock.yaml ./rapidly/admin/package.json ./
+COPY ./rapidly/admin/pnpm-lock.yaml ./rapidly/admin/package.json ./rapidly/admin/.npmrc ./
 RUN pnpm install --no-frozen-lockfile
 
 COPY ./rapidly/admin/ .
