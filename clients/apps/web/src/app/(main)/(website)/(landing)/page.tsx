@@ -44,12 +44,36 @@ export const metadata: Metadata = {
   },
 }
 
+/** Server-side prefetch of the public stats counter. Hits the
+ *  backend directly (the ``/api/file-sharing`` proxy is a client-
+ *  only Next.js rewrite — server fetches need an absolute URL),
+ *  caches the result for 60 s via the route-level ``revalidate``
+ *  contract so the count appears in the initial HTML and the
+ *  client component doesn't have to wait for its first fetch.
+ *
+ *  Failures fall through to ``undefined`` — the client poll then
+ *  runs as before, so a backend hiccup degrades to "counter shows
+ *  up a moment later" rather than blowing up the page render. */
+async function fetchInitialShareCount(): Promise<number | undefined> {
+  try {
+    const res = await fetch(`${CONFIG.BASE_URL}/v1/file-sharing/stats`, {
+      next: { revalidate: 60 },
+    })
+    if (!res.ok) return undefined
+    const data = (await res.json()) as { total_shares?: unknown }
+    return typeof data.total_shares === 'number' ? data.total_shares : undefined
+  } catch {
+    return undefined
+  }
+}
+
 /** Landing page for secure P2P file sharing with secret viewer integration. */
-export default function Page() {
+export default async function Page() {
+  const initialShareCount = await fetchInitialShareCount()
   return (
     <>
       <SecretViewer />
-      <FileSharingLandingPage />
+      <FileSharingLandingPage initialShareCount={initialShareCount} />
     </>
   )
 }
