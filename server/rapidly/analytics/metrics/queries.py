@@ -14,6 +14,7 @@ from datetime import datetime
 from enum import StrEnum
 from typing import TYPE_CHECKING, Any, Protocol, Self
 
+import structlog
 from sqlalchemy import (
     CTE,
     ColumnElement,
@@ -317,14 +318,41 @@ class MetricsQueryService:
 
     # -- session configuration ------------------------------------------------
 
-    async def configure_session_timezone(self, timezone_key: str) -> None:
-        """Set the PostgreSQL session timezone for correct time-bucketing."""
-        await self.session.execute(
-            select(func.set_config("TimeZone", timezone_key, True))
+    async def configure_session_timezone(self, timezone_key: str) -> str:
+        """Set the PostgreSQL session timezone for correct time-bucketing.
+
+        Returns the timezone key actually applied (may differ from the
+        requested one when the fallback kicks in).
+
+        Pydantic's ``TimeZoneName`` validates against Python's
+        :mod:`zoneinfo`, which carries more aliases than PostgreSQL's
+        bundled tzdata (e.g. ``Asia/Saigon`` is a valid Python alias
+        for ``Asia/Ho_Chi_Minh`` but is NOT in
+        :data:`pg_catalog.pg_timezone_names`). Passing such a value to
+        :func:`pg_catalog.set_config` raises ``invalid value for
+        parameter \"TimeZone\"`` and 500s the metrics request.
+
+        Probe ``pg_timezone_names`` first; if the requested zone isn't
+        recognised, fall back to UTC. Slight UX cost (buckets in UTC
+        instead of the user's local zone for these edge-case names) but
+        the request succeeds and the dashboard still renders.
+        """
+        is_known = await self.session.scalar(
+            text("SELECT 1 FROM pg_timezone_names WHERE name = :tz LIMIT 1"),
+            {"tz": timezone_key},
         )
+        applied = timezone_key if is_known else "UTC"
+        if not is_known:
+            structlog.get_logger(__name__).warning(
+                "metrics.timezone_fallback",
+                requested=timezone_key,
+                applied=applied,
+            )
+        await self.session.execute(select(func.set_config("TimeZone", applied, True)))
         await self.session.execute(
             text("SET LOCAL plan_cache_mode = 'force_custom_plan'")
         )
+        return applied
 
     # -- statement building ---------------------------------------------------
 
