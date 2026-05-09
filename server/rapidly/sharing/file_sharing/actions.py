@@ -300,7 +300,6 @@ async def _pg_create_payment(
     stripe_checkout_session_id: str | None = None,
     stripe_payment_intent_id: str | None = None,
     payment_method_id: UUID | None = None,
-    buyer_ip_hash: str | None = None,
 ) -> None:
     """Create a FileSharePayment PG record."""
     from rapidly.models.file_share_payment import FileSharePayment
