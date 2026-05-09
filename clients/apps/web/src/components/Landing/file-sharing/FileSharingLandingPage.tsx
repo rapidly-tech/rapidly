@@ -58,18 +58,11 @@ export const FileSharingLandingPage = ({
   workspaceId: workspaceIdProp,
   onFlowStateChange,
   entranceAnimation = true,
-  initialShareCount,
 }: {
   showPricing?: boolean
   workspaceId?: string
   onFlowStateChange?: (state: FileSharingFlowState) => void
   entranceAnimation?: boolean
-  /** Server-rendered public share count for first paint. Honored
-   *  only when the visitor is anonymous; ``<ShareCounter>`` ignores
-   *  it once a workspace is in scope (the SSR fetch is anonymous, so
-   *  the value is the global public total — mismatched against a
-   *  workspace-scoped client fetch). */
-  initialShareCount?: number
 } = {}) => {
   const { userWorkspaces } = useAuth()
   const workspaceId = workspaceIdProp ?? userWorkspaces?.[0]?.id
@@ -212,10 +205,7 @@ export const FileSharingLandingPage = ({
 
       {/* Live share counter */}
       <div className="relative z-20 flex items-center justify-center py-8">
-        <ShareCounter
-          workspaceId={workspaceId}
-          initialCount={initialShareCount}
-        />
+        <ShareCounter workspaceId={workspaceId} />
       </div>
 
       {/* Chamber badges — Secret is omitted because the card above

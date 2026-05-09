@@ -31,26 +31,11 @@ export const SHARE_CREATED_EVENT = 'rapidly:share-created'
 
 /**
  * When `workspaceId` is provided, shows workspace-scoped session count
- * from the authenticated API. Otherwise falls back to the public global
- * stats endpoint (used on the public landing page).
+ * (requires the caller to be a member of that workspace). Otherwise
+ * falls back to the public global stats endpoint.
  */
-export const ShareCounter = ({
-  workspaceId,
-  initialCount,
-}: {
-  workspaceId?: string
-  /** Server-rendered count for first paint. Ignored when
-   *  ``workspaceId`` is set — the SSR fetch is anonymous and
-   *  returns the global public total, which would mismatch the
-   *  workspace-scoped client fetch and make the counter visibly
-   *  drop on the first poll. */
-  initialCount?: number
-}) => {
-  const [count, setCount] = useState<number | null>(
-    workspaceId == null && typeof initialCount === 'number'
-      ? initialCount
-      : null,
-  )
+export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
+  const [count, setCount] = useState<number | null>(null)
 
   const fetchCount = useCallback(async () => {
     try {
