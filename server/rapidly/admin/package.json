@@ -26,6 +26,7 @@
     "overrides": {
       "picomatch@<2.3.2": "^2.3.2",
       "postcss@<8.5.10": "^8.5.10"
-    }
+    },
+    "onlyBuiltDependencies": ["@parcel/watcher", "esbuild"]
   }
 }
