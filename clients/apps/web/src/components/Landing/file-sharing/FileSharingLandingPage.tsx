@@ -4,6 +4,7 @@
 
 import type { FileSharingFlowState } from '@/components/FileSharing'
 import { FileSharingLanding } from '@/components/FileSharing'
+import { LOGO_HOME_RESET_EVENT } from '@/components/Layout/Public/RapidlyLogotype'
 import { useAuth } from '@/hooks/auth'
 import { Icon } from '@iconify/react'
 import { AnimatePresence, motion } from 'framer-motion'
@@ -71,6 +72,24 @@ export const FileSharingLandingPage = ({
   const [secretFlowState, setSecretFlowState] =
     useState<SecretFormState>('input')
   const [initialChar, setInitialChar] = useState('')
+  // Bumped on logo-home-reset to force the FileSharingLanding /
+  // SecretSharingForm subtrees to re-mount. Cheaper than the old
+  // full-page reload (which paid middleware + hydration cost) and
+  // visually identical for the user.
+  const [resetKey, setResetKey] = useState(0)
+
+  useEffect(() => {
+    const onReset = () => {
+      setMode('direct')
+      setFlowState('initial')
+      setSecretFlowState('input')
+      setInitialChar('')
+      setResetKey((k) => k + 1)
+      onFlowStateChange?.('initial')
+    }
+    window.addEventListener(LOGO_HOME_RESET_EVENT, onReset)
+    return () => window.removeEventListener(LOGO_HOME_RESET_EVENT, onReset)
+  }, [onFlowStateChange])
 
   const handleStateChange = useCallback(
     (state: FileSharingFlowState) => {
@@ -168,6 +187,7 @@ export const FileSharingLandingPage = ({
         {mode === 'direct' ? (
           <div>
             <FileSharingLanding
+              key={resetKey}
               onStateChange={handleStateChange}
               workspaceId={workspaceId}
               showPricing={showPricing}
@@ -194,6 +214,7 @@ export const FileSharingLandingPage = ({
         ) : (
           <div>
             <SecretSharingForm
+              key={resetKey}
               onStateChange={handleSecretStateChange}
               initialValue={initialChar}
               workspaceId={workspaceId}
