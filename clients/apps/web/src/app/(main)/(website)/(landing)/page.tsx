@@ -44,35 +44,25 @@ export const metadata: Metadata = {
   },
 }
 
-/** Server-side prefetch of the public stats counter. Hits the
- *  backend directly (the ``/api/file-sharing`` proxy is a client-
- *  only Next.js rewrite — server fetches need an absolute URL),
- *  caches the result for 60 s via the route-level ``revalidate``
- *  contract so the count appears in the initial HTML and the
- *  client component doesn't have to wait for its first fetch.
+/** Server-side prefetch of the public stats counter. ``cache:
+ *  'no-store'`` so each request fetches the live value — the
+ *  previous ``revalidate: 60`` made the SSR HTML up to a minute
+ *  stale, which the user perceived as "the counter shows a lower
+ *  number first and then goes back up". Backend already has its
+ *  own 15 s cache (``_STATS_CACHE_KEY``) so the load is bounded
+ *  to one Redis read per worker per ~15 s.
  *
  *  Capped with a 2 s ``AbortController`` so a hanging backend
- *  can't slow the page render — the whole point of the SSR
- *  optimisation is making the page faster, so we'd rather fall
- *  through to the client-side poll than block.
- *
- *  Failures (network, non-OK status, malformed payload, timeout)
- *  fall through to ``undefined``. The client poll then runs as
- *  before, so a backend hiccup degrades to "counter shows up a
- *  moment later" rather than blowing up the page render. */
+ *  can't slow the page render — failures fall through to
+ *  ``undefined`` and the client component fetches on mount. */
 const STATS_FETCH_TIMEOUT_MS = 2_000
 
 async function fetchInitialShareCount(): Promise<number | undefined> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), STATS_FETCH_TIMEOUT_MS)
   try {
-    // Backend mounts file-sharing under ``/api/file-sharing`` (the
-    // top-level router has ``prefix="/api"``, the file-sharing
-    // sub-router adds ``/file-sharing``). The earlier ``/v1/...`` URL
-    // here was wrong → 404 → SSR silently returned ``undefined``,
-    // making the prefetch a no-op.
     const res = await fetch(`${CONFIG.BASE_URL}/api/file-sharing/stats`, {
-      next: { revalidate: 60 },
+      cache: 'no-store',
       signal: controller.signal,
     })
     if (!res.ok) return undefined
