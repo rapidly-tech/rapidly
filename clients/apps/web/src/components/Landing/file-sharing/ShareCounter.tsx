@@ -71,33 +71,44 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
     }
   }, [fetchCount])
 
-  // Reserve the slot's vertical space before the fetch resolves so
-  // landing layout doesn't reflow when the number arrives. We still
-  // hide the contents (``opacity-0`` + ``aria-hidden``) until we
-  // have a real number, so screen readers don't announce "0".
-  // ``count === 0`` keeps the slot reserved but invisible — there's
+  // Reserve the slot's vertical space via ``min-h`` so the landing
+  // layout doesn't reflow when the number arrives, BUT only mount
+  // the AnimatedNumber once we have a real value — otherwise the
+  // spring initialises to 0 and animates 0→N on every page refresh,
+  // which is the wrong UX (industry standard for "live stats" is to
+  // show the current value immediately and only animate in-session
+  // delta updates).
+  //
+  // ``count === 0`` keeps the slot reserved but empty — there's
   // genuinely nothing to brag about, but reflowing later if the
   // first share lands during the visit would be jarring.
   const ready = count !== null && count > 0
   return (
     <div
-      className={
-        'flex flex-col items-center gap-1 transition-opacity duration-300 ' +
-        (ready ? 'opacity-100' : 'opacity-0')
-      }
+      className="flex min-h-[3.25rem] flex-col items-center gap-1"
       aria-hidden={!ready}
     >
-      <span className="text-lg font-semibold tracking-tight text-slate-500 tabular-nums dark:text-slate-400">
-        <AnimatedNumber value={count ?? 0} />
-      </span>
-      <div className="flex items-center gap-x-1.5">
-        <ShareIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />
-        <span className="rp-text-muted text-xs font-medium">shares so far</span>
-      </div>
+      {ready ? (
+        <>
+          <span className="text-lg font-semibold tracking-tight text-slate-500 tabular-nums dark:text-slate-400">
+            <AnimatedNumber value={count} />
+          </span>
+          <div className="flex items-center gap-x-1.5">
+            <ShareIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />
+            <span className="rp-text-muted text-xs font-medium">
+              shares so far
+            </span>
+          </div>
+        </>
+      ) : null}
     </div>
   )
 }
 
+/** Static-on-mount, animated-on-update counter. The spring is
+ *  initialised to the FIRST value the component sees so there's no
+ *  zero-to-N animation on initial paint. Subsequent in-session
+ *  changes (poll tick, share-created event) animate the delta. */
 const AnimatedNumber = ({ value }: { value: number }) => {
   const prevRef = useRef(value)
   const spring = useSpring(value, { stiffness: 80, damping: 20, mass: 0.5 })
