@@ -789,20 +789,16 @@ async def create_channel(
             creator_ip_hash=creator_ip_hash,
         )
 
-    # Atomic Redis bump of the live channel counter. This is the
-    # source of truth for the public "shares so far" stat — visible
-    # immediately to all readers, no commit / replica lag. Always
-    # fires regardless of whether the PG dual-write happened.
+    # Atomic Redis bump of the live channel counter — source of
+    # truth for the public "shares so far" stat. Visible immediately
+    # to all readers, no commit / replica lag. Fires regardless of
+    # whether the PG dual-write happened. ``increment_channels_total``
+    # also invalidates the public stats cache; the workspace path
+    # has no cache so doesn't need an analog.
     secret_repo = SecretRepository(redis)
     await secret_repo.increment_channels_total()
-    # Mirror into the per-workspace counter so workspace dashboards
-    # also tick instantly. Workspace ``get_workspace_stats`` reads
-    # from this Redis key (not PG) for the same no-lag reason.
     if workspace_id:
         await secret_repo.increment_workspace_channels_total(workspace_id)
-
-    # Invalidate the cached stats so the counter updates immediately
-    await redis.delete(_STATS_CACHE_KEY)
 
     return ChannelCreateResponse(
         secret=raw_secret,
