@@ -1088,6 +1088,13 @@ class SecretRepository:
     # semantic stays clean.
     _NO_SERVER_STATS_KEY = "file-sharing:stats:no_server_created"
 
+    # Anonymous file-share channels (Redis-only, no PG dual-write).
+    # ``get_total_count()`` only sees PG-persisted sessions, so without
+    # a separate counter, anonymous public-landing shares never tick the
+    # "shares so far" stat — only secrets + workspace-PG sessions do.
+    # Tracked here, summed by ``get_public_stats``.
+    _ANON_CHANNELS_KEY = "file-sharing:stats:anon_channels_created"
+
     async def increment_created_count(self, workspace_id: str | None = None) -> None:
         """Increment the persistent counter of secrets/files created."""
         await self._redis.incr(self._STATS_KEY)
@@ -1136,6 +1143,22 @@ class SecretRepository:
         val = await self._redis.get(
             f"file-sharing:stats:no_server_created:{workspace_id}"
         )
+        return int(val) if val else 0
+
+    async def increment_anon_channel_count(self) -> None:
+        """Increment the persistent counter of anonymous file-share channels.
+
+        Anonymous channels are Redis-only (no PG dual-write) so the public
+        ``COUNT(*)`` of file-share sessions misses them — without this key
+        the public counter would never tick on anonymous shares from the
+        landing page.
+        """
+        await self._redis.incr(self._ANON_CHANNELS_KEY)
+        await self._redis.delete(self._STATS_CACHE_KEY)
+
+    async def get_anon_channel_count(self) -> int:
+        """Return the total number of anonymous channels ever created."""
+        val = await self._redis.get(self._ANON_CHANNELS_KEY)
         return int(val) if val else 0
 
     # Public convenience methods (preserve existing API)
