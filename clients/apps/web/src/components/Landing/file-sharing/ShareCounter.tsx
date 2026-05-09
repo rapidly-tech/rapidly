@@ -1,15 +1,14 @@
 'use client'
 
-import { CONFIG } from '@/utils/config'
-import { useCallback, useEffect, useState } from 'react'
+import { FILE_SHARING_API } from '@/utils/file-sharing/constants'
+import { useCallback, useEffect, useRef, useState } from 'react'
 
-// Hit the backend directly (api.rapidly.tech) instead of routing the
-// stats request through the same-origin Next.js rewrite. Measured on
-// prod: rewrite path ~990 ms, direct ~230 ms. The rewrite runs every
-// request through the auth middleware (proxy.ts → /api/users/me),
-// which the public stats endpoint doesn't need. CORS on api.rapidly.tech
-// allows ``https://rapidly.tech`` with credentials, so this is safe.
-const STATS_URL = `${CONFIG.BASE_URL}/api/file-sharing/stats`
+// Same-origin path. The earlier "use ${CONFIG.BASE_URL}" version
+// (#617) didn't actually do what its commit message claimed: on prod
+// CONFIG.BASE_URL is "https://rapidly.tech", not the api subdomain,
+// so the URL was identical to the relative one but with a CORS
+// surface bolted on for no benefit. Reverted.
+const STATS_URL = `${FILE_SHARING_API}/stats`
 
 // Inlined ``solar:share-linear`` SVG so the icon paints on first
 // render rather than chasing a runtime fetch from
@@ -44,18 +43,18 @@ export const SHARE_CREATED_EVENT = 'rapidly:share-created'
  */
 export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
   const [count, setCount] = useState<number | null>(null)
+  // Mirror of ``count`` for use inside the share-created listener
+  // without binding the listener to ``count`` (which would re-attach
+  // it on every change and risk dropping in-flight events).
+  const countRef = useRef<number | null>(null)
+  countRef.current = count
 
   const fetchCount = useCallback(async () => {
     try {
       const url = workspaceId
         ? `${STATS_URL}?workspace_id=${workspaceId}`
         : STATS_URL
-      // ``credentials: 'include'`` so the backend's workspace-membership
-      // check (#613) sees the auth cookie when ``workspaceId`` is set.
-      const res = await fetch(url, {
-        cache: 'no-store',
-        credentials: 'include',
-      })
+      const res = await fetch(url, { cache: 'no-store' })
       if (res.ok) {
         const data = await res.json()
         setCount(data.total_shares)
@@ -69,24 +68,31 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
     fetchCount()
     const id = setInterval(fetchCount, POLL_INTERVAL)
 
-    // Optimistic +1 on share-created so the digit ticks the instant
-    // the share completes, before the /stats round-trip lands.
-    // ``fetchCount`` reconciles immediately after; if the optimistic
-    // value matches the real one (the common case), no second
-    // visual change.
+    // Source of truth for the user's own action: bump optimistically
+    // and DON'T re-fetch immediately. The earlier "optimistic + then
+    // fetchCount()" version raced — if the fetch returned the value
+    // from before the increment had propagated through whatever cache
+    // sat between the client and Redis, ``setCount(stale)`` clobbered
+    // the optimistic +1 and the user saw the digit revert until the
+    // 30 s poll. Trusting the optimistic update means the digit moves
+    // immediately and stays moved; the next poll handles drift.
+    //
+    // Edge case: if ``count`` is still null when the listener fires
+    // (the user shared before the first fetch resolved), the +1 is a
+    // no-op — fall back to fetching so the counter still appears.
     const onShareCreated = () => {
-      setCount((c) => (typeof c === 'number' ? c + 1 : c))
-      fetchCount()
+      if (typeof countRef.current === 'number') {
+        setCount((c) => (typeof c === 'number' ? c + 1 : c))
+      } else {
+        fetchCount()
+      }
     }
     window.addEventListener(SHARE_CREATED_EVENT, onShareCreated)
 
-    // Re-fetch whenever the page returns to foreground. On mobile the
-    // OS share sheet (Web Share API) suspends the page; in-flight
-    // fetches and the 30 s poll are paused while it's open, so the
-    // user comes back to a stale digit until the next poll tick. The
-    // visibilitychange event fires on resume — pulling fresh stats
-    // here is what users mean when they say "I had to refresh to see
-    // the counter change after sharing on phone".
+    // Re-fetch on foreground return. Mobile's Web Share API suspends
+    // the page while the OS share sheet is open; in-flight fetches
+    // and the poll are paused. Triggering a fetch on resume catches
+    // anything the suspend window dropped.
     const onVisible = () => {
       if (document.visibilityState === 'visible') fetchCount()
     }
