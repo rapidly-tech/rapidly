@@ -1,9 +1,29 @@
 'use client'
 
 import { FILE_SHARING_API } from '@/utils/file-sharing/constants'
-import { Icon } from '@iconify/react'
 import { motion, useSpring, useTransform } from 'framer-motion'
 import { useCallback, useEffect, useRef, useState } from 'react'
+
+// Inlined ``solar:share-linear`` SVG so the icon paints on first
+// render rather than chasing a runtime fetch from
+// ``api.iconify.design`` (visible delay on phones with cold caches).
+function ShareIcon({ className }: { className?: string }) {
+  return (
+    <svg
+      viewBox="0 0 24 24"
+      width="24"
+      height="24"
+      className={className}
+      aria-hidden="true"
+    >
+      <g fill="none" stroke="currentColor" strokeWidth="1.5">
+        <path d="M9 12a2.5 2.5 0 1 1-5 0a2.5 2.5 0 0 1 5 0Z" />
+        <path strokeLinecap="round" d="M14 6.5L9 10m5 7.5L9 14" />
+        <path d="M19 18.5a2.5 2.5 0 1 1-5 0a2.5 2.5 0 0 1 5 0Zm0-13a2.5 2.5 0 1 1-5 0a2.5 2.5 0 0 1 5 0Z" />
+      </g>
+    </svg>
+  )
+}
 
 const POLL_INTERVAL = 30_000 // 30s
 
@@ -51,18 +71,27 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
     }
   }, [fetchCount])
 
-  if (count === null || count === 0) return null
-
+  // Reserve the slot's vertical space before the fetch resolves so
+  // landing layout doesn't reflow when the number arrives. We still
+  // hide the contents (``opacity-0`` + ``aria-hidden``) until we
+  // have a real number, so screen readers don't announce "0".
+  // ``count === 0`` keeps the slot reserved but invisible — there's
+  // genuinely nothing to brag about, but reflowing later if the
+  // first share lands during the visit would be jarring.
+  const ready = count !== null && count > 0
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div
+      className={
+        'flex flex-col items-center gap-1 transition-opacity duration-300 ' +
+        (ready ? 'opacity-100' : 'opacity-0')
+      }
+      aria-hidden={!ready}
+    >
       <span className="text-lg font-semibold tracking-tight text-slate-500 tabular-nums dark:text-slate-400">
-        <AnimatedNumber value={count} />
+        <AnimatedNumber value={count ?? 0} />
       </span>
       <div className="flex items-center gap-x-1.5">
-        <Icon
-          icon="solar:share-linear"
-          className="h-3 w-3 text-slate-400 dark:text-slate-500"
-        />
+        <ShareIcon className="h-3 w-3 text-slate-400 dark:text-slate-500" />
         <span className="rp-text-muted text-xs font-medium">shares so far</span>
       </div>
     </div>
