@@ -34,6 +34,7 @@ import {
 import { Checkbox } from '@rapidly-tech/ui/components/primitives/checkbox'
 import { useCallback, useEffect, useId, useRef, useState } from 'react'
 import QRCode from 'react-qr-code'
+import { SHARE_CREATED_EVENT } from './ShareCounter'
 
 // ── Constants & Types ──
 
@@ -219,7 +220,7 @@ export const SecretSharingForm = ({
             workspaceId ? { workspace_id: workspaceId } : {},
           ),
         }).catch(() => {})
-        window.dispatchEvent(new Event('rapidly:share-created'))
+        window.dispatchEvent(new Event(SHARE_CREATED_EVENT))
         return
       }
 
@@ -258,7 +259,7 @@ export const SecretSharingForm = ({
       setSecret('')
       onStateChange?.('result')
       // Notify the share counter to refresh immediately
-      window.dispatchEvent(new Event('rapidly:share-created'))
+      window.dispatchEvent(new Event(SHARE_CREATED_EVENT))
     } catch (err) {
       toast({
         title: err instanceof Error ? err.message : 'Failed to create secret',

@@ -1,3 +1,4 @@
+import { SHARE_CREATED_EVENT } from '@/components/Landing/file-sharing/ShareCounter'
 import { FILE_SHARING_API } from '@/utils/file-sharing/constants'
 import { logger } from '@/utils/file-sharing/logger'
 import { useMutation, useQuery } from '@tanstack/react-query'
@@ -64,7 +65,7 @@ export function useUploaderChannel(
         short_slug: data.short_slug,
       })
       // Notify the share counter to refresh immediately
-      window.dispatchEvent(new Event('rapidly:share-created'))
+      window.dispatchEvent(new Event(SHARE_CREATED_EVENT))
       return data
     },
     refetchOnWindowFocus: false,
