@@ -115,16 +115,20 @@ router = APIRouter(prefix="/file-sharing", tags=["file-sharing", APITag.public])
 @router.get("/stats", response_model=FileShareStatsResponse)
 async def get_stats(
     http_request: Request,
+    auth_subject: WebUserOrAnonymous,
     workspace_id: UUID | None = Query(
         None, description="Optional workspace ID for workspace-scoped counts."
     ),
     redis: Redis = Depends(get_redis),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> FileShareStatsResponse:
-    """Public endpoint returning total file share count for the landing page.
+    """Total share count — public when called without ``workspace_id``,
+    workspace-scoped when one is supplied.
 
-    When ``workspace_id`` is provided, returns the combined count of
-    file-share sessions **and** secrets created under that workspace.
+    Workspace-scoped reads require the caller to be a member of that
+    workspace. Without this check the count would be an enumeration
+    vector — anyone could probe arbitrary workspace UUIDs to estimate
+    competitor or customer activity.
     """
     await check_rate_limit(
         http_request,
@@ -134,6 +138,17 @@ async def get_stats(
         CHANNEL_FETCH_RATE_WINDOW,
     )
     if workspace_id:
+        from rapidly.identity.auth.models import is_user_principal
+        from rapidly.platform.workspace.queries import WorkspaceRepository
+
+        if not is_user_principal(auth_subject):
+            raise Unauthorized("Authentication required")
+        workspace_repo = WorkspaceRepository.from_session(session)
+        statement = workspace_repo.get_readable_statement(auth_subject).where(
+            WorkspaceRepository.model.id == workspace_id
+        )
+        if await workspace_repo.get_one_or_none(statement) is None:
+            raise NotPermitted("Not a member of this workspace")
         total = await file_sharing_service.get_workspace_stats(
             session, redis, workspace_id
         )
