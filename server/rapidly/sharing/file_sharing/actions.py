@@ -1557,28 +1557,26 @@ async def update_session_report(
 # ── Public Stats ──
 
 
-_STATS_CACHE_KEY = "file-sharing:stats:cached_total"
-_STATS_CACHE_TTL = 15  # seconds
-
-
 async def get_public_stats(session: AsyncReadSession, redis: Redis) -> int:
-    """Return total share count (PG sessions + Redis secrets/files) for the landing page.
+    """Return total share count (Redis-backed) for the public landing.
 
-    Results are cached in Redis for 15 seconds to avoid hitting PG on every poll.
+    Cached briefly to absorb poll storms; the increment paths
+    invalidate the cache explicitly so the counter ticks
+    immediately on a new share.
     """
-    cached = await redis.get(_STATS_CACHE_KEY)
-    if cached is not None:
-        return int(cached)
-
     secret_repo = SecretRepository(redis)
+
+    cached = await secret_repo.get_cached_total()
+    if cached is not None:
+        return cached
+
     # Backfill the channel counter from PG once after deploy. The
     # initialised marker makes this idempotent — every subsequent
     # call short-circuits to a single Redis read. Race-safe: any
     # concurrent ``increment_channels_total`` calls that land
     # between deploy and the first read are preserved (the seed
     # uses ``incrby pg_baseline`` so the post-seed counter equals
-    # ``pg_baseline + N`` where N is the number of un-tracked
-    # creates).
+    # ``pg_baseline + N`` where N is the count of un-tracked creates).
     if not await secret_repo.channels_total_initialized():
         pg_repo = FileShareSessionRepository.from_session(session)
         baseline = await pg_repo.get_total_count()
@@ -1586,15 +1584,13 @@ async def get_public_stats(session: AsyncReadSession, redis: Redis) -> int:
 
     # All four counters are Redis reads — instant, no replica lag.
     # ``create_channel`` bumps ``channels_total`` atomically before
-    # returning, so the next ``get_public_stats`` read sees the new
-    # share immediately (PG had commit + replication lag, which the
-    # user perceived as "the counter doesn't update").
+    # returning, so the next read sees the new share immediately.
     channels_count = await secret_repo.get_channels_total()
     secret_count = await secret_repo.get_created_count()
     no_server_count = await secret_repo.get_no_server_created_count()
     total = channels_count + secret_count + no_server_count
 
-    await redis.setex(_STATS_CACHE_KEY, _STATS_CACHE_TTL, str(total))
+    await secret_repo.set_cached_total(total)
     return total
 
 
