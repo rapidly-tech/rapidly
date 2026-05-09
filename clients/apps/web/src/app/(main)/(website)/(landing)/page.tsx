@@ -2,15 +2,6 @@ import { CONFIG } from '@/utils/config'
 import { Metadata } from 'next'
 import dynamicImport from 'next/dynamic'
 
-// Force dynamic rendering on every request. Without this Next.js
-// fully-cached the rendered HTML (``cache-control: s-maxage=...``,
-// ``x-nextjs-cache: HIT``) regardless of ``cache: 'no-store'`` on
-// the inner stats fetch — visitors were getting an HTML page with
-// a stats value baked in at the time of the first render and only
-// the client-side poll would correct it (visible as "the counter
-// shows a lower number first and then goes back up").
-export const dynamic = 'force-dynamic'
-
 const SecretViewer = dynamicImport(() =>
   import('@/components/Landing/SecretViewer').then((m) => m.SecretViewer),
 )
@@ -53,44 +44,22 @@ export const metadata: Metadata = {
   },
 }
 
-/** Server-side prefetch of the public stats counter. ``cache:
- *  'no-store'`` so each request fetches the live value — the
- *  previous ``revalidate: 60`` made the SSR HTML up to a minute
- *  stale, which the user perceived as "the counter shows a lower
- *  number first and then goes back up". Backend already has its
- *  own 15 s cache (``_STATS_CACHE_KEY``) so the load is bounded
- *  to one Redis read per worker per ~15 s.
+/** Landing page for secure P2P file sharing with secret viewer integration.
  *
- *  Capped with a 2 s ``AbortController`` so a hanging backend
- *  can't slow the page render — failures fall through to
- *  ``undefined`` and the client component fetches on mount. */
-const STATS_FETCH_TIMEOUT_MS = 2_000
-
-async function fetchInitialShareCount(): Promise<number | undefined> {
-  const controller = new AbortController()
-  const timer = setTimeout(() => controller.abort(), STATS_FETCH_TIMEOUT_MS)
-  try {
-    const res = await fetch(`${CONFIG.BASE_URL}/api/file-sharing/stats`, {
-      cache: 'no-store',
-      signal: controller.signal,
-    })
-    if (!res.ok) return undefined
-    const data = (await res.json()) as { total_shares?: unknown }
-    return typeof data.total_shares === 'number' ? data.total_shares : undefined
-  } catch {
-    return undefined
-  } finally {
-    clearTimeout(timer)
-  }
-}
-
-/** Landing page for secure P2P file sharing with secret viewer integration. */
-export default async function Page() {
-  const initialShareCount = await fetchInitialShareCount()
+ *  No SSR prefetch of the share counter. Earlier revisions awaited the
+ *  ``/api/file-sharing/stats`` endpoint server-side and rendered the
+ *  whole page dynamically (``force-dynamic``) so the count would be
+ *  fresh — but the proxy round-trip plus the uncached render added
+ *  ~700-1000 ms to every page load (visible as "logo click takes
+ *  forever"). The counter component fetches client-side on mount, so
+ *  the page can be served from cache instantly while the digit
+ *  appears a moment later. The optimistic ``+1`` on share-created
+ *  events still gives users immediate feedback for their own action. */
+export default function Page() {
   return (
     <>
       <SecretViewer />
-      <FileSharingLandingPage initialShareCount={initialShareCount} />
+      <FileSharingLandingPage />
     </>
   )
 }
