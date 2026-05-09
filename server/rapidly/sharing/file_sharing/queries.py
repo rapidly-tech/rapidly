@@ -1079,6 +1079,10 @@ class SecretRepository:
     _STATS_KEY = "file-sharing:stats:secrets_created"
 
     _STATS_CACHE_KEY = "file-sharing:stats:cached_total"
+    # Short TTL — the cache exists to absorb a poll storm, not to
+    # serve stale data. Increments invalidate the key explicitly so
+    # this is a safety net, not the primary freshness mechanism.
+    _STATS_CACHE_TTL = 15
 
     # No-server secrets ride entirely in the URL fragment — the server
     # never sees the payload. We still want them to show up in the public
@@ -1119,6 +1123,19 @@ class SecretRepository:
     @classmethod
     def _workspace_channels_init_key(cls, workspace_id: str) -> str:
         return f"{cls._WORKSPACE_CHANNELS_INIT_PREFIX}:{workspace_id}"
+
+    async def get_cached_total(self) -> int | None:
+        """Return the cached public ``total_shares``, or ``None`` if
+        the cache is missing/expired and the caller should recompute."""
+        val = await self._redis.get(self._STATS_CACHE_KEY)
+        return int(val) if val is not None else None
+
+    async def set_cached_total(self, total: int) -> None:
+        """Cache the public ``total_shares`` for ``_STATS_CACHE_TTL``
+        seconds. Increment paths invalidate this key explicitly."""
+        await self._redis.setex(
+            self._STATS_CACHE_KEY, self._STATS_CACHE_TTL, str(total)
+        )
 
     async def increment_created_count(self, workspace_id: str | None = None) -> None:
         """Increment the persistent counter of secrets/files created."""
