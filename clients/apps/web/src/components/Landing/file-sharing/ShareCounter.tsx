@@ -80,9 +80,22 @@ export const ShareCounter = ({ workspaceId }: { workspaceId?: string }) => {
     }
     window.addEventListener(SHARE_CREATED_EVENT, onShareCreated)
 
+    // Re-fetch whenever the page returns to foreground. On mobile the
+    // OS share sheet (Web Share API) suspends the page; in-flight
+    // fetches and the 30 s poll are paused while it's open, so the
+    // user comes back to a stale digit until the next poll tick. The
+    // visibilitychange event fires on resume — pulling fresh stats
+    // here is what users mean when they say "I had to refresh to see
+    // the counter change after sharing on phone".
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') fetchCount()
+    }
+    document.addEventListener('visibilitychange', onVisible)
+
     return () => {
       clearInterval(id)
       window.removeEventListener(SHARE_CREATED_EVENT, onShareCreated)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [fetchCount])
 
