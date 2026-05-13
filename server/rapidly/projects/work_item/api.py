@@ -69,6 +69,13 @@ async def list_items(
     ),
     include_archived: bool = Query(False, description="Include archived work items."),
     include_drafts: bool = Query(False, description="Include drafts."),
+    assigned_to_me: bool = Query(
+        False,
+        description=(
+            "Restrict to work items assigned to the calling user. "
+            "Rejected for workspace tokens."
+        ),
+    ),
 ) -> PaginatedList[schemas.WorkItem]:
     results, count = await work_item_actions.list_items(
         session,
@@ -78,6 +85,7 @@ async def list_items(
         parent_id=parent_id,
         include_archived=include_archived,
         include_drafts=include_drafts,
+        assigned_to_me=assigned_to_me,
         pagination=pagination,
         sorting=sorting,
     )

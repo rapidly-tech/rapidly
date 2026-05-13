@@ -22906,6 +22906,8 @@ export interface operations {
         include_archived?: boolean
         /** @description Include drafts. */
         include_drafts?: boolean
+        /** @description Restrict to work items assigned to the calling user. Rejected for workspace tokens. */
+        assigned_to_me?: boolean
         /** @description Page number, defaults to 1. */
         page?: number
         /** @description Size of a page, defaults to 10. Maximum is 100. */

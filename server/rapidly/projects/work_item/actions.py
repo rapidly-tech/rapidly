@@ -19,7 +19,12 @@ from sqlalchemy import select
 from rapidly.core.ordering import Sorting
 from rapidly.core.pagination import PaginationParams, paginate
 from rapidly.errors import BadRequest, ResourceNotFound
-from rapidly.identity.auth.models import AuthPrincipal, User, Workspace
+from rapidly.identity.auth.models import (
+    AuthPrincipal,
+    User,
+    Workspace,
+    is_user_principal,
+)
 from rapidly.models import (
     Project,
     ProjectLabel,
@@ -61,6 +66,7 @@ async def list_items(
     parent_id: UUID | None = None,
     include_archived: bool = False,
     include_drafts: bool = False,
+    assigned_to_me: bool = False,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[WorkItemSortProperty]],
 ) -> tuple[Sequence[WorkItem], int]:
@@ -77,6 +83,24 @@ async def list_items(
         statement = statement.where(WorkItem.archived_at.is_(None))
     if not include_drafts:
         statement = statement.where(WorkItem.is_draft.is_(False))
+    if assigned_to_me:
+        # Workspace tokens are not bound to a specific user, so the
+        # "me" in "assigned_to_me" has no referent.  Reject the call
+        # at the action layer instead of silently widening or
+        # narrowing to nothing.
+        if not is_user_principal(auth_subject):
+            raise BadRequest(
+                "assigned_to_me requires a user principal; workspace tokens "
+                "have no associated user."
+            )
+        statement = statement.where(
+            WorkItem.id.in_(
+                select(WorkItemAssignee.work_item_id).where(
+                    WorkItemAssignee.user_id == auth_subject.subject.id,
+                    WorkItemAssignee.deleted_at.is_(None),
+                )
+            )
+        )
 
     statement = repo.apply_sorting(statement, sorting)
     return await paginate(session, statement, pagination=pagination)
