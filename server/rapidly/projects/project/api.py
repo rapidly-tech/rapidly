@@ -41,12 +41,21 @@ async def list(
     include_archived: bool = Query(
         False, description="Include archived projects in the result set."
     ),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the project display name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
 ) -> PaginatedList[schemas.Project]:
     results, count = await project_actions.list(
         session,
         auth_subject,
         workspace_id=workspace_id,
         include_archived=include_archived,
+        name=name,
         pagination=pagination,
         sorting=sorting,
     )
