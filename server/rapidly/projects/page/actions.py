@@ -60,6 +60,7 @@ async def list_for_project(
     project_id: Sequence[UUID] | None = None,
     parent_id: UUID | None = None,
     include_archived: bool = False,
+    name: str | None = None,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[ProjectPageSortProperty]],
 ) -> tuple[Sequence[ProjectPage], int]:
@@ -71,6 +72,14 @@ async def list_for_project(
         statement = statement.where(ProjectPage.parent_id == parent_id)
     if not include_archived:
         statement = statement.where(ProjectPage.archived_at.is_(None))
+    if name is not None and name.strip():
+        # Case-insensitive substring match.  ``%`` and ``_`` in the
+        # input are escaped so callers cannot smuggle wildcards past
+        # the documented substring semantics.
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(ProjectPage.name.ilike(f"%{escaped}%", escape="\\"))
     statement = repo.apply_sorting(statement, sorting)
     return await paginate(session, statement, pagination=pagination)
 

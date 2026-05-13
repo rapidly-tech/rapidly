@@ -40,6 +40,14 @@ async def list(
         None, description="Filter pages whose parent is this ID."
     ),
     include_archived: bool = Query(False, description="Include archived pages."),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the page name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
 ) -> PaginatedList[schemas.ProjectPage]:
     results, count = await page_actions.list_for_project(
         session,
@@ -47,6 +55,7 @@ async def list(
         project_id=project_id,
         parent_id=parent_id,
         include_archived=include_archived,
+        name=name,
         pagination=pagination,
         sorting=sorting,
     )
