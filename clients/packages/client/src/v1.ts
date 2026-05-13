@@ -1123,14 +1123,45 @@ export interface paths {
     }
     /**
      * Get Stats
-     * @description Public endpoint returning total file share count for the landing page.
+     * @description Total share count — public when called without ``workspace_id``,
+     *     workspace-scoped when one is supplied.
      *
-     *     When ``workspace_id`` is provided, returns the combined count of
-     *     file-share sessions **and** secrets created under that workspace.
+     *     Workspace-scoped reads require the caller to be a member of that
+     *     workspace. Without this check the count would be an enumeration
+     *     vector — anyone could probe arbitrary workspace UUIDs to estimate
+     *     competitor or customer activity.
      */
     get: operations['file-sharing:get_stats']
     put?: never
     post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/file-sharing/no-server-secrets/ping': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Ping No Server Secret
+     * @description Record that a no-server (URL-fragment) secret was created.
+     *
+     *     The payload itself never reaches us — fragments are not sent in
+     *     HTTP requests. This endpoint exists purely so the public ""shares
+     *     so far"" counter can include fragment-only shares alongside the
+     *     server-stored ones.
+     *
+     *     Reuses the secret-create rate limit (per-IP) since it's the same
+     *     abuse surface as today's anonymous server-stored secret create.
+     */
+    post: operations['file-sharing:ping_no_server_secret']
     delete?: never
     options?: never
     head?: never
@@ -1697,6 +1728,235 @@ export interface paths {
      */
     post: operations['file-sharing:get_ice_config']
     delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/screen/session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Create Screen Session
+     * @description Create a new screen-sharing session.
+     *
+     *     Anonymous-friendly in v1 — matches the file-sharing anonymous flow.
+     *     Returns the host secret ONCE at creation; clients must persist it
+     *     client-side because it's never stored in plaintext (only its hash).
+     */
+    post: operations['screen:create_session']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/screen/session/{slug}/invite': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Mint Screen Guest Invite
+     * @description Mint a new invite token for a guest.
+     *
+     *     Authorization proof: the host presents the channel secret. Failure
+     *     to match returns 404 (not 403) to avoid distinguishing a wrong
+     *     secret from a non-existent session.
+     */
+    post: operations['screen:mint_invite']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/screen/session/{slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Screen Session (public)
+     * @description Guest-facing view. No secrets, no invites — just the metadata
+     *     needed to render the "join" screen.
+     */
+    get: operations['screen:get_session']
+    put?: never
+    post?: never
+    /**
+     * Close Screen Session
+     * @description Tear the session down. Requires the host secret.
+     */
+    delete: operations['screen:close_session']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/watch/session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Create Watch Session */
+    post: operations['watch:create_session']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/watch/session/{slug}/invite': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Mint Watch Guest Invite */
+    post: operations['watch:mint_invite']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/watch/session/{slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Watch Session (public) */
+    get: operations['watch:get_session']
+    put?: never
+    post?: never
+    /** Close Watch Session */
+    delete: operations['watch:close_session']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/call/session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Create Call Session */
+    post: operations['call:create_session']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/call/session/{slug}/invite': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Mint Call Guest Invite */
+    post: operations['call:mint_invite']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/call/session/{slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Call Session (public) */
+    get: operations['call:get_session']
+    put?: never
+    post?: never
+    /** Close Call Session */
+    delete: operations['call:close_session']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/collab/session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Create Collab Session */
+    post: operations['collab:create_session']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/collab/session/{slug}/invite': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /** Mint Collab Guest Invite */
+    post: operations['collab:mint_invite']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/v1/collab/session/{slug}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /** Get Collab Session (public) */
+    get: operations['collab:get_session']
+    put?: never
+    post?: never
+    /** Close Collab Session */
+    delete: operations['collab:close_session']
     options?: never
     head?: never
     patch?: never
@@ -3027,6 +3287,742 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/projects/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Projects
+     * @description **Scopes**: `projects:read` `projects:write`
+     */
+    get: operations['projects:list']
+    put?: never
+    /**
+     * Create Project
+     * @description **Scopes**: `projects:write`
+     */
+    post: operations['projects:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/projects/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Project
+     * @description **Scopes**: `projects:read` `projects:write`
+     */
+    get: operations['projects:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Project
+     * @description **Scopes**: `projects:write`
+     */
+    delete: operations['projects:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Project
+     * @description **Scopes**: `projects:write`
+     */
+    patch: operations['projects:update']
+    trace?: never
+  }
+  '/api/projects/{id}/archive': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Archive Project
+     * @description **Scopes**: `projects:write`
+     */
+    post: operations['projects:archive']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/projects/{id}/unarchive': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Unarchive Project
+     * @description **Scopes**: `projects:write`
+     */
+    post: operations['projects:unarchive']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-states/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Project States
+     * @description **Scopes**: `project_states:read` `project_states:write` `projects:read` `projects:write`
+     */
+    get: operations['project-states:list']
+    put?: never
+    /**
+     * Create Project State
+     * @description **Scopes**: `project_states:write`
+     */
+    post: operations['project-states:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-states/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Project State
+     * @description **Scopes**: `project_states:read` `project_states:write` `projects:read` `projects:write`
+     */
+    get: operations['project-states:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Project State
+     * @description **Scopes**: `project_states:write`
+     */
+    delete: operations['project-states:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Project State
+     * @description **Scopes**: `project_states:write`
+     */
+    patch: operations['project-states:update']
+    trace?: never
+  }
+  '/api/project-labels/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Project Labels
+     * @description **Scopes**: `project_labels:read` `project_labels:write` `projects:read` `projects:write`
+     */
+    get: operations['project-labels:list']
+    put?: never
+    /**
+     * Create Project Label
+     * @description **Scopes**: `project_labels:write`
+     */
+    post: operations['project-labels:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-labels/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Project Label
+     * @description **Scopes**: `project_labels:read` `project_labels:write` `projects:read` `projects:write`
+     */
+    get: operations['project-labels:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Project Label
+     * @description **Scopes**: `project_labels:write`
+     */
+    delete: operations['project-labels:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Project Label
+     * @description **Scopes**: `project_labels:write`
+     */
+    patch: operations['project-labels:update']
+    trace?: never
+  }
+  '/api/project-estimates/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Project Estimates
+     * @description **Scopes**: `project_estimates:read` `project_estimates:write` `projects:read` `projects:write`
+     */
+    get: operations['project-estimates:list']
+    put?: never
+    /**
+     * Create Project Estimate
+     * @description **Scopes**: `project_estimates:write`
+     */
+    post: operations['project-estimates:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-estimates/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Project Estimate
+     * @description **Scopes**: `project_estimates:read` `project_estimates:write` `projects:read` `projects:write`
+     */
+    get: operations['project-estimates:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Project Estimate
+     * @description **Scopes**: `project_estimates:write`
+     */
+    delete: operations['project-estimates:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Project Estimate
+     * @description **Scopes**: `project_estimates:write`
+     */
+    patch: operations['project-estimates:update']
+    trace?: never
+  }
+  '/api/project-estimates/{id}/points': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Project Estimate Points
+     * @description **Scopes**: `project_estimates:read` `project_estimates:write` `projects:read` `projects:write`
+     */
+    get: operations['project-estimates:list_points']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-estimates/points': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Create Project Estimate Point
+     * @description **Scopes**: `project_estimates:write`
+     */
+    post: operations['project-estimates:create_point']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-estimates/points/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    post?: never
+    /**
+     * Delete Project Estimate Point
+     * @description **Scopes**: `project_estimates:write`
+     */
+    delete: operations['project-estimates:delete_point']
+    options?: never
+    head?: never
+    /**
+     * Update Project Estimate Point
+     * @description **Scopes**: `project_estimates:write`
+     */
+    patch: operations['project-estimates:update_point']
+    trace?: never
+  }
+  '/api/work-items/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Work Items
+     * @description **Scopes**: `projects:read` `projects:write` `work_items:read` `work_items:write`
+     */
+    get: operations['work-items:list_items']
+    put?: never
+    /**
+     * Create Work Item
+     * @description **Scopes**: `work_items:write`
+     */
+    post: operations['work-items:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/work-items/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Work Item
+     * @description **Scopes**: `projects:read` `projects:write` `work_items:read` `work_items:write`
+     */
+    get: operations['work-items:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Work Item
+     * @description **Scopes**: `work_items:write`
+     */
+    delete: operations['work-items:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Work Item
+     * @description **Scopes**: `work_items:write`
+     */
+    patch: operations['work-items:update']
+    trace?: never
+  }
+  '/api/work-item-comments/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Work Item Comments
+     * @description **Scopes**: `work_item_comments:read` `work_item_comments:write` `work_items:read` `work_items:write`
+     */
+    get: operations['work-item-comments:list']
+    put?: never
+    /**
+     * Create Work Item Comment
+     * @description **Scopes**: `work_item_comments:write`
+     */
+    post: operations['work-item-comments:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/work-item-comments/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Work Item Comment
+     * @description **Scopes**: `work_item_comments:read` `work_item_comments:write` `work_items:read` `work_items:write`
+     */
+    get: operations['work-item-comments:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Work Item Comment
+     * @description **Scopes**: `work_item_comments:write`
+     */
+    delete: operations['work-item-comments:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Work Item Comment
+     * @description **Scopes**: `work_item_comments:write`
+     */
+    patch: operations['work-item-comments:update']
+    trace?: never
+  }
+  '/api/work-item-relations/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Work Item Relations
+     * @description **Scopes**: `work_item_relations:read` `work_item_relations:write` `work_items:read` `work_items:write`
+     */
+    get: operations['work-item-relations:list']
+    put?: never
+    /**
+     * Create Work Item Relation
+     * @description **Scopes**: `work_item_relations:write`
+     */
+    post: operations['work-item-relations:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/work-item-relations/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Work Item Relation
+     * @description **Scopes**: `work_item_relations:read` `work_item_relations:write` `work_items:read` `work_items:write`
+     */
+    get: operations['work-item-relations:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Work Item Relation
+     * @description **Scopes**: `work_item_relations:write`
+     */
+    delete: operations['work-item-relations:delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-cycles/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Project Cycles
+     * @description **Scopes**: `project_cycles:read` `project_cycles:write` `projects:read` `projects:write`
+     */
+    get: operations['project-cycles:list']
+    put?: never
+    /**
+     * Create Project Cycle
+     * @description **Scopes**: `project_cycles:write`
+     */
+    post: operations['project-cycles:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-cycles/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Project Cycle
+     * @description **Scopes**: `project_cycles:read` `project_cycles:write` `projects:read` `projects:write`
+     */
+    get: operations['project-cycles:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Project Cycle
+     * @description **Scopes**: `project_cycles:write`
+     */
+    delete: operations['project-cycles:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Project Cycle
+     * @description **Scopes**: `project_cycles:write`
+     */
+    patch: operations['project-cycles:update']
+    trace?: never
+  }
+  '/api/project-cycles/{id}/archive': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Archive Project Cycle
+     * @description **Scopes**: `project_cycles:write`
+     */
+    post: operations['project-cycles:archive']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-cycles/{id}/work-items': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Cycle Work Item IDs
+     * @description **Scopes**: `project_cycles:read` `project_cycles:write` `projects:read` `projects:write`
+     */
+    get: operations['project-cycles:list_work_items']
+    put?: never
+    /**
+     * Add Work Items to Cycle
+     * @description **Scopes**: `project_cycles:write`
+     */
+    post: operations['project-cycles:add_work_items']
+    /**
+     * Remove Work Items from Cycle
+     * @description **Scopes**: `project_cycles:write`
+     */
+    delete: operations['project-cycles:remove_work_items']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-modules/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Project Modules
+     * @description **Scopes**: `project_modules:read` `project_modules:write` `projects:read` `projects:write`
+     */
+    get: operations['project-modules:list']
+    put?: never
+    /**
+     * Create Project Module
+     * @description **Scopes**: `project_modules:write`
+     */
+    post: operations['project-modules:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-modules/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Project Module
+     * @description **Scopes**: `project_modules:read` `project_modules:write` `projects:read` `projects:write`
+     */
+    get: operations['project-modules:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Project Module
+     * @description **Scopes**: `project_modules:write`
+     */
+    delete: operations['project-modules:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Project Module
+     * @description **Scopes**: `project_modules:write`
+     */
+    patch: operations['project-modules:update']
+    trace?: never
+  }
+  '/api/project-modules/{id}/archive': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    get?: never
+    put?: never
+    /**
+     * Archive Project Module
+     * @description **Scopes**: `project_modules:write`
+     */
+    post: operations['project-modules:archive']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-modules/{id}/work-items': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Module Work Item IDs
+     * @description **Scopes**: `project_modules:read` `project_modules:write` `projects:read` `projects:write`
+     */
+    get: operations['project-modules:list_work_items']
+    put?: never
+    /**
+     * Add Work Items to Module
+     * @description **Scopes**: `project_modules:write`
+     */
+    post: operations['project-modules:add_work_items']
+    /**
+     * Remove Work Items from Module
+     * @description **Scopes**: `project_modules:write`
+     */
+    delete: operations['project-modules:remove_work_items']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/work-item-activities/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Work Item Activities
+     * @description **Scopes**: `work_item_activities:read` `work_items:read` `work_items:write`
+     */
+    get: operations['work-item-activities:list']
+    put?: never
+    post?: never
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-pages/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Project Pages
+     * @description **Scopes**: `project_pages:read` `project_pages:write` `projects:read` `projects:write`
+     */
+    get: operations['project-pages:list']
+    put?: never
+    /**
+     * Create Project Page
+     * @description **Scopes**: `project_pages:write`
+     */
+    post: operations['project-pages:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-pages/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Project Page
+     * @description **Scopes**: `project_pages:read` `project_pages:write` `projects:read` `projects:write`
+     */
+    get: operations['project-pages:get']
+    put?: never
+    post?: never
+    /**
+     * Delete Project Page
+     * @description **Scopes**: `project_pages:write`
+     */
+    delete: operations['project-pages:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Project Page
+     * @description **Scopes**: `project_pages:write`
+     */
+    patch: operations['project-pages:update']
+    trace?: never
+  }
 }
 export interface webhooks {
   'customer.created': {
@@ -4021,7 +5017,28 @@ export interface components {
        *       "workspace_access_tokens:read": "Read workspace access tokens",
        *       "workspace_access_tokens:write": "Create or modify workspace access tokens",
        *       "file_sharing:read": "Read file sharing sessions",
-       *       "file_sharing:write": "Create or modify file sharing sessions"
+       *       "file_sharing:write": "Create or modify file sharing sessions",
+       *       "projects:read": "Read projects",
+       *       "projects:write": "Create or modify projects",
+       *       "project_states:read": "Read project workflow states",
+       *       "project_states:write": "Create or modify project workflow states",
+       *       "project_labels:read": "Read project labels",
+       *       "project_labels:write": "Create or modify project labels",
+       *       "project_estimates:read": "Read project estimation scales",
+       *       "project_estimates:write": "Create or modify project estimation scales",
+       *       "work_items:read": "Read work items",
+       *       "work_items:write": "Create or modify work items",
+       *       "work_item_comments:read": "Read work item comments",
+       *       "work_item_comments:write": "Create or modify work item comments",
+       *       "work_item_relations:read": "Read work item relations",
+       *       "work_item_relations:write": "Create or modify work item relations",
+       *       "project_cycles:read": "Read project cycles",
+       *       "project_cycles:write": "Create or modify project cycles",
+       *       "project_modules:read": "Read project modules",
+       *       "project_modules:write": "Create or modify project modules",
+       *       "work_item_activities:read": "Read work-item activity history",
+       *       "project_pages:read": "Read project pages",
+       *       "project_pages:write": "Create or modify project pages"
        *     }
        */
       scope_display_names: {
@@ -4077,7 +5094,28 @@ export interface components {
        *       "workspace_access_tokens:read": "Read workspace access tokens",
        *       "workspace_access_tokens:write": "Create or modify workspace access tokens",
        *       "file_sharing:read": "Read file sharing sessions",
-       *       "file_sharing:write": "Create or modify file sharing sessions"
+       *       "file_sharing:write": "Create or modify file sharing sessions",
+       *       "projects:read": "Read projects",
+       *       "projects:write": "Create or modify projects",
+       *       "project_states:read": "Read project workflow states",
+       *       "project_states:write": "Create or modify project workflow states",
+       *       "project_labels:read": "Read project labels",
+       *       "project_labels:write": "Create or modify project labels",
+       *       "project_estimates:read": "Read project estimation scales",
+       *       "project_estimates:write": "Create or modify project estimation scales",
+       *       "work_items:read": "Read work items",
+       *       "work_items:write": "Create or modify work items",
+       *       "work_item_comments:read": "Read work item comments",
+       *       "work_item_comments:write": "Create or modify work item comments",
+       *       "work_item_relations:read": "Read work item relations",
+       *       "work_item_relations:write": "Create or modify work item relations",
+       *       "project_cycles:read": "Read project cycles",
+       *       "project_cycles:write": "Create or modify project cycles",
+       *       "project_modules:read": "Read project modules",
+       *       "project_modules:write": "Create or modify project modules",
+       *       "work_item_activities:read": "Read work-item activity history",
+       *       "project_pages:read": "Read project pages",
+       *       "project_pages:write": "Create or modify project pages"
        *     }
        */
       scope_display_names: {
@@ -4152,6 +5190,27 @@ export interface components {
       | 'workspace_access_tokens:write'
       | 'file_sharing:read'
       | 'file_sharing:write'
+      | 'projects:read'
+      | 'projects:write'
+      | 'project_states:read'
+      | 'project_states:write'
+      | 'project_labels:read'
+      | 'project_labels:write'
+      | 'project_estimates:read'
+      | 'project_estimates:write'
+      | 'work_items:read'
+      | 'work_items:write'
+      | 'work_item_comments:read'
+      | 'work_item_comments:write'
+      | 'work_item_relations:read'
+      | 'work_item_relations:write'
+      | 'project_cycles:read'
+      | 'project_cycles:write'
+      | 'project_modules:read'
+      | 'project_modules:write'
+      | 'work_item_activities:read'
+      | 'project_pages:read'
+      | 'project_pages:write'
     /** BlockingWorkspace */
     BlockingWorkspace: {
       /**
@@ -4189,6 +5248,27 @@ export interface components {
        * Format: uuid
        */
       account_id: string
+    }
+    /**
+     * CallSessionPublicView
+     * @description Unauthenticated read for the participant landing page.
+     *
+     *     Omits secrets and invite tokens — only the metadata needed to render
+     *     the "join" screen.
+     */
+    CallSessionPublicView: {
+      /** Short Slug */
+      short_slug: string
+      /** Title */
+      title: string | null
+      /** Max Participants */
+      max_participants: number
+      /** Mode */
+      mode: string
+      /** Started At */
+      started_at: string | null
+      /** Host Connected */
+      host_connected: boolean
     }
     /**
      * CardPayment
@@ -4533,6 +5613,27 @@ export interface components {
        * @description Stripe Checkout Session ID from the success redirect
        */
       checkout_session_id: string
+    }
+    /**
+     * CollabSessionPublicView
+     * @description Unauthenticated read for the participant landing page.
+     *
+     *     Omits secrets and invite tokens — only the metadata needed to render
+     *     the "join" screen.
+     */
+    CollabSessionPublicView: {
+      /** Short Slug */
+      short_slug: string
+      /** Title */
+      title: string | null
+      /** Max Participants */
+      max_participants: number
+      /** Kind */
+      kind: string
+      /** Started At */
+      started_at: string | null
+      /** Host Connected */
+      host_connected: boolean
     }
     /** CostMetadata */
     'CostMetadata-Input': {
@@ -5063,6 +6164,152 @@ export interface components {
       | 'ZA'
       | 'ZM'
       | 'ZW'
+    /**
+     * CreateCallSessionRequest
+     * @description Body for ``POST /api/v1/call/session``.
+     */
+    CreateCallSessionRequest: {
+      /**
+       * Title
+       * @description Human-readable label shown to other participants on join.
+       */
+      title?: string | null
+      /**
+       * Max Participants
+       * @description Upper bound of concurrent participants (including the host). v1 mesh caps at 4 to keep the N² peer-connection count bounded on home uplinks.
+       * @default 4
+       */
+      max_participants: number
+      /**
+       * Mode
+       * @description ``audio_only`` asks the browser for only microphone access; ``audio_video`` asks for both. Participants can still mute or disable camera locally — this is the session default.
+       * @default audio_video
+       * @enum {string}
+       */
+      mode: 'audio_only' | 'audio_video'
+    }
+    /** CreateCallSessionResponse */
+    CreateCallSessionResponse: {
+      /** Short Slug */
+      short_slug: string
+      /** Long Slug */
+      long_slug: string
+      /** Secret */
+      secret: string
+      /** Invite Template */
+      invite_template: string
+      /** Expires At */
+      expires_at: string
+    }
+    /**
+     * CreateCollabSessionRequest
+     * @description Body for ``POST /api/v1/collab/session``.
+     */
+    CreateCollabSessionRequest: {
+      /**
+       * Title
+       * @description Human-readable label shown to other participants on join.
+       */
+      title?: string | null
+      /**
+       * Max Participants
+       * @description Upper bound of concurrent participants (including the host). v1 caps at 8 — Yjs bandwidth is cheap (~30–200 B/update) but mesh connections scale with N².
+       * @default 8
+       */
+      max_participants: number
+      /**
+       * Kind
+       * @description ``text`` → plain-text textarea backed by Y.Text. ``canvas`` → whiteboard backed by Y.Array of stroke objects. v1 ships ``text``; canvas is PR 19 (optional).
+       * @default text
+       * @enum {string}
+       */
+      kind: 'text' | 'canvas'
+    }
+    /** CreateCollabSessionResponse */
+    CreateCollabSessionResponse: {
+      /** Short Slug */
+      short_slug: string
+      /** Long Slug */
+      long_slug: string
+      /** Secret */
+      secret: string
+      /** Invite Template */
+      invite_template: string
+      /** Expires At */
+      expires_at: string
+    }
+    /**
+     * CreateScreenSessionRequest
+     * @description Body for ``POST /api/v1/screen/session``.
+     */
+    CreateScreenSessionRequest: {
+      /**
+       * Title
+       * @description Human-readable label shown to guests on the landing.
+       */
+      title?: string | null
+      /**
+       * Max Viewers
+       * @description Upper bound of concurrent guests. v1 caps at 10 to keep host upload bandwidth realistic for home networks.
+       * @default 10
+       */
+      max_viewers: number
+    }
+    /** CreateScreenSessionResponse */
+    CreateScreenSessionResponse: {
+      /** Short Slug */
+      short_slug: string
+      /** Long Slug */
+      long_slug: string
+      /** Secret */
+      secret: string
+      /** Invite Template */
+      invite_template: string
+      /** Expires At */
+      expires_at: string
+    }
+    /**
+     * CreateWatchSessionRequest
+     * @description Body for ``POST /api/v1/watch/session``.
+     */
+    CreateWatchSessionRequest: {
+      /**
+       * Title
+       * @description Human-readable label shown to guests on the landing.
+       */
+      title?: string | null
+      /**
+       * Max Viewers
+       * @description Upper bound of concurrent guests. v1 caps at 10 to keep host upload bandwidth realistic for home networks.
+       * @default 10
+       */
+      max_viewers: number
+      /**
+       * Source Url
+       * @description HTTP(S) URL of the video the host intends to play. Optional at session creation — the host can update it once connected. Only validated for shape here; the browser is the authority for whether the URL actually resolves.
+       */
+      source_url?: string | null
+      /**
+       * Source Kind
+       * @description ``url`` = host plays a remote URL. ``local`` = host streams a local file over the DataChannel (PR 12). v1 ships ``url``.
+       * @default url
+       * @enum {string}
+       */
+      source_kind: 'url' | 'local'
+    }
+    /** CreateWatchSessionResponse */
+    CreateWatchSessionResponse: {
+      /** Short Slug */
+      short_slug: string
+      /** Long Slug */
+      long_slug: string
+      /** Secret */
+      secret: string
+      /** Invite Template */
+      invite_template: string
+      /** Expires At */
+      expires_at: string
+    }
     /** CursorPaginatedList[Event] */
     CursorPaginatedList_Event_: {
       /** Data */
@@ -6581,6 +7828,12 @@ export interface components {
       /** Return To */
       return_to?: string | null
     }
+    /**
+     * EstimateType
+     * @description Display style for estimate points.
+     * @enum {string}
+     */
+    EstimateType: 'points' | 'categories' | 'time'
     Event:
       | components['schemas']['SystemEvent']
       | components['schemas']['UserEvent']
@@ -8135,6 +9388,39 @@ export interface components {
       /** Cashflow */
       cashflow?: number | null
     }
+    /** MintInviteResponse */
+    MintInviteResponse: {
+      /** Invite Token */
+      invite_token: string
+      /** Invite Url */
+      invite_url: string
+    }
+    /**
+     * ModuleStatus
+     * @description High-level module lifecycle.
+     * @enum {string}
+     */
+    ModuleStatus:
+      | 'planned'
+      | 'in_progress'
+      | 'paused'
+      | 'completed'
+      | 'cancelled'
+    /**
+     * NoServerSecretPingRequest
+     * @description Body for the no-server-secret ping endpoint.
+     *
+     *     The payload itself never reaches us — this is a content-free signal
+     *     that the user just generated a fragment-only share, so the public
+     *     counter (and optionally the workspace counter) can include it.
+     */
+    NoServerSecretPingRequest: {
+      /**
+       * Workspace Id
+       * @description Optional workspace ID for self-attribution. Anonymous pings only bump the public counter.
+       */
+      workspace_id?: string | null
+    }
     /** NotPermitted */
     NotPermitted: {
       /**
@@ -8245,7 +9531,7 @@ export interface components {
       response_types: 'code'[]
       /**
        * Scope
-       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write
+       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write
        */
       scope: string
       /** Client Uri */
@@ -8313,7 +9599,7 @@ export interface components {
       response_types: 'code'[]
       /**
        * Scope
-       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write
+       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write
        */
       scope: string
       /** Client Uri */
@@ -8518,6 +9804,48 @@ export interface components {
       data: components['schemas']['OAuth2Client'][]
       meta: components['schemas']['PageMeta']
     }
+    /** PaginatedList[ProjectCycle] */
+    PaginatedList_ProjectCycle_: {
+      /** Data */
+      data: components['schemas']['ProjectCycle'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[ProjectEstimate] */
+    PaginatedList_ProjectEstimate_: {
+      /** Data */
+      data: components['schemas']['ProjectEstimate'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[ProjectLabel] */
+    PaginatedList_ProjectLabel_: {
+      /** Data */
+      data: components['schemas']['ProjectLabel'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[ProjectModule] */
+    PaginatedList_ProjectModule_: {
+      /** Data */
+      data: components['schemas']['ProjectModule'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[ProjectPage] */
+    PaginatedList_ProjectPage_: {
+      /** Data */
+      data: components['schemas']['ProjectPage'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[ProjectState] */
+    PaginatedList_ProjectState_: {
+      /** Data */
+      data: components['schemas']['ProjectState'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[Project] */
+    PaginatedList_Project_: {
+      /** Data */
+      data: components['schemas']['Project'][]
+      meta: components['schemas']['PageMeta']
+    }
     /** PaginatedList[Share] */
     PaginatedList_Share_: {
       /** Data */
@@ -8534,6 +9862,30 @@ export interface components {
     PaginatedList_WebhookEndpoint_: {
       /** Data */
       data: components['schemas']['WebhookEndpoint'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[WorkItemActivity] */
+    PaginatedList_WorkItemActivity_: {
+      /** Data */
+      data: components['schemas']['WorkItemActivity'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[WorkItemComment] */
+    PaginatedList_WorkItemComment_: {
+      /** Data */
+      data: components['schemas']['WorkItemComment'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[WorkItemRelation] */
+    PaginatedList_WorkItemRelation_: {
+      /** Data */
+      data: components['schemas']['WorkItemRelation'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[WorkItem] */
+    PaginatedList_WorkItem_: {
+      /** Data */
+      data: components['schemas']['WorkItem'][]
       meta: components['schemas']['PageMeta']
     }
     /** PaginatedList[WorkspaceAccessToken] */
@@ -8779,6 +10131,780 @@ export interface components {
       | 'jpy'
       | 'sek'
       | 'usd'
+    /** Project */
+    Project: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Workspace Id
+       * Format: uuid4
+       * @description Owning workspace.
+       */
+      workspace_id: string
+      /**
+       * Owner Id
+       * Format: uuid4
+       * @description User who owns the project.
+       */
+      owner_id: string
+      /**
+       * Name
+       * @description Display name.
+       */
+      name: string
+      /**
+       * Identifier
+       * @description Short prefix used in work-item IDs.
+       */
+      identifier: string
+      /**
+       * Slug
+       * @description URL-safe slug, unique per workspace.
+       */
+      slug: string
+      /**
+       * Description
+       * @description Free-form description.
+       */
+      description?: string | null
+      /** @description private | public. */
+      visibility: components['schemas']['ProjectVisibility']
+      /**
+       * Emoji
+       * @description Optional emoji icon.
+       */
+      emoji?: string | null
+      /**
+       * Color
+       * @description Optional CSS hex colour.
+       */
+      color?: string | null
+      /**
+       * Cover Image Url
+       * @description Optional cover image URL.
+       */
+      cover_image_url?: string | null
+      /** Is Cycles Enabled */
+      is_cycles_enabled: boolean
+      /** Is Modules Enabled */
+      is_modules_enabled: boolean
+      /** Is Views Enabled */
+      is_views_enabled: boolean
+      /** Is Pages Enabled */
+      is_pages_enabled: boolean
+      /** Is Intake Enabled */
+      is_intake_enabled: boolean
+      /**
+       * Archived At
+       * @description Set when the project is archived.
+       */
+      archived_at?: string | null
+    }
+    /** ProjectCreate */
+    ProjectCreate: {
+      /**
+       * Workspace Id
+       * Format: uuid4
+       * @description Owning workspace.
+       */
+      workspace_id: string
+      /**
+       * Name
+       * @description Display name.
+       */
+      name: string
+      /**
+       * Identifier
+       * @description Short prefix for work-item IDs.
+       */
+      identifier: string
+      /**
+       * Slug
+       * @description URL-safe slug.
+       */
+      slug: string
+      /** Description */
+      description?: string | null
+      /** @default private */
+      visibility: components['schemas']['ProjectVisibility']
+      /** Emoji */
+      emoji?: string | null
+      /**
+       * Color
+       * @description Optional CSS hex colour.
+       */
+      color?: string | null
+      /** Cover Image Url */
+      cover_image_url?: string | null
+      /**
+       * Is Cycles Enabled
+       * @default true
+       */
+      is_cycles_enabled: boolean
+      /**
+       * Is Modules Enabled
+       * @default true
+       */
+      is_modules_enabled: boolean
+      /**
+       * Is Views Enabled
+       * @default true
+       */
+      is_views_enabled: boolean
+      /**
+       * Is Pages Enabled
+       * @default true
+       */
+      is_pages_enabled: boolean
+      /**
+       * Is Intake Enabled
+       * @default false
+       */
+      is_intake_enabled: boolean
+    }
+    /** ProjectCycle */
+    ProjectCycle: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Project Id
+       * Format: uuid4
+       */
+      project_id: string
+      /** Owner Id */
+      owner_id?: string | null
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      /** Start Date */
+      start_date?: string | null
+      /** End Date */
+      end_date?: string | null
+      /** Archived At */
+      archived_at?: string | null
+    }
+    /** ProjectCycleCreate */
+    ProjectCycleCreate: {
+      /**
+       * Project Id
+       * Format: uuid4
+       * @description Owning project.
+       */
+      project_id: string
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      /** Start Date */
+      start_date?: string | null
+      /** End Date */
+      end_date?: string | null
+    }
+    /**
+     * ProjectCycleSortProperty
+     * @enum {string}
+     */
+    ProjectCycleSortProperty:
+      | 'name'
+      | '-name'
+      | 'start_date'
+      | '-start_date'
+      | 'end_date'
+      | '-end_date'
+      | 'created_at'
+      | '-created_at'
+    /** ProjectCycleUpdate */
+    ProjectCycleUpdate: {
+      /** Name */
+      name?: string | null
+      /** Description */
+      description?: string | null
+      /** Start Date */
+      start_date?: string | null
+      /** End Date */
+      end_date?: string | null
+    }
+    /** ProjectCycleWorkItemAdd */
+    ProjectCycleWorkItemAdd: {
+      /** Work Item Ids */
+      work_item_ids: string[]
+    }
+    /** ProjectEstimate */
+    ProjectEstimate: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Project Id
+       * Format: uuid4
+       */
+      project_id: string
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      type: components['schemas']['EstimateType']
+      /** Is Active */
+      is_active: boolean
+    }
+    /** ProjectEstimateCreate */
+    ProjectEstimateCreate: {
+      /**
+       * Project Id
+       * Format: uuid4
+       * @description Owning project.
+       */
+      project_id: string
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      /** @default points */
+      type: components['schemas']['EstimateType']
+      /**
+       * Is Active
+       * @default false
+       */
+      is_active: boolean
+    }
+    /** ProjectEstimatePoint */
+    ProjectEstimatePoint: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Estimate Id
+       * Format: uuid4
+       */
+      estimate_id: string
+      /** Key */
+      key: number
+      /** Value */
+      value: string
+      /** Description */
+      description?: string | null
+    }
+    /** ProjectEstimatePointCreate */
+    ProjectEstimatePointCreate: {
+      /**
+       * Estimate Id
+       * Format: uuid4
+       * @description Owning estimate scale.
+       */
+      estimate_id: string
+      /** Key */
+      key: number
+      /** Value */
+      value: string
+      /** Description */
+      description?: string | null
+    }
+    /** ProjectEstimatePointUpdate */
+    ProjectEstimatePointUpdate: {
+      /** Key */
+      key?: number | null
+      /** Value */
+      value?: string | null
+      /** Description */
+      description?: string | null
+    }
+    /**
+     * ProjectEstimateSortProperty
+     * @enum {string}
+     */
+    ProjectEstimateSortProperty: 'name' | '-name' | 'created_at' | '-created_at'
+    /** ProjectEstimateUpdate */
+    ProjectEstimateUpdate: {
+      /** Name */
+      name?: string | null
+      /** Description */
+      description?: string | null
+      type?: components['schemas']['EstimateType'] | null
+      /** Is Active */
+      is_active?: boolean | null
+    }
+    /** ProjectLabel */
+    ProjectLabel: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Project Id
+       * Format: uuid4
+       */
+      project_id: string
+      /** Parent Id */
+      parent_id?: string | null
+      /** Name */
+      name: string
+      /** Color */
+      color: string
+      /** Description */
+      description?: string | null
+    }
+    /** ProjectLabelCreate */
+    ProjectLabelCreate: {
+      /**
+       * Project Id
+       * Format: uuid4
+       * @description Owning project.
+       */
+      project_id: string
+      /**
+       * Parent Id
+       * @description Optional parent label.
+       */
+      parent_id?: string | null
+      /** Name */
+      name: string
+      /**
+       * Color
+       * @description CSS hex colour (#rrggbb or #rrggbbaa).
+       * @default #6b7280
+       */
+      color: string
+      /** Description */
+      description?: string | null
+    }
+    /**
+     * ProjectLabelSortProperty
+     * @enum {string}
+     */
+    ProjectLabelSortProperty: 'name' | '-name' | 'created_at' | '-created_at'
+    /** ProjectLabelUpdate */
+    ProjectLabelUpdate: {
+      /** Parent Id */
+      parent_id?: string | null
+      /** Name */
+      name?: string | null
+      /**
+       * Color
+       * @description Optional CSS hex colour.
+       */
+      color?: string | null
+      /** Description */
+      description?: string | null
+    }
+    /** ProjectModule */
+    ProjectModule: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Project Id
+       * Format: uuid4
+       */
+      project_id: string
+      /** Lead Id */
+      lead_id?: string | null
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      status: components['schemas']['ModuleStatus']
+      /** Start Date */
+      start_date?: string | null
+      /** Target Date */
+      target_date?: string | null
+      /** Archived At */
+      archived_at?: string | null
+    }
+    /** ProjectModuleCreate */
+    ProjectModuleCreate: {
+      /**
+       * Project Id
+       * Format: uuid4
+       * @description Owning project.
+       */
+      project_id: string
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      /** Lead Id */
+      lead_id?: string | null
+      /** @default planned */
+      status: components['schemas']['ModuleStatus']
+      /** Start Date */
+      start_date?: string | null
+      /** Target Date */
+      target_date?: string | null
+    }
+    /**
+     * ProjectModuleSortProperty
+     * @enum {string}
+     */
+    ProjectModuleSortProperty:
+      | 'name'
+      | '-name'
+      | 'status'
+      | '-status'
+      | 'start_date'
+      | '-start_date'
+      | 'target_date'
+      | '-target_date'
+      | 'created_at'
+      | '-created_at'
+    /** ProjectModuleUpdate */
+    ProjectModuleUpdate: {
+      /** Name */
+      name?: string | null
+      /** Description */
+      description?: string | null
+      /** Lead Id */
+      lead_id?: string | null
+      status?: components['schemas']['ModuleStatus'] | null
+      /** Start Date */
+      start_date?: string | null
+      /** Target Date */
+      target_date?: string | null
+    }
+    /** ProjectModuleWorkItemAdd */
+    ProjectModuleWorkItemAdd: {
+      /** Work Item Ids */
+      work_item_ids: string[]
+    }
+    /** ProjectPage */
+    ProjectPage: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Project Id
+       * Format: uuid4
+       */
+      project_id: string
+      /** Owner Id */
+      owner_id?: string | null
+      /** Parent Id */
+      parent_id?: string | null
+      /** Name */
+      name: string
+      /** Slug */
+      slug: string
+      /** Description Json */
+      description_json?: {
+        [key: string]: unknown
+      } | null
+      /** Description Html */
+      description_html?: string | null
+      access: components['schemas']['ProjectPageAccess']
+      /** Is Locked */
+      is_locked: boolean
+      /** Archived At */
+      archived_at?: string | null
+    }
+    /**
+     * ProjectPageAccess
+     * @description Visibility scope inside the project.
+     *
+     *     ``private`` — only the owner sees the page.
+     *     ``public``  — every project member with read access sees it.
+     * @enum {string}
+     */
+    ProjectPageAccess: 'private' | 'public'
+    /** ProjectPageCreate */
+    ProjectPageCreate: {
+      /**
+       * Project Id
+       * Format: uuid4
+       * @description Owning project.
+       */
+      project_id: string
+      /**
+       * Parent Id
+       * @description Optional parent page.
+       */
+      parent_id?: string | null
+      /** Name */
+      name: string
+      /** Slug */
+      slug: string
+      /** Description Json */
+      description_json?: {
+        [key: string]: unknown
+      } | null
+      /** Description Html */
+      description_html?: string | null
+      /** @default public */
+      access: components['schemas']['ProjectPageAccess']
+    }
+    /**
+     * ProjectPageSortProperty
+     * @enum {string}
+     */
+    ProjectPageSortProperty:
+      | 'name'
+      | '-name'
+      | 'created_at'
+      | '-created_at'
+      | 'modified_at'
+      | '-modified_at'
+    /** ProjectPageUpdate */
+    ProjectPageUpdate: {
+      /** Parent Id */
+      parent_id?: string | null
+      /** Name */
+      name?: string | null
+      /** Slug */
+      slug?: string | null
+      /** Description Json */
+      description_json?: {
+        [key: string]: unknown
+      } | null
+      /** Description Html */
+      description_html?: string | null
+      access?: components['schemas']['ProjectPageAccess'] | null
+      /** Is Locked */
+      is_locked?: boolean | null
+    }
+    /**
+     * ProjectSortProperty
+     * @enum {string}
+     */
+    ProjectSortProperty:
+      | 'name'
+      | '-name'
+      | 'identifier'
+      | '-identifier'
+      | 'slug'
+      | '-slug'
+      | 'created_at'
+      | '-created_at'
+      | 'modified_at'
+      | '-modified_at'
+      | 'archived_at'
+      | '-archived_at'
+    /** ProjectState */
+    ProjectState: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Project Id
+       * Format: uuid4
+       */
+      project_id: string
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      /** Color */
+      color: string
+      group: components['schemas']['StateGroup']
+      /** Sequence */
+      sequence: number
+      /** Is Default */
+      is_default: boolean
+    }
+    /** ProjectStateCreate */
+    ProjectStateCreate: {
+      /**
+       * Project Id
+       * Format: uuid4
+       * @description Owning project.
+       */
+      project_id: string
+      /** Name */
+      name: string
+      /** Description */
+      description?: string | null
+      /**
+       * Color
+       * @description CSS hex colour (#rrggbb or #rrggbbaa).
+       * @default #6b7280
+       */
+      color: string
+      group: components['schemas']['StateGroup']
+      /**
+       * Sequence
+       * @default 1000
+       */
+      sequence: number
+      /**
+       * Is Default
+       * @default false
+       */
+      is_default: boolean
+    }
+    /**
+     * ProjectStateSortProperty
+     * @enum {string}
+     */
+    ProjectStateSortProperty:
+      | 'name'
+      | '-name'
+      | 'group'
+      | '-group'
+      | 'sequence'
+      | '-sequence'
+      | 'created_at'
+      | '-created_at'
+    /** ProjectStateUpdate */
+    ProjectStateUpdate: {
+      /** Name */
+      name?: string | null
+      /** Description */
+      description?: string | null
+      /**
+       * Color
+       * @description Optional CSS hex colour.
+       */
+      color?: string | null
+      group?: components['schemas']['StateGroup'] | null
+      /** Sequence */
+      sequence?: number | null
+      /** Is Default */
+      is_default?: boolean | null
+    }
+    /** ProjectUpdate */
+    ProjectUpdate: {
+      /** Name */
+      name?: string | null
+      /** Description */
+      description?: string | null
+      visibility?: components['schemas']['ProjectVisibility'] | null
+      /** Emoji */
+      emoji?: string | null
+      /**
+       * Color
+       * @description Optional CSS hex colour.
+       */
+      color?: string | null
+      /** Cover Image Url */
+      cover_image_url?: string | null
+      /** Is Cycles Enabled */
+      is_cycles_enabled?: boolean | null
+      /** Is Modules Enabled */
+      is_modules_enabled?: boolean | null
+      /** Is Views Enabled */
+      is_views_enabled?: boolean | null
+      /** Is Pages Enabled */
+      is_pages_enabled?: boolean | null
+      /** Is Intake Enabled */
+      is_intake_enabled?: boolean | null
+    }
+    /**
+     * ProjectVisibility
+     * @description Whether the project is visible to all workspace members or invite-only.
+     * @enum {string}
+     */
+    ProjectVisibility: 'private' | 'public'
     /**
      * ReaderTokenRequest
      * @description Request schema for registering a reader authorization token.
@@ -8955,6 +11081,46 @@ export interface components {
       | 'workspace_access_tokens:write'
       | 'file_sharing:read'
       | 'file_sharing:write'
+      | 'projects:read'
+      | 'projects:write'
+      | 'project_states:read'
+      | 'project_states:write'
+      | 'project_labels:read'
+      | 'project_labels:write'
+      | 'project_estimates:read'
+      | 'project_estimates:write'
+      | 'work_items:read'
+      | 'work_items:write'
+      | 'work_item_comments:read'
+      | 'work_item_comments:write'
+      | 'work_item_relations:read'
+      | 'work_item_relations:write'
+      | 'project_cycles:read'
+      | 'project_cycles:write'
+      | 'project_modules:read'
+      | 'project_modules:write'
+      | 'work_item_activities:read'
+      | 'project_pages:read'
+      | 'project_pages:write'
+    /**
+     * ScreenSessionPublicView
+     * @description Unauthenticated read for the guest landing page.
+     *
+     *     Deliberately omits secrets, invite tokens, and host identity. Only
+     *     information needed to render the "about to join" screen.
+     */
+    ScreenSessionPublicView: {
+      /** Short Slug */
+      short_slug: string
+      /** Title */
+      title: string | null
+      /** Max Viewers */
+      max_viewers: number
+      /** Started At */
+      started_at: string | null
+      /** Host Connected */
+      host_connected: boolean
+    }
     /** SearchResultCustomer */
     SearchResultCustomer: {
       /**
@@ -9663,6 +11829,18 @@ export interface components {
      */
     ShareVisibility: 'draft' | 'private' | 'public'
     /**
+     * StateGroup
+     * @description Coarse-grained bucket that determines reporting/funnel behaviour.
+     * @enum {string}
+     */
+    StateGroup:
+      | 'backlog'
+      | 'unstarted'
+      | 'started'
+      | 'completed'
+      | 'cancelled'
+      | 'triage'
+    /**
      * StatisticsPeriod
      * @description Event statistics for a single time period.
      */
@@ -10139,6 +12317,29 @@ export interface components {
       ctx?: Record<string, never>
     }
     /**
+     * WatchSessionPublicView
+     * @description Unauthenticated read for the guest landing page.
+     *
+     *     Deliberately omits secrets, invite tokens, and host identity. Only
+     *     information needed to render the "about to join" screen.
+     */
+    WatchSessionPublicView: {
+      /** Short Slug */
+      short_slug: string
+      /** Title */
+      title: string | null
+      /** Max Viewers */
+      max_viewers: number
+      /** Source Url */
+      source_url: string | null
+      /** Source Kind */
+      source_kind: string
+      /** Started At */
+      started_at: string | null
+      /** Host Connected */
+      host_connected: boolean
+    }
+    /**
      * WebhookCustomerCreatedPayload
      * @description Sent when a new customer is created.
      *
@@ -10594,6 +12795,386 @@ export interface components {
        */
       timestamp: string
       data: components['schemas']['Workspace']
+    }
+    /** WorkItem */
+    WorkItem: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Project Id
+       * Format: uuid4
+       */
+      project_id: string
+      /** Sequence Number */
+      sequence_number: number
+      /** Name */
+      name: string
+      /** Description Json */
+      description_json?: {
+        [key: string]: unknown
+      } | null
+      /** Description Html */
+      description_html?: string | null
+      priority: components['schemas']['WorkItemPriority']
+      /**
+       * State Id
+       * Format: uuid4
+       */
+      state_id: string
+      /** Estimate Point Id */
+      estimate_point_id?: string | null
+      /** Parent Id */
+      parent_id?: string | null
+      /** Start Date */
+      start_date?: string | null
+      /** Target Date */
+      target_date?: string | null
+      /** Completed At */
+      completed_at?: string | null
+      /** Sort Order */
+      sort_order: number
+      /** Is Draft */
+      is_draft: boolean
+      /** Archived At */
+      archived_at?: string | null
+      /**
+       * Assignee Ids
+       * @description Users currently assigned.
+       */
+      assignee_ids?: string[]
+      /**
+       * Label Ids
+       * @description Labels currently applied.
+       */
+      label_ids?: string[]
+    }
+    /** WorkItemActivity */
+    WorkItemActivity: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Work Item Id
+       * Format: uuid4
+       */
+      work_item_id: string
+      /** Actor Id */
+      actor_id?: string | null
+      verb: components['schemas']['WorkItemActivityVerb']
+      /** Field */
+      field?: string | null
+      /** Old Value */
+      old_value?: string | null
+      /** New Value */
+      new_value?: string | null
+      /** Payload */
+      payload?: {
+        [key: string]: unknown
+      } | null
+      /** Comment Id */
+      comment_id?: string | null
+    }
+    /**
+     * WorkItemActivitySortProperty
+     * @enum {string}
+     */
+    WorkItemActivitySortProperty: 'created_at' | '-created_at'
+    /**
+     * WorkItemActivityVerb
+     * @description The change-of-shape that produced this activity row.
+     *
+     *     Stored as a string so adding a verb doesn't require a migration.
+     *     Renderers fall back gracefully on unknown verbs.
+     * @enum {string}
+     */
+    WorkItemActivityVerb:
+      | 'created'
+      | 'updated'
+      | 'state_changed'
+      | 'priority_changed'
+      | 'assignee_added'
+      | 'assignee_removed'
+      | 'label_added'
+      | 'label_removed'
+      | 'comment_added'
+      | 'archived'
+      | 'unarchived'
+    /** WorkItemComment */
+    WorkItemComment: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Work Item Id
+       * Format: uuid4
+       */
+      work_item_id: string
+      /**
+       * Actor Id
+       * Format: uuid4
+       */
+      actor_id: string
+      /** Body Json */
+      body_json?: {
+        [key: string]: unknown
+      } | null
+      /** Body Html */
+      body_html: string
+    }
+    /** WorkItemCommentCreate */
+    WorkItemCommentCreate: {
+      /**
+       * Work Item Id
+       * Format: uuid4
+       * @description Target work item.
+       */
+      work_item_id: string
+      /** Body Html */
+      body_html: string
+      /** Body Json */
+      body_json?: {
+        [key: string]: unknown
+      } | null
+    }
+    /**
+     * WorkItemCommentSortProperty
+     * @enum {string}
+     */
+    WorkItemCommentSortProperty:
+      | 'created_at'
+      | '-created_at'
+      | 'modified_at'
+      | '-modified_at'
+    /** WorkItemCommentUpdate */
+    WorkItemCommentUpdate: {
+      /** Body Html */
+      body_html?: string | null
+      /** Body Json */
+      body_json?: {
+        [key: string]: unknown
+      } | null
+    }
+    /** WorkItemCreate */
+    WorkItemCreate: {
+      /**
+       * Project Id
+       * Format: uuid4
+       * @description Owning project.
+       */
+      project_id: string
+      /** Name */
+      name: string
+      /** Description Json */
+      description_json?: {
+        [key: string]: unknown
+      } | null
+      /** Description Html */
+      description_html?: string | null
+      /** @default none */
+      priority: components['schemas']['WorkItemPriority']
+      /**
+       * State Id
+       * Format: uuid4
+       * @description Workflow state for this work item.
+       */
+      state_id: string
+      /** Estimate Point Id */
+      estimate_point_id?: string | null
+      /**
+       * Parent Id
+       * @description Parent work item if this is a sub-item.
+       */
+      parent_id?: string | null
+      /** Start Date */
+      start_date?: string | null
+      /** Target Date */
+      target_date?: string | null
+      /**
+       * Sort Order
+       * @description Display order; defaults to end-of-list if omitted.
+       */
+      sort_order?: number | null
+      /**
+       * Is Draft
+       * @default false
+       */
+      is_draft: boolean
+      /** Assignee Ids */
+      assignee_ids?: string[]
+      /** Label Ids */
+      label_ids?: string[]
+    }
+    /**
+     * WorkItemPriority
+     * @description Five-step priority scale.  ``none`` is the typed equivalent of NULL.
+     * @enum {string}
+     */
+    WorkItemPriority: 'urgent' | 'high' | 'medium' | 'low' | 'none'
+    /** WorkItemRelation */
+    WorkItemRelation: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Work Item Id
+       * Format: uuid4
+       */
+      work_item_id: string
+      /**
+       * Related Id
+       * Format: uuid4
+       */
+      related_id: string
+      relation_type: components['schemas']['WorkItemRelationType']
+    }
+    /** WorkItemRelationCreate */
+    WorkItemRelationCreate: {
+      /**
+       * Work Item Id
+       * Format: uuid4
+       * @description The originating work item.
+       */
+      work_item_id: string
+      /**
+       * Related Id
+       * Format: uuid4
+       * @description The target work item.
+       */
+      related_id: string
+      relation_type: components['schemas']['WorkItemRelationType']
+    }
+    /**
+     * WorkItemRelationSortProperty
+     * @enum {string}
+     */
+    WorkItemRelationSortProperty:
+      | 'created_at'
+      | '-created_at'
+      | 'relation_type'
+      | '-relation_type'
+    /**
+     * WorkItemRelationType
+     * @description Directed relation verbs.  Inverses derived at read time.
+     * @enum {string}
+     */
+    WorkItemRelationType: 'blocks' | 'relates_to' | 'duplicates'
+    /**
+     * WorkItemSortProperty
+     * @enum {string}
+     */
+    WorkItemSortProperty:
+      | 'sequence_number'
+      | '-sequence_number'
+      | 'name'
+      | '-name'
+      | 'priority'
+      | '-priority'
+      | 'sort_order'
+      | '-sort_order'
+      | 'start_date'
+      | '-start_date'
+      | 'target_date'
+      | '-target_date'
+      | 'completed_at'
+      | '-completed_at'
+      | 'created_at'
+      | '-created_at'
+      | 'modified_at'
+      | '-modified_at'
+    /** WorkItemUpdate */
+    WorkItemUpdate: {
+      /** Name */
+      name?: string | null
+      /** Description Json */
+      description_json?: {
+        [key: string]: unknown
+      } | null
+      /** Description Html */
+      description_html?: string | null
+      priority?: components['schemas']['WorkItemPriority'] | null
+      /** State Id */
+      state_id?: string | null
+      /** Estimate Point Id */
+      estimate_point_id?: string | null
+      /** Parent Id */
+      parent_id?: string | null
+      /** Start Date */
+      start_date?: string | null
+      /** Target Date */
+      target_date?: string | null
+      /** Completed At */
+      completed_at?: string | null
+      /** Sort Order */
+      sort_order?: number | null
+      /** Is Draft */
+      is_draft?: boolean | null
+      /**
+       * Assignee Ids
+       * @description Full replacement of the assignee set when present.
+       */
+      assignee_ids?: string[] | null
+      /**
+       * Label Ids
+       * @description Full replacement of the label set when present.
+       */
+      label_ids?: string[] | null
     }
     /** Workspace */
     Workspace: {
@@ -11239,6 +13820,70 @@ export interface components {
       state?: string | null
       /** Error */
       error?: string | null
+    }
+    /**
+     * CloseSessionRequest
+     * @description Body for ``DELETE /api/v1/call/session/{slug}``.
+     */
+    rapidly__sharing__call__types__CloseSessionRequest: {
+      /** Secret */
+      secret: string
+    }
+    /**
+     * MintInviteRequest
+     * @description Body for ``POST /api/v1/call/session/{slug}/invite``.
+     */
+    rapidly__sharing__call__types__MintInviteRequest: {
+      /** Secret */
+      secret: string
+    }
+    /**
+     * CloseSessionRequest
+     * @description Body for ``DELETE /api/v1/collab/session/{slug}``.
+     */
+    rapidly__sharing__collab__types__CloseSessionRequest: {
+      /** Secret */
+      secret: string
+    }
+    /**
+     * MintInviteRequest
+     * @description Body for ``POST /api/v1/collab/session/{slug}/invite``.
+     */
+    rapidly__sharing__collab__types__MintInviteRequest: {
+      /** Secret */
+      secret: string
+    }
+    /**
+     * CloseSessionRequest
+     * @description Body for ``DELETE /api/v1/screen/session/{slug}``.
+     */
+    rapidly__sharing__screen__types__CloseSessionRequest: {
+      /** Secret */
+      secret: string
+    }
+    /**
+     * MintInviteRequest
+     * @description Body for ``POST /api/v1/screen/session/{slug}/invite``.
+     */
+    rapidly__sharing__screen__types__MintInviteRequest: {
+      /** Secret */
+      secret: string
+    }
+    /**
+     * CloseSessionRequest
+     * @description Body for ``DELETE /api/v1/watch/session/{slug}``.
+     */
+    rapidly__sharing__watch__types__CloseSessionRequest: {
+      /** Secret */
+      secret: string
+    }
+    /**
+     * MintInviteRequest
+     * @description Body for ``POST /api/v1/watch/session/{slug}/invite``.
+     */
+    rapidly__sharing__watch__types__MintInviteRequest: {
+      /** Secret */
+      secret: string
     }
     /** MetadataQuery */
     MetadataQuery: {
@@ -14208,6 +16853,37 @@ export interface operations {
       }
     }
   }
+  'file-sharing:ping_no_server_secret': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['NoServerSecretPingRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   'file-sharing:list_sessions': {
     parameters: {
       query?: {
@@ -15021,6 +17697,750 @@ export interface operations {
         }
         content: {
           'application/json': components['schemas']['ICEConfigResponse']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'screen:create_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateScreenSessionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CreateScreenSessionResponse']
+        }
+      }
+      /** @description The Screen chamber is not enabled on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'screen:mint_invite': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['rapidly__sharing__screen__types__MintInviteRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MintInviteResponse']
+        }
+      }
+      /** @description The Screen chamber is not enabled on this deployment. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Screen session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'screen:get_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ScreenSessionPublicView']
+        }
+      }
+      /** @description Screen session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'screen:close_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['rapidly__sharing__screen__types__CloseSessionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The Screen chamber is not enabled on this deployment. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Screen session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'watch:create_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateWatchSessionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CreateWatchSessionResponse']
+        }
+      }
+      /** @description The Watch chamber is not enabled on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'watch:mint_invite': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['rapidly__sharing__watch__types__MintInviteRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MintInviteResponse']
+        }
+      }
+      /** @description The Watch chamber is not enabled on this deployment. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Watch session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'watch:get_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WatchSessionPublicView']
+        }
+      }
+      /** @description Watch session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'watch:close_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['rapidly__sharing__watch__types__CloseSessionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The Watch chamber is not enabled on this deployment. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Watch session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'call:create_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateCallSessionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CreateCallSessionResponse']
+        }
+      }
+      /** @description The Call chamber is not enabled on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'call:mint_invite': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['rapidly__sharing__call__types__MintInviteRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MintInviteResponse']
+        }
+      }
+      /** @description The Call chamber is not enabled on this deployment. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Call session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'call:get_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CallSessionPublicView']
+        }
+      }
+      /** @description Call session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'call:close_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['rapidly__sharing__call__types__CloseSessionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The Call chamber is not enabled on this deployment. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Call session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'collab:create_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['CreateCollabSessionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CreateCollabSessionResponse']
+        }
+      }
+      /** @description The Collab chamber is not enabled on this deployment. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'collab:mint_invite': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['rapidly__sharing__collab__types__MintInviteRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['MintInviteResponse']
+        }
+      }
+      /** @description The Collab chamber is not enabled on this deployment. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Collab session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'collab:get_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['CollabSessionPublicView']
+        }
+      }
+      /** @description Collab session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'collab:close_session': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        slug: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['rapidly__sharing__collab__types__CloseSessionRequest']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description The Collab chamber is not enabled on this deployment. */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
+        }
+      }
+      /** @description Collab session not found or expired. */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ResourceNotFound']
         }
       }
       /** @description Validation Error */
@@ -18291,6 +21711,2751 @@ export interface operations {
       }
     }
   }
+  'projects:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by workspace ID. */
+        workspace_id?: string | string[] | null
+        /** @description Include archived projects in the result set. */
+        include_archived?: boolean
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['ProjectSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_Project_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'projects:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Project']
+        }
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'projects:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Project']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'projects:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'projects:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Project']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'projects:archive': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Project']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'projects:unarchive': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['Project']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-states:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by project ID. */
+        project_id?: string | string[] | null
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['ProjectStateSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_ProjectState_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-states:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectStateCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectState']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-states:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project state ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectState']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-states:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project state ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-states:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project state ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectStateUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectState']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-labels:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by project ID. */
+        project_id?: string | string[] | null
+        /** @description Filter labels with this parent ID. */
+        parent_id?: string | null
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['ProjectLabelSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_ProjectLabel_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-labels:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectLabelCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectLabel']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-labels:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project label ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectLabel']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-labels:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project label ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-labels:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project label ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectLabelUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectLabel']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by project ID. */
+        project_id?: string | string[] | null
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['ProjectEstimateSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_ProjectEstimate_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectEstimateCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectEstimate']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project estimate ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectEstimate']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project estimate ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project estimate ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectEstimateUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectEstimate']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:list_points': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project estimate ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectEstimatePoint'][]
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:create_point': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectEstimatePointCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectEstimatePoint']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:delete_point': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The estimate point ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-estimates:update_point': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The estimate point ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectEstimatePointUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectEstimatePoint']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-items:list_items': {
+    parameters: {
+      query?: {
+        /** @description Filter by project ID. */
+        project_id?: string | string[] | null
+        /** @description Filter by state ID. */
+        state_id?: string | string[] | null
+        /** @description Filter to work items whose parent is this ID. */
+        parent_id?: string | null
+        /** @description Include archived work items. */
+        include_archived?: boolean
+        /** @description Include drafts. */
+        include_drafts?: boolean
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['WorkItemSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_WorkItem_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-items:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WorkItemCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkItem']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-items:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The work-item ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkItem']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-items:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The work-item ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-items:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The work-item ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WorkItemUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkItem']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-comments:list': {
+    parameters: {
+      query: {
+        /** @description Required filter by work-item ID. */
+        work_item_id: string
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['WorkItemCommentSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_WorkItemComment_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-comments:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WorkItemCommentCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkItemComment']
+        }
+      }
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-comments:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The work-item comment ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkItemComment']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-comments:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The work-item comment ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-comments:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The work-item comment ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WorkItemCommentUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkItemComment']
+        }
+      }
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-relations:list': {
+    parameters: {
+      query: {
+        /** @description Required filter; returns relations both directions. */
+        work_item_id: string
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['WorkItemRelationSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_WorkItemRelation_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-relations:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['WorkItemRelationCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkItemRelation']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-relations:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The work-item relation ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['WorkItemRelation']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-relations:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The work-item relation ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by project ID. */
+        project_id?: string | string[] | null
+        /** @description Include archived cycles. */
+        include_archived?: boolean
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['ProjectCycleSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_ProjectCycle_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectCycleCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectCycle']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The cycle ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectCycle']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The cycle ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The cycle ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectCycleUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectCycle']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:archive': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The cycle ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectCycle']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:list_work_items': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The cycle ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': string[]
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:add_work_items': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The cycle ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectCycleWorkItemAdd']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-cycles:remove_work_items': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The cycle ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectCycleWorkItemAdd']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by project ID. */
+        project_id?: string | string[] | null
+        /** @description Include archived modules. */
+        include_archived?: boolean
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['ProjectModuleSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_ProjectModule_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectModuleCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectModule']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The module ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectModule']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The module ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The module ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectModuleUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectModule']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:archive': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The module ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectModule']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:list_work_items': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The module ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': string[]
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:add_work_items': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The module ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectModuleWorkItemAdd']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-modules:remove_work_items': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The module ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectModuleWorkItemAdd']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'work-item-activities:list': {
+    parameters: {
+      query: {
+        /** @description Required filter by work-item ID. */
+        work_item_id: string
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['WorkItemActivitySortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_WorkItemActivity_']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-pages:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by project ID. */
+        project_id?: string | string[] | null
+        /** @description Filter pages whose parent is this ID. */
+        parent_id?: string | null
+        /** @description Include archived pages. */
+        include_archived?: boolean
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['ProjectPageSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_ProjectPage_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-pages:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectPageCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectPage']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-pages:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project page ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectPage']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-pages:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project page ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-pages:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project page ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectPageUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectPage']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Forbidden */
+      403: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   _endpointcustomer_created_post: {
     parameters: {
       query?: never
@@ -20222,6 +26387,27 @@ export const availableScopeValues: ReadonlyArray<
   'workspace_access_tokens:write',
   'file_sharing:read',
   'file_sharing:write',
+  'projects:read',
+  'projects:write',
+  'project_states:read',
+  'project_states:write',
+  'project_labels:read',
+  'project_labels:write',
+  'project_estimates:read',
+  'project_estimates:write',
+  'work_items:read',
+  'work_items:write',
+  'work_item_comments:read',
+  'work_item_comments:write',
+  'work_item_relations:read',
+  'work_item_relations:write',
+  'project_cycles:read',
+  'project_cycles:write',
+  'project_modules:read',
+  'project_modules:write',
+  'work_item_activities:read',
+  'project_pages:read',
+  'project_pages:write',
 ]
 export const body_oauth2_consentActionValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['Body_oauth2_consent']['action']
@@ -20727,6 +26913,15 @@ export const countryAlpha2InputValues: ReadonlyArray<
   'ZM',
   'ZW',
 ]
+export const createCallSessionRequestModeValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['CreateCallSessionRequest']['mode']
+> = ['audio_only', 'audio_video']
+export const createCollabSessionRequestKindValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['CreateCollabSessionRequest']['kind']
+> = ['text', 'canvas']
+export const createWatchSessionRequestSource_kindValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['CreateWatchSessionRequest']['source_kind']
+> = ['url', 'local']
 export const customFieldCheckboxTypeValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['CustomFieldCheckbox']['type']
 > = ['checkbox']
@@ -20766,6 +26961,9 @@ export const downloadableFileCreateServiceValues: ReadonlyArray<
 export const downloadableFileReadServiceValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['DownloadableFileRead']['service']
 > = ['downloadable']
+export const estimateTypeValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['EstimateType']
+> = ['points', 'categories', 'time']
 export const eventNamesSortPropertyValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['EventNamesSortProperty']
 > = [
@@ -20854,6 +27052,9 @@ export const memberSortPropertyValues: ReadonlyArray<
 export const metricTypeValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['MetricType']
 > = ['scalar', 'currency', 'currency_sub_cent', 'percentage']
+export const moduleStatusValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ModuleStatus']
+> = ['planned', 'in_progress', 'paused', 'completed', 'cancelled']
 export const notificationRecipientPlatformValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['NotificationRecipientPlatform']
 > = ['ios', 'android']
@@ -20899,6 +27100,82 @@ export const paymentStatusValues: ReadonlyArray<
 export const presentmentCurrencyValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['PresentmentCurrency']
 > = ['aud', 'brl', 'cad', 'chf', 'eur', 'inr', 'gbp', 'jpy', 'sek', 'usd']
+export const projectCycleSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectCycleSortProperty']
+> = [
+  'name',
+  '-name',
+  'start_date',
+  '-start_date',
+  'end_date',
+  '-end_date',
+  'created_at',
+  '-created_at',
+]
+export const projectEstimateSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectEstimateSortProperty']
+> = ['name', '-name', 'created_at', '-created_at']
+export const projectLabelSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectLabelSortProperty']
+> = ['name', '-name', 'created_at', '-created_at']
+export const projectModuleSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectModuleSortProperty']
+> = [
+  'name',
+  '-name',
+  'status',
+  '-status',
+  'start_date',
+  '-start_date',
+  'target_date',
+  '-target_date',
+  'created_at',
+  '-created_at',
+]
+export const projectPageAccessValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectPageAccess']
+> = ['private', 'public']
+export const projectPageSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectPageSortProperty']
+> = [
+  'name',
+  '-name',
+  'created_at',
+  '-created_at',
+  'modified_at',
+  '-modified_at',
+]
+export const projectSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectSortProperty']
+> = [
+  'name',
+  '-name',
+  'identifier',
+  '-identifier',
+  'slug',
+  '-slug',
+  'created_at',
+  '-created_at',
+  'modified_at',
+  '-modified_at',
+  'archived_at',
+  '-archived_at',
+]
+export const projectStateSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectStateSortProperty']
+> = [
+  'name',
+  '-name',
+  'group',
+  '-group',
+  'sequence',
+  '-sequence',
+  'created_at',
+  '-created_at',
+]
+export const projectVisibilityValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectVisibility']
+> = ['private', 'public']
 export const scopeValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['Scope']
 > = [
@@ -20938,6 +27215,27 @@ export const scopeValues: ReadonlyArray<
   'workspace_access_tokens:write',
   'file_sharing:read',
   'file_sharing:write',
+  'projects:read',
+  'projects:write',
+  'project_states:read',
+  'project_states:write',
+  'project_labels:read',
+  'project_labels:write',
+  'project_estimates:read',
+  'project_estimates:write',
+  'work_items:read',
+  'work_items:write',
+  'work_item_comments:read',
+  'work_item_comments:write',
+  'work_item_relations:read',
+  'work_item_relations:write',
+  'project_cycles:read',
+  'project_cycles:write',
+  'project_modules:read',
+  'project_modules:write',
+  'work_item_activities:read',
+  'project_pages:read',
+  'project_pages:write',
 ]
 export const searchResultCustomerTypeValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['SearchResultCustomer']['type']
@@ -20987,6 +27285,9 @@ export const shareSortPropertyValues: ReadonlyArray<
 export const shareVisibilityValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['ShareVisibility']
 > = ['draft', 'private', 'public']
+export const stateGroupValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['StateGroup']
+> = ['backlog', 'unstarted', 'started', 'completed', 'cancelled', 'triage']
 export const statusValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['Status']
 > = ['created', 'onboarding_started', 'under_review', 'denied', 'active']
@@ -21143,6 +27444,58 @@ export const webhookEventTypeValues: ReadonlyArray<
 export const webhookFormatValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['WebhookFormat']
 > = ['raw', 'discord', 'slack']
+export const workItemActivitySortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['WorkItemActivitySortProperty']
+> = ['created_at', '-created_at']
+export const workItemActivityVerbValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['WorkItemActivityVerb']
+> = [
+  'created',
+  'updated',
+  'state_changed',
+  'priority_changed',
+  'assignee_added',
+  'assignee_removed',
+  'label_added',
+  'label_removed',
+  'comment_added',
+  'archived',
+  'unarchived',
+]
+export const workItemCommentSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['WorkItemCommentSortProperty']
+> = ['created_at', '-created_at', 'modified_at', '-modified_at']
+export const workItemPriorityValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['WorkItemPriority']
+> = ['urgent', 'high', 'medium', 'low', 'none']
+export const workItemRelationSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['WorkItemRelationSortProperty']
+> = ['created_at', '-created_at', 'relation_type', '-relation_type']
+export const workItemRelationTypeValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['WorkItemRelationType']
+> = ['blocks', 'relates_to', 'duplicates']
+export const workItemSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['WorkItemSortProperty']
+> = [
+  'sequence_number',
+  '-sequence_number',
+  'name',
+  '-name',
+  'priority',
+  '-priority',
+  'sort_order',
+  '-sort_order',
+  'start_date',
+  '-start_date',
+  'target_date',
+  '-target_date',
+  'completed_at',
+  '-completed_at',
+  'created_at',
+  '-created_at',
+  'modified_at',
+  '-modified_at',
+]
 export const workspaceAccessTokenSortPropertyValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['WorkspaceAccessTokenSortProperty']
 > = [
