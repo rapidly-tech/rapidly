@@ -9,14 +9,17 @@ import {
   type WorkItemComment,
   type WorkItemRelation,
   type WorkItemRelationType,
+  useCreateUserFavorite,
   useCreateWorkItemComment,
   useCreateWorkItemRelation,
+  useDeleteUserFavorite,
   useDeleteWorkItemRelation,
   useProject,
   useProjectCycles,
   useProjectModules,
   useProjectStates,
   useUpdateWorkItem,
+  useUserFavorites,
   useWorkItem,
   useWorkItemActivities,
   useWorkItemComments,
@@ -95,9 +98,12 @@ export default function WorkItemDetailPage() {
           </span>
           {state && <StatePill state={state} />}
         </div>
-        <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-          {workItem.name}
-        </h1>
+        <div className="flex items-baseline gap-3">
+          <FavoriteToggle workItemId={workItem.id} />
+          <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
+            {workItem.name}
+          </h1>
+        </div>
         <Metadata workItem={workItem} states={states} />
       </header>
 
@@ -954,5 +960,49 @@ function CreateRelation({
         </Button>
       </div>
     </div>
+  )
+}
+
+// ── Favorite toggle ──
+
+function FavoriteToggle({ workItemId }: { workItemId: string }) {
+  const favoritesQuery = useUserFavorites({
+    entity_type: 'work_item',
+    limit: 100,
+    page: 1,
+  })
+  const favorite = favoritesQuery.data?.data.find(
+    (f) => f.entity_id === workItemId,
+  )
+  const create = useCreateUserFavorite()
+  const remove = useDeleteUserFavorite()
+  const pending = create.isPending || remove.isPending
+  const isFavorite = favorite !== undefined
+
+  const toggle = () => {
+    if (pending) return
+    if (favorite) {
+      remove.mutate(favorite.id)
+    } else {
+      create.mutate({ entity_type: 'work_item', entity_id: workItemId })
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      aria-pressed={isFavorite}
+      className={
+        'self-center text-2xl leading-none transition disabled:opacity-50 ' +
+        (isFavorite
+          ? 'text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300'
+          : 'text-slate-300 hover:text-emerald-500 dark:text-slate-600 dark:hover:text-emerald-400')
+      }
+    >
+      {isFavorite ? '★' : '☆'}
+    </button>
   )
 }
