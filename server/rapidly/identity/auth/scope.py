@@ -85,6 +85,31 @@ class Scope(StrEnum):
     file_sharing_read = "file_sharing:read"
     file_sharing_write = "file_sharing:write"
 
+    # Projects (project management product)
+    projects_read = "projects:read"
+    projects_write = "projects:write"
+    project_states_read = "project_states:read"
+    project_states_write = "project_states:write"
+    project_labels_read = "project_labels:read"
+    project_labels_write = "project_labels:write"
+    project_estimates_read = "project_estimates:read"
+    project_estimates_write = "project_estimates:write"
+    work_items_read = "work_items:read"
+    work_items_write = "work_items:write"
+    work_item_comments_read = "work_item_comments:read"
+    work_item_comments_write = "work_item_comments:write"
+    work_item_relations_read = "work_item_relations:read"
+    work_item_relations_write = "work_item_relations:write"
+    project_cycles_read = "project_cycles:read"
+    project_cycles_write = "project_cycles:write"
+    project_modules_read = "project_modules:read"
+    project_modules_write = "project_modules:write"
+    work_item_activities_read = "work_item_activities:read"
+    project_pages_read = "project_pages:read"
+    project_pages_write = "project_pages:write"
+    user_favorites_read = "user_favorites:read"
+    user_favorites_write = "user_favorites:write"
+
     @classmethod
     def __get_pydantic_json_schema__(
         cls, core_schema: cs.CoreSchema, handler: GetJsonSchemaHandler
@@ -136,6 +161,29 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.workspace_access_tokens_write: "Create or modify workspace access tokens",
     Scope.file_sharing_read: "Read file sharing sessions",
     Scope.file_sharing_write: "Create or modify file sharing sessions",
+    Scope.projects_read: "Read projects",
+    Scope.projects_write: "Create or modify projects",
+    Scope.project_states_read: "Read project workflow states",
+    Scope.project_states_write: "Create or modify project workflow states",
+    Scope.project_labels_read: "Read project labels",
+    Scope.project_labels_write: "Create or modify project labels",
+    Scope.project_estimates_read: "Read project estimation scales",
+    Scope.project_estimates_write: "Create or modify project estimation scales",
+    Scope.work_items_read: "Read work items",
+    Scope.work_items_write: "Create or modify work items",
+    Scope.work_item_comments_read: "Read work item comments",
+    Scope.work_item_comments_write: "Create or modify work item comments",
+    Scope.work_item_relations_read: "Read work item relations",
+    Scope.work_item_relations_write: "Create or modify work item relations",
+    Scope.project_cycles_read: "Read project cycles",
+    Scope.project_cycles_write: "Create or modify project cycles",
+    Scope.project_modules_read: "Read project modules",
+    Scope.project_modules_write: "Create or modify project modules",
+    Scope.work_item_activities_read: "Read work-item activity history",
+    Scope.project_pages_read: "Read project pages",
+    Scope.project_pages_write: "Create or modify project pages",
+    Scope.user_favorites_read: "Read your favourites",
+    Scope.user_favorites_write: "Create or modify your favourites",
 }
 
 
