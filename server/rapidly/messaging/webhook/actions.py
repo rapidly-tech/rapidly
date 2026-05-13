@@ -73,13 +73,16 @@ async def list_endpoints(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     workspace_id: Sequence[UUID] | None,
+    url: str | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[WebhookEndpoint], int]:
     repository = WebhookEndpointRepository.from_session(session)
     statement = repository.get_readable_statement(auth_subject).order_by(
         WebhookEndpoint.created_at.desc()
     )
-    statement = repository.apply_list_filters(statement, workspace_id=workspace_id)
+    statement = repository.apply_list_filters(
+        statement, workspace_id=workspace_id, url=url
+    )
     return await repository.paginate(
         statement, limit=pagination.limit, page=pagination.page
     )

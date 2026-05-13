@@ -325,9 +325,17 @@ class WebhookEndpointRepository(
         stmt: Select[tuple[WebhookEndpoint]],
         *,
         workspace_id: Sequence[UUID] | None = None,
+        url: str | None = None,
     ) -> Select[tuple[WebhookEndpoint]]:
         if workspace_id is not None:
             stmt = stmt.where(WebhookEndpoint.workspace_id.in_(workspace_id))
+        if url is not None and url.strip():
+            # Case-insensitive substring match on the webhook URL.
+            # ``escape_like`` neutralises ``%`` and ``_`` so callers
+            # cannot smuggle wildcards past the documented substring
+            # semantics (e.g. ``url=%`` matching every endpoint).
+            escaped = escape_like(url.strip())
+            stmt = stmt.where(WebhookEndpoint.url.ilike(f"%{escaped}%", escape="\\"))
         return stmt
 
     # ── Reads ──

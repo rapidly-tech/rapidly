@@ -231,3 +231,44 @@ class TestEndpointGetActiveForEvent:
         assert "webhook_endpoints.events @>" in sql
         # And the event-type literal appears.
         assert "customer.created" in sql
+
+
+class TestWebhookEndpointApplyListFiltersURL:
+    """Pin: the ``url`` filter is a case-insensitive substring match with
+    SQL wildcards escaped.  Drift would let a caller use ``url=%`` to
+    list every endpoint or smuggle prefix queries past the documented
+    substring semantics."""
+
+    def _base_stmt(self) -> Any:
+        from sqlalchemy import select
+
+        from rapidly.models.webhook_endpoint import WebhookEndpoint
+
+        return select(WebhookEndpoint)
+
+    def test_substring_emits_case_insensitive_like(self) -> None:
+        repo = WebhookEndpointRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), url="hooks.example.com")
+        sql = _compile(stmt).lower()
+        # SQLAlchemy renders ``ilike`` as ``LOWER(col) LIKE LOWER(val)``
+        # in the default dialect.  Pin the case-insensitive comparison
+        # plus the ``%val%`` substring shape.
+        assert "lower(webhook_endpoints.url) like" in sql
+        assert "%hooks.example.com%" in sql
+
+    def test_wildcards_escaped(self) -> None:
+        repo = WebhookEndpointRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), url="prod_%")
+        sql = _compile(stmt).lower()
+        # ``%`` and ``_`` from user input become backslash-escaped so
+        # the ILIKE treats them as literal characters.  An ESCAPE
+        # clause is also present so the dialect honours them.
+        assert "prod\\_\\%" in sql
+        assert " escape " in sql
+
+    def test_whitespace_only_skips_filter(self) -> None:
+        repo = WebhookEndpointRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), url="   ")
+        sql = _compile(stmt).lower()
+        # Whitespace-only input must NOT emit a URL-matching clause.
+        assert "url) like" not in sql
