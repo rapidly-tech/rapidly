@@ -18,6 +18,7 @@ from rapidly.core.queries import (
     SortableMixin,
     SortingClause,
 )
+from rapidly.core.queries.utils import escape_like
 from rapidly.identity.auth.models import (
     AuthPrincipal,
     User,
@@ -71,12 +72,20 @@ class FileRepository(
         *,
         workspace_id: Sequence[UUID] | None = None,
         ids: Sequence[UUID] | None = None,
+        name: str | None = None,
     ) -> Select[tuple[File]]:
         stmt = stmt.where(File.is_uploaded.is_(True))
         if workspace_id is not None:
             stmt = stmt.where(File.workspace_id.in_(workspace_id))
         if ids is not None:
             stmt = stmt.where(File.id.in_(ids))
+        if name is not None and name.strip():
+            # Case-insensitive substring match on file name.
+            # ``escape_like`` neutralises ``%`` and ``_`` so callers
+            # cannot smuggle wildcards past the documented substring
+            # semantics.
+            escaped = escape_like(name.strip())
+            stmt = stmt.where(File.name.ilike(f"%{escaped}%", escape="\\"))
         return stmt
 
     # ── Workspace scoping ──
