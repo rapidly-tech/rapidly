@@ -8,7 +8,7 @@ of related customer associations.
 from collections.abc import Sequence
 from uuid import UUID
 
-from sqlalchemy import Select, asc, desc, func, select
+from sqlalchemy import Select, asc, desc, func, or_, select
 from sqlalchemy.orm import joinedload
 
 from rapidly.core.queries import (
@@ -16,6 +16,7 @@ from rapidly.core.queries import (
     SoftDeleteByIdMixin,
     SoftDeleteMixin,
 )
+from rapidly.core.queries.utils import escape_like
 from rapidly.identity.auth.models import (
     AuthPrincipal,
     User,
@@ -232,6 +233,7 @@ class MemberRepository(
         *,
         customer_id: UUID | None = None,
         external_customer_id: str | None = None,
+        query: str | None = None,
         sorting: Sequence[tuple[str, bool]] = (),
     ) -> Select[tuple[Member]]:
         if customer_id is not None:
@@ -239,6 +241,20 @@ class MemberRepository(
         if external_customer_id is not None:
             stmt = stmt.join(Customer).where(
                 Customer.external_id == external_customer_id
+            )
+        if query is not None and query.strip():
+            # Free-text query: match against email (substring), name
+            # (substring), and external_id (prefix).  Mirrors the
+            # customer ``query`` filter so the API surface is
+            # consistent across both entities.  ``escape_like``
+            # neutralises ``%`` and ``_`` in user input.
+            escaped = escape_like(query.strip())
+            stmt = stmt.where(
+                or_(
+                    Member.email.ilike(f"%{escaped}%", escape="\\"),
+                    Member.name.ilike(f"%{escaped}%", escape="\\"),
+                    Member.external_id.ilike(f"{escaped}%", escape="\\"),
+                )
             )
         for criterion, is_desc in sorting:
             clause_fn = desc if is_desc else asc
