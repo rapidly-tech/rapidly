@@ -16,13 +16,16 @@ import {
   useCreateProjectModule,
   useCreateProjectPage,
   useCreateProjectState,
+  useCreateUserFavorite,
   useCreateWorkItem,
+  useDeleteUserFavorite,
   useProject,
   useProjectCycles,
   useProjectModules,
   useProjectPages,
   useProjectStates,
   useReassignWorkItem,
+  useUserFavorites,
   useWorkItems,
 } from '@/hooks/api/projects'
 import Button from '@rapidly-tech/ui/components/forms/Button'
@@ -144,6 +147,7 @@ export default function ProjectDetailPage() {
         </Link>
         <div className="flex items-baseline justify-between gap-4">
           <div className="flex items-baseline gap-3">
+            <FavoriteToggle projectId={project.id} />
             <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
               {project.identifier}
             </span>
@@ -1441,5 +1445,49 @@ function CreateWorkItemDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
+  )
+}
+
+// ── Favorite toggle ──
+
+function FavoriteToggle({ projectId }: { projectId: string }) {
+  const favoritesQuery = useUserFavorites({
+    entity_type: 'project',
+    limit: 100,
+    page: 1,
+  })
+  const favorite = favoritesQuery.data?.data.find(
+    (f) => f.entity_id === projectId,
+  )
+  const create = useCreateUserFavorite()
+  const remove = useDeleteUserFavorite()
+  const pending = create.isPending || remove.isPending
+  const isFavorite = favorite !== undefined
+
+  const toggle = () => {
+    if (pending) return
+    if (favorite) {
+      remove.mutate(favorite.id)
+    } else {
+      create.mutate({ entity_type: 'project', entity_id: projectId })
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      aria-pressed={isFavorite}
+      className={
+        'self-center text-2xl leading-none transition disabled:opacity-50 ' +
+        (isFavorite
+          ? 'text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300'
+          : 'text-slate-300 hover:text-emerald-500 dark:text-slate-600 dark:hover:text-emerald-400')
+      }
+    >
+      {isFavorite ? '★' : '☆'}
+    </button>
   )
 }
