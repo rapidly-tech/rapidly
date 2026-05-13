@@ -44,11 +44,20 @@ async def list(
     project_id: MultipleQueryFilter[UUID] | None = Query(
         None, description="Filter by project ID."
     ),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the estimate display name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
 ) -> PaginatedList[schemas.ProjectEstimate]:
     results, count = await estimate_actions.list(
         session,
         auth_subject,
         project_id=project_id,
+        name=name,
         pagination=pagination,
         sorting=sorting,
     )

@@ -41,6 +41,7 @@ async def list(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     project_id: Sequence[UUID] | None = None,
+    name: str | None = None,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[ProjectEstimateSortProperty]],
 ) -> tuple[Sequence[ProjectEstimate], int]:
@@ -48,6 +49,16 @@ async def list(
     statement = repo.get_readable_statement(auth_subject)
     if project_id is not None:
         statement = statement.where(ProjectEstimate.project_id.in_(project_id))
+    if name is not None and name.strip():
+        # Case-insensitive substring match.  ``%`` and ``_`` in the
+        # input are escaped so callers cannot smuggle wildcards past
+        # the documented substring semantics.
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(
+            ProjectEstimate.name.ilike(f"%{escaped}%", escape="\\")
+        )
     statement = repo.apply_sorting(statement, sorting)
     return await paginate(session, statement, pagination=pagination)
 
