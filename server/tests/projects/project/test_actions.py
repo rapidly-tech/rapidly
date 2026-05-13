@@ -259,3 +259,80 @@ class TestUpdateRoleGate:
             gate.assert_awaited_once_with(
                 session, principal, project, minimum=ProjectMemberRole.admin
             )
+
+
+@pytest.mark.asyncio
+class TestListNameSearch:
+    """Pin: the ``name`` filter is a *substring* match.  Drift toward
+    exact match would break the search UX, and unescaped ``%`` / ``_``
+    would let callers smuggle wildcards past the intended semantics.
+    """
+
+    async def test_name_substring_adds_where_clause(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=statement)
+        repo.apply_sorting = MagicMock(return_value=statement)
+
+        with (
+            patch(
+                "rapidly.projects.project.actions.ProjectRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.project.actions.paginate",
+                new_callable=AsyncMock,
+                return_value=([], 0),
+            ),
+        ):
+            await project_actions.list(
+                session,
+                principal,
+                name="API",
+                pagination=MagicMock(),
+                sorting=[],
+            )
+
+        # Baseline non-archived where + the name where = 2 calls.  Any
+        # leak in either direction (substring missed, or applied twice)
+        # would fail this count.
+        assert statement.where.call_count == 2
+
+    async def test_empty_or_whitespace_name_skips_filter(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=statement)
+        repo.apply_sorting = MagicMock(return_value=statement)
+
+        with (
+            patch(
+                "rapidly.projects.project.actions.ProjectRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.project.actions.paginate",
+                new_callable=AsyncMock,
+                return_value=([], 0),
+            ),
+        ):
+            await project_actions.list(
+                session,
+                principal,
+                name="   ",
+                pagination=MagicMock(),
+                sorting=[],
+            )
+
+        # Only the non-archived default where; whitespace is treated as
+        # "no filter" rather than matching every name containing spaces.
+        assert statement.where.call_count == 1
