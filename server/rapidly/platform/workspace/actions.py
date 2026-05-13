@@ -139,6 +139,7 @@ async def list(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     slug: str | None = None,
+    name: str | None = None,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[WorkspaceSortProperty]] = (
         (WorkspaceSortProperty.created_at, False),
@@ -149,6 +150,14 @@ async def list(
 
     if slug is not None:
         statement = statement.where(Workspace.slug == slug)
+    if name is not None and name.strip():
+        # Case-insensitive substring match on display name.  ``%`` and
+        # ``_`` in the input are escaped so callers cannot smuggle
+        # wildcards past the documented substring semantics.
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(Workspace.name.ilike(f"%{escaped}%", escape="\\"))
 
     statement = repository.apply_sorting(statement, sorting)
 
