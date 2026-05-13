@@ -34,11 +34,12 @@ async def list(
     *,
     workspace_id: Sequence[uuid.UUID] | None = None,
     ids: Sequence[uuid.UUID] | None = None,
+    name: str | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[File], int]:
     repo = FileRepository.from_session(session)
     stmt = repo.get_readable_statement(auth_subject)
-    stmt = repo.apply_list_filters(stmt, workspace_id=workspace_id, ids=ids)
+    stmt = repo.apply_list_filters(stmt, workspace_id=workspace_id, ids=ids, name=name)
     return await repo.paginate(stmt, limit=pagination.limit, page=pagination.page)
 
 
