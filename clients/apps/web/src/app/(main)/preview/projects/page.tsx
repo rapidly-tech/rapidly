@@ -4,8 +4,12 @@ import { useListWorkspaces } from '@/hooks/api/org'
 import {
   type Project,
   type ProjectCreate,
+  type UserFavorite,
   useCreateProject,
+  useCreateUserFavorite,
+  useDeleteUserFavorite,
   useProjects,
+  useUserFavorites,
 } from '@/hooks/api/projects'
 import Button from '@rapidly-tech/ui/components/forms/Button'
 import Input from '@rapidly-tech/ui/components/forms/Input'
@@ -35,6 +39,19 @@ export default function ProjectsListPage() {
     !!activeWorkspaceId,
   )
   const projects: Project[] = projectsQuery.data?.data ?? []
+
+  const favoritesQuery = useUserFavorites({
+    entity_type: 'project',
+    limit: 100,
+    page: 1,
+  })
+  const favoriteByProjectId = useMemo(() => {
+    const map = new Map<string, UserFavorite>()
+    for (const fav of favoritesQuery.data?.data ?? []) {
+      map.set(fav.entity_id, fav)
+    }
+    return map
+  }, [favoritesQuery.data])
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-5xl flex-col gap-8 px-6 py-12">
@@ -75,7 +92,11 @@ export default function ProjectsListPage() {
 
       <ul className="grid gap-3">
         {projects.map((p: Project) => (
-          <ProjectRow key={p.id} project={p} />
+          <ProjectRow
+            key={p.id}
+            project={p}
+            favorite={favoriteByProjectId.get(p.id)}
+          />
         ))}
       </ul>
     </main>
@@ -120,7 +141,28 @@ function WorkspacePicker({
 
 // ── Project row ──
 
-function ProjectRow({ project }: { project: Project }) {
+function ProjectRow({
+  project,
+  favorite,
+}: {
+  project: Project
+  favorite: UserFavorite | undefined
+}) {
+  const create = useCreateUserFavorite()
+  const remove = useDeleteUserFavorite()
+  const pending = create.isPending || remove.isPending
+  const isFavorite = favorite !== undefined
+
+  const toggleFavorite = (e: React.MouseEvent) => {
+    e.preventDefault()
+    if (pending) return
+    if (favorite) {
+      remove.mutate(favorite.id)
+    } else {
+      create.mutate({ entity_type: 'project', entity_id: project.id })
+    }
+  }
+
   return (
     <li>
       <Link
@@ -129,6 +171,23 @@ function ProjectRow({ project }: { project: Project }) {
       >
         <div className="flex min-w-0 flex-col">
           <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={toggleFavorite}
+              disabled={pending}
+              aria-label={
+                isFavorite ? 'Remove from favorites' : 'Add to favorites'
+              }
+              aria-pressed={isFavorite}
+              className={
+                'text-base leading-none transition disabled:opacity-50 ' +
+                (isFavorite
+                  ? 'text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300'
+                  : 'text-slate-300 hover:text-emerald-500 dark:text-slate-600 dark:hover:text-emerald-400')
+              }
+            >
+              {isFavorite ? '★' : '☆'}
+            </button>
             <span className="rounded-md bg-slate-100 px-1.5 py-0.5 font-mono text-xs text-slate-700 dark:bg-slate-800 dark:text-slate-300">
               {project.identifier}
             </span>

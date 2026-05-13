@@ -4023,6 +4023,54 @@ export interface paths {
     patch: operations['project-pages:update']
     trace?: never
   }
+  '/api/user-favorites/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List User Favorites
+     * @description **Scopes**: `user_favorites:read` `user_favorites:write`
+     */
+    get: operations['user-favorites:list']
+    put?: never
+    /**
+     * Create User Favorite
+     * @description **Scopes**: `user_favorites:write`
+     */
+    post: operations['user-favorites:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/user-favorites/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get User Favorite
+     * @description **Scopes**: `user_favorites:read` `user_favorites:write`
+     */
+    get: operations['user-favorites:get']
+    put?: never
+    post?: never
+    /**
+     * Delete User Favorite
+     * @description **Scopes**: `user_favorites:write`
+     */
+    delete: operations['user-favorites:delete']
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
 }
 export interface webhooks {
   'customer.created': {
@@ -5038,7 +5086,9 @@ export interface components {
        *       "project_modules:write": "Create or modify project modules",
        *       "work_item_activities:read": "Read work-item activity history",
        *       "project_pages:read": "Read project pages",
-       *       "project_pages:write": "Create or modify project pages"
+       *       "project_pages:write": "Create or modify project pages",
+       *       "user_favorites:read": "Read your favourites",
+       *       "user_favorites:write": "Create or modify your favourites"
        *     }
        */
       scope_display_names: {
@@ -5115,7 +5165,9 @@ export interface components {
        *       "project_modules:write": "Create or modify project modules",
        *       "work_item_activities:read": "Read work-item activity history",
        *       "project_pages:read": "Read project pages",
-       *       "project_pages:write": "Create or modify project pages"
+       *       "project_pages:write": "Create or modify project pages",
+       *       "user_favorites:read": "Read your favourites",
+       *       "user_favorites:write": "Create or modify your favourites"
        *     }
        */
       scope_display_names: {
@@ -5211,6 +5263,8 @@ export interface components {
       | 'work_item_activities:read'
       | 'project_pages:read'
       | 'project_pages:write'
+      | 'user_favorites:read'
+      | 'user_favorites:write'
     /** BlockingWorkspace */
     BlockingWorkspace: {
       /**
@@ -9531,7 +9585,7 @@ export interface components {
       response_types: 'code'[]
       /**
        * Scope
-       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write
+       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write user_favorites:read user_favorites:write
        */
       scope: string
       /** Client Uri */
@@ -9599,7 +9653,7 @@ export interface components {
       response_types: 'code'[]
       /**
        * Scope
-       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write
+       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write user_favorites:read user_favorites:write
        */
       scope: string
       /** Client Uri */
@@ -9850,6 +9904,12 @@ export interface components {
     PaginatedList_Share_: {
       /** Data */
       data: components['schemas']['Share'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[UserFavorite] */
+    PaginatedList_UserFavorite_: {
+      /** Data */
+      data: components['schemas']['UserFavorite'][]
       meta: components['schemas']['PageMeta']
     }
     /** PaginatedList[WebhookDelivery] */
@@ -11102,6 +11162,8 @@ export interface components {
       | 'work_item_activities:read'
       | 'project_pages:read'
       | 'project_pages:write'
+      | 'user_favorites:read'
+      | 'user_favorites:write'
     /**
      * ScreenSessionPublicView
      * @description Unauthenticated read for the guest landing page.
@@ -12214,6 +12276,62 @@ export interface components {
       source: 'user'
       metadata: components['schemas']['EventMetadataOutput']
     }
+    /** UserFavorite */
+    UserFavorite: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * User Id
+       * Format: uuid4
+       */
+      user_id: string
+      entity_type: components['schemas']['UserFavoriteEntityType']
+      /**
+       * Entity Id
+       * Format: uuid4
+       */
+      entity_id: string
+    }
+    /** UserFavoriteCreate */
+    UserFavoriteCreate: {
+      entity_type: components['schemas']['UserFavoriteEntityType']
+      /**
+       * Entity Id
+       * Format: uuid4
+       */
+      entity_id: string
+    }
+    /**
+     * UserFavoriteEntityType
+     * @description Which project-domain shape this favorite points at.
+     * @enum {string}
+     */
+    UserFavoriteEntityType:
+      | 'project'
+      | 'cycle'
+      | 'module'
+      | 'page'
+      | 'work_item'
+    /**
+     * UserFavoriteSortProperty
+     * @enum {string}
+     */
+    UserFavoriteSortProperty: 'created_at' | '-created_at'
     /** UserIdentityVerification */
     UserIdentityVerification: {
       /** Id */
@@ -24456,6 +24574,167 @@ export interface operations {
       }
     }
   }
+  'user-favorites:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by entity type. */
+        entity_type?: components['schemas']['UserFavoriteEntityType'] | null
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['UserFavoriteSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_UserFavorite_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'user-favorites:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['UserFavoriteCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UserFavorite']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'user-favorites:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The user favorite ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['UserFavorite']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'user-favorites:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The user favorite ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   _endpointcustomer_created_post: {
     parameters: {
       query?: never
@@ -26408,6 +26687,8 @@ export const availableScopeValues: ReadonlyArray<
   'work_item_activities:read',
   'project_pages:read',
   'project_pages:write',
+  'user_favorites:read',
+  'user_favorites:write',
 ]
 export const body_oauth2_consentActionValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['Body_oauth2_consent']['action']
@@ -27236,6 +27517,8 @@ export const scopeValues: ReadonlyArray<
   'work_item_activities:read',
   'project_pages:read',
   'project_pages:write',
+  'user_favorites:read',
+  'user_favorites:write',
 ]
 export const searchResultCustomerTypeValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['SearchResultCustomer']['type']
@@ -27426,6 +27709,12 @@ export const userDeletionBlockedReasonValues: ReadonlyArray<
 export const userEventSourceValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['UserEvent']['source']
 > = ['user']
+export const userFavoriteEntityTypeValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['UserFavoriteEntityType']
+> = ['project', 'cycle', 'module', 'page', 'work_item']
+export const userFavoriteSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['UserFavoriteSortProperty']
+> = ['created_at', '-created_at']
 export const webhookEventTypeValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['WebhookEventType']
 > = [

@@ -643,3 +643,46 @@ export const useDeleteProjectPage = (id: string) =>
       getQueryClient().invalidateQueries({ queryKey: ['project_pages'] })
     },
   })
+
+// ══════════════════════════════════════════════
+//  User Favorites
+// ══════════════════════════════════════════════
+
+export type UserFavorite = schemas['UserFavorite']
+export type UserFavoriteCreate = schemas['UserFavoriteCreate']
+export type UserFavoriteEntityType = schemas['UserFavoriteEntityType']
+
+const favoriteKey = (...parts: (string | object)[]) => [
+  'user_favorites',
+  ...parts,
+]
+
+export const useUserFavorites = (
+  params?: operations['user-favorites:list']['parameters']['query'],
+) =>
+  useQuery({
+    queryKey: favoriteKey('list', params ?? {}),
+    queryFn: () =>
+      resolveResponse(
+        api.GET('/api/user-favorites/', { params: { query: params } }),
+      ),
+    retry: baseRetry,
+  })
+
+export const useCreateUserFavorite = () =>
+  useMutation({
+    mutationFn: (body: UserFavoriteCreate) =>
+      resolveResponse(api.POST('/api/user-favorites/', { body })),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['user_favorites'] })
+    },
+  })
+
+export const useDeleteUserFavorite = () =>
+  useMutation({
+    mutationFn: (id: string) =>
+      api.DELETE('/api/user-favorites/{id}', { params: { path: { id } } }),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['user_favorites'] })
+    },
+  })
