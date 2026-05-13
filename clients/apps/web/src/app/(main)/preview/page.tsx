@@ -37,6 +37,7 @@ export default function PreviewIndexPage() {
       />
 
       <section className="grid gap-4 sm:grid-cols-2">
+        <Card title="My work" href="/preview/my-work" />
         <Card title="All projects" href="/preview/projects" />
       </section>
     </main>
