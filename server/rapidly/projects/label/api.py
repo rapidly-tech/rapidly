@@ -39,12 +39,21 @@ async def list(
     parent_id: UUID | None = Query(
         None, description="Filter labels with this parent ID."
     ),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the label display name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
 ) -> PaginatedList[schemas.ProjectLabel]:
     results, count = await label_actions.list(
         session,
         auth_subject,
         project_id=project_id,
         parent_id=parent_id,
+        name=name,
         pagination=pagination,
         sorting=sorting,
     )

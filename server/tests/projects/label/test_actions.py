@@ -153,3 +153,76 @@ class TestRoleGate:
                 )
             assert gate.await_args is not None
             assert gate.await_args.kwargs["minimum"] == ProjectMemberRole.member
+
+
+@pytest.mark.asyncio
+class TestListNameSearch:
+    """Pin: ``name`` is a substring match; whitespace-only input is a
+    no-op, not a match-anything."""
+
+    async def test_name_substring_adds_where_clause(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=statement)
+        repo.apply_sorting = MagicMock(return_value=statement)
+
+        with (
+            patch(
+                "rapidly.projects.label.actions.ProjectLabelRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.label.actions.paginate",
+                new_callable=AsyncMock,
+                return_value=([], 0),
+            ),
+        ):
+            await label_actions.list(
+                session,
+                principal,
+                name="bug",
+                pagination=MagicMock(),
+                sorting=[],
+            )
+
+        # No default-filter where calls (labels list has no
+        # archived/draft toggle), so the only where(...) call should be
+        # the substring.
+        assert statement.where.call_count == 1
+
+    async def test_empty_or_whitespace_name_skips_filter(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=statement)
+        repo.apply_sorting = MagicMock(return_value=statement)
+
+        with (
+            patch(
+                "rapidly.projects.label.actions.ProjectLabelRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.label.actions.paginate",
+                new_callable=AsyncMock,
+                return_value=([], 0),
+            ),
+        ):
+            await label_actions.list(
+                session,
+                principal,
+                name="   ",
+                pagination=MagicMock(),
+                sorting=[],
+            )
+
+        assert statement.where.call_count == 0
