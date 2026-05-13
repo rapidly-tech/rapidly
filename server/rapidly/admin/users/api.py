@@ -116,7 +116,11 @@ async def list(
         try:
             statement = statement.where(User.id == uuid.UUID(query))
         except ValueError:
-            statement = statement.where(User.email.ilike(f"%{escape_like(query)}%"))
+            # ``escape_like`` only works when ``escape="\\"`` is also
+            # passed; otherwise Postgres ignores the backslash prefix.
+            statement = statement.where(
+                User.email.ilike(f"%{escape_like(query)}%", escape="\\")
+            )
     if identity_verification_status:
         statement = statement.where(
             User.identity_verification_status == identity_verification_status

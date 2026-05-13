@@ -257,14 +257,21 @@ class WebhookDeliveryRepository(
         if succeeded is not None:
             stmt = stmt.where(WebhookDelivery.succeeded == succeeded)
         if query is not None:
+            # ``escape_like``'s backslash prefixes are inert unless
+            # ``escape="\\"`` is also passed to ``ilike``; otherwise
+            # Postgres treats them as literal characters.
             escaped = escape_like(query)
             stmt = stmt.where(
                 or_(
-                    sql_cast(WebhookDelivery.id, String).ilike(f"%{escaped}%"),
-                    sql_cast(WebhookDelivery.webhook_event_id, String).ilike(
-                        f"%{escaped}%"
+                    sql_cast(WebhookDelivery.id, String).ilike(
+                        f"%{escaped}%", escape="\\"
                     ),
-                    sql_cast(WebhookDelivery.http_code, String).ilike(f"%{escaped}%"),
+                    sql_cast(WebhookDelivery.webhook_event_id, String).ilike(
+                        f"%{escaped}%", escape="\\"
+                    ),
+                    sql_cast(WebhookDelivery.http_code, String).ilike(
+                        f"%{escaped}%", escape="\\"
+                    ),
                 )
             )
         if http_code_class is not None:
