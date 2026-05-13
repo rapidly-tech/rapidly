@@ -247,3 +247,46 @@ class TestCountByWorkspaceId:
 
         count = await repo.count_by_workspace_id(uuid4())
         assert count == 0
+
+
+class TestApplyListFiltersComment:
+    """Pin: ``comment`` is a case-insensitive substring match with SQL
+    wildcards escaped.  Drift would let a caller use ``comment=%`` to
+    list every token (effectively no filter) or smuggle prefix queries
+    past the documented substring semantics."""
+
+    def _base_stmt(self) -> Any:
+        from sqlalchemy import select
+
+        from rapidly.models import WorkspaceAccessToken
+
+        return select(WorkspaceAccessToken)
+
+    def test_substring_emits_case_insensitive_like(self) -> None:
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), comment="prod")
+        sql = _compile(stmt).lower()
+        # SQLAlchemy renders ``ilike`` as ``LOWER(col) LIKE LOWER(val)`` in
+        # the default dialect.  Pin the case-insensitive comparison via
+        # the ``lower(...) like`` pair and the ``%prod%`` substring shape.
+        assert "lower(workspace_access_tokens.comment) like" in sql
+        assert "%prod%" in sql
+
+    def test_wildcards_escaped(self) -> None:
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), comment="50%_off")
+        sql = _compile(stmt).lower()
+        # ``%`` and ``_`` from user input become backslash-escaped so
+        # the ILIKE treats them as literal characters, not wildcards.
+        # The escape character itself is declared as part of the clause.
+        assert "50\\%\\_off" in sql
+        # An explicit ESCAPE clause must be present so the backslash-
+        # prefixed wildcards in user input are treated as literals.
+        assert " escape " in sql
+
+    def test_whitespace_only_skips_filter(self) -> None:
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), comment="   ")
+        sql = _compile(stmt).lower()
+        # Whitespace-only input must NOT emit a comment-matching clause.
+        assert "comment) like" not in sql

@@ -95,10 +95,25 @@ class WorkspaceAccessTokenRepository(
         stmt: Select[tuple[WorkspaceAccessToken]],
         *,
         workspace_id: Sequence[UUID] | None = None,
+        comment: str | None = None,
         sorting: Sequence[tuple[WorkspaceAccessTokenSortProperty, bool]] = (),
     ) -> Select[tuple[WorkspaceAccessToken]]:
         if workspace_id is not None:
             stmt = stmt.where(WorkspaceAccessToken.workspace_id.in_(workspace_id))
+        if comment is not None and comment.strip():
+            # Case-insensitive substring match on the user-supplied
+            # comment label.  ``%`` and ``_`` in user input are escaped
+            # so callers cannot smuggle wildcards past the documented
+            # substring semantics.
+            escaped = (
+                comment.strip()
+                .replace("\\", "\\\\")
+                .replace("%", "\\%")
+                .replace("_", "\\_")
+            )
+            stmt = stmt.where(
+                WorkspaceAccessToken.comment.ilike(f"%{escaped}%", escape="\\")
+            )
         for criterion, is_desc in sorting:
             clause_fn = desc if is_desc else asc
             match criterion:
