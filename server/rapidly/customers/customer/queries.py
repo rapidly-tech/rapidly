@@ -219,12 +219,17 @@ class CustomerRepository(
         if metadata is not None:
             stmt = apply_metadata_clause(Customer, stmt, metadata)
         if query is not None:
+            # ``escape_like`` prefixes ``%``/``_`` in user input with
+            # ``\``, but Postgres ``LIKE`` only treats backslash as an
+            # escape character when an ``ESCAPE`` clause is present.
+            # Without ``escape="\\"`` the escapes were a no-op and
+            # ``query=%`` would have surfaced every row.
             escaped = escape_like(query)
             stmt = stmt.where(
                 or_(
-                    Customer.email.ilike(f"%{escaped}%"),
-                    Customer.name.ilike(f"%{escaped}%"),
-                    Customer.external_id.ilike(f"{escaped}%"),
+                    Customer.email.ilike(f"%{escaped}%", escape="\\"),
+                    Customer.name.ilike(f"%{escaped}%", escape="\\"),
+                    Customer.external_id.ilike(f"{escaped}%", escape="\\"),
                 )
             )
         for criterion, is_desc in sorting:
