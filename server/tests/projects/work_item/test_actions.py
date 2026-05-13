@@ -26,7 +26,13 @@ import pytest
 
 from rapidly.errors import BadRequest, NotPermitted, ResourceNotFound
 from rapidly.identity.auth.models import AuthPrincipal
-from rapidly.models import ProjectMemberRole, User, WorkItem, WorkItemPriority
+from rapidly.models import (
+    ProjectMemberRole,
+    User,
+    WorkItem,
+    WorkItemPriority,
+    Workspace,
+)
 from rapidly.projects.work_item import actions as work_item_actions
 from rapidly.projects.work_item.types import WorkItemCreate, WorkItemUpdate
 
@@ -234,3 +240,111 @@ class TestDelete:
                 await work_item_actions.delete(session, principal, work_item)
             assert gate.await_args is not None
             assert gate.await_args.kwargs["minimum"] == ProjectMemberRole.member
+
+
+def _workspace_principal() -> AuthPrincipal[Workspace]:
+    return AuthPrincipal(
+        subject=Workspace(id=uuid4(), name="acme", slug="acme"),
+        scopes=set(),
+        session=None,
+    )
+
+
+@pytest.mark.asyncio
+class TestListAssignedToMe:
+    """Pin: assigned_to_me=True must (a) reject workspace tokens at the
+    action layer and (b) bind to the calling user's id, not the
+    caller's-choice of arbitrary user_id.  Drift here would let a
+    workspace token surface every member's assignments, or let a user
+    query another user's queue.
+    """
+
+    async def test_rejects_workspace_token(self) -> None:
+        principal = _workspace_principal()
+        session = MagicMock()
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=MagicMock())
+
+        with patch(
+            "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+            return_value=repo,
+        ):
+            with pytest.raises(BadRequest):
+                await work_item_actions.list_items(
+                    session,
+                    principal,
+                    assigned_to_me=True,
+                    pagination=MagicMock(),
+                    sorting=[],
+                )
+
+    async def test_user_principal_filters_by_self(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+
+        # Track the where(...) chain so we can confirm the assigned_to_me
+        # branch attached an extra clause.
+        readable_stmt = MagicMock()
+        readable_stmt.where.return_value = readable_stmt
+
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=readable_stmt)
+        repo.apply_sorting = MagicMock(return_value=readable_stmt)
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new_callable=AsyncMock,
+                return_value=([], 0),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session,
+                principal,
+                assigned_to_me=True,
+                pagination=MagicMock(),
+                sorting=[],
+            )
+
+        # 2 base where(...) calls for the implicit filters (archived,
+        # drafts) plus 1 for assigned_to_me — assert >= 3.  We don't
+        # assert the exact SQL because the IN-subquery argument is a
+        # SQLAlchemy expression that doesn't compare cleanly by value.
+        assert readable_stmt.where.call_count >= 3
+
+    async def test_flag_off_does_not_filter_by_assignee(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+
+        readable_stmt = MagicMock()
+        readable_stmt.where.return_value = readable_stmt
+
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=readable_stmt)
+        repo.apply_sorting = MagicMock(return_value=readable_stmt)
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new_callable=AsyncMock,
+                return_value=([], 0),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session,
+                principal,
+                pagination=MagicMock(),
+                sorting=[],
+            )
+
+        # Exactly 2 where(...) calls — the two default filters (archived,
+        # drafts).  If assigned_to_me leaked in, the count would be 3.
+        assert readable_stmt.where.call_count == 2
