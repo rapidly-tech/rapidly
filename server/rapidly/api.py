@@ -66,6 +66,7 @@ from rapidly.projects.cycle.api import router as project_cycle_router
 
 # ── Project management ──
 from rapidly.projects.estimate.api import router as project_estimate_router
+from rapidly.projects.favorite.api import router as user_favorite_router
 from rapidly.projects.label.api import router as project_label_router
 from rapidly.projects.link.api import router as work_item_relation_router
 from rapidly.projects.module.api import router as project_module_router
@@ -197,3 +198,5 @@ router.include_router(project_module_router)
 router.include_router(work_item_activity_router)
 # project pages (wiki / docs)
 router.include_router(project_page_router)
+# per-user favorites of project-domain entities
+router.include_router(user_favorite_router)
