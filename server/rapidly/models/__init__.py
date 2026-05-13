@@ -41,6 +41,19 @@ from .oauth2_token import OAuth2Token
 from .payment import Payment
 from .payment_method import PaymentMethod
 
+# ── Project management ──
+from .project import Project, ProjectVisibility
+from .project_cycle import ProjectCycle
+from .project_cycle_work_item import ProjectCycleWorkItem
+from .project_estimate import EstimateType, ProjectEstimate
+from .project_estimate_point import ProjectEstimatePoint
+from .project_label import ProjectLabel
+from .project_member import ProjectMember, ProjectMemberRole
+from .project_module import ModuleStatus, ProjectModule
+from .project_module_work_item import ProjectModuleWorkItem
+from .project_page import ProjectPage, ProjectPageAccess
+from .project_state import ProjectState, StateGroup
+
 # ── Products & pricing ──
 from .share import Share, ShareVisibility
 from .share_custom_field import ShareCustomField
@@ -56,6 +69,7 @@ from .share_price import (
 
 # ── Identity & access ──
 from .user import OAuthAccount, User
+from .user_favorite import UserFavorite, UserFavoriteEntityType
 from .user_notification import UserNotification
 from .user_session import UserSession
 
@@ -67,6 +81,12 @@ from .wallet_transaction import WalletTransaction as WalletTransaction
 from .webhook_delivery import WebhookDelivery
 from .webhook_endpoint import WebhookEndpoint
 from .webhook_event import WebhookEvent
+from .work_item import WorkItem, WorkItemPriority
+from .work_item_activity import WorkItemActivity, WorkItemActivityVerb
+from .work_item_assignee import WorkItemAssignee
+from .work_item_comment import WorkItemComment
+from .work_item_label import WorkItemLabel
+from .work_item_relation import WorkItemRelation, WorkItemRelationType
 
 # ── Workspaces ──
 from .workspace import Workspace
@@ -82,6 +102,7 @@ __all__ = [
     "CustomerSession",
     "CustomerSessionCode",
     "EmailVerification",
+    "EstimateType",
     "Event",
     "EventClosure",
     "EventType",
@@ -99,6 +120,7 @@ __all__ = [
     "MemberRole",
     "MemberSession",
     "Model",
+    "ModuleStatus",
     "Notification",
     "NotificationRecipient",
     "OAuth2AuthorizationCode",
@@ -108,6 +130,20 @@ __all__ = [
     "OAuthAccount",
     "Payment",
     "PaymentMethod",
+    "Project",
+    "ProjectCycle",
+    "ProjectCycleWorkItem",
+    "ProjectEstimate",
+    "ProjectEstimatePoint",
+    "ProjectLabel",
+    "ProjectMember",
+    "ProjectMemberRole",
+    "ProjectModule",
+    "ProjectModuleWorkItem",
+    "ProjectPage",
+    "ProjectPageAccess",
+    "ProjectState",
+    "ProjectVisibility",
     "Share",
     "ShareCustomField",
     "ShareMedia",
@@ -118,12 +154,24 @@ __all__ = [
     "SharePriceMeteredUnit",
     "SharePriceSeatUnit",
     "ShareVisibility",
+    "StateGroup",
     "User",
+    "UserFavorite",
+    "UserFavoriteEntityType",
     "UserNotification",
     "UserSession",
     "WebhookDelivery",
     "WebhookEndpoint",
     "WebhookEvent",
+    "WorkItem",
+    "WorkItemActivity",
+    "WorkItemActivityVerb",
+    "WorkItemAssignee",
+    "WorkItemComment",
+    "WorkItemLabel",
+    "WorkItemPriority",
+    "WorkItemRelation",
+    "WorkItemRelationType",
     "Workspace",
     "WorkspaceAccessToken",
     "WorkspaceMembership",
