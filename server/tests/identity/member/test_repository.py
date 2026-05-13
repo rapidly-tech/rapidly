@@ -235,3 +235,59 @@ class TestListByEmailAndWorkspace:
         # Access customer without additional query (eager loaded)
         assert members[0].customer.id == customer.id
         assert members[0].customer.name == "Test Customer"
+
+
+class TestApplyListFiltersQuery:
+    """Pin: the ``query`` filter is a free-text search against email
+    (substring), name (substring), and external_id (prefix), with SQL
+    wildcards escaped.  Drift would let ``query=%`` list every
+    member, or break member-finder UX by switching to exact match."""
+
+    @staticmethod
+    def _compile(stmt: object) -> str:
+        return str(
+            stmt.compile(compile_kwargs={"literal_binds": True})  # type: ignore[attr-defined]
+        )
+
+    def _base_stmt(self):  # type: ignore[no-untyped-def]
+        from sqlalchemy import select
+
+        from rapidly.models.member import Member
+
+        return select(Member)
+
+    def test_substring_emits_email_name_external_id_or(self) -> None:
+        from unittest.mock import MagicMock
+
+        repo = MemberRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), query="alice")
+        sql = self._compile(stmt).lower()
+        # Email and name use a leading-and-trailing % (substring),
+        # external_id uses a trailing % (prefix only).
+        assert "lower(members.email) like lower('%alice%')" in sql
+        assert "lower(members.name) like lower('%alice%')" in sql
+        assert "lower(members.external_id) like lower('alice%')" in sql
+        # All three are OR'd.
+        assert " or " in sql
+
+    def test_wildcards_escaped(self) -> None:
+        from unittest.mock import MagicMock
+
+        repo = MemberRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), query="50%_off")
+        sql = self._compile(stmt).lower()
+        # ``%`` and ``_`` in input become backslash-escaped; ESCAPE
+        # clauses are present so the dialect honours them as literals.
+        assert "50\\%\\_off" in sql
+        assert " escape " in sql
+
+    def test_whitespace_only_skips_filter(self) -> None:
+        from unittest.mock import MagicMock
+
+        repo = MemberRepository(session=MagicMock())
+        stmt = repo.apply_list_filters(self._base_stmt(), query="   ")
+        sql = self._compile(stmt).lower()
+        # No email/name/external_id LIKE emitted.
+        assert "lower(members.email) like" not in sql
+        assert "lower(members.name) like" not in sql
+        assert "lower(members.external_id) like" not in sql
