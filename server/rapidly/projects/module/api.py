@@ -125,6 +125,24 @@ async def archive(
     return schemas.ProjectModule.model_validate(archived)
 
 
+@router.post(
+    "/{id}/unarchive",
+    summary="Unarchive Project Module",
+    response_model=schemas.ProjectModule,
+    responses={404: {}},
+)
+async def unarchive(
+    id: schemas.ProjectModuleID,
+    auth_subject: auth.ProjectModulesWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> schemas.ProjectModule:
+    module = await module_actions.get(session, auth_subject, id)
+    if module is None:
+        raise ResourceNotFound()
+    restored = await module_actions.unarchive(session, auth_subject, module)
+    return schemas.ProjectModule.model_validate(restored)
+
+
 @router.delete(
     "/{id}",
     summary="Delete Project Module",
