@@ -138,14 +138,18 @@ class EventRepository(Repository[Event], FindByIdMixin[Event, UUID]):
     def get_customer_text_search_clause(
         self, escaped_query: str
     ) -> ColumnElement[bool]:
-        """Build a subquery matching customers by ID, external_id, name, or email."""
+        """Build a subquery matching customers by ID, external_id, name, or email.
+
+        Callers pass an already-``escape_like``'d value; we pair it
+        with ``escape="\\"`` so Postgres honours the backslashes.
+        """
         return Event.customer_id.in_(
             select(Customer.id).where(
                 or_(
-                    cast(Customer.id, String).ilike(f"%{escaped_query}%"),
-                    Customer.external_id.ilike(f"%{escaped_query}%"),
-                    Customer.name.ilike(f"%{escaped_query}%"),
-                    Customer.email.ilike(f"%{escaped_query}%"),
+                    cast(Customer.id, String).ilike(f"%{escaped_query}%", escape="\\"),
+                    Customer.external_id.ilike(f"%{escaped_query}%", escape="\\"),
+                    Customer.name.ilike(f"%{escaped_query}%", escape="\\"),
+                    Customer.email.ilike(f"%{escaped_query}%", escape="\\"),
                 )
             )
         )
