@@ -2,9 +2,12 @@
 
 import {
   type ProjectPageAccess,
+  useCreateUserFavorite,
+  useDeleteUserFavorite,
   useProject,
   useProjectPage,
   useUpdateProjectPage,
+  useUserFavorites,
 } from '@/hooks/api/projects'
 import Button from '@rapidly-tech/ui/components/forms/Button'
 import Input from '@rapidly-tech/ui/components/forms/Input'
@@ -92,38 +95,83 @@ function PageHeader({
 
   return (
     <div className="flex items-baseline justify-between gap-3">
-      {editing ? (
-        <Input
-          autoFocus
-          value={draftName}
-          onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-            setDraftName(e.target.value)
-          }
-          onBlur={save}
-          onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
-            if (e.key === 'Enter') save()
-            else if (e.key === 'Escape') {
-              setDraftName(name)
-              setEditing(false)
+      <div className="flex items-baseline gap-3">
+        <FavoriteToggle pageId={pageId} />
+        {editing ? (
+          <Input
+            autoFocus
+            value={draftName}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setDraftName(e.target.value)
             }
-          }}
-          className="text-3xl font-semibold"
-        />
-      ) : (
-        <h1
-          className="text-3xl font-semibold text-slate-900 hover:cursor-text dark:text-slate-100"
-          onClick={() => {
-            setDraftName(name)
-            setEditing(true)
-          }}
-        >
-          {name}
-        </h1>
-      )}
+            onBlur={save}
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === 'Enter') save()
+              else if (e.key === 'Escape') {
+                setDraftName(name)
+                setEditing(false)
+              }
+            }}
+            className="text-3xl font-semibold"
+          />
+        ) : (
+          <h1
+            className="text-3xl font-semibold text-slate-900 hover:cursor-text dark:text-slate-100"
+            onClick={() => {
+              setDraftName(name)
+              setEditing(true)
+            }}
+          >
+            {name}
+          </h1>
+        )}
+      </div>
       <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
         /{slug}
       </span>
     </div>
+  )
+}
+
+// ── Favorite toggle ──
+
+function FavoriteToggle({ pageId }: { pageId: string }) {
+  const favoritesQuery = useUserFavorites({
+    entity_type: 'page',
+    limit: 100,
+    page: 1,
+  })
+  const favorite = favoritesQuery.data?.data.find((f) => f.entity_id === pageId)
+  const create = useCreateUserFavorite()
+  const remove = useDeleteUserFavorite()
+  const pending = create.isPending || remove.isPending
+  const isFavorite = favorite !== undefined
+
+  const toggle = () => {
+    if (pending) return
+    if (favorite) {
+      remove.mutate(favorite.id)
+    } else {
+      create.mutate({ entity_type: 'page', entity_id: pageId })
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      disabled={pending}
+      aria-label={isFavorite ? 'Remove from favorites' : 'Add to favorites'}
+      aria-pressed={isFavorite}
+      className={
+        'self-center text-2xl leading-none transition disabled:opacity-50 ' +
+        (isFavorite
+          ? 'text-emerald-500 hover:text-emerald-600 dark:text-emerald-400 dark:hover:text-emerald-300'
+          : 'text-slate-300 hover:text-emerald-500 dark:text-slate-600 dark:hover:text-emerald-400')
+      }
+    >
+      {isFavorite ? '★' : '☆'}
+    </button>
   )
 }
 
