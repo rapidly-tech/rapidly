@@ -51,6 +51,14 @@ async def list(
     workspace_id: MultipleQueryFilter[WorkspaceID] | None = Query(
         None, title="WorkspaceID Filter", description="Filter by workspace ID."
     ),
+    comment: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the token's comment label. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[WorkspaceAccessTokenSchema]:
     """List workspace access tokens."""
@@ -58,6 +66,7 @@ async def list(
         session,
         auth_subject,
         workspace_id=workspace_id,
+        comment=comment,
         pagination=pagination,
         sorting=sorting,
     )

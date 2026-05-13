@@ -50,6 +50,7 @@ async def list(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     workspace_id: Sequence[uuid.UUID] | None = None,
+    comment: str | None = None,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[WorkspaceAccessTokenSortProperty]] = (
         (WorkspaceAccessTokenSortProperty.created_at, False),
@@ -58,7 +59,10 @@ async def list(
     repository = WorkspaceAccessTokenRepository.from_session(session)
     statement = repository.get_readable_statement(auth_subject)
     statement = repository.apply_list_filters(
-        statement, workspace_id=workspace_id, sorting=sorting
+        statement,
+        workspace_id=workspace_id,
+        comment=comment,
+        sorting=sorting,
     )
     return await repository.paginate(
         statement, limit=pagination.limit, page=pagination.page
