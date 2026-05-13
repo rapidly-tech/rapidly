@@ -15,6 +15,7 @@ from sqlalchemy import Select, and_, or_, select
 from sqlalchemy.orm import joinedload
 
 from rapidly.core.queries import Repository
+from rapidly.core.queries.utils import escape_like
 from rapidly.models import Account, User, Workspace, WorkspaceMembership
 from rapidly.models.user import IdentityVerificationStatus
 from rapidly.models.workspace import WorkspaceStatus
@@ -57,14 +58,19 @@ class AdminWorkspaceRepository(Repository[Workspace]):
         else:
             stmt = stmt.where(Workspace.status != WorkspaceStatus.DENIED)
 
-        # Search
+        # Search.  Wildcards in user input must be neutralised: pair
+        # ``escape_like`` (which prefixes ``%`` / ``_`` with ``\``)
+        # with an ``escape="\\"`` clause so Postgres LIKE honours the
+        # prefixes.  Without escape_like the search would be wide
+        # open (e.g. q=% would match every workspace).
         if q:
-            search_term = f"%{q}%"
+            escaped = escape_like(q)
+            search_term = f"%{escaped}%"
             stmt = stmt.where(
                 or_(
-                    Workspace.name.ilike(search_term),
-                    Workspace.slug.ilike(search_term),
-                    Workspace.email.ilike(search_term),
+                    Workspace.name.ilike(search_term, escape="\\"),
+                    Workspace.slug.ilike(search_term, escape="\\"),
+                    Workspace.email.ilike(search_term, escape="\\"),
                 )
             )
 
