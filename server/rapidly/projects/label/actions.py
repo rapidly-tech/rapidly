@@ -32,6 +32,7 @@ async def list(
     *,
     project_id: Sequence[UUID] | None = None,
     parent_id: UUID | None = None,
+    name: str | None = None,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[ProjectLabelSortProperty]],
 ) -> tuple[Sequence[ProjectLabel], int]:
@@ -41,6 +42,16 @@ async def list(
         statement = statement.where(ProjectLabel.project_id.in_(project_id))
     if parent_id is not None:
         statement = statement.where(ProjectLabel.parent_id == parent_id)
+    if name is not None and name.strip():
+        # Case-insensitive substring match.  ``%`` and ``_`` in the
+        # input are escaped so callers cannot smuggle wildcards past
+        # the documented substring semantics.
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(
+            ProjectLabel.name.ilike(f"%{escaped}%", escape="\\")
+        )
     statement = repo.apply_sorting(statement, sorting)
     return await paginate(session, statement, pagination=pagination)
 
