@@ -318,12 +318,15 @@ async def list(
         try:
             statement = statement.where(Workspace.id == uuid.UUID(query))
         except ValueError:
+            # ``escape_like`` only works when ``escape="\\"`` is also
+            # passed to ``ilike``; otherwise Postgres treats the
+            # backslash prefixes as literal characters.
             escaped = escape_like(query)
             statement = statement.where(
                 or_(
-                    Workspace.name.ilike(f"%{escaped}%"),
-                    Workspace.slug.ilike(f"%{escaped}%"),
-                    Workspace.website.ilike(f"%{escaped}%"),
+                    Workspace.name.ilike(f"%{escaped}%", escape="\\"),
+                    Workspace.slug.ilike(f"%{escaped}%", escape="\\"),
+                    Workspace.website.ilike(f"%{escaped}%", escape="\\"),
                 )
             )
     if workspace_status:
