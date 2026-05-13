@@ -1162,3 +1162,62 @@ class TestUpdateFeatureSettings:
         )
 
         assert result.feature_settings["member_model_enabled"] is True
+
+
+# ── list (name substring filter) ──
+
+
+@pytest.mark.asyncio
+class TestListNameSearch:
+    """Pin: ``name`` is a case-insensitive substring match; whitespace-only
+    input is a no-op, not a match-anything."""
+
+    async def test_name_substring_adds_where_clause(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repository = MagicMock()
+        repository.get_readable_statement = MagicMock(return_value=statement)
+        repository.apply_sorting = MagicMock(return_value=statement)
+        repository.paginate = AsyncMock(return_value=([], 0))
+
+        with patch(
+            "rapidly.platform.workspace.actions.WorkspaceRepository.from_session",
+            return_value=repository,
+        ):
+            await workspace_service.list(
+                MagicMock(),
+                MagicMock(),
+                name="Acme",
+                pagination=MagicMock(),
+            )
+
+        # Only the name filter — slug is None and sort is applied via
+        # apply_sorting, not where(...).
+        assert statement.where.call_count == 1
+
+    async def test_empty_or_whitespace_name_skips_filter(self) -> None:
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repository = MagicMock()
+        repository.get_readable_statement = MagicMock(return_value=statement)
+        repository.apply_sorting = MagicMock(return_value=statement)
+        repository.paginate = AsyncMock(return_value=([], 0))
+
+        with patch(
+            "rapidly.platform.workspace.actions.WorkspaceRepository.from_session",
+            return_value=repository,
+        ):
+            await workspace_service.list(
+                MagicMock(),
+                MagicMock(),
+                name="   ",
+                pagination=MagicMock(),
+            )
+
+        assert statement.where.call_count == 0
