@@ -1,4 +1,4 @@
-"""Tests for ``rapidly/core/queries/utils.py::escape_like``.
+"""Tests for ``rapidly/core/queries/utils.py``: ``escape_like`` and ``ilike_substring``.
 
 ``escape_like`` is the gate between user-supplied search terms and
 ``ILIKE``/``LIKE`` expressions. Without it, a search for ``%`` matches
@@ -13,7 +13,9 @@ produce a double-escape that inserts an unintended literal backslash.
 
 from __future__ import annotations
 
-from rapidly.core.queries.utils import escape_like
+import pytest
+
+from rapidly.core.queries.utils import escape_like, ilike_substring
 
 
 class TestEscapeLike:
@@ -72,3 +74,82 @@ class TestEscapeLike:
         # Non-ASCII inputs aren't metacharacters — preserved.
         assert escape_like("café") == "café"
         assert escape_like("🔒") == "🔒"
+
+
+class TestIlikeSubstring:
+    """``ilike_substring`` is the safe wrapper: callers can't forget the
+    ``escape="\\"`` clause because the helper passes it for them.  Tests
+    here pin the SQL shape and the wildcard-escape behaviour by
+    compiling the returned clause to literal SQL.
+    """
+
+    @staticmethod
+    def _compile(clause: object) -> str:
+        return str(
+            clause.compile(compile_kwargs={"literal_binds": True})  # type: ignore[attr-defined]
+        )
+
+    def test_substring_anchor_emits_double_percent_pattern(self) -> None:
+        from sqlalchemy import select
+
+        from rapidly.models import Workspace
+
+        clause = ilike_substring(Workspace.name, "acme")
+        sql = self._compile(clause).lower()
+        # ILIKE compiles as LOWER(col) LIKE LOWER(...) in the default
+        # dialect.  Pin the substring shape and the ESCAPE clause.
+        assert "lower(workspaces.name) like" in sql
+        assert "%acme%" in sql
+        assert " escape " in sql
+
+        # And the wider query — embed in a select to confirm the
+        # clause composes correctly.
+        stmt = select(Workspace).where(clause)
+        stmt_sql = self._compile(stmt).lower()
+        assert " escape " in stmt_sql
+
+    def test_prefix_anchor_emits_trailing_percent_only(self) -> None:
+        from rapidly.models import Workspace
+
+        clause = ilike_substring(Workspace.slug, "foo", anchor="prefix")
+        sql = self._compile(clause).lower()
+        # No leading % — match begins-with.
+        assert "%foo%" not in sql
+        assert "'foo%'" in sql
+        assert " escape " in sql
+
+    def test_suffix_anchor_emits_leading_percent_only(self) -> None:
+        from rapidly.models import Workspace
+
+        clause = ilike_substring(Workspace.slug, "bar", anchor="suffix")
+        sql = self._compile(clause).lower()
+        assert "'%bar'" in sql
+        assert "'%bar%'" not in sql
+
+    def test_unknown_anchor_raises(self) -> None:
+        from rapidly.models import Workspace
+
+        with pytest.raises(ValueError, match="unknown anchor"):
+            ilike_substring(Workspace.name, "x", anchor="middle")  # type: ignore[arg-type]
+
+    def test_wildcards_in_user_input_get_escaped(self) -> None:
+        from rapidly.models import Workspace
+
+        clause = ilike_substring(Workspace.name, "50%_off")
+        sql = self._compile(clause).lower()
+        # ``%`` and ``_`` from user input become backslash-escaped so
+        # Postgres LIKE treats them as literals; the ESCAPE clause is
+        # what makes the escapes take effect.
+        assert "50\\%\\_off" in sql
+        assert " escape " in sql
+
+    def test_composes_with_func_lower(self) -> None:
+        from sqlalchemy import func
+
+        from rapidly.models import Workspace
+
+        clause = ilike_substring(func.lower(Workspace.email), "test@example.com")
+        sql = self._compile(clause).lower()
+        # ``func.lower(col)`` composes with ``ilike`` cleanly.
+        assert "lower(workspaces.email)" in sql
+        assert " escape " in sql
