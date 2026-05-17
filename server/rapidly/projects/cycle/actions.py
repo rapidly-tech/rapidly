@@ -53,6 +53,7 @@ async def list_for_project(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     project_id: Sequence[UUID] | None = None,
+    name: str | None = None,
     include_archived: bool = False,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[ProjectCycleSortProperty]],
@@ -61,6 +62,14 @@ async def list_for_project(
     statement = repo.get_readable_statement(auth_subject)
     if project_id is not None:
         statement = statement.where(ProjectCycle.project_id.in_(project_id))
+    if name is not None and name.strip():
+        # Escape SQL wildcards — see server/CLAUDE.md "Substring search filter".
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(
+            ProjectCycle.name.ilike(f"%{escaped}%", escape="\\")
+        )
     if not include_archived:
         statement = statement.where(ProjectCycle.archived_at.is_(None))
     statement = repo.apply_sorting(statement, sorting)

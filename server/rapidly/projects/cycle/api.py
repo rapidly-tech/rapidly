@@ -38,12 +38,21 @@ async def list(
     project_id: MultipleQueryFilter[UUID] | None = Query(
         None, description="Filter by project ID."
     ),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the cycle name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     include_archived: bool = Query(False, description="Include archived cycles."),
 ) -> PaginatedList[schemas.ProjectCycle]:
     results, count = await cycle_actions.list_for_project(
         session,
         auth_subject,
         project_id=project_id,
+        name=name,
         include_archived=include_archived,
         pagination=pagination,
         sorting=sorting,

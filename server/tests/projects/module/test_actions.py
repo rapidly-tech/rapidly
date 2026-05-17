@@ -257,3 +257,58 @@ class TestAddWorkItems:
         kwargs = repo.update.await_args.kwargs
         assert kwargs["update_dict"] == {"deleted_at": None}
         session.add.assert_not_called()
+
+
+@pytest.mark.asyncio
+class TestListNameFilter:
+    async def test_blank_name_skipped(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+        statement = MagicMock()
+        statement.where = MagicMock(return_value=statement)
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=statement)
+        repo.apply_sorting = MagicMock(return_value=statement)
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.module.actions.ProjectModuleRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.module.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await module_actions.list_for_project(
+                session, principal, name="   ", pagination=pagination, sorting=()
+            )
+        assert statement.where.call_count == 1
+
+    async def test_name_filter_adds_where(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+        statement = MagicMock()
+        statement.where = MagicMock(return_value=statement)
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=statement)
+        repo.apply_sorting = MagicMock(return_value=statement)
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.module.actions.ProjectModuleRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.module.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await module_actions.list_for_project(
+                session,
+                principal,
+                name="billing",
+                pagination=pagination,
+                sorting=(),
+            )
+        assert statement.where.call_count == 2
