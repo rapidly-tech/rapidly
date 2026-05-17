@@ -136,6 +136,18 @@ async def archive(
     return await repo.update(module, update_dict={"archived_at": now_utc()})
 
 
+async def unarchive(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    module: ProjectModule,
+) -> ProjectModule:
+    await _ensure_member(
+        session, auth_subject, module.project_id, minimum=ProjectMemberRole.admin
+    )
+    repo = ProjectModuleRepository.from_session(session)
+    return await repo.update(module, update_dict={"archived_at": None})
+
+
 async def delete(
     session: AsyncSession,
     auth_subject: AuthPrincipal[User | Workspace],
