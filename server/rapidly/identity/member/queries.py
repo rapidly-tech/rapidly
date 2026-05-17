@@ -64,9 +64,17 @@ class MemberRepository(
         email = email or (customer.email if customer else None)
         if email is None:
             raise ValueError("email must be provided when customer is not given")
+        # Case-insensitive comparison.  Without ``func.lower(...)``, an
+        # existing member "Alice@Example.com" would slip past the
+        # "already exists" probe when the caller passes
+        # "alice@example.com" — and a fresh INSERT would succeed under
+        # the case-sensitive UNIQUE ``(customer_id, email)`` index,
+        # producing two rows for the same logical email.  See
+        # ``list_by_email_and_workspace`` below for the consistent
+        # pattern.
         statement = select(Member).where(
             Member.customer_id == cid,
-            Member.email == email,
+            func.lower(Member.email) == email.lower(),
             Member.deleted_at.is_(None),
         )
         return await self.get_one_or_none(statement)
@@ -82,9 +90,10 @@ class MemberRepository(
         Returns:
             Member if found, None otherwise
         """
+        # Case-insensitive — see ``get_by_customer_and_email`` above.
         statement = select(Member).where(
             Member.customer_id == customer_id,
-            Member.email == email,
+            func.lower(Member.email) == email.lower(),
             Member.deleted_at.is_(None),
         )
         return await self.get_one_or_none(statement)
