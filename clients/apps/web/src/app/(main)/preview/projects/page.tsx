@@ -32,13 +32,42 @@ export default function ProjectsListPage() {
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const activeWorkspaceId = workspaceId ?? workspaces[0]?.id ?? null
 
+  const [search, setSearch] = useState('')
+  const [includeArchived, setIncludeArchived] = useState(false)
+
   const projectsQuery = useProjects(
     activeWorkspaceId
-      ? { workspace_id: [activeWorkspaceId], limit: 50, page: 1 }
+      ? {
+          workspace_id: [activeWorkspaceId],
+          include_archived: includeArchived,
+          limit: 50,
+          page: 1,
+        }
       : undefined,
     !!activeWorkspaceId,
   )
-  const projects: Project[] = projectsQuery.data?.data ?? []
+  // Stable reference for downstream memos — TanStack Query already
+  // returns the same array reference across renders with identical
+  // data, but the ``?? []`` fallback creates a fresh empty array on
+  // every render unless we cache it.
+  const projects: Project[] = useMemo(
+    () => projectsQuery.data?.data ?? [],
+    [projectsQuery.data],
+  )
+
+  const normalisedSearch = search.trim().toLowerCase()
+  // Filter is client-side over the already-fetched page; the backend
+  // list endpoint doesn't accept a name param yet, and the page size
+  // (50) is the same limit the previous unfiltered view already had,
+  // so behaviour is strictly additive.
+  const visibleProjects = useMemo(() => {
+    if (normalisedSearch === '') return projects
+    return projects.filter(
+      (p) =>
+        p.name.toLowerCase().includes(normalisedSearch) ||
+        p.identifier.toLowerCase().includes(normalisedSearch),
+    )
+  }, [projects, normalisedSearch])
 
   const favoritesQuery = useUserFavorites({
     entity_type: 'project',
@@ -74,6 +103,31 @@ export default function ProjectsListPage() {
         />
       </header>
 
+      {activeWorkspaceId && (
+        <div className="flex flex-wrap items-center gap-3">
+          <Input
+            type="search"
+            value={search}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setSearch(e.target.value)
+            }
+            placeholder="Search by name or identifier…"
+            className="w-full max-w-md"
+          />
+          <label className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <input
+              type="checkbox"
+              checked={includeArchived}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setIncludeArchived(e.target.checked)
+              }
+              className="accent-emerald-600"
+            />
+            Show archived
+          </label>
+        </div>
+      )}
+
       {!activeWorkspaceId && !workspacesQuery.isLoading && (
         <EmptyState
           title="No workspace yet"
@@ -90,8 +144,17 @@ export default function ProjectsListPage() {
         />
       )}
 
+      {projects.length > 0 &&
+        visibleProjects.length === 0 &&
+        normalisedSearch !== '' && (
+          <EmptyState
+            title="No matches"
+            description={`No project name or identifier contains "${search.trim()}".`}
+          />
+        )}
+
       <ul className="grid gap-3">
-        {projects.map((p: Project) => (
+        {visibleProjects.map((p: Project) => (
           <ProjectRow
             key={p.id}
             project={p}
