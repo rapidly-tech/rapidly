@@ -95,9 +95,7 @@ export default function WorkItemDetailPage() {
           </span>
           {state && <StatePill state={state} />}
         </div>
-        <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-          {workItem.name}
-        </h1>
+        <InlineTitle workItem={workItem} />
         <Metadata workItem={workItem} states={states} />
       </header>
 
@@ -528,6 +526,81 @@ function StatePill({ state }: { state: ProjectState }) {
       />
       {state.name}
     </span>
+  )
+}
+
+function InlineTitle({ workItem }: { workItem: WorkItem }) {
+  const mutation = useUpdateWorkItem(workItem.id)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(workItem.name)
+
+  const commit = async () => {
+    const next = draft.trim()
+    if (!next || next === workItem.name) {
+      // Empty or unchanged — silently exit edit mode rather than
+      // dispatching a no-op PATCH or, worse, a 422 on empty.
+      setDraft(workItem.name)
+      setEditing(false)
+      return
+    }
+    try {
+      await mutation.mutateAsync({ name: next })
+      setEditing(false)
+    } catch {
+      // Stay in edit mode so the user can retry; the error surfaces
+      // inline below.
+    }
+  }
+
+  const cancel = () => {
+    setDraft(workItem.name)
+    mutation.reset()
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(workItem.name)
+          setEditing(true)
+        }}
+        className="-mx-2 rounded-md px-2 py-1 text-left text-3xl font-semibold text-slate-900 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+        title="Click to rename"
+      >
+        {workItem.name}
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setDraft(e.target.value)
+        }
+        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            cancel()
+          }
+        }}
+        onBlur={commit}
+        maxLength={512}
+        className="-mx-2 rounded-md border border-emerald-300 bg-white px-2 py-1 text-3xl font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-400 dark:border-emerald-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+      {mutation.isError && (
+        <span className="text-xs text-red-600 dark:text-red-400">
+          Couldn&apos;t save. Press Esc to discard.
+        </span>
+      )}
+    </div>
   )
 }
 
