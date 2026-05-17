@@ -11,6 +11,7 @@ import {
   type WorkItemRelationType,
   useCreateWorkItemComment,
   useCreateWorkItemRelation,
+  useDeleteWorkItem,
   useDeleteWorkItemRelation,
   useProject,
   useProjectCycles,
@@ -27,9 +28,17 @@ import { getQueryClient } from '@/utils/api/query'
 import { api } from '@/utils/client'
 import { resolveResponse } from '@rapidly-tech/client'
 import Button from '@rapidly-tech/ui/components/forms/Button'
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@rapidly-tech/ui/components/primitives/dialog'
 import { useMutation, useQueries } from '@tanstack/react-query'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useMemo, useState } from 'react'
 
 export default function WorkItemDetailPage() {
@@ -83,12 +92,15 @@ export default function WorkItemDetailPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-12">
       <header className="flex flex-col gap-3">
-        <Link
-          href={`/preview/projects/${project.id}`}
-          className="text-sm text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400"
-        >
-          ← {project.name}
-        </Link>
+        <div className="flex items-center justify-between">
+          <Link
+            href={`/preview/projects/${project.id}`}
+            className="text-sm text-slate-500 hover:text-emerald-600 dark:text-slate-400 dark:hover:text-emerald-400"
+          >
+            ← {project.name}
+          </Link>
+          <DeleteWorkItem workItemId={workItem.id} projectId={project.id} />
+        </div>
         <div className="flex items-baseline gap-3">
           <span className="font-mono text-sm text-slate-500 dark:text-slate-400">
             {project.identifier}-{workItem.sequence_number}
@@ -111,6 +123,77 @@ export default function WorkItemDetailPage() {
 
       <ActivityFeed workItemId={workItem.id} states={states} />
     </main>
+  )
+}
+
+function DeleteWorkItem({
+  workItemId,
+  projectId,
+}: {
+  workItemId: string
+  projectId: string
+}) {
+  const router = useRouter()
+  const mutation = useDeleteWorkItem(workItemId)
+  const [open, setOpen] = useState(false)
+
+  const confirm = async () => {
+    try {
+      await mutation.mutateAsync()
+      // Hard-navigate so the project page's useWorkItems list refetches
+      // without seeing the just-deleted row from a stale cache entry.
+      router.push(`/preview/projects/${projectId}`)
+    } catch {
+      // Stay open; the inline message surfaces.
+    }
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        variant="secondary"
+        size="sm"
+        onClick={() => setOpen(true)}
+      >
+        Delete
+      </Button>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete this work item?</DialogTitle>
+            <DialogDescription>
+              The work item, its comments, relations, and activity log will be
+              soft-deleted. This is reversible at the database level but the UI
+              won&apos;t show it again.
+            </DialogDescription>
+          </DialogHeader>
+          {mutation.isError && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+              Couldn&apos;t delete. Try again.
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setOpen(false)}
+              disabled={mutation.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirm}
+              disabled={mutation.isPending}
+            >
+              {mutation.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
