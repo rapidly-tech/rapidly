@@ -580,10 +580,48 @@ function Metadata({
           <option value="urgent">urgent</option>
         </select>
       </label>
-      {workItem.target_date && (
-        <span>Due {new Date(workItem.target_date).toLocaleDateString()}</span>
-      )}
+      <TargetDateEditor workItem={workItem} />
     </div>
+  )
+}
+
+function TargetDateEditor({ workItem }: { workItem: WorkItem }) {
+  const mutation = useUpdateWorkItem(workItem.id)
+  // The backend stores a date; we always feed the input a YYYY-MM-DD
+  // string and send the same shape back (or null when cleared).  Both
+  // null and an ISO datetime survive the round trip — we just slice
+  // the first 10 chars for display.
+  const value = workItem.target_date
+    ? new Date(workItem.target_date).toISOString().slice(0, 10)
+    : ''
+
+  const onChange = (next: string) => {
+    mutation.mutate({ target_date: next === '' ? null : next })
+  }
+
+  return (
+    <label className="flex items-center gap-2">
+      <span>Due</span>
+      <input
+        type="date"
+        value={value}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          onChange(e.target.value)
+        }
+        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      />
+      {workItem.target_date && (
+        <button
+          type="button"
+          onClick={() => onChange('')}
+          aria-label="Clear due date"
+          className="text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+          title="Clear due date"
+        >
+          ✕
+        </button>
+      )}
+    </label>
   )
 }
 
