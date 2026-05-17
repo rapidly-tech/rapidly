@@ -2,6 +2,7 @@
 
 import {
   type ModuleStatus,
+  type Project,
   type ProjectCycle,
   type ProjectCycleCreate,
   type ProjectModule,
@@ -12,17 +13,20 @@ import {
   type ProjectStateCreate,
   type WorkItem,
   type WorkItemCreate,
+  useArchiveProject,
   useCreateProjectCycle,
   useCreateProjectModule,
   useCreateProjectPage,
   useCreateProjectState,
   useCreateWorkItem,
+  useDeleteProject,
   useProject,
   useProjectCycles,
   useProjectModules,
   useProjectPages,
   useProjectStates,
   useReassignWorkItem,
+  useUnarchiveProject,
   useWorkItems,
 } from '@/hooks/api/projects'
 import Button from '@rapidly-tech/ui/components/forms/Button'
@@ -37,7 +41,7 @@ import {
   DialogTrigger,
 } from '@rapidly-tech/ui/components/primitives/dialog'
 import Link from 'next/link'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { useEffect, useMemo, useState } from 'react'
 
 const DEFAULT_STATE_GROUPS: {
@@ -151,9 +155,12 @@ export default function ProjectDetailPage() {
               {project.name}
             </h1>
           </div>
-          {states.length > 0 && (
-            <CreateWorkItemDialog projectId={project.id} states={states} />
-          )}
+          <div className="flex items-center gap-2">
+            {states.length > 0 && (
+              <CreateWorkItemDialog projectId={project.id} states={states} />
+            )}
+            <ProjectDangerZone project={project} />
+          </div>
         </div>
         {project.description && (
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -185,6 +192,104 @@ export default function ProjectDetailPage() {
         />
       )}
     </main>
+  )
+}
+
+// ── Project danger zone ──
+
+function ProjectDangerZone({ project }: { project: Project }) {
+  const router = useRouter()
+  const archive = useArchiveProject(project.id)
+  const unarchive = useUnarchiveProject(project.id)
+  const remove = useDeleteProject(project.id)
+  const [deleteOpen, setDeleteOpen] = useState(false)
+
+  const isArchived = !!project.archived_at
+  const archivePending = archive.isPending || unarchive.isPending
+
+  const toggleArchive = () => {
+    if (isArchived) unarchive.mutate()
+    else archive.mutate()
+  }
+
+  const confirmDelete = async () => {
+    try {
+      await remove.mutateAsync()
+      // Hard-navigate so the projects list refetches without seeing
+      // the just-deleted project from a stale cache.
+      router.push('/preview/projects')
+    } catch {
+      // Stay open; inline error visible.
+    }
+  }
+
+  return (
+    <>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={toggleArchive}
+        disabled={archivePending}
+        title={
+          isArchived
+            ? 'Restore this project to the default list'
+            : 'Hide this project from the default list'
+        }
+      >
+        {archivePending
+          ? isArchived
+            ? 'Restoring…'
+            : 'Archiving…'
+          : isArchived
+            ? 'Unarchive'
+            : 'Archive'}
+      </Button>
+      <Button
+        type="button"
+        size="sm"
+        variant="secondary"
+        onClick={() => setDeleteOpen(true)}
+      >
+        Delete
+      </Button>
+      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Delete this project?</DialogTitle>
+            <DialogDescription>
+              The project, its states, labels, estimates, work items, comments,
+              relations, cycles, modules, pages, and activity log will be
+              soft-deleted. This is reversible at the database level but the UI
+              won&apos;t show it again.
+            </DialogDescription>
+          </DialogHeader>
+          {remove.isError && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+              Couldn&apos;t delete. Try again.
+            </p>
+          )}
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => setDeleteOpen(false)}
+              disabled={remove.isPending}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={confirmDelete}
+              disabled={remove.isPending}
+            >
+              {remove.isPending ? 'Deleting…' : 'Delete'}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
