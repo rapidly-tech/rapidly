@@ -487,7 +487,7 @@ function ModulesSection({ projectId }: { projectId: string }) {
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {modules.map((m) => (
-            <ModuleCard key={m.id} module={m} />
+            <ModuleCard key={m.id} module={m} projectId={projectId} />
           ))}
         </ul>
       )}
@@ -495,23 +495,34 @@ function ModulesSection({ projectId }: { projectId: string }) {
   )
 }
 
-function ModuleCard({ module }: { module: ProjectModule }) {
+function ModuleCard({
+  module,
+  projectId,
+}: {
+  module: ProjectModule
+  projectId: string
+}) {
   return (
-    <li className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-medium text-slate-900 dark:text-slate-100">
-          {module.name}
+    <li>
+      <Link
+        href={`/preview/projects/${projectId}/modules/${module.id}`}
+        className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 transition hover:border-emerald-400 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate font-medium text-slate-900 dark:text-slate-100">
+            {module.name}
+          </span>
+          <ModuleStatusPill status={module.status} />
+        </div>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {formatRange(module.start_date, module.target_date)}
         </span>
-        <ModuleStatusPill status={module.status} />
-      </div>
-      <span className="text-xs text-slate-500 dark:text-slate-400">
-        {formatRange(module.start_date, module.target_date)}
-      </span>
-      {module.description && (
-        <p className="line-clamp-2 text-sm text-slate-500 dark:text-slate-400">
-          {module.description}
-        </p>
-      )}
+        {module.description && (
+          <p className="line-clamp-2 text-sm text-slate-500 dark:text-slate-400">
+            {module.description}
+          </p>
+        )}
+      </Link>
     </li>
   )
 }
