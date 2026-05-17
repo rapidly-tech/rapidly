@@ -1,5 +1,6 @@
 'use client'
 
+import { useListWorkspaceMembers } from '@/hooks/api/org'
 import {
   type ProjectCycle,
   type ProjectModule,
@@ -98,7 +99,11 @@ export default function WorkItemDetailPage() {
         <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
           {workItem.name}
         </h1>
-        <Metadata workItem={workItem} states={states} />
+        <Metadata
+          workItem={workItem}
+          states={states}
+          workspaceId={project.workspace_id}
+        />
       </header>
 
       <Description workItem={workItem} />
@@ -534,9 +539,11 @@ function StatePill({ state }: { state: ProjectState }) {
 function Metadata({
   workItem,
   states,
+  workspaceId,
 }: {
   workItem: WorkItem
   states: ProjectState[]
+  workspaceId: string
 }) {
   const updateMutation = useUpdateWorkItem(workItem.id)
   const onStateChange = (stateId: string) => {
@@ -580,10 +587,103 @@ function Metadata({
           <option value="urgent">urgent</option>
         </select>
       </label>
+      <AssigneeEditor workItem={workItem} workspaceId={workspaceId} />
       {workItem.target_date && (
         <span>Due {new Date(workItem.target_date).toLocaleDateString()}</span>
       )}
     </div>
+  )
+}
+
+function AssigneeEditor({
+  workItem,
+  workspaceId,
+}: {
+  workItem: WorkItem
+  workspaceId: string
+}) {
+  const membersQuery = useListWorkspaceMembers(workspaceId)
+  const members = membersQuery.data?.data ?? []
+  const mutation = useUpdateWorkItem(workItem.id)
+
+  const assigned = new Set(workItem.assignee_ids ?? [])
+  const assignedMembers = members.filter((m) => assigned.has(m.user_id))
+
+  const toggle = (userId: string) => {
+    const next = new Set(assigned)
+    if (next.has(userId)) next.delete(userId)
+    else next.add(userId)
+    mutation.mutate({ assignee_ids: Array.from(next) })
+  }
+
+  if (membersQuery.isLoading) {
+    return <span className="text-xs">Loading…</span>
+  }
+  if (members.length === 0) {
+    return null
+  }
+
+  return (
+    <details className="relative">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-1 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+        <span>Assignees</span>
+        {assignedMembers.length === 0 ? (
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            unassigned
+          </span>
+        ) : (
+          // Stacked avatar row.  Render up to 4 visible, "+N" for the
+          // overflow.  Initials fall back from the email local-part so
+          // unset avatar_url isn't a hard requirement.
+          <span className="flex -space-x-1.5">
+            {assignedMembers.slice(0, 4).map((m) => (
+              <AssigneeAvatar key={m.user_id} member={m} />
+            ))}
+            {assignedMembers.length > 4 && (
+              <span className="z-10 inline-flex size-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-medium text-slate-700 ring-2 ring-white dark:bg-slate-700 dark:text-slate-200 dark:ring-slate-900">
+                +{assignedMembers.length - 4}
+              </span>
+            )}
+          </span>
+        )}
+      </summary>
+      <div className="absolute top-full left-0 z-10 mt-1 flex max-h-64 w-64 flex-col gap-1 overflow-auto rounded-md border border-slate-200 bg-white p-2 shadow-md dark:border-slate-700 dark:bg-slate-900">
+        {members.map((m) => {
+          const isOn = assigned.has(m.user_id)
+          return (
+            <label
+              key={m.user_id}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <input
+                type="checkbox"
+                checked={isOn}
+                onChange={() => toggle(m.user_id)}
+                className="accent-emerald-600"
+              />
+              <AssigneeAvatar member={m} />
+              <span className="truncate">{m.email}</span>
+            </label>
+          )
+        })}
+      </div>
+    </details>
+  )
+}
+
+function AssigneeAvatar({ member }: { member: { email: string } }) {
+  // Always render an initial-only avatar.  The members API returns an
+  // ``avatar_url`` but rendering it would require @/components/Image/
+  // StaticImage; deferring that until a real product need shows up
+  // (Plane themselves fall back to initials for many users).
+  const initial = (member.email.split('@')[0]?.[0] ?? '?').toUpperCase()
+  return (
+    <span
+      className="inline-flex size-5 items-center justify-center rounded-full bg-emerald-100 text-[10px] font-semibold text-emerald-700 ring-2 ring-white dark:bg-emerald-900 dark:text-emerald-200 dark:ring-slate-900"
+      title={member.email}
+    >
+      {initial}
+    </span>
   )
 }
 
