@@ -39,6 +39,12 @@ class WorkItemRelationRepository(
             self.get_base_statement()
             .join(WorkItem, WorkItem.id == WorkItemRelation.work_item_id)
             .join(Project, Project.id == WorkItem.project_id)
+            # Soft-deleted parents (work item or project) must never
+            # surface their relations to readers.
+            .where(
+                WorkItem.deleted_at.is_(None),
+                Project.deleted_at.is_(None),
+            )
         )
 
         if is_user_principal(auth_subject):
