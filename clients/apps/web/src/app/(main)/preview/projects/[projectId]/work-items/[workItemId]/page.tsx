@@ -7,8 +7,10 @@ import {
   type WorkItem,
   type WorkItemActivity,
   type WorkItemComment,
+  type WorkItemCreate,
   type WorkItemRelation,
   type WorkItemRelationType,
+  useCreateWorkItem,
   useCreateWorkItemComment,
   useCreateWorkItemRelation,
   useDeleteWorkItemRelation,
@@ -27,6 +29,7 @@ import { getQueryClient } from '@/utils/api/query'
 import { api } from '@/utils/client'
 import { resolveResponse } from '@rapidly-tech/client'
 import Button from '@rapidly-tech/ui/components/forms/Button'
+import Input from '@rapidly-tech/ui/components/forms/Input'
 import { useMutation, useQueries } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
@@ -103,6 +106,8 @@ export default function WorkItemDetailPage() {
 
       <Description workItem={workItem} />
 
+      <SubItems workItem={workItem} project={project} states={states} />
+
       <Memberships workItem={workItem} projectId={project.id} />
 
       <Comments workItemId={workItem.id} />
@@ -111,6 +116,181 @@ export default function WorkItemDetailPage() {
 
       <ActivityFeed workItemId={workItem.id} states={states} />
     </main>
+  )
+}
+
+// ── Sub-items ──
+
+function SubItems({
+  workItem,
+  project,
+  states,
+}: {
+  workItem: WorkItem
+  project: { id: string; identifier: string }
+  states: ProjectState[]
+}) {
+  const childrenQuery = useWorkItems(
+    {
+      project_id: [project.id],
+      parent_id: workItem.id,
+      limit: 100,
+      page: 1,
+    },
+    true,
+  )
+  const children: WorkItem[] = childrenQuery.data?.data ?? []
+  const stateById = useMemo(
+    () => Object.fromEntries(states.map((s) => [s.id, s] as const)),
+    [states],
+  )
+
+  const [adderOpen, setAdderOpen] = useState(false)
+  const [draft, setDraft] = useState('')
+  const createMutation = useCreateWorkItem()
+  const defaultState =
+    states.find((s) => s.is_default) ?? (states.length > 0 ? states[0] : null)
+
+  const submitAdd = async () => {
+    const trimmed = draft.trim()
+    if (!trimmed || !defaultState || createMutation.isPending) return
+    const body: WorkItemCreate = {
+      project_id: project.id,
+      name: trimmed,
+      state_id: defaultState.id,
+      // Inherit parent linkage — the whole point of this affordance.
+      parent_id: workItem.id,
+      priority: 'none',
+      description_json: null,
+      description_html: null,
+      estimate_point_id: null,
+      start_date: null,
+      target_date: null,
+      sort_order: null,
+      is_draft: false,
+      assignee_ids: [],
+      label_ids: [],
+    }
+    try {
+      await createMutation.mutateAsync(body)
+      setDraft('')
+    } catch {
+      // Inline error surface below; keep the form open.
+    }
+  }
+
+  return (
+    <section className="flex flex-col gap-2">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium tracking-wider text-slate-500 uppercase dark:text-slate-400">
+          Sub-items{children.length > 0 ? ` · ${children.length}` : ''}
+        </h2>
+        {!adderOpen && defaultState && (
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={() => setAdderOpen(true)}
+          >
+            + Add sub-item
+          </Button>
+        )}
+      </div>
+
+      {childrenQuery.isLoading ? (
+        <div className="h-12 animate-pulse rounded-md bg-slate-100 dark:bg-slate-800" />
+      ) : children.length === 0 && !adderOpen ? (
+        <p className="text-sm text-slate-400 dark:text-slate-500">None yet.</p>
+      ) : (
+        <ul className="grid gap-1.5">
+          {children.map((c) => {
+            const childState = stateById[c.state_id]
+            return (
+              <li key={c.id}>
+                <Link
+                  href={`/preview/projects/${project.id}/work-items/${c.id}`}
+                  className="flex items-center gap-3 rounded-md border border-slate-200 bg-white px-3 py-2 text-sm transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
+                >
+                  <span className="font-mono text-xs text-slate-500 dark:text-slate-400">
+                    {project.identifier}-{c.sequence_number}
+                  </span>
+                  {childState && (
+                    <span
+                      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-xs font-medium"
+                      style={{
+                        backgroundColor: `${childState.color}1a`,
+                        color: childState.color,
+                      }}
+                    >
+                      <span
+                        className="size-1.5 rounded-full"
+                        style={{ backgroundColor: childState.color }}
+                      />
+                      {childState.name}
+                    </span>
+                  )}
+                  <span className="flex-1 truncate text-slate-900 dark:text-slate-100">
+                    {c.name}
+                  </span>
+                </Link>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+
+      {adderOpen && defaultState && (
+        <div className="flex flex-col gap-1.5 rounded-md border border-slate-200 bg-white p-2 dark:border-slate-800 dark:bg-slate-900">
+          <Input
+            autoFocus
+            value={draft}
+            onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+              setDraft(e.target.value)
+            }
+            onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+              if (e.key === 'Enter') {
+                e.preventDefault()
+                submitAdd()
+              } else if (e.key === 'Escape') {
+                e.preventDefault()
+                setAdderOpen(false)
+                setDraft('')
+                createMutation.reset()
+              }
+            }}
+            placeholder={`What's the next step for "${workItem.name}"?`}
+            maxLength={512}
+          />
+          {createMutation.isError && (
+            <span className="text-xs text-red-600 dark:text-red-400">
+              Couldn&apos;t create. Try again.
+            </span>
+          )}
+          <div className="flex items-center gap-2">
+            <Button
+              type="button"
+              size="sm"
+              onClick={submitAdd}
+              disabled={!draft.trim() || createMutation.isPending}
+            >
+              {createMutation.isPending ? 'Adding…' : 'Add'}
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              variant="ghost"
+              onClick={() => {
+                setAdderOpen(false)
+                setDraft('')
+                createMutation.reset()
+              }}
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      )}
+    </section>
   )
 }
 
