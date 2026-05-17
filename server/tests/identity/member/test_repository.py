@@ -235,3 +235,108 @@ class TestListByEmailAndWorkspace:
         # Access customer without additional query (eager loaded)
         assert members[0].customer.id == customer.id
         assert members[0].customer.name == "Test Customer"
+
+
+@pytest.mark.asyncio
+class TestGetByCustomerAndEmail:
+    async def test_finds_member_with_matching_case(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="c@example.com"
+        )
+        member = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="alice@example.com",
+            role=MemberRole.owner,
+        )
+        await save_fixture(member)
+
+        repository = MemberRepository.from_session(session)
+        result = await repository.get_by_customer_and_email(
+            customer=customer, email="alice@example.com"
+        )
+        assert result is not None
+        assert result.id == member.id
+
+    async def test_case_insensitive_match(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Regression: stored email differs from lookup only in case.
+        # Before fix, the probe missed the existing row and the caller
+        # would attempt a duplicate INSERT.
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="c@example.com"
+        )
+        member = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="Alice@Example.com",
+            role=MemberRole.owner,
+        )
+        await save_fixture(member)
+
+        repository = MemberRepository.from_session(session)
+        result = await repository.get_by_customer_and_email(
+            customer=customer, email="alice@example.com"
+        )
+        assert result is not None
+        assert result.id == member.id
+
+    async def test_excludes_soft_deleted(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="c@example.com"
+        )
+        member = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="alice@example.com",
+            role=MemberRole.owner,
+            deleted_at=now_utc(),
+        )
+        await save_fixture(member)
+
+        repository = MemberRepository.from_session(session)
+        result = await repository.get_by_customer_and_email(
+            customer=customer, email="Alice@Example.com"
+        )
+        assert result is None
+
+
+@pytest.mark.asyncio
+class TestGetByCustomerIdAndEmail:
+    async def test_case_insensitive_match(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="c@example.com"
+        )
+        member = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="Bob@Example.com",
+            role=MemberRole.member,
+        )
+        await save_fixture(member)
+
+        repository = MemberRepository.from_session(session)
+        result = await repository.get_by_customer_id_and_email(
+            customer.id, "BOB@example.com"
+        )
+        assert result is not None
+        assert result.id == member.id
