@@ -75,7 +75,22 @@ class WorkspaceMembershipRepository(
         self,
         user_id: UUID,
         workspace_id: UUID,
+        *,
+        include_deleted: bool = False,
     ) -> WorkspaceMembership | None:
+        """Return the (user, workspace) membership if any.
+
+        By default, excludes soft-deleted memberships (i.e. users who
+        have been removed from the workspace).  Pass
+        ``include_deleted=True`` to find an ex-member's row — useful
+        for audit / migration flows, but never for membership-gate
+        checks.
+
+        Without the default filter, a soft-deleted row would falsely
+        answer "yes" to "is this user a member?" — see the invite
+        flow in ``workspace/actions.py`` where this previously caused
+        re-invites of ex-members to silently no-op.
+        """
         stmt = (
             self.get_base_statement()
             .where(
@@ -87,6 +102,8 @@ class WorkspaceMembershipRepository(
                 joinedload(WorkspaceMembership.workspace),
             )
         )
+        if not include_deleted:
+            stmt = stmt.where(WorkspaceMembership.deleted_at.is_(None))
         return await self.get_one_or_none(stmt)
 
     # ── Writes ──
