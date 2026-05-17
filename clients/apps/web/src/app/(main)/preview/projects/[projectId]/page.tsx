@@ -1142,6 +1142,107 @@ function KanbanColumn({
           </li>
         )}
       </ul>
+      <KanbanColumnAdder projectId={projectId} stateId={state.id} />
+    </div>
+  )
+}
+
+function KanbanColumnAdder({
+  projectId,
+  stateId,
+}: {
+  projectId: string
+  stateId: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [name, setName] = useState('')
+  const mutation = useCreateWorkItem()
+
+  const close = () => {
+    setIsOpen(false)
+    setName('')
+    mutation.reset()
+  }
+
+  const submit = async () => {
+    const trimmed = name.trim()
+    if (!trimmed || mutation.isPending) return
+    const body: WorkItemCreate = {
+      project_id: projectId,
+      name: trimmed,
+      state_id: stateId,
+      priority: 'none',
+      description_json: null,
+      description_html: null,
+      estimate_point_id: null,
+      parent_id: null,
+      start_date: null,
+      target_date: null,
+      sort_order: null,
+      is_draft: false,
+      assignee_ids: [],
+      label_ids: [],
+    }
+    try {
+      await mutation.mutateAsync(body)
+      // Keep the inline form open so the user can rapid-fire several
+      // cards into the same column — Plane-style. Just clear the title.
+      setName('')
+    } catch {
+      // mutation.error surfaces in the inline message below.
+    }
+  }
+
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="mt-1 inline-flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+      >
+        <span aria-hidden>+</span> Add card
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-1 flex flex-col gap-1.5">
+      <Input
+        autoFocus
+        value={name}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setName(e.target.value)
+        }
+        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            submit()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            close()
+          }
+        }}
+        placeholder="Card title"
+        maxLength={512}
+      />
+      {mutation.isError && (
+        <span className="text-xs text-red-600 dark:text-red-400">
+          Couldn&apos;t create. Try again.
+        </span>
+      )}
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          onClick={submit}
+          disabled={!name.trim() || mutation.isPending}
+        >
+          {mutation.isPending ? 'Adding…' : 'Add'}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={close}>
+          Cancel
+        </Button>
+      </div>
     </div>
   )
 }
