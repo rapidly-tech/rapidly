@@ -10,7 +10,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import Column, ForeignKey, Index, String, UniqueConstraint, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
@@ -40,11 +40,15 @@ class Member(BaseEntity):
 
     __tablename__ = "members"
     __table_args__ = (
-        UniqueConstraint(
+        # Case-insensitive uniqueness: a customer can have at most one
+        # member per email regardless of casing.  The query layer in
+        # ``identity/member/queries.py`` mirrors this with
+        # ``func.lower(Member.email) == email.lower()``.
+        Index(
+            "members_customer_id_email_key",
             "customer_id",
-            "email",
-            name="members_customer_id_email_key",
-            postgresql_nulls_not_distinct=True,
+            func.lower(Column("email")),
+            unique=True,
         ),
         UniqueConstraint(
             "customer_id",
