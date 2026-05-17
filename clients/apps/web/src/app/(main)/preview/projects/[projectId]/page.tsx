@@ -223,7 +223,7 @@ function CyclesSection({ projectId }: { projectId: string }) {
       ) : (
         <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
           {cycles.map((c) => (
-            <CycleCard key={c.id} cycle={c} />
+            <CycleCard key={c.id} cycle={c} projectId={projectId} />
           ))}
         </ul>
       )}
@@ -231,24 +231,35 @@ function CyclesSection({ projectId }: { projectId: string }) {
   )
 }
 
-function CycleCard({ cycle }: { cycle: ProjectCycle }) {
+function CycleCard({
+  cycle,
+  projectId,
+}: {
+  cycle: ProjectCycle
+  projectId: string
+}) {
   const status = cycleStatus(cycle)
   return (
-    <li className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex items-center justify-between gap-2">
-        <span className="truncate font-medium text-slate-900 dark:text-slate-100">
-          {cycle.name}
+    <li>
+      <Link
+        href={`/preview/projects/${projectId}/cycles/${cycle.id}`}
+        className="flex flex-col gap-1 rounded-lg border border-slate-200 bg-white p-3 transition hover:border-emerald-400 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
+      >
+        <div className="flex items-center justify-between gap-2">
+          <span className="truncate font-medium text-slate-900 dark:text-slate-100">
+            {cycle.name}
+          </span>
+          <CycleStatusPill status={status} />
+        </div>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {formatRange(cycle.start_date, cycle.end_date)}
         </span>
-        <CycleStatusPill status={status} />
-      </div>
-      <span className="text-xs text-slate-500 dark:text-slate-400">
-        {formatRange(cycle.start_date, cycle.end_date)}
-      </span>
-      {cycle.description && (
-        <p className="line-clamp-2 text-sm text-slate-500 dark:text-slate-400">
-          {cycle.description}
-        </p>
-      )}
+        {cycle.description && (
+          <p className="line-clamp-2 text-sm text-slate-500 dark:text-slate-400">
+            {cycle.description}
+          </p>
+        )}
+      </Link>
     </li>
   )
 }
