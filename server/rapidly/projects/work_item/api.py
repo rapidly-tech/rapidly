@@ -11,6 +11,7 @@ from fastapi import Depends, Query
 from rapidly.core.pagination import PaginatedList, PaginationParamsQuery
 from rapidly.core.types import MultipleQueryFilter
 from rapidly.errors import ResourceNotFound
+from rapidly.models.work_item import WorkItemPriority
 from rapidly.openapi import APITag
 from rapidly.postgres import (
     AsyncReadSession,
@@ -67,6 +68,23 @@ async def list_items(
     parent_id: UUID | None = Query(
         None, description="Filter to work items whose parent is this ID."
     ),
+    priority: MultipleQueryFilter[WorkItemPriority] | None = Query(
+        None, description="Filter by priority. Pass multiple to match any."
+    ),
+    label_id: MultipleQueryFilter[UUID] | None = Query(
+        None,
+        description=(
+            "Filter to work items that carry at least one of the given labels."
+        ),
+    ),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the work-item name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     include_archived: bool = Query(False, description="Include archived work items."),
     include_drafts: bool = Query(False, description="Include drafts."),
 ) -> PaginatedList[schemas.WorkItem]:
@@ -76,6 +94,9 @@ async def list_items(
         project_id=project_id,
         state_id=state_id,
         parent_id=parent_id,
+        priority=priority,
+        label_id=label_id,
+        name=name,
         include_archived=include_archived,
         include_drafts=include_drafts,
         pagination=pagination,

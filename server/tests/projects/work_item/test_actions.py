@@ -234,3 +234,176 @@ class TestDelete:
                 await work_item_actions.delete(session, principal, work_item)
             assert gate.await_args is not None
             assert gate.await_args.kwargs["minimum"] == ProjectMemberRole.member
+
+
+# ── List filter tests ──────────────────────────────────────────────────
+#
+# These pin the *count* of ``.where`` calls added by each filter — we
+# can't compare the ``ilike`` / EXISTS expressions by value through a
+# MagicMock chain, so per server/CLAUDE.md "Substring search filter"
+# we assert structure instead of SQL text.
+
+
+def _list_repo_returning_empty() -> tuple[MagicMock, MagicMock]:
+    """Mocked WorkItemRepository + the inner Select-like statement."""
+    statement = MagicMock(name="initial_statement")
+    statement.where = MagicMock(return_value=statement)
+    repo = MagicMock()
+    repo.get_readable_statement = MagicMock(return_value=statement)
+    repo.apply_sorting = MagicMock(return_value=statement)
+    return repo, statement
+
+
+@pytest.mark.asyncio
+class TestListItems:
+    async def test_no_filters_no_extra_wheres(self) -> None:
+        # Baseline: only the two implicit filters (archived, drafts) run.
+        principal = _user_principal()
+        session = MagicMock()
+        repo, statement = _list_repo_returning_empty()
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session, principal, pagination=pagination, sorting=()
+            )
+        # archived + drafts → 2 .where calls.
+        assert statement.where.call_count == 2
+
+    async def test_priority_filter_adds_where(self) -> None:
+        from rapidly.models import WorkItemPriority
+
+        principal = _user_principal()
+        session = MagicMock()
+        repo, statement = _list_repo_returning_empty()
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session,
+                principal,
+                priority=[WorkItemPriority.high, WorkItemPriority.urgent],
+                pagination=pagination,
+                sorting=(),
+            )
+        # 1 (priority) + 2 (implicit) = 3.
+        assert statement.where.call_count == 3
+
+    async def test_label_filter_adds_where(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+        repo, statement = _list_repo_returning_empty()
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session,
+                principal,
+                label_id=[uuid4()],
+                pagination=pagination,
+                sorting=(),
+            )
+        assert statement.where.call_count == 3
+
+    async def test_name_filter_adds_where(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+        repo, statement = _list_repo_returning_empty()
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session,
+                principal,
+                name="login bug",
+                pagination=pagination,
+                sorting=(),
+            )
+        assert statement.where.call_count == 3
+
+    async def test_blank_name_skipped(self) -> None:
+        # ``"   "`` must not bypass into a "match everything" ilike.
+        principal = _user_principal()
+        session = MagicMock()
+        repo, statement = _list_repo_returning_empty()
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session,
+                principal,
+                name="   ",
+                pagination=pagination,
+                sorting=(),
+            )
+        # Only the two implicit filters.
+        assert statement.where.call_count == 2
+
+    async def test_combined_filters_compose(self) -> None:
+        from rapidly.models import WorkItemPriority
+
+        principal = _user_principal()
+        session = MagicMock()
+        repo, statement = _list_repo_returning_empty()
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session,
+                principal,
+                priority=[WorkItemPriority.high],
+                label_id=[uuid4()],
+                name="checkout",
+                pagination=pagination,
+                sorting=(),
+            )
+        # 3 explicit + 2 implicit.
+        assert statement.where.call_count == 5
