@@ -928,6 +928,10 @@ function WorkItemsSection({
   isFetched: boolean
 }) {
   const [layout, setLayout] = useState<Layout>('list')
+  const [priorityFilter, setPriorityFilter] = useState<
+    Set<WorkItem['priority']>
+  >(() => new Set())
+  const [labelFilter, setLabelFilter] = useState<Set<string>>(() => new Set())
   const reassign = useReassignWorkItem()
 
   // The KanbanColumn fires a window event with the dropped item's id +
@@ -951,6 +955,54 @@ function WorkItemsSection({
     return () => window.removeEventListener('rapidly:move-work-item', onMove)
   }, [reassign])
 
+  // Empty filter sets mean "match everything"; otherwise an item must
+  // match the priority filter AND have at least one of the selected
+  // labels (Plane semantics).
+  const visibleWorkItems = useMemo(() => {
+    if (priorityFilter.size === 0 && labelFilter.size === 0) return workItems
+    return workItems.filter((w) => {
+      if (priorityFilter.size > 0 && !priorityFilter.has(w.priority))
+        return false
+      if (labelFilter.size > 0) {
+        const ids = w.label_ids ?? []
+        if (!ids.some((id) => labelFilter.has(id))) return false
+      }
+      return true
+    })
+  }, [workItems, priorityFilter, labelFilter])
+
+  // Labels that any current work item carries — collapsed into a stable
+  // sorted list so the filter strip doesn't reshuffle on every render.
+  const filterableLabels = useMemo(() => {
+    const seen = new Set<string>()
+    for (const w of workItems) for (const id of w.label_ids ?? []) seen.add(id)
+    return Array.from(seen)
+      .map((id) => labelById[id])
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [workItems, labelById])
+
+  const togglePriority = (p: WorkItem['priority']) =>
+    setPriorityFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(p)) next.delete(p)
+      else next.add(p)
+      return next
+    })
+  const toggleLabel = (id: string) =>
+    setLabelFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const clearFilters = () => {
+    setPriorityFilter(new Set())
+    setLabelFilter(new Set())
+  }
+
+  const hasFilters = priorityFilter.size + labelFilter.size > 0
+
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -959,6 +1011,16 @@ function WorkItemsSection({
         </h2>
         <LayoutSwitcher value={layout} onChange={setLayout} />
       </div>
+
+      <WorkItemFilters
+        priorityFilter={priorityFilter}
+        labelFilter={labelFilter}
+        filterableLabels={filterableLabels}
+        onTogglePriority={togglePriority}
+        onToggleLabel={toggleLabel}
+        onClear={clearFilters}
+        hasFilters={hasFilters}
+      />
 
       {isLoading && (
         <div className="h-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
@@ -970,10 +1032,24 @@ function WorkItemsSection({
           </p>
         </div>
       )}
+      {workItems.length > 0 && visibleWorkItems.length === 0 && hasFilters && (
+        <div className="rounded-lg border border-dashed border-slate-300 py-8 text-center dark:border-slate-700">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            No work items match the current filters.{' '}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+            >
+              Clear filters
+            </button>
+          </p>
+        </div>
+      )}
 
-      {workItems.length > 0 && layout === 'list' && (
+      {visibleWorkItems.length > 0 && layout === 'list' && (
         <ul className="grid gap-2">
-          {workItems.map((w) => (
+          {visibleWorkItems.map((w) => (
             <WorkItemRow
               key={w.id}
               workItem={w}
@@ -986,15 +1062,113 @@ function WorkItemsSection({
         </ul>
       )}
 
-      {workItems.length > 0 && layout === 'kanban' && (
+      {visibleWorkItems.length > 0 && layout === 'kanban' && (
         <KanbanBoard
           project={project}
           states={states}
-          workItems={workItems}
+          workItems={visibleWorkItems}
           labelById={labelById}
         />
       )}
     </section>
+  )
+}
+
+const PRIORITY_FILTER_OPTIONS: WorkItem['priority'][] = [
+  'urgent',
+  'high',
+  'medium',
+  'low',
+  'none',
+]
+
+function WorkItemFilters({
+  priorityFilter,
+  labelFilter,
+  filterableLabels,
+  onTogglePriority,
+  onToggleLabel,
+  onClear,
+  hasFilters,
+}: {
+  priorityFilter: Set<WorkItem['priority']>
+  labelFilter: Set<string>
+  filterableLabels: ProjectLabel[]
+  onTogglePriority: (p: WorkItem['priority']) => void
+  onToggleLabel: (id: string) => void
+  onClear: () => void
+  hasFilters: boolean
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs text-slate-500 dark:text-slate-400">
+        Priority
+      </span>
+      {PRIORITY_FILTER_OPTIONS.map((p) => {
+        const active = priorityFilter.has(p)
+        return (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onTogglePriority(p)}
+            aria-pressed={active}
+            className={
+              'rounded-full px-2 py-0.5 text-[11px] transition ' +
+              (active
+                ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700')
+            }
+          >
+            {p}
+          </button>
+        )
+      })}
+      {filterableLabels.length > 0 && (
+        <>
+          <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
+            Labels
+          </span>
+          {filterableLabels.map((l) => {
+            const active = labelFilter.has(l.id)
+            return (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => onToggleLabel(l.id)}
+                aria-pressed={active}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition"
+                style={
+                  active
+                    ? { backgroundColor: l.color, color: 'white' }
+                    : {
+                        backgroundColor: `${l.color}1a`,
+                        color: l.color,
+                      }
+                }
+              >
+                <span
+                  className="size-1 rounded-full"
+                  style={{
+                    backgroundColor: active ? 'white' : l.color,
+                  }}
+                  aria-hidden
+                />
+                {l.name}
+              </button>
+            )
+          })}
+        </>
+      )}
+      {hasFilters && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="ml-1 text-[11px] text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        >
+          Clear
+        </button>
+      )}
+    </div>
   )
 }
 
