@@ -30,8 +30,11 @@ class WorkItemRepository(
     def get_readable_statement(
         self, auth_subject: AuthPrincipal[User | Workspace]
     ) -> Select[tuple[WorkItem]]:
-        statement = self.get_base_statement().join(
-            Project, Project.id == WorkItem.project_id
+        statement = (
+            self.get_base_statement()
+            .join(Project, Project.id == WorkItem.project_id)
+            # Soft-deleted projects' children must never surface.
+            .where(Project.deleted_at.is_(None))
         )
 
         if is_user_principal(auth_subject):

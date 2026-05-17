@@ -30,8 +30,13 @@ class ProjectLabelRepository(
     def get_readable_statement(
         self, auth_subject: AuthPrincipal[User | Workspace]
     ) -> Select[tuple[ProjectLabel]]:
-        statement = self.get_base_statement().join(
-            Project, Project.id == ProjectLabel.project_id
+        statement = (
+            self.get_base_statement()
+            .join(Project, Project.id == ProjectLabel.project_id)
+            # Soft-deleted projects' children must never surface.  The
+            # SoftDeleteMixin already filters the ProjectLabel rows
+            # themselves; this is the parent-side filter.
+            .where(Project.deleted_at.is_(None))
         )
 
         if is_user_principal(auth_subject):

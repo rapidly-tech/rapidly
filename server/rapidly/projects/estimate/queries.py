@@ -35,8 +35,11 @@ class ProjectEstimateRepository(
     def get_readable_statement(
         self, auth_subject: AuthPrincipal[User | Workspace]
     ) -> Select[tuple[ProjectEstimate]]:
-        statement = self.get_base_statement().join(
-            Project, Project.id == ProjectEstimate.project_id
+        statement = (
+            self.get_base_statement()
+            .join(Project, Project.id == ProjectEstimate.project_id)
+            # Soft-deleted projects' children must never surface.
+            .where(Project.deleted_at.is_(None))
         )
 
         if is_user_principal(auth_subject):
@@ -90,6 +93,12 @@ class ProjectEstimatePointRepository(
                 ProjectEstimate, ProjectEstimate.id == ProjectEstimatePoint.estimate_id
             )
             .join(Project, Project.id == ProjectEstimate.project_id)
+            # Soft-deleted parents (estimate or project) must never
+            # surface their points to readers.
+            .where(
+                ProjectEstimate.deleted_at.is_(None),
+                Project.deleted_at.is_(None),
+            )
         )
 
         if is_user_principal(auth_subject):
