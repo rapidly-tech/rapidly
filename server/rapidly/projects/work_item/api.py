@@ -58,6 +58,13 @@ async def list_items(
     pagination: PaginationParamsQuery,
     sorting: ordering.WorkItemsSorting,
     session: AsyncReadSession = Depends(get_db_read_session),
+    id: MultipleQueryFilter[UUID] | None = Query(
+        None,
+        description=(
+            "Filter to work items whose id is in this set. "
+            "Pass an empty list to short-circuit to zero rows."
+        ),
+    ),
     project_id: MultipleQueryFilter[UUID] | None = Query(
         None, description="Filter by project ID."
     ),
@@ -73,6 +80,7 @@ async def list_items(
     results, count = await work_item_actions.list_items(
         session,
         auth_subject,
+        id=id,
         project_id=project_id,
         state_id=state_id,
         parent_id=parent_id,
