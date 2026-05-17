@@ -18,7 +18,7 @@ const tokenKey = (wsId: string, extra?: Record<string, unknown>) => [
 //  Members
 // ══════════════════════════════════════════════
 
-export const useListWorkspaceMembers = (id: string) =>
+export const useListWorkspaceMembers = (id: string, enabled: boolean = true) =>
   useQuery({
     queryKey: memberKey(id),
     queryFn: () =>
@@ -26,6 +26,7 @@ export const useListWorkspaceMembers = (id: string) =>
         api.GET('/api/workspaces/{id}/members', { params: { path: { id } } }),
       ),
     retry: baseRetry,
+    enabled: enabled && !!id,
   })
 
 export const useInviteWorkspaceMember = (id: string) =>
