@@ -2,6 +2,7 @@
 
 import {
   type ProjectCycle,
+  type ProjectLabel,
   type ProjectModule,
   type ProjectState,
   type WorkItem,
@@ -14,6 +15,7 @@ import {
   useDeleteWorkItemRelation,
   useProject,
   useProjectCycles,
+  useProjectLabels,
   useProjectModules,
   useProjectStates,
   useUpdateWorkItem,
@@ -98,7 +100,7 @@ export default function WorkItemDetailPage() {
         <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
           {workItem.name}
         </h1>
-        <Metadata workItem={workItem} states={states} />
+        <Metadata workItem={workItem} states={states} projectId={project.id} />
       </header>
 
       <Description workItem={workItem} />
@@ -534,9 +536,11 @@ function StatePill({ state }: { state: ProjectState }) {
 function Metadata({
   workItem,
   states,
+  projectId,
 }: {
   workItem: WorkItem
   states: ProjectState[]
+  projectId: string
 }) {
   const updateMutation = useUpdateWorkItem(workItem.id)
   const onStateChange = (stateId: string) => {
@@ -580,10 +584,105 @@ function Metadata({
           <option value="urgent">urgent</option>
         </select>
       </label>
+      <LabelEditor workItem={workItem} projectId={projectId} />
       {workItem.target_date && (
         <span>Due {new Date(workItem.target_date).toLocaleDateString()}</span>
       )}
     </div>
+  )
+}
+
+function LabelEditor({
+  workItem,
+  projectId,
+}: {
+  workItem: WorkItem
+  projectId: string
+}) {
+  const labelsQuery = useProjectLabels(
+    { project_id: [projectId], limit: 200, page: 1 },
+    true,
+  )
+  const labels: ProjectLabel[] = useMemo(
+    () => labelsQuery.data?.data ?? [],
+    [labelsQuery.data],
+  )
+  const mutation = useUpdateWorkItem(workItem.id)
+
+  const applied = new Set(workItem.label_ids ?? [])
+  const appliedLabels = labels.filter((l) => applied.has(l.id))
+
+  const toggle = (id: string) => {
+    const next = new Set(applied)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    mutation.mutate({ label_ids: Array.from(next) })
+  }
+
+  if (labelsQuery.isLoading) {
+    return <span className="text-xs">Loading labels…</span>
+  }
+  if (labels.length === 0) {
+    // Nothing to edit; don't render the affordance at all rather than
+    // showing an empty popover.
+    return null
+  }
+
+  return (
+    <details className="relative">
+      <summary className="flex cursor-pointer list-none items-center gap-2 rounded-md px-1 py-1 hover:bg-slate-100 dark:hover:bg-slate-800">
+        <span>Labels</span>
+        {appliedLabels.length === 0 ? (
+          <span className="text-xs text-slate-400 dark:text-slate-500">
+            none
+          </span>
+        ) : (
+          <span className="flex flex-wrap gap-1">
+            {appliedLabels.map((l) => (
+              <span
+                key={l.id}
+                className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px]"
+                style={{
+                  backgroundColor: `${l.color}1a`,
+                  color: l.color,
+                }}
+              >
+                <span
+                  className="size-1 rounded-full"
+                  style={{ backgroundColor: l.color }}
+                  aria-hidden
+                />
+                {l.name}
+              </span>
+            ))}
+          </span>
+        )}
+      </summary>
+      <div className="absolute top-full left-0 z-10 mt-1 flex max-h-64 flex-col gap-1 overflow-auto rounded-md border border-slate-200 bg-white p-2 shadow-md dark:border-slate-700 dark:bg-slate-900">
+        {labels.map((l) => {
+          const isOn = applied.has(l.id)
+          return (
+            <label
+              key={l.id}
+              className="flex cursor-pointer items-center gap-2 rounded px-2 py-1 text-sm text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <input
+                type="checkbox"
+                checked={isOn}
+                onChange={() => toggle(l.id)}
+                className="accent-emerald-600"
+              />
+              <span
+                className="size-2 rounded-full"
+                style={{ backgroundColor: l.color }}
+                aria-hidden
+              />
+              <span>{l.name}</span>
+            </label>
+          )
+        })}
+      </div>
+    </details>
   )
 }
 
