@@ -4,6 +4,7 @@ import {
   type ModuleStatus,
   type ProjectCycle,
   type ProjectCycleCreate,
+  type ProjectLabel,
   type ProjectModule,
   type ProjectModuleCreate,
   type ProjectPage,
@@ -19,6 +20,7 @@ import {
   useCreateWorkItem,
   useProject,
   useProjectCycles,
+  useProjectLabels,
   useProjectModules,
   useProjectPages,
   useProjectStates,
@@ -111,6 +113,18 @@ export default function ProjectDetailPage() {
   )
   const workItems: WorkItem[] = workItemsQuery.data?.data ?? []
 
+  const labelsQuery = useProjectLabels(
+    projectId ? { project_id: [projectId], limit: 200, page: 1 } : undefined,
+    !!projectId,
+  )
+  const labelById = useMemo(() => {
+    const list = labelsQuery.data?.data ?? []
+    return Object.fromEntries(list.map((l) => [l.id, l] as const)) as Record<
+      string,
+      ProjectLabel
+    >
+  }, [labelsQuery.data])
+
   if (projectQuery.isLoading) {
     return (
       <main className="mx-auto w-full max-w-5xl px-6 py-12">
@@ -180,6 +194,7 @@ export default function ProjectDetailPage() {
           states={states}
           stateById={stateById}
           workItems={workItems}
+          labelById={labelById}
           isLoading={workItemsQuery.isLoading}
           isFetched={workItemsQuery.isFetched}
         />
@@ -900,6 +915,7 @@ function WorkItemsSection({
   states,
   stateById,
   workItems,
+  labelById,
   isLoading,
   isFetched,
 }: {
@@ -907,6 +923,7 @@ function WorkItemsSection({
   states: ProjectState[]
   stateById: Record<string, ProjectState>
   workItems: WorkItem[]
+  labelById: Record<string, ProjectLabel>
   isLoading: boolean
   isFetched: boolean
 }) {
@@ -961,6 +978,7 @@ function WorkItemsSection({
               key={w.id}
               workItem={w}
               state={stateById[w.state_id]}
+              labelById={labelById}
               identifier={project.identifier}
               projectId={project.id}
             />
@@ -969,7 +987,12 @@ function WorkItemsSection({
       )}
 
       {workItems.length > 0 && layout === 'kanban' && (
-        <KanbanBoard project={project} states={states} workItems={workItems} />
+        <KanbanBoard
+          project={project}
+          states={states}
+          workItems={workItems}
+          labelById={labelById}
+        />
       )}
     </section>
   )
@@ -1021,10 +1044,12 @@ function KanbanBoard({
   project,
   states,
   workItems,
+  labelById,
 }: {
   project: { id: string; identifier: string }
   states: ProjectState[]
   workItems: WorkItem[]
+  labelById: Record<string, ProjectLabel>
 }) {
   // Group by state in the state's own ordering (sequence then name).
   const sortedStates = useMemo(
@@ -1053,6 +1078,7 @@ function KanbanBoard({
           key={s.id}
           state={s}
           workItems={byState.get(s.id) ?? []}
+          labelById={labelById}
           identifier={project.identifier}
           projectId={project.id}
         />
@@ -1064,11 +1090,13 @@ function KanbanBoard({
 function KanbanColumn({
   state,
   workItems,
+  labelById,
   identifier,
   projectId,
 }: {
   state: ProjectState
   workItems: WorkItem[]
+  labelById: Record<string, ProjectLabel>
   identifier: string
   projectId: string
 }) {
@@ -1132,6 +1160,7 @@ function KanbanColumn({
           <KanbanCard
             key={w.id}
             workItem={w}
+            labelById={labelById}
             identifier={identifier}
             projectId={projectId}
           />
@@ -1249,10 +1278,12 @@ function KanbanColumnAdder({
 
 function KanbanCard({
   workItem,
+  labelById,
   identifier,
   projectId,
 }: {
   workItem: WorkItem
+  labelById: Record<string, ProjectLabel>
   identifier: string
   projectId: string
 }) {
@@ -1277,7 +1308,11 @@ function KanbanCard({
         <span className="text-slate-900 dark:text-slate-100">
           {workItem.name}
         </span>
-        <PriorityBadge priority={workItem.priority} />
+        <LabelChips labelIds={workItem.label_ids} labelById={labelById} />
+        <div className="mt-0.5 flex items-center gap-2">
+          <PriorityBadge priority={workItem.priority} />
+          <DueDate target={workItem.target_date} />
+        </div>
       </Link>
     </li>
   )
@@ -1288,11 +1323,13 @@ function KanbanCard({
 function WorkItemRow({
   workItem,
   state,
+  labelById,
   identifier,
   projectId,
 }: {
   workItem: WorkItem
   state: ProjectState | undefined
+  labelById: Record<string, ProjectLabel>
   identifier: string
   projectId: string
 }) {
@@ -1323,9 +1360,94 @@ function WorkItemRow({
         <span className="flex-1 truncate text-slate-900 dark:text-slate-100">
           {workItem.name}
         </span>
+        <LabelChips labelIds={workItem.label_ids} labelById={labelById} />
+        <DueDate target={workItem.target_date} />
         <PriorityBadge priority={workItem.priority} />
       </Link>
     </li>
+  )
+}
+
+function LabelChips({
+  labelIds,
+  labelById,
+}: {
+  labelIds: string[] | undefined
+  labelById: Record<string, ProjectLabel>
+}) {
+  if (!labelIds || labelIds.length === 0) return null
+  // Resolve only labels we know about — a stale id (e.g. label deleted
+  // mid-session) is silently skipped rather than rendered as a blank chip.
+  const resolved = labelIds.map((id) => labelById[id]).filter(Boolean)
+  if (resolved.length === 0) return null
+  const visible = resolved.slice(0, 3)
+  const overflow = resolved.length - visible.length
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {visible.map((l) => (
+        <span
+          key={l.id}
+          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px]"
+          style={{
+            backgroundColor: `${l.color}1a`,
+            color: l.color,
+          }}
+          title={l.name}
+        >
+          <span
+            className="size-1 rounded-full"
+            style={{ backgroundColor: l.color }}
+            aria-hidden
+          />
+          {l.name}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="text-[10px] text-slate-400 dark:text-slate-500">
+          +{overflow}
+        </span>
+      )}
+    </span>
+  )
+}
+
+function DueDate({ target }: { target: string | null | undefined }) {
+  if (!target) return null
+  // target is a YYYY-MM-DD or full ISO string from the server.  Compare
+  // dates only — no time-of-day — so a target_date of "today" isn't
+  // marked overdue at 00:01.
+  const dueDate = new Date(target)
+  if (Number.isNaN(dueDate.valueOf())) return null
+  const today = new Date()
+  const dueDay = new Date(
+    dueDate.getFullYear(),
+    dueDate.getMonth(),
+    dueDate.getDate(),
+  )
+  const todayDay = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  )
+  const overdue = dueDay.getTime() < todayDay.getTime()
+  const sameYear = dueDate.getFullYear() === today.getFullYear()
+  const label = dueDate.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: sameYear ? undefined : 'numeric',
+  })
+  return (
+    <span
+      className={
+        'text-[10px] ' +
+        (overdue
+          ? 'text-red-600 dark:text-red-400'
+          : 'text-slate-500 dark:text-slate-400')
+      }
+      title={overdue ? `Overdue · ${label}` : `Due ${label}`}
+    >
+      {label}
+    </span>
   )
 }
 
