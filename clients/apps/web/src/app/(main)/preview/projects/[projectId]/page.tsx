@@ -932,6 +932,7 @@ function WorkItemsSection({
     Set<WorkItem['priority']>
   >(() => new Set())
   const [labelFilter, setLabelFilter] = useState<Set<string>>(() => new Set())
+  const [search, setSearch] = useState('')
   const reassign = useReassignWorkItem()
 
   // The KanbanColumn fires a window event with the dropped item's id +
@@ -955,11 +956,17 @@ function WorkItemsSection({
     return () => window.removeEventListener('rapidly:move-work-item', onMove)
   }, [reassign])
 
+  const normalisedSearch = search.trim().toLowerCase()
   // Empty filter sets mean "match everything"; otherwise an item must
   // match the priority filter AND have at least one of the selected
-  // labels (Plane semantics).
+  // labels (Plane semantics) AND match the search substring.
   const visibleWorkItems = useMemo(() => {
-    if (priorityFilter.size === 0 && labelFilter.size === 0) return workItems
+    if (
+      priorityFilter.size === 0 &&
+      labelFilter.size === 0 &&
+      normalisedSearch === ''
+    )
+      return workItems
     return workItems.filter((w) => {
       if (priorityFilter.size > 0 && !priorityFilter.has(w.priority))
         return false
@@ -967,9 +974,14 @@ function WorkItemsSection({
         const ids = w.label_ids ?? []
         if (!ids.some((id) => labelFilter.has(id))) return false
       }
+      if (
+        normalisedSearch !== '' &&
+        !w.name.toLowerCase().includes(normalisedSearch)
+      )
+        return false
       return true
     })
-  }, [workItems, priorityFilter, labelFilter])
+  }, [workItems, priorityFilter, labelFilter, normalisedSearch])
 
   // Labels that any current work item carries — collapsed into a stable
   // sorted list so the filter strip doesn't reshuffle on every render.
@@ -999,9 +1011,11 @@ function WorkItemsSection({
   const clearFilters = () => {
     setPriorityFilter(new Set())
     setLabelFilter(new Set())
+    setSearch('')
   }
 
-  const hasFilters = priorityFilter.size + labelFilter.size > 0
+  const hasFilters =
+    priorityFilter.size + labelFilter.size > 0 || normalisedSearch !== ''
 
   return (
     <section className="flex flex-col gap-3">
@@ -1011,6 +1025,16 @@ function WorkItemsSection({
         </h2>
         <LayoutSwitcher value={layout} onChange={setLayout} />
       </div>
+
+      <Input
+        type="search"
+        value={search}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setSearch(e.target.value)
+        }
+        placeholder="Search work items by name…"
+        className="w-full max-w-md"
+      />
 
       <WorkItemFilters
         priorityFilter={priorityFilter}
