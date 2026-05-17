@@ -74,6 +74,17 @@ export const useArchiveProject = (id: string) =>
     },
   })
 
+export const useUnarchiveProject = (id: string) =>
+  useMutation({
+    mutationFn: () =>
+      resolveResponse(
+        api.POST('/api/projects/{id}/unarchive', { params: { path: { id } } }),
+      ),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['projects'] })
+    },
+  })
+
 export const useDeleteProject = (id: string) =>
   useMutation({
     mutationFn: () =>

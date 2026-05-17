@@ -26,6 +26,7 @@ import {
   useProjectPages,
   useProjectStates,
   useReassignWorkItem,
+  useUnarchiveProject,
   useWorkItems,
 } from '@/hooks/api/projects'
 import Button from '@rapidly-tech/ui/components/forms/Button'
@@ -199,19 +200,16 @@ export default function ProjectDetailPage() {
 function ProjectDangerZone({ project }: { project: Project }) {
   const router = useRouter()
   const archive = useArchiveProject(project.id)
+  const unarchive = useUnarchiveProject(project.id)
   const remove = useDeleteProject(project.id)
   const [deleteOpen, setDeleteOpen] = useState(false)
 
   const isArchived = !!project.archived_at
+  const archivePending = archive.isPending || unarchive.isPending
 
   const toggleArchive = () => {
-    // ``useArchiveProject`` only POSTs to /{id}/archive — there's no
-    // dedicated unarchive hook yet, so the "unarchive" branch is a
-    // future follow-up.  Hiding the button while archived would be
-    // misleading; we leave it disabled with a tooltip so users see
-    // the path exists.
-    if (isArchived) return
-    archive.mutate()
+    if (isArchived) unarchive.mutate()
+    else archive.mutate()
   }
 
   const confirmDelete = async () => {
@@ -232,14 +230,20 @@ function ProjectDangerZone({ project }: { project: Project }) {
         size="sm"
         variant="secondary"
         onClick={toggleArchive}
-        disabled={isArchived || archive.isPending}
+        disabled={archivePending}
         title={
           isArchived
-            ? 'Already archived. Unarchive endpoint not yet wired in the SDK.'
+            ? 'Restore this project to the default list'
             : 'Hide this project from the default list'
         }
       >
-        {archive.isPending ? 'Archiving…' : isArchived ? 'Archived' : 'Archive'}
+        {archivePending
+          ? isArchived
+            ? 'Restoring…'
+            : 'Archiving…'
+          : isArchived
+            ? 'Unarchive'
+            : 'Archive'}
       </Button>
       <Button
         type="button"
