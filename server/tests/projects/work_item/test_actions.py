@@ -234,3 +234,58 @@ class TestDelete:
                 await work_item_actions.delete(session, principal, work_item)
             assert gate.await_args is not None
             assert gate.await_args.kwargs["minimum"] == ProjectMemberRole.member
+
+
+@pytest.mark.asyncio
+class TestListItemsIdFilter:
+    async def test_empty_id_list_short_circuits(self) -> None:
+        # Pin: passing id=[] returns ([], 0) without touching paginate
+        # or the repo statement.  Callers that ask "find me these
+        # zero ids" expect zero rows, not an unbounded list.
+        principal = _user_principal()
+        session = MagicMock()
+        paginate_mock = AsyncMock(return_value=([], 0))
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=MagicMock())
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch("rapidly.projects.work_item.actions.paginate", new=paginate_mock),
+        ):
+            result = await work_item_actions.list_items(
+                session, principal, id=[], pagination=pagination, sorting=()
+            )
+        assert result == ([], 0)
+        paginate_mock.assert_not_called()
+
+    async def test_id_filter_adds_where(self) -> None:
+        principal = _user_principal()
+        session = MagicMock()
+        statement = MagicMock(name="initial_statement")
+        statement.where = MagicMock(return_value=statement)
+        repo = MagicMock()
+        repo.get_readable_statement = MagicMock(return_value=statement)
+        repo.apply_sorting = MagicMock(return_value=statement)
+        pagination = MagicMock()
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await work_item_actions.list_items(
+                session,
+                principal,
+                id=[uuid4(), uuid4()],
+                pagination=pagination,
+                sorting=(),
+            )
+        # 1 (id) + 2 (implicit archived / drafts) = 3.
+        assert statement.where.call_count == 3

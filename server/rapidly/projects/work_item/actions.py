@@ -56,6 +56,7 @@ async def list_items(
     session: AsyncReadSession,
     auth_subject: AuthPrincipal[User | Workspace],
     *,
+    id: Sequence[UUID] | None = None,
     project_id: Sequence[UUID] | None = None,
     state_id: Sequence[UUID] | None = None,
     parent_id: UUID | None = None,
@@ -67,6 +68,13 @@ async def list_items(
     repo = WorkItemRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject)
 
+    if id is not None:
+        # Empty list → no rows.  Callers that pass [] (e.g. a cycle
+        # with no members yet) expect a 0-row paginated response, not
+        # an unbounded one.
+        if not id:
+            return [], 0
+        statement = statement.where(WorkItem.id.in_(id))
     if project_id is not None:
         statement = statement.where(WorkItem.project_id.in_(project_id))
     if state_id is not None:
