@@ -190,6 +190,25 @@ class TestArchiveDelete:
             await cycle_actions.delete(session, principal, cycle)
         assert observed["minimum"] == ProjectMemberRole.admin
 
+    async def test_unarchive_requires_admin(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        principal = _user_principal()
+        cycle = _cycle()
+        session = MagicMock()
+
+        observed: dict[str, Any] = {}
+
+        async def _ensure(*_a: Any, **kwargs: Any) -> Any:
+            observed["minimum"] = kwargs.get("minimum")
+            raise NotPermitted()
+
+        monkeypatch.setattr("rapidly.projects.cycle.actions._ensure_member", _ensure)
+
+        with pytest.raises(NotPermitted):
+            await cycle_actions.unarchive(session, principal, cycle)
+        assert observed["minimum"] == ProjectMemberRole.admin
+
 
 @pytest.mark.asyncio
 class TestAddWorkItems:
