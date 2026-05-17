@@ -913,6 +913,21 @@ function WorkItemsSection({
   const [layout, setLayout] = useState<Layout>('list')
   const reassign = useReassignWorkItem()
 
+  // Derived: child count per parent id, computed from the already-
+  // fetched 100-item page.  Cheaper than a per-card fetch and works
+  // for the most common case (small projects).  For projects beyond
+  // the page size, a parent's true child count may underrepresent
+  // here — acceptable for a "▸ N" hint.
+  const childCountByParentId = useMemo(() => {
+    const map = new Map<string, number>()
+    for (const w of workItems) {
+      if (w.parent_id) {
+        map.set(w.parent_id, (map.get(w.parent_id) ?? 0) + 1)
+      }
+    }
+    return map
+  }, [workItems])
+
   // The KanbanColumn fires a window event with the dropped item's id +
   // target state.  We promote it to a typed mutation here so the column
   // doesn't need to thread the mutation through props.
@@ -961,6 +976,7 @@ function WorkItemsSection({
               key={w.id}
               workItem={w}
               state={stateById[w.state_id]}
+              childCount={childCountByParentId.get(w.id) ?? 0}
               identifier={project.identifier}
               projectId={project.id}
             />
@@ -969,7 +985,12 @@ function WorkItemsSection({
       )}
 
       {workItems.length > 0 && layout === 'kanban' && (
-        <KanbanBoard project={project} states={states} workItems={workItems} />
+        <KanbanBoard
+          project={project}
+          states={states}
+          workItems={workItems}
+          childCountByParentId={childCountByParentId}
+        />
       )}
     </section>
   )
@@ -1021,10 +1042,12 @@ function KanbanBoard({
   project,
   states,
   workItems,
+  childCountByParentId,
 }: {
   project: { id: string; identifier: string }
   states: ProjectState[]
   workItems: WorkItem[]
+  childCountByParentId: Map<string, number>
 }) {
   // Group by state in the state's own ordering (sequence then name).
   const sortedStates = useMemo(
@@ -1053,6 +1076,7 @@ function KanbanBoard({
           key={s.id}
           state={s}
           workItems={byState.get(s.id) ?? []}
+          childCountByParentId={childCountByParentId}
           identifier={project.identifier}
           projectId={project.id}
         />
@@ -1064,11 +1088,13 @@ function KanbanBoard({
 function KanbanColumn({
   state,
   workItems,
+  childCountByParentId,
   identifier,
   projectId,
 }: {
   state: ProjectState
   workItems: WorkItem[]
+  childCountByParentId: Map<string, number>
   identifier: string
   projectId: string
 }) {
@@ -1132,6 +1158,7 @@ function KanbanColumn({
           <KanbanCard
             key={w.id}
             workItem={w}
+            childCount={childCountByParentId.get(w.id) ?? 0}
             identifier={identifier}
             projectId={projectId}
           />
@@ -1148,10 +1175,12 @@ function KanbanColumn({
 
 function KanbanCard({
   workItem,
+  childCount,
   identifier,
   projectId,
 }: {
   workItem: WorkItem
+  childCount: number
   identifier: string
   projectId: string
 }) {
@@ -1176,9 +1205,25 @@ function KanbanCard({
         <span className="text-slate-900 dark:text-slate-100">
           {workItem.name}
         </span>
-        <PriorityBadge priority={workItem.priority} />
+        <div className="flex items-center gap-2">
+          <PriorityBadge priority={workItem.priority} />
+          <SubItemCount count={childCount} />
+        </div>
       </Link>
     </li>
+  )
+}
+
+function SubItemCount({ count }: { count: number }) {
+  if (count === 0) return null
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[10px] text-slate-500 dark:text-slate-400"
+      title={`${count} sub-item${count === 1 ? '' : 's'}`}
+    >
+      <span aria-hidden>▾</span>
+      {count}
+    </span>
   )
 }
 
@@ -1187,11 +1232,13 @@ function KanbanCard({
 function WorkItemRow({
   workItem,
   state,
+  childCount,
   identifier,
   projectId,
 }: {
   workItem: WorkItem
   state: ProjectState | undefined
+  childCount: number
   identifier: string
   projectId: string
 }) {
@@ -1222,6 +1269,7 @@ function WorkItemRow({
         <span className="flex-1 truncate text-slate-900 dark:text-slate-100">
           {workItem.name}
         </span>
+        <SubItemCount count={childCount} />
         <PriorityBadge priority={workItem.priority} />
       </Link>
     </li>
