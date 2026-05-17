@@ -4,6 +4,7 @@ import {
   type ModuleStatus,
   type ProjectCycle,
   type ProjectCycleCreate,
+  type ProjectLabel,
   type ProjectModule,
   type ProjectModuleCreate,
   type ProjectPage,
@@ -19,6 +20,7 @@ import {
   useCreateWorkItem,
   useProject,
   useProjectCycles,
+  useProjectLabels,
   useProjectModules,
   useProjectPages,
   useProjectStates,
@@ -111,6 +113,18 @@ export default function ProjectDetailPage() {
   )
   const workItems: WorkItem[] = workItemsQuery.data?.data ?? []
 
+  const labelsQuery = useProjectLabels(
+    projectId ? { project_id: [projectId], limit: 200, page: 1 } : undefined,
+    !!projectId,
+  )
+  const labelById = useMemo(() => {
+    const list = labelsQuery.data?.data ?? []
+    return Object.fromEntries(list.map((l) => [l.id, l] as const)) as Record<
+      string,
+      ProjectLabel
+    >
+  }, [labelsQuery.data])
+
   if (projectQuery.isLoading) {
     return (
       <main className="mx-auto w-full max-w-5xl px-6 py-12">
@@ -180,6 +194,7 @@ export default function ProjectDetailPage() {
           states={states}
           stateById={stateById}
           workItems={workItems}
+          labelById={labelById}
           isLoading={workItemsQuery.isLoading}
           isFetched={workItemsQuery.isFetched}
         />
@@ -900,6 +915,7 @@ function WorkItemsSection({
   states,
   stateById,
   workItems,
+  labelById,
   isLoading,
   isFetched,
 }: {
@@ -907,10 +923,16 @@ function WorkItemsSection({
   states: ProjectState[]
   stateById: Record<string, ProjectState>
   workItems: WorkItem[]
+  labelById: Record<string, ProjectLabel>
   isLoading: boolean
   isFetched: boolean
 }) {
   const [layout, setLayout] = useState<Layout>('list')
+  const [priorityFilter, setPriorityFilter] = useState<
+    Set<WorkItem['priority']>
+  >(() => new Set())
+  const [labelFilter, setLabelFilter] = useState<Set<string>>(() => new Set())
+  const [search, setSearch] = useState('')
   const reassign = useReassignWorkItem()
 
   // The KanbanColumn fires a window event with the dropped item's id +
@@ -934,6 +956,67 @@ function WorkItemsSection({
     return () => window.removeEventListener('rapidly:move-work-item', onMove)
   }, [reassign])
 
+  const normalisedSearch = search.trim().toLowerCase()
+  // Empty filter sets mean "match everything"; otherwise an item must
+  // match the priority filter AND have at least one of the selected
+  // labels (Plane semantics) AND match the search substring.
+  const visibleWorkItems = useMemo(() => {
+    if (
+      priorityFilter.size === 0 &&
+      labelFilter.size === 0 &&
+      normalisedSearch === ''
+    )
+      return workItems
+    return workItems.filter((w) => {
+      if (priorityFilter.size > 0 && !priorityFilter.has(w.priority))
+        return false
+      if (labelFilter.size > 0) {
+        const ids = w.label_ids ?? []
+        if (!ids.some((id) => labelFilter.has(id))) return false
+      }
+      if (
+        normalisedSearch !== '' &&
+        !w.name.toLowerCase().includes(normalisedSearch)
+      )
+        return false
+      return true
+    })
+  }, [workItems, priorityFilter, labelFilter, normalisedSearch])
+
+  // Labels that any current work item carries — collapsed into a stable
+  // sorted list so the filter strip doesn't reshuffle on every render.
+  const filterableLabels = useMemo(() => {
+    const seen = new Set<string>()
+    for (const w of workItems) for (const id of w.label_ids ?? []) seen.add(id)
+    return Array.from(seen)
+      .map((id) => labelById[id])
+      .filter(Boolean)
+      .sort((a, b) => a.name.localeCompare(b.name))
+  }, [workItems, labelById])
+
+  const togglePriority = (p: WorkItem['priority']) =>
+    setPriorityFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(p)) next.delete(p)
+      else next.add(p)
+      return next
+    })
+  const toggleLabel = (id: string) =>
+    setLabelFilter((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
+  const clearFilters = () => {
+    setPriorityFilter(new Set())
+    setLabelFilter(new Set())
+    setSearch('')
+  }
+
+  const hasFilters =
+    priorityFilter.size + labelFilter.size > 0 || normalisedSearch !== ''
+
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-center justify-between">
@@ -942,6 +1025,26 @@ function WorkItemsSection({
         </h2>
         <LayoutSwitcher value={layout} onChange={setLayout} />
       </div>
+
+      <Input
+        type="search"
+        value={search}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setSearch(e.target.value)
+        }
+        placeholder="Search work items by name…"
+        className="w-full max-w-md"
+      />
+
+      <WorkItemFilters
+        priorityFilter={priorityFilter}
+        labelFilter={labelFilter}
+        filterableLabels={filterableLabels}
+        onTogglePriority={togglePriority}
+        onToggleLabel={toggleLabel}
+        onClear={clearFilters}
+        hasFilters={hasFilters}
+      />
 
       {isLoading && (
         <div className="h-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
@@ -953,14 +1056,29 @@ function WorkItemsSection({
           </p>
         </div>
       )}
+      {workItems.length > 0 && visibleWorkItems.length === 0 && hasFilters && (
+        <div className="rounded-lg border border-dashed border-slate-300 py-8 text-center dark:border-slate-700">
+          <p className="text-sm text-slate-500 dark:text-slate-400">
+            No work items match the current filters.{' '}
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="font-medium text-emerald-600 hover:underline dark:text-emerald-400"
+            >
+              Clear filters
+            </button>
+          </p>
+        </div>
+      )}
 
-      {workItems.length > 0 && layout === 'list' && (
+      {visibleWorkItems.length > 0 && layout === 'list' && (
         <ul className="grid gap-2">
-          {workItems.map((w) => (
+          {visibleWorkItems.map((w) => (
             <WorkItemRow
               key={w.id}
               workItem={w}
               state={stateById[w.state_id]}
+              labelById={labelById}
               identifier={project.identifier}
               projectId={project.id}
             />
@@ -968,10 +1086,113 @@ function WorkItemsSection({
         </ul>
       )}
 
-      {workItems.length > 0 && layout === 'kanban' && (
-        <KanbanBoard project={project} states={states} workItems={workItems} />
+      {visibleWorkItems.length > 0 && layout === 'kanban' && (
+        <KanbanBoard
+          project={project}
+          states={states}
+          workItems={visibleWorkItems}
+          labelById={labelById}
+        />
       )}
     </section>
+  )
+}
+
+const PRIORITY_FILTER_OPTIONS: WorkItem['priority'][] = [
+  'urgent',
+  'high',
+  'medium',
+  'low',
+  'none',
+]
+
+function WorkItemFilters({
+  priorityFilter,
+  labelFilter,
+  filterableLabels,
+  onTogglePriority,
+  onToggleLabel,
+  onClear,
+  hasFilters,
+}: {
+  priorityFilter: Set<WorkItem['priority']>
+  labelFilter: Set<string>
+  filterableLabels: ProjectLabel[]
+  onTogglePriority: (p: WorkItem['priority']) => void
+  onToggleLabel: (id: string) => void
+  onClear: () => void
+  hasFilters: boolean
+}) {
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-xs text-slate-500 dark:text-slate-400">
+        Priority
+      </span>
+      {PRIORITY_FILTER_OPTIONS.map((p) => {
+        const active = priorityFilter.has(p)
+        return (
+          <button
+            key={p}
+            type="button"
+            onClick={() => onTogglePriority(p)}
+            aria-pressed={active}
+            className={
+              'rounded-full px-2 py-0.5 text-[11px] transition ' +
+              (active
+                ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700')
+            }
+          >
+            {p}
+          </button>
+        )
+      })}
+      {filterableLabels.length > 0 && (
+        <>
+          <span className="ml-2 text-xs text-slate-500 dark:text-slate-400">
+            Labels
+          </span>
+          {filterableLabels.map((l) => {
+            const active = labelFilter.has(l.id)
+            return (
+              <button
+                key={l.id}
+                type="button"
+                onClick={() => onToggleLabel(l.id)}
+                aria-pressed={active}
+                className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition"
+                style={
+                  active
+                    ? { backgroundColor: l.color, color: 'white' }
+                    : {
+                        backgroundColor: `${l.color}1a`,
+                        color: l.color,
+                      }
+                }
+              >
+                <span
+                  className="size-1 rounded-full"
+                  style={{
+                    backgroundColor: active ? 'white' : l.color,
+                  }}
+                  aria-hidden
+                />
+                {l.name}
+              </button>
+            )
+          })}
+        </>
+      )}
+      {hasFilters && (
+        <button
+          type="button"
+          onClick={onClear}
+          className="ml-1 text-[11px] text-slate-500 underline hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+        >
+          Clear
+        </button>
+      )}
+    </div>
   )
 }
 
@@ -1021,10 +1242,12 @@ function KanbanBoard({
   project,
   states,
   workItems,
+  labelById,
 }: {
   project: { id: string; identifier: string }
   states: ProjectState[]
   workItems: WorkItem[]
+  labelById: Record<string, ProjectLabel>
 }) {
   // Group by state in the state's own ordering (sequence then name).
   const sortedStates = useMemo(
@@ -1053,6 +1276,7 @@ function KanbanBoard({
           key={s.id}
           state={s}
           workItems={byState.get(s.id) ?? []}
+          labelById={labelById}
           identifier={project.identifier}
           projectId={project.id}
         />
@@ -1064,11 +1288,13 @@ function KanbanBoard({
 function KanbanColumn({
   state,
   workItems,
+  labelById,
   identifier,
   projectId,
 }: {
   state: ProjectState
   workItems: WorkItem[]
+  labelById: Record<string, ProjectLabel>
   identifier: string
   projectId: string
 }) {
@@ -1132,6 +1358,7 @@ function KanbanColumn({
           <KanbanCard
             key={w.id}
             workItem={w}
+            labelById={labelById}
             identifier={identifier}
             projectId={projectId}
           />
@@ -1142,16 +1369,119 @@ function KanbanColumn({
           </li>
         )}
       </ul>
+      <KanbanColumnAdder projectId={projectId} stateId={state.id} />
+    </div>
+  )
+}
+
+function KanbanColumnAdder({
+  projectId,
+  stateId,
+}: {
+  projectId: string
+  stateId: string
+}) {
+  const [isOpen, setIsOpen] = useState(false)
+  const [name, setName] = useState('')
+  const mutation = useCreateWorkItem()
+
+  const close = () => {
+    setIsOpen(false)
+    setName('')
+    mutation.reset()
+  }
+
+  const submit = async () => {
+    const trimmed = name.trim()
+    if (!trimmed || mutation.isPending) return
+    const body: WorkItemCreate = {
+      project_id: projectId,
+      name: trimmed,
+      state_id: stateId,
+      priority: 'none',
+      description_json: null,
+      description_html: null,
+      estimate_point_id: null,
+      parent_id: null,
+      start_date: null,
+      target_date: null,
+      sort_order: null,
+      is_draft: false,
+      assignee_ids: [],
+      label_ids: [],
+    }
+    try {
+      await mutation.mutateAsync(body)
+      // Keep the inline form open so the user can rapid-fire several
+      // cards into the same column — Plane-style. Just clear the title.
+      setName('')
+    } catch {
+      // mutation.error surfaces in the inline message below.
+    }
+  }
+
+  if (!isOpen) {
+    return (
+      <button
+        type="button"
+        onClick={() => setIsOpen(true)}
+        className="mt-1 inline-flex items-center justify-center gap-1 rounded-md px-2 py-1.5 text-xs text-slate-500 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-200"
+      >
+        <span aria-hidden>+</span> Add card
+      </button>
+    )
+  }
+
+  return (
+    <div className="mt-1 flex flex-col gap-1.5">
+      <Input
+        autoFocus
+        value={name}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setName(e.target.value)
+        }
+        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            submit()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            close()
+          }
+        }}
+        placeholder="Card title"
+        maxLength={512}
+      />
+      {mutation.isError && (
+        <span className="text-xs text-red-600 dark:text-red-400">
+          Couldn&apos;t create. Try again.
+        </span>
+      )}
+      <div className="flex items-center gap-2">
+        <Button
+          type="button"
+          size="sm"
+          onClick={submit}
+          disabled={!name.trim() || mutation.isPending}
+        >
+          {mutation.isPending ? 'Adding…' : 'Add'}
+        </Button>
+        <Button type="button" size="sm" variant="ghost" onClick={close}>
+          Cancel
+        </Button>
+      </div>
     </div>
   )
 }
 
 function KanbanCard({
   workItem,
+  labelById,
   identifier,
   projectId,
 }: {
   workItem: WorkItem
+  labelById: Record<string, ProjectLabel>
   identifier: string
   projectId: string
 }) {
@@ -1176,7 +1506,11 @@ function KanbanCard({
         <span className="text-slate-900 dark:text-slate-100">
           {workItem.name}
         </span>
-        <PriorityBadge priority={workItem.priority} />
+        <LabelChips labelIds={workItem.label_ids} labelById={labelById} />
+        <div className="mt-0.5 flex items-center gap-2">
+          <PriorityBadge priority={workItem.priority} />
+          <DueDate target={workItem.target_date} />
+        </div>
       </Link>
     </li>
   )
@@ -1187,11 +1521,13 @@ function KanbanCard({
 function WorkItemRow({
   workItem,
   state,
+  labelById,
   identifier,
   projectId,
 }: {
   workItem: WorkItem
   state: ProjectState | undefined
+  labelById: Record<string, ProjectLabel>
   identifier: string
   projectId: string
 }) {
@@ -1222,9 +1558,94 @@ function WorkItemRow({
         <span className="flex-1 truncate text-slate-900 dark:text-slate-100">
           {workItem.name}
         </span>
+        <LabelChips labelIds={workItem.label_ids} labelById={labelById} />
+        <DueDate target={workItem.target_date} />
         <PriorityBadge priority={workItem.priority} />
       </Link>
     </li>
+  )
+}
+
+function LabelChips({
+  labelIds,
+  labelById,
+}: {
+  labelIds: string[] | undefined
+  labelById: Record<string, ProjectLabel>
+}) {
+  if (!labelIds || labelIds.length === 0) return null
+  // Resolve only labels we know about — a stale id (e.g. label deleted
+  // mid-session) is silently skipped rather than rendered as a blank chip.
+  const resolved = labelIds.map((id) => labelById[id]).filter(Boolean)
+  if (resolved.length === 0) return null
+  const visible = resolved.slice(0, 3)
+  const overflow = resolved.length - visible.length
+  return (
+    <span className="flex flex-wrap items-center gap-1">
+      {visible.map((l) => (
+        <span
+          key={l.id}
+          className="inline-flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[10px]"
+          style={{
+            backgroundColor: `${l.color}1a`,
+            color: l.color,
+          }}
+          title={l.name}
+        >
+          <span
+            className="size-1 rounded-full"
+            style={{ backgroundColor: l.color }}
+            aria-hidden
+          />
+          {l.name}
+        </span>
+      ))}
+      {overflow > 0 && (
+        <span className="text-[10px] text-slate-400 dark:text-slate-500">
+          +{overflow}
+        </span>
+      )}
+    </span>
+  )
+}
+
+function DueDate({ target }: { target: string | null | undefined }) {
+  if (!target) return null
+  // target is a YYYY-MM-DD or full ISO string from the server.  Compare
+  // dates only — no time-of-day — so a target_date of "today" isn't
+  // marked overdue at 00:01.
+  const dueDate = new Date(target)
+  if (Number.isNaN(dueDate.valueOf())) return null
+  const today = new Date()
+  const dueDay = new Date(
+    dueDate.getFullYear(),
+    dueDate.getMonth(),
+    dueDate.getDate(),
+  )
+  const todayDay = new Date(
+    today.getFullYear(),
+    today.getMonth(),
+    today.getDate(),
+  )
+  const overdue = dueDay.getTime() < todayDay.getTime()
+  const sameYear = dueDate.getFullYear() === today.getFullYear()
+  const label = dueDate.toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: sameYear ? undefined : 'numeric',
+  })
+  return (
+    <span
+      className={
+        'text-[10px] ' +
+        (overdue
+          ? 'text-red-600 dark:text-red-400'
+          : 'text-slate-500 dark:text-slate-400')
+      }
+      title={overdue ? `Overdue · ${label}` : `Due ${label}`}
+    >
+      {label}
+    </span>
   )
 }
 
