@@ -38,6 +38,14 @@ async def list(
     workspace_id: MultipleQueryFilter[WorkspaceID] | None = Query(
         None, title="WorkspaceID Filter", description="Filter by workspace ID."
     ),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the project name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     include_archived: bool = Query(
         False, description="Include archived projects in the result set."
     ),
@@ -46,6 +54,7 @@ async def list(
         session,
         auth_subject,
         workspace_id=workspace_id,
+        name=name,
         include_archived=include_archived,
         pagination=pagination,
         sorting=sorting,

@@ -57,6 +57,7 @@ async def list(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     workspace_id: Sequence[UUID] | None = None,
+    name: str | None = None,
     include_archived: bool = False,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[ProjectSortProperty]],
@@ -66,6 +67,14 @@ async def list(
 
     if workspace_id is not None:
         statement = statement.where(Project.workspace_id.in_(workspace_id))
+    if name is not None and name.strip():
+        # Escape SQL ``%`` and ``_`` wildcards so callers can't bypass
+        # the substring contract with ``name=%``.  Mirrors the work-item
+        # filter from #662 and the convention in server/CLAUDE.md.
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(Project.name.ilike(f"%{escaped}%", escape="\\"))
     if not include_archived:
         statement = statement.where(Project.archived_at.is_(None))
 
