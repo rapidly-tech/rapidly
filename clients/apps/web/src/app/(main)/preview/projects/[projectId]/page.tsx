@@ -1300,6 +1300,7 @@ function CreateWorkItemDialog({
   const defaultState = states.find((s) => s.is_default) ?? states[0]
   const [stateId, setStateId] = useState<string>(defaultState?.id ?? '')
   const [priority, setPriority] = useState<WorkItem['priority']>('none')
+  const [startDate, setStartDate] = useState<string>('')
   const [targetDate, setTargetDate] = useState<string>('')
   const [labelIds, setLabelIds] = useState<Set<string>>(() => new Set())
   const mutation = useCreateWorkItem()
@@ -1317,6 +1318,7 @@ function CreateWorkItemDialog({
     setName('')
     setStateId(defaultState?.id ?? '')
     setPriority('none')
+    setStartDate('')
     setTargetDate('')
     setLabelIds(new Set())
     mutation.reset()
@@ -1340,8 +1342,8 @@ function CreateWorkItemDialog({
       description_html: null,
       estimate_point_id: null,
       parent_id: null,
-      start_date: null,
-      // YYYY-MM-DD from the date input; backend coerces to a date.
+      // YYYY-MM-DD from the date inputs; backend coerces to a date.
+      start_date: startDate || null,
       target_date: targetDate || null,
       sort_order: null,
       is_draft: false,
@@ -1440,19 +1442,34 @@ function CreateWorkItemDialog({
             </label>
           </div>
 
-          <label className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
-              Due date (optional)
-            </span>
-            <input
-              type="date"
-              value={targetDate}
-              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                setTargetDate(e.target.value)
-              }
-              className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
-            />
-          </label>
+          <div className="grid grid-cols-2 gap-3">
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Start date (optional)
+              </span>
+              <input
+                type="date"
+                value={startDate}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setStartDate(e.target.value)
+                }
+                className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label className="flex flex-col gap-1.5">
+              <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Due date (optional)
+              </span>
+              <input
+                type="date"
+                value={targetDate}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                  setTargetDate(e.target.value)
+                }
+                className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+          </div>
 
           {projectLabels.length > 0 && (
             <fieldset className="flex flex-col gap-1.5">
