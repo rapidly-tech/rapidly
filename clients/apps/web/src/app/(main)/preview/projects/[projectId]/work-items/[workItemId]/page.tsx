@@ -580,10 +580,55 @@ function Metadata({
           <option value="urgent">urgent</option>
         </select>
       </label>
-      {workItem.target_date && (
-        <span>Due {new Date(workItem.target_date).toLocaleDateString()}</span>
-      )}
+      <DateField label="Start" workItem={workItem} field="start_date" />
+      <DateField label="Due" workItem={workItem} field="target_date" />
     </div>
+  )
+}
+
+function DateField({
+  label,
+  workItem,
+  field,
+}: {
+  label: string
+  workItem: WorkItem
+  field: 'start_date' | 'target_date'
+}) {
+  const mutation = useUpdateWorkItem(workItem.id)
+  // Backend stores a date; we always feed the input a YYYY-MM-DD
+  // string and send the same shape back (or null when cleared).  ISO
+  // datetimes are tolerated: ``.slice(0, 10)`` returns the date part.
+  const raw = workItem[field]
+  const value = raw ? new Date(raw).toISOString().slice(0, 10) : ''
+
+  const commit = (next: string) => {
+    mutation.mutate({ [field]: next === '' ? null : next })
+  }
+
+  return (
+    <label className="flex items-center gap-2">
+      <span>{label}</span>
+      <input
+        type="date"
+        value={value}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          commit(e.target.value)
+        }
+        className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      />
+      {raw && (
+        <button
+          type="button"
+          onClick={() => commit('')}
+          aria-label={`Clear ${label.toLowerCase()} date`}
+          className="text-xs text-slate-400 hover:text-slate-600 dark:text-slate-500 dark:hover:text-slate-300"
+          title={`Clear ${label.toLowerCase()} date`}
+        >
+          ✕
+        </button>
+      )}
+    </label>
   )
 }
 
