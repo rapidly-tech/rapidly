@@ -141,7 +141,10 @@ export const useUpdateWorkItem = (id: string) =>
 
 // Variant whose ``mutationFn`` takes the work-item id alongside the patch
 // body, useful when one component drives many different items (e.g. a
-// kanban board reassigning items between columns).
+// kanban board reassigning items between columns).  Applies the patch
+// optimistically across every cached work-item list + detail so the
+// kanban card snaps to the new column on drop; rolls back the affected
+// cache entries on error.
 export const useReassignWorkItem = () =>
   useMutation({
     mutationFn: ({ id, body }: { id: string; body: WorkItemUpdate }) =>
@@ -151,7 +154,58 @@ export const useReassignWorkItem = () =>
           body,
         }),
       ),
-    onSuccess: () => {
+    onMutate: async ({ id, body }) => {
+      const qc = getQueryClient()
+      // Cancel any in-flight list refetches so they can't overwrite the
+      // optimistic state in onSuccess order.
+      await qc.cancelQueries({ queryKey: ['work_items'] })
+
+      const previous = qc.getQueriesData<{
+        data?: WorkItem[]
+        meta?: unknown
+      }>({ queryKey: ['work_items', 'list'] })
+
+      qc.setQueriesData<{ data?: WorkItem[]; meta?: unknown } | undefined>(
+        { queryKey: ['work_items', 'list'] },
+        (old) => {
+          if (!old || !Array.isArray(old.data)) return old
+          return {
+            ...old,
+            data: old.data.map((w) =>
+              w.id === id ? ({ ...w, ...body } as WorkItem) : w,
+            ),
+          }
+        },
+      )
+
+      const previousDetail = qc.getQueryData<WorkItem>([
+        'work_items',
+        'detail',
+        id,
+      ])
+      if (previousDetail) {
+        qc.setQueryData<WorkItem>(['work_items', 'detail', id], {
+          ...previousDetail,
+          ...body,
+        } as WorkItem)
+      }
+
+      return { previous, previousDetail, id }
+    },
+    onError: (_err, _vars, context) => {
+      if (!context) return
+      const qc = getQueryClient()
+      for (const [key, data] of context.previous) {
+        qc.setQueryData(key, data)
+      }
+      if (context.previousDetail) {
+        qc.setQueryData(
+          ['work_items', 'detail', context.id],
+          context.previousDetail,
+        )
+      }
+    },
+    onSettled: () => {
       getQueryClient().invalidateQueries({ queryKey: ['work_items'] })
     },
   })
