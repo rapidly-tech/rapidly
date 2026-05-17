@@ -4,6 +4,7 @@ import {
   type ModuleStatus,
   type ProjectCycle,
   type ProjectCycleCreate,
+  type ProjectLabel,
   type ProjectModule,
   type ProjectModuleCreate,
   type ProjectPage,
@@ -19,6 +20,7 @@ import {
   useCreateWorkItem,
   useProject,
   useProjectCycles,
+  useProjectLabels,
   useProjectModules,
   useProjectPages,
   useProjectStates,
@@ -1298,14 +1300,35 @@ function CreateWorkItemDialog({
   const defaultState = states.find((s) => s.is_default) ?? states[0]
   const [stateId, setStateId] = useState<string>(defaultState?.id ?? '')
   const [priority, setPriority] = useState<WorkItem['priority']>('none')
+  const [targetDate, setTargetDate] = useState<string>('')
+  const [labelIds, setLabelIds] = useState<Set<string>>(() => new Set())
   const mutation = useCreateWorkItem()
+
+  const labelsQuery = useProjectLabels(
+    open ? { project_id: [projectId], limit: 200, page: 1 } : undefined,
+    open,
+  )
+  const projectLabels: ProjectLabel[] = useMemo(
+    () => labelsQuery.data?.data ?? [],
+    [labelsQuery.data],
+  )
 
   const reset = () => {
     setName('')
     setStateId(defaultState?.id ?? '')
     setPriority('none')
+    setTargetDate('')
+    setLabelIds(new Set())
     mutation.reset()
   }
+
+  const toggleLabel = (id: string) =>
+    setLabelIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id)
+      else next.add(id)
+      return next
+    })
 
   const submit = async () => {
     const body: WorkItemCreate = {
@@ -1318,11 +1341,12 @@ function CreateWorkItemDialog({
       estimate_point_id: null,
       parent_id: null,
       start_date: null,
-      target_date: null,
+      // YYYY-MM-DD from the date input; backend coerces to a date.
+      target_date: targetDate || null,
       sort_order: null,
       is_draft: false,
       assignee_ids: [],
-      label_ids: [],
+      label_ids: Array.from(labelIds),
     }
     try {
       await mutation.mutateAsync(body)
@@ -1357,8 +1381,8 @@ function CreateWorkItemDialog({
         <DialogHeader>
           <DialogTitle>Create a work item</DialogTitle>
           <DialogDescription>
-            Pick a workflow state and priority. Assignees and labels come from
-            the detail view.
+            Pick a workflow state, priority, optional due date, and any labels
+            to apply. Assignees still come from the detail view.
           </DialogDescription>
         </DialogHeader>
 
@@ -1415,6 +1439,59 @@ function CreateWorkItemDialog({
               </select>
             </label>
           </div>
+
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Due date (optional)
+            </span>
+            <input
+              type="date"
+              value={targetDate}
+              onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                setTargetDate(e.target.value)
+              }
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            />
+          </label>
+
+          {projectLabels.length > 0 && (
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Labels (optional)
+              </legend>
+              <div className="flex flex-wrap gap-1.5">
+                {projectLabels.map((l) => {
+                  const isOn = labelIds.has(l.id)
+                  return (
+                    <button
+                      key={l.id}
+                      type="button"
+                      onClick={() => toggleLabel(l.id)}
+                      aria-pressed={isOn}
+                      className="inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition"
+                      style={
+                        isOn
+                          ? { backgroundColor: l.color, color: 'white' }
+                          : {
+                              backgroundColor: `${l.color}1a`,
+                              color: l.color,
+                            }
+                      }
+                    >
+                      <span
+                        className="size-1 rounded-full"
+                        style={{
+                          backgroundColor: isOn ? 'white' : l.color,
+                        }}
+                        aria-hidden
+                      />
+                      {l.name}
+                    </button>
+                  )
+                })}
+              </div>
+            </fieldset>
+          )}
 
           {errorMessage && (
             <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
