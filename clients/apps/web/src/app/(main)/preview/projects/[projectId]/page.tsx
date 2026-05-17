@@ -1,5 +1,6 @@
 'use client'
 
+import { useListWorkspaceMembers } from '@/hooks/api/org'
 import {
   type ModuleStatus,
   type ProjectCycle,
@@ -152,7 +153,11 @@ export default function ProjectDetailPage() {
             </h1>
           </div>
           {states.length > 0 && (
-            <CreateWorkItemDialog projectId={project.id} states={states} />
+            <CreateWorkItemDialog
+              projectId={project.id}
+              workspaceId={project.workspace_id}
+              states={states}
+            />
           )}
         </div>
         {project.description && (
@@ -1288,9 +1293,11 @@ function SetupStatesPrompt({ projectId }: { projectId: string }) {
 
 function CreateWorkItemDialog({
   projectId,
+  workspaceId,
   states,
 }: {
   projectId: string
+  workspaceId: string
   states: ProjectState[]
 }) {
   const [open, setOpen] = useState(false)
@@ -1298,14 +1305,30 @@ function CreateWorkItemDialog({
   const defaultState = states.find((s) => s.is_default) ?? states[0]
   const [stateId, setStateId] = useState<string>(defaultState?.id ?? '')
   const [priority, setPriority] = useState<WorkItem['priority']>('none')
+  const [assigneeIds, setAssigneeIds] = useState<Set<string>>(() => new Set())
   const mutation = useCreateWorkItem()
+
+  // Only fetch the candidate set while the dialog is open — the
+  // member list is otherwise unused on the project detail page from
+  // this caller's perspective.
+  const membersQuery = useListWorkspaceMembers(workspaceId, open)
+  const members = membersQuery.data?.data ?? []
 
   const reset = () => {
     setName('')
     setStateId(defaultState?.id ?? '')
     setPriority('none')
+    setAssigneeIds(new Set())
     mutation.reset()
   }
+
+  const toggleAssignee = (userId: string) =>
+    setAssigneeIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(userId)) next.delete(userId)
+      else next.add(userId)
+      return next
+    })
 
   const submit = async () => {
     const body: WorkItemCreate = {
@@ -1321,7 +1344,7 @@ function CreateWorkItemDialog({
       target_date: null,
       sort_order: null,
       is_draft: false,
-      assignee_ids: [],
+      assignee_ids: Array.from(assigneeIds),
       label_ids: [],
     }
     try {
@@ -1415,6 +1438,50 @@ function CreateWorkItemDialog({
               </select>
             </label>
           </div>
+
+          {members.length > 0 && (
+            <fieldset className="flex flex-col gap-1.5">
+              <legend className="text-sm font-medium text-slate-700 dark:text-slate-300">
+                Assignees (optional)
+              </legend>
+              <div className="flex flex-wrap gap-1.5">
+                {members.map((m) => {
+                  const isOn = assigneeIds.has(m.user_id)
+                  const initial = (
+                    m.email.split('@')[0]?.[0] ?? '?'
+                  ).toUpperCase()
+                  return (
+                    <button
+                      key={m.user_id}
+                      type="button"
+                      onClick={() => toggleAssignee(m.user_id)}
+                      aria-pressed={isOn}
+                      title={m.email}
+                      className={
+                        'inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] transition ' +
+                        (isOn
+                          ? 'bg-emerald-600 text-white dark:bg-emerald-500'
+                          : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700')
+                      }
+                    >
+                      <span
+                        className={
+                          'inline-flex size-4 items-center justify-center rounded-full text-[9px] font-semibold ' +
+                          (isOn
+                            ? 'bg-white text-emerald-700'
+                            : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-200')
+                        }
+                        aria-hidden
+                      >
+                        {initial}
+                      </span>
+                      <span className="truncate">{m.email}</span>
+                    </button>
+                  )
+                })}
+              </div>
+            </fieldset>
+          )}
 
           {errorMessage && (
             <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
