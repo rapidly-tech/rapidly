@@ -16,7 +16,7 @@ import {
 import Button from '@rapidly-tech/ui/components/forms/Button'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 const MODULE_STATUSES: ModuleStatus[] = [
   'planned',
@@ -120,11 +120,7 @@ export default function ModuleDetailPage() {
           {projectModule.name}
         </h1>
         <ModuleDates projectModule={projectModule} />
-        {projectModule.description && (
-          <p className="text-sm text-slate-500 dark:text-slate-400">
-            {projectModule.description}
-          </p>
-        )}
+        <ModuleDescription projectModule={projectModule} />
       </header>
 
       <section className="flex flex-col gap-3">
@@ -230,6 +226,100 @@ function ModuleStatusPicker({
         </option>
       ))}
     </select>
+  )
+}
+
+function ModuleDescription({
+  projectModule,
+}: {
+  projectModule: ProjectModule
+}) {
+  const mutation = useUpdateProjectModule(projectModule.id)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(projectModule.description ?? '')
+
+  const save = async () => {
+    const next = draft.trim()
+    try {
+      await mutation.mutateAsync({ description: next === '' ? null : next })
+      setEditing(false)
+    } catch {
+      // Inline error path; keep the editor open.
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(projectModule.description ?? '')
+          setEditing(true)
+        }}
+        className="-mx-2 rounded-md px-2 py-1 text-left text-sm text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+      >
+        {projectModule.description ? (
+          projectModule.description
+        ) : (
+          <span className="text-slate-400 italic dark:text-slate-500">
+            Add a description…
+          </span>
+        )}
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-2">
+      <textarea
+        autoFocus
+        value={draft}
+        onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) =>
+          setDraft(e.target.value)
+        }
+        onKeyDown={(e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+          if ((e.metaKey || e.ctrlKey) && e.key === 'Enter') {
+            e.preventDefault()
+            save()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            setDraft(projectModule.description ?? '')
+            setEditing(false)
+          }
+        }}
+        rows={4}
+        placeholder="What does this module deliver?"
+        className="w-full rounded-md border border-slate-300 bg-white p-3 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+      />
+      {mutation.isError && (
+        <span className="text-xs text-red-600 dark:text-red-400">
+          Couldn&apos;t save. Try again.
+        </span>
+      )}
+      <div className="flex justify-end gap-2">
+        <Button
+          type="button"
+          variant="secondary"
+          size="sm"
+          onClick={() => {
+            setDraft(projectModule.description ?? '')
+            setEditing(false)
+            mutation.reset()
+          }}
+          disabled={mutation.isPending}
+        >
+          Cancel
+        </Button>
+        <Button
+          type="button"
+          size="sm"
+          onClick={save}
+          disabled={mutation.isPending}
+        >
+          {mutation.isPending ? 'Saving…' : 'Save'}
+        </Button>
+      </div>
+    </div>
   )
 }
 
