@@ -1,5 +1,6 @@
 'use client'
 
+import { useListWorkspaceMembers } from '@/hooks/api/org'
 import {
   type ModuleStatus,
   type ProjectCycle,
@@ -111,6 +112,18 @@ export default function ProjectDetailPage() {
   )
   const workItems: WorkItem[] = workItemsQuery.data?.data ?? []
 
+  const workspaceId = projectQuery.data?.workspace_id ?? ''
+  const membersQuery = useListWorkspaceMembers(workspaceId, !!workspaceId)
+  // Render compact "+N" avatars on rows + cards by mapping user_id →
+  // workspace member.  The hook is gated on workspaceId so the empty
+  // initial state doesn't fire a "/api/workspaces//members" 404.
+  const memberByUserId = useMemo(() => {
+    const list = workspaceId ? (membersQuery.data?.data ?? []) : []
+    return Object.fromEntries(
+      list.map((m) => [m.user_id, m] as const),
+    ) as Record<string, { email: string }>
+  }, [workspaceId, membersQuery.data])
+
   if (projectQuery.isLoading) {
     return (
       <main className="mx-auto w-full max-w-5xl px-6 py-12">
@@ -180,6 +193,7 @@ export default function ProjectDetailPage() {
           states={states}
           stateById={stateById}
           workItems={workItems}
+          memberByUserId={memberByUserId}
           isLoading={workItemsQuery.isLoading}
           isFetched={workItemsQuery.isFetched}
         />
@@ -900,6 +914,7 @@ function WorkItemsSection({
   states,
   stateById,
   workItems,
+  memberByUserId,
   isLoading,
   isFetched,
 }: {
@@ -907,6 +922,7 @@ function WorkItemsSection({
   states: ProjectState[]
   stateById: Record<string, ProjectState>
   workItems: WorkItem[]
+  memberByUserId: Record<string, { email: string }>
   isLoading: boolean
   isFetched: boolean
 }) {
@@ -961,6 +977,7 @@ function WorkItemsSection({
               key={w.id}
               workItem={w}
               state={stateById[w.state_id]}
+              memberByUserId={memberByUserId}
               identifier={project.identifier}
               projectId={project.id}
             />
@@ -969,7 +986,12 @@ function WorkItemsSection({
       )}
 
       {workItems.length > 0 && layout === 'kanban' && (
-        <KanbanBoard project={project} states={states} workItems={workItems} />
+        <KanbanBoard
+          project={project}
+          states={states}
+          workItems={workItems}
+          memberByUserId={memberByUserId}
+        />
       )}
     </section>
   )
@@ -1021,10 +1043,12 @@ function KanbanBoard({
   project,
   states,
   workItems,
+  memberByUserId,
 }: {
   project: { id: string; identifier: string }
   states: ProjectState[]
   workItems: WorkItem[]
+  memberByUserId: Record<string, { email: string }>
 }) {
   // Group by state in the state's own ordering (sequence then name).
   const sortedStates = useMemo(
@@ -1053,6 +1077,7 @@ function KanbanBoard({
           key={s.id}
           state={s}
           workItems={byState.get(s.id) ?? []}
+          memberByUserId={memberByUserId}
           identifier={project.identifier}
           projectId={project.id}
         />
@@ -1064,11 +1089,13 @@ function KanbanBoard({
 function KanbanColumn({
   state,
   workItems,
+  memberByUserId,
   identifier,
   projectId,
 }: {
   state: ProjectState
   workItems: WorkItem[]
+  memberByUserId: Record<string, { email: string }>
   identifier: string
   projectId: string
 }) {
@@ -1132,6 +1159,7 @@ function KanbanColumn({
           <KanbanCard
             key={w.id}
             workItem={w}
+            memberByUserId={memberByUserId}
             identifier={identifier}
             projectId={projectId}
           />
@@ -1148,10 +1176,12 @@ function KanbanColumn({
 
 function KanbanCard({
   workItem,
+  memberByUserId,
   identifier,
   projectId,
 }: {
   workItem: WorkItem
+  memberByUserId: Record<string, { email: string }>
   identifier: string
   projectId: string
 }) {
@@ -1176,7 +1206,13 @@ function KanbanCard({
         <span className="text-slate-900 dark:text-slate-100">
           {workItem.name}
         </span>
-        <PriorityBadge priority={workItem.priority} />
+        <div className="flex items-center justify-between">
+          <PriorityBadge priority={workItem.priority} />
+          <AssigneeStack
+            assigneeIds={workItem.assignee_ids}
+            memberByUserId={memberByUserId}
+          />
+        </div>
       </Link>
     </li>
   )
@@ -1187,11 +1223,13 @@ function KanbanCard({
 function WorkItemRow({
   workItem,
   state,
+  memberByUserId,
   identifier,
   projectId,
 }: {
   workItem: WorkItem
   state: ProjectState | undefined
+  memberByUserId: Record<string, { email: string }>
   identifier: string
   projectId: string
 }) {
@@ -1222,9 +1260,51 @@ function WorkItemRow({
         <span className="flex-1 truncate text-slate-900 dark:text-slate-100">
           {workItem.name}
         </span>
+        <AssigneeStack
+          assigneeIds={workItem.assignee_ids}
+          memberByUserId={memberByUserId}
+        />
         <PriorityBadge priority={workItem.priority} />
       </Link>
     </li>
+  )
+}
+
+function AssigneeStack({
+  assigneeIds,
+  memberByUserId,
+}: {
+  assigneeIds: string[] | undefined
+  memberByUserId: Record<string, { email: string }>
+}) {
+  if (!assigneeIds || assigneeIds.length === 0) return null
+  // Resolve only members we know about — a stale id (member removed
+  // mid-session) is silently skipped rather than rendered as a blank
+  // pill.
+  const resolved = assigneeIds.map((id) => memberByUserId[id]).filter(Boolean)
+  if (resolved.length === 0) return null
+  const visible = resolved.slice(0, 3)
+  const overflow = resolved.length - visible.length
+  return (
+    <span className="flex -space-x-1">
+      {visible.map((m, i) => {
+        const initial = (m.email.split('@')[0]?.[0] ?? '?').toUpperCase()
+        return (
+          <span
+            key={`${m.email}-${i}`}
+            title={m.email}
+            className="inline-flex size-4 items-center justify-center rounded-full bg-emerald-100 text-[9px] font-semibold text-emerald-700 ring-1 ring-white dark:bg-emerald-900 dark:text-emerald-200 dark:ring-slate-900"
+          >
+            {initial}
+          </span>
+        )
+      })}
+      {overflow > 0 && (
+        <span className="inline-flex size-4 items-center justify-center rounded-full bg-slate-200 text-[9px] font-semibold text-slate-700 ring-1 ring-white dark:bg-slate-700 dark:text-slate-200 dark:ring-slate-900">
+          +{overflow}
+        </span>
+      )}
+    </span>
   )
 }
 
