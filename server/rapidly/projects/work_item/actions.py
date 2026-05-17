@@ -29,6 +29,7 @@ from rapidly.models import (
     WorkItemActivityVerb,
     WorkItemAssignee,
     WorkItemLabel,
+    WorkItemPriority,
     WorkspaceMembership,
 )
 from rapidly.postgres import AsyncReadSession, AsyncSession
@@ -59,6 +60,9 @@ async def list_items(
     project_id: Sequence[UUID] | None = None,
     state_id: Sequence[UUID] | None = None,
     parent_id: UUID | None = None,
+    priority: Sequence[WorkItemPriority] | None = None,
+    label_id: Sequence[UUID] | None = None,
+    name: str | None = None,
     include_archived: bool = False,
     include_drafts: bool = False,
     pagination: PaginationParams,
@@ -73,6 +77,29 @@ async def list_items(
         statement = statement.where(WorkItem.state_id.in_(state_id))
     if parent_id is not None:
         statement = statement.where(WorkItem.parent_id == parent_id)
+    if priority is not None:
+        statement = statement.where(WorkItem.priority.in_(priority))
+    if label_id is not None:
+        # WorkItem<->Label is a soft-deleted edge table.  An EXISTS
+        # subquery keeps the result set distinct without a GROUP BY.
+        statement = statement.where(
+            select(WorkItemLabel.work_item_id)
+            .where(
+                WorkItemLabel.work_item_id == WorkItem.id,
+                WorkItemLabel.label_id.in_(label_id),
+                WorkItemLabel.deleted_at.is_(None),
+            )
+            .exists()
+        )
+    if name is not None and name.strip():
+        # Escape SQL ``%`` and ``_`` wildcards so callers can't bypass
+        # the substring contract with ``name=%``.  Mirrors the project /
+        # state / label endpoints — see server/CLAUDE.md "Substring
+        # search filter".
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(WorkItem.name.ilike(f"%{escaped}%", escape="\\"))
     if not include_archived:
         statement = statement.where(WorkItem.archived_at.is_(None))
     if not include_drafts:
