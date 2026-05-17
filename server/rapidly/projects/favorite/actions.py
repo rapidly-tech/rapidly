@@ -59,7 +59,9 @@ async def create(
     auth_subject: AuthPrincipal[User],
     data: UserFavoriteCreate,
 ) -> UserFavorite:
-    await _assert_entity_readable(session, auth_subject, data.entity_type, data.entity_id)
+    await _assert_entity_readable(
+        session, auth_subject, data.entity_type, data.entity_id
+    )
 
     repo = UserFavoriteRepository.from_session(session)
     favorite = UserFavorite(
