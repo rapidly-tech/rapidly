@@ -192,15 +192,27 @@ async def update(
     if scalar_fields:
         work_item = await repo.update(work_item, update_dict=scalar_fields, flush=True)
 
+    assignee_diff: tuple[set[UUID], set[UUID]] | None = None
     if data.assignee_ids is not None:
         if data.assignee_ids:
             await _verify_assignees(session, project.workspace_id, data.assignee_ids)
+        # Capture the current set before reconcile so we can emit one
+        # ``assignee_added`` / ``assignee_removed`` activity row per
+        # changed id — the reconcile helper itself doesn't surface
+        # the diff.
+        before = set(await get_assignee_ids(session, work_item.id))
+        after = set(data.assignee_ids)
         await _reconcile_assignees(session, work_item.id, data.assignee_ids)
+        assignee_diff = (after - before, before - after)
 
+    label_diff: tuple[set[UUID], set[UUID]] | None = None
     if data.label_ids is not None:
         if data.label_ids:
             await _verify_labels(session, project.id, data.label_ids)
+        before = set(await get_label_ids(session, work_item.id))
+        after = set(data.label_ids)
         await _reconcile_labels(session, work_item.id, data.label_ids)
+        label_diff = (after - before, before - after)
 
     # Activity log — one row per material change.  Field-level emits
     # keep the timeline readable; bulk "updated" events are less useful.
@@ -224,6 +236,46 @@ async def update(
             old_value=previous_priority,
             new_value=data.priority,
         )
+    if assignee_diff is not None:
+        added, removed = assignee_diff
+        for user_id in added:
+            await emit_activity(
+                session,
+                work_item=work_item,
+                actor=auth_subject,
+                verb=WorkItemActivityVerb.assignee_added,
+                field="assignee_ids",
+                new_value=str(user_id),
+            )
+        for user_id in removed:
+            await emit_activity(
+                session,
+                work_item=work_item,
+                actor=auth_subject,
+                verb=WorkItemActivityVerb.assignee_removed,
+                field="assignee_ids",
+                old_value=str(user_id),
+            )
+    if label_diff is not None:
+        added, removed = label_diff
+        for label_id in added:
+            await emit_activity(
+                session,
+                work_item=work_item,
+                actor=auth_subject,
+                verb=WorkItemActivityVerb.label_added,
+                field="label_ids",
+                new_value=str(label_id),
+            )
+        for label_id in removed:
+            await emit_activity(
+                session,
+                work_item=work_item,
+                actor=auth_subject,
+                verb=WorkItemActivityVerb.label_removed,
+                field="label_ids",
+                old_value=str(label_id),
+            )
 
     return work_item
 
