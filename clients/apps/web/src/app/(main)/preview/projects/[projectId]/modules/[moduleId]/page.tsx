@@ -16,7 +16,7 @@ import {
 import Button from '@rapidly-tech/ui/components/forms/Button'
 import Link from 'next/link'
 import { useParams } from 'next/navigation'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 
 const MODULE_STATUSES: ModuleStatus[] = [
   'planned',
@@ -116,9 +116,7 @@ export default function ModuleDetailPage() {
           </span>
           <ModuleStatusPicker projectModule={projectModule} />
         </div>
-        <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-          {projectModule.name}
-        </h1>
+        <ModuleName projectModule={projectModule} />
         <ModuleDates projectModule={projectModule} />
         {projectModule.description && (
           <p className="text-sm text-slate-500 dark:text-slate-400">
@@ -230,6 +228,74 @@ function ModuleStatusPicker({
         </option>
       ))}
     </select>
+  )
+}
+
+function ModuleName({ projectModule }: { projectModule: ProjectModule }) {
+  const mutation = useUpdateProjectModule(projectModule.id)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(projectModule.name)
+
+  const commit = async () => {
+    const next = draft.trim()
+    if (!next || next === projectModule.name) {
+      setDraft(projectModule.name)
+      setEditing(false)
+      return
+    }
+    try {
+      await mutation.mutateAsync({ name: next })
+      setEditing(false)
+    } catch {
+      // Keep input open; inline error visible.
+    }
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(projectModule.name)
+          setEditing(true)
+        }}
+        className="-mx-2 rounded-md px-2 py-1 text-left text-3xl font-semibold text-slate-900 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+        title="Click to rename"
+      >
+        {projectModule.name}
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setDraft(e.target.value)
+        }
+        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            setDraft(projectModule.name)
+            mutation.reset()
+            setEditing(false)
+          }
+        }}
+        onBlur={commit}
+        maxLength={512}
+        className="-mx-2 rounded-md border border-emerald-300 bg-white px-2 py-1 text-3xl font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-400 dark:border-emerald-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+      {mutation.isError && (
+        <span className="text-xs text-red-600 dark:text-red-400">
+          Couldn&apos;t save. Press Esc to discard.
+        </span>
+      )}
+    </div>
   )
 }
 
