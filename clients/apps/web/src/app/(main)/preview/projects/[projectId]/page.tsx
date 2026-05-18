@@ -2,6 +2,7 @@
 
 import {
   type ModuleStatus,
+  type Project,
   type ProjectCycle,
   type ProjectCycleCreate,
   type ProjectModule,
@@ -23,6 +24,7 @@ import {
   useProjectPages,
   useProjectStates,
   useReassignWorkItem,
+  useUpdateProject,
   useWorkItems,
 } from '@/hooks/api/projects'
 import Button from '@rapidly-tech/ui/components/forms/Button'
@@ -147,9 +149,7 @@ export default function ProjectDetailPage() {
             <span className="rounded-md bg-slate-100 px-2 py-0.5 font-mono text-sm text-slate-700 dark:bg-slate-800 dark:text-slate-300">
               {project.identifier}
             </span>
-            <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-              {project.name}
-            </h1>
+            <ProjectName project={project} />
           </div>
           {states.length > 0 && (
             <CreateWorkItemDialog projectId={project.id} states={states} />
@@ -185,6 +185,82 @@ export default function ProjectDetailPage() {
         />
       )}
     </main>
+  )
+}
+
+// ── Project name (inline edit) ──
+
+function ProjectName({ project }: { project: Project }) {
+  const mutation = useUpdateProject(project.id)
+  const [editing, setEditing] = useState(false)
+  const [draft, setDraft] = useState(project.name)
+
+  const commit = async () => {
+    const next = draft.trim()
+    if (!next || next === project.name) {
+      // Empty or unchanged: silently exit without firing a no-op
+      // PATCH (or, worse, hitting the NOT NULL name constraint).
+      setDraft(project.name)
+      setEditing(false)
+      return
+    }
+    try {
+      await mutation.mutateAsync({ name: next })
+      setEditing(false)
+    } catch {
+      // Keep input open; inline error visible.
+    }
+  }
+
+  const cancel = () => {
+    setDraft(project.name)
+    mutation.reset()
+    setEditing(false)
+  }
+
+  if (!editing) {
+    return (
+      <button
+        type="button"
+        onClick={() => {
+          setDraft(project.name)
+          setEditing(true)
+        }}
+        className="-mx-2 rounded-md px-2 py-1 text-left text-3xl font-semibold text-slate-900 transition hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-slate-800"
+        title="Click to rename"
+      >
+        {project.name}
+      </button>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-1">
+      <input
+        autoFocus
+        value={draft}
+        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+          setDraft(e.target.value)
+        }
+        onKeyDown={(e: React.KeyboardEvent<HTMLInputElement>) => {
+          if (e.key === 'Enter') {
+            e.preventDefault()
+            commit()
+          } else if (e.key === 'Escape') {
+            e.preventDefault()
+            cancel()
+          }
+        }}
+        onBlur={commit}
+        maxLength={512}
+        className="-mx-2 rounded-md border border-emerald-300 bg-white px-2 py-1 text-3xl font-semibold text-slate-900 outline-none focus:ring-2 focus:ring-emerald-400 dark:border-emerald-600 dark:bg-slate-900 dark:text-slate-100"
+      />
+      {mutation.isError && (
+        <span className="text-xs text-red-600 dark:text-red-400">
+          Couldn&apos;t save. Press Esc to discard.
+        </span>
+      )}
+    </div>
   )
 }
 
