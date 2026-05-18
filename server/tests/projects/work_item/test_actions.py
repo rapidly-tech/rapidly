@@ -234,3 +234,152 @@ class TestDelete:
                 await work_item_actions.delete(session, principal, work_item)
             assert gate.await_args is not None
             assert gate.await_args.kwargs["minimum"] == ProjectMemberRole.member
+
+
+@pytest.mark.asyncio
+class TestArchive:
+    async def test_archive_requires_member(self) -> None:
+        principal = _user_principal()
+        work_item = _work_item()
+        session = MagicMock()
+        project_repo = _project_repo_returning(MagicMock(id=work_item.project_id))
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.ProjectRepository.from_session",
+                return_value=project_repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.require_role",
+                side_effect=NotPermitted(),
+            ) as gate,
+        ):
+            with pytest.raises(NotPermitted):
+                await work_item_actions.archive(session, principal, work_item)
+            assert gate.await_args is not None
+            assert gate.await_args.kwargs["minimum"] == ProjectMemberRole.member
+
+    async def test_unarchive_requires_member(self) -> None:
+        principal = _user_principal()
+        work_item = _work_item()
+        session = MagicMock()
+        project_repo = _project_repo_returning(MagicMock(id=work_item.project_id))
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.ProjectRepository.from_session",
+                return_value=project_repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.require_role",
+                side_effect=NotPermitted(),
+            ) as gate,
+        ):
+            with pytest.raises(NotPermitted):
+                await work_item_actions.unarchive(session, principal, work_item)
+            assert gate.await_args is not None
+            assert gate.await_args.kwargs["minimum"] == ProjectMemberRole.member
+
+    async def test_archive_sets_archived_at_to_now(self) -> None:
+        # Pin: archive uses now_utc(), not a hard-coded sentinel; the
+        # repo.update call sees an actual datetime in the patch dict.
+        principal = _user_principal()
+        work_item = _work_item()
+        session = MagicMock()
+        project_repo = _project_repo_returning(MagicMock(id=work_item.project_id))
+        repo = MagicMock()
+        repo.update = AsyncMock(return_value=work_item)
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.ProjectRepository.from_session",
+                return_value=project_repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.require_role",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.emit_activity",
+                new_callable=AsyncMock,
+            ),
+        ):
+            await work_item_actions.archive(session, principal, work_item)
+        assert repo.update.await_args is not None
+        update_dict = repo.update.await_args.kwargs["update_dict"]
+        assert "archived_at" in update_dict
+        assert update_dict["archived_at"] is not None
+
+    async def test_archive_emits_activity(self) -> None:
+        # Pin: archived / unarchived activity rows are what the
+        # detail-page timeline shows.  Skipping emit would leave a
+        # silent gap between "state_changed" and a removed item.
+        principal = _user_principal()
+        work_item = _work_item()
+        session = MagicMock()
+        project_repo = _project_repo_returning(MagicMock(id=work_item.project_id))
+        repo = MagicMock()
+        repo.update = AsyncMock(return_value=work_item)
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.ProjectRepository.from_session",
+                return_value=project_repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.require_role",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.emit_activity",
+                new_callable=AsyncMock,
+            ) as emit,
+        ):
+            await work_item_actions.archive(session, principal, work_item)
+        emit.assert_awaited_once()
+        from rapidly.models import WorkItemActivityVerb
+
+        assert emit.await_args.kwargs["verb"] == WorkItemActivityVerb.archived
+
+    async def test_unarchive_clears_archived_at(self) -> None:
+        principal = _user_principal()
+        work_item = _work_item()
+        session = MagicMock()
+        project_repo = _project_repo_returning(MagicMock(id=work_item.project_id))
+        repo = MagicMock()
+        repo.update = AsyncMock(return_value=work_item)
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions.ProjectRepository.from_session",
+                return_value=project_repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.require_role",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.emit_activity",
+                new_callable=AsyncMock,
+            ) as emit,
+        ):
+            await work_item_actions.unarchive(session, principal, work_item)
+        assert repo.update.await_args is not None
+        update_dict = repo.update.await_args.kwargs["update_dict"]
+        assert update_dict == {"archived_at": None}
+        emit.assert_awaited_once()
+        from rapidly.models import WorkItemActivityVerb
+
+        assert emit.await_args.kwargs["verb"] == WorkItemActivityVerb.unarchived

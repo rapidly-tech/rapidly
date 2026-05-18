@@ -18,6 +18,7 @@ from sqlalchemy import select
 
 from rapidly.core.ordering import Sorting
 from rapidly.core.pagination import PaginationParams, paginate
+from rapidly.core.utils import now_utc
 from rapidly.errors import BadRequest, ResourceNotFound
 from rapidly.identity.auth.models import AuthPrincipal, User, Workspace
 from rapidly.models import (
@@ -225,6 +226,47 @@ async def update(
             new_value=data.priority,
         )
 
+    return work_item
+
+
+async def archive(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    work_item: WorkItem,
+) -> WorkItem:
+    # Same role floor as ``update`` — archiving is reversible, doesn't
+    # destroy data, and shouldn't require admin.  Mirrors the per-row
+    # WorkItemUpdate authorisation rather than the project-wide
+    # archive (which gates on admin because it hides every work item).
+    await _ensure_member(session, auth_subject, work_item.project_id)
+    repo = WorkItemRepository.from_session(session)
+    work_item = await repo.update(work_item, update_dict={"archived_at": now_utc()})
+    # WorkItemActivityVerb defines ``archived`` / ``unarchived`` for
+    # exactly this transition — emit so the detail-page timeline shows
+    # the action.
+    await emit_activity(
+        session,
+        work_item=work_item,
+        actor=auth_subject,
+        verb=WorkItemActivityVerb.archived,
+    )
+    return work_item
+
+
+async def unarchive(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    work_item: WorkItem,
+) -> WorkItem:
+    await _ensure_member(session, auth_subject, work_item.project_id)
+    repo = WorkItemRepository.from_session(session)
+    work_item = await repo.update(work_item, update_dict={"archived_at": None})
+    await emit_activity(
+        session,
+        work_item=work_item,
+        actor=auth_subject,
+        verb=WorkItemActivityVerb.unarchived,
+    )
     return work_item
 
 

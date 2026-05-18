@@ -146,6 +146,45 @@ async def update(
     return await _to_schema(session, updated)
 
 
+# ── Archive / Unarchive ──
+
+
+@router.post(
+    "/{id}/archive",
+    summary="Archive Work Item",
+    response_model=schemas.WorkItem,
+    responses={404: {}},
+)
+async def archive(
+    id: schemas.WorkItemID,
+    auth_subject: auth.WorkItemsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> schemas.WorkItem:
+    work_item = await work_item_actions.get(session, auth_subject, id)
+    if work_item is None:
+        raise ResourceNotFound()
+    archived = await work_item_actions.archive(session, auth_subject, work_item)
+    return await _to_schema(session, archived)
+
+
+@router.post(
+    "/{id}/unarchive",
+    summary="Unarchive Work Item",
+    response_model=schemas.WorkItem,
+    responses={404: {}},
+)
+async def unarchive(
+    id: schemas.WorkItemID,
+    auth_subject: auth.WorkItemsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> schemas.WorkItem:
+    work_item = await work_item_actions.get(session, auth_subject, id)
+    if work_item is None:
+        raise ResourceNotFound()
+    restored = await work_item_actions.unarchive(session, auth_subject, work_item)
+    return await _to_schema(session, restored)
+
+
 # ── Delete ──
 
 
