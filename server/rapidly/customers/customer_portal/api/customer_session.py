@@ -117,9 +117,17 @@ async def introspect(
     },
 )
 async def request(
+    request: Request,
     customer_session_code_request: CustomerSessionCodeRequest,
     session: AsyncSession = Depends(get_db_session),
+    redis: Redis = Depends(get_redis),
 ) -> Response | None:
+    # Rate-limit per IP.  Without this an attacker can hammer the
+    # endpoint to mail-bomb arbitrary addresses and burn through the
+    # email-provider quota.  Distinct ``key_prefix`` from
+    # ``/authenticate`` so a benign user verifying a code doesn't
+    # share quota with abuse-driven request floods on the same IP.
+    await check_otp_rate_limit(redis, request, key_prefix="portal_request")
     try:
         code_record, code = await customer_session_service.request(
             session,
