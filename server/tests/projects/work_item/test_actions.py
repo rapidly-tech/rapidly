@@ -234,3 +234,115 @@ class TestDelete:
                 await work_item_actions.delete(session, principal, work_item)
             assert gate.await_args is not None
             assert gate.await_args.kwargs["minimum"] == ProjectMemberRole.member
+
+
+@pytest.mark.asyncio
+class TestUpdateAssigneeLabelActivity:
+    async def test_assignee_diff_emits_added_and_removed(self) -> None:
+        # Pin: each assignee added emits ``assignee_added``, each
+        # removed emits ``assignee_removed``.  Without these the
+        # detail-page timeline silently drops bag-of-rel changes.
+        principal = _user_principal()
+        work_item = _work_item()
+        session = MagicMock()
+        repo = MagicMock()
+        repo.update = AsyncMock(return_value=work_item)
+
+        kept_id = uuid4()
+        removed_id = uuid4()
+        added_id = uuid4()
+        next_ids = [kept_id, added_id]
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions._ensure_member",
+                new_callable=AsyncMock,
+                return_value=MagicMock(id=work_item.project_id, workspace_id=uuid4()),
+            ),
+            patch(
+                "rapidly.projects.work_item.actions._verify_assignees",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions._reconcile_assignees",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.get_assignee_ids",
+                new_callable=AsyncMock,
+                return_value=[kept_id, removed_id],
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.emit_activity",
+                new_callable=AsyncMock,
+            ) as emit,
+        ):
+            await work_item_actions.update(
+                session,
+                principal,
+                work_item,
+                WorkItemUpdate(assignee_ids=next_ids),
+            )
+
+        from rapidly.models import WorkItemActivityVerb
+
+        verbs = [call.kwargs["verb"] for call in emit.await_args_list]
+        assert verbs.count(WorkItemActivityVerb.assignee_added) == 1
+        assert verbs.count(WorkItemActivityVerb.assignee_removed) == 1
+
+    async def test_label_diff_emits_added_and_removed(self) -> None:
+        principal = _user_principal()
+        work_item = _work_item()
+        session = MagicMock()
+        repo = MagicMock()
+        repo.update = AsyncMock(return_value=work_item)
+
+        kept_id = uuid4()
+        removed_id = uuid4()
+        added_id = uuid4()
+        next_ids = [kept_id, added_id]
+
+        with (
+            patch(
+                "rapidly.projects.work_item.actions._ensure_member",
+                new_callable=AsyncMock,
+                return_value=MagicMock(id=work_item.project_id, workspace_id=uuid4()),
+            ),
+            patch(
+                "rapidly.projects.work_item.actions._verify_labels",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions._reconcile_labels",
+                new_callable=AsyncMock,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.get_label_ids",
+                new_callable=AsyncMock,
+                return_value=[kept_id, removed_id],
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.WorkItemRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.projects.work_item.actions.emit_activity",
+                new_callable=AsyncMock,
+            ) as emit,
+        ):
+            await work_item_actions.update(
+                session,
+                principal,
+                work_item,
+                WorkItemUpdate(label_ids=next_ids),
+            )
+
+        from rapidly.models import WorkItemActivityVerb
+
+        verbs = [call.kwargs["verb"] for call in emit.await_args_list]
+        assert verbs.count(WorkItemActivityVerb.label_added) == 1
+        assert verbs.count(WorkItemActivityVerb.label_removed) == 1
