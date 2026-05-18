@@ -3,14 +3,16 @@
 One-time login-code lookup. Four load-bearing surfaces:
 
 - The lookup matches on ALL THREE fields: ``code_hash`` (hash
-  equality), ``email`` (the address the code was sent to), AND
+  equality), ``email`` (case-insensitive), AND
   ``expires_at > now()``. Drift to drop the email check would
   let an attacker who intercepted ANYONE'S code redeem it
   against THEIR account; drift to drop the expiry would let
   stale codes log a user in forever.
-- Hash + email use EXACT equality (no LIKE / case-folding) —
-  drift to LIKE would let an attacker brute-force one
-  character at a time.
+- ``code_hash`` is the secret and uses EXACT equality — that
+  is what defends against brute force.  Email is case-folded
+  so a user who requests with ``Alice@…`` and verifies with
+  ``alice@…`` can still sign in; LIKE on either field would
+  still be a brute-force vector and stays banned.
 - ``user`` is eager-loaded via ``joinedload`` so the post-
   redemption flow can issue a session without a follow-up
   fetch (drift to lazy-load would N+1 every login).
@@ -53,10 +55,32 @@ class TestGetValidByHashAndEmail:
 
         sql = _compile(captured["stmt"]).lower()
         assert "login_codes.code_hash = 'hash_abc'" in sql
-        assert "login_codes.email = 'alice@example.com'" in sql
+        # Email is now case-folded — the WHERE clause wraps the column
+        # in lower(...) and compares against the lowercased argument.
+        assert "lower(login_codes.email) = 'alice@example.com'" in sql
         assert "login_codes.expires_at >" in sql
         # The frozen now() literal appears in the expiry comparison.
         assert "2026-04-25" in sql
+
+    async def test_email_lookup_is_case_insensitive(self) -> None:
+        # Regression: a user who requested the code with
+        # ``Alice@Example.com`` and verifies with ``alice@example.com``
+        # must still match.  The code_hash secret is exact-match so
+        # brute force is still infeasible.
+        repo = LoginCodeRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _capture(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            return None
+
+        repo.get_one_or_none = AsyncMock(side_effect=_capture)  # type: ignore[method-assign]
+        await repo.get_valid_by_hash_and_email("hash_abc", "Alice@Example.com")
+
+        sql = _compile(captured["stmt"]).lower()
+        # The caller's case is lowered before binding; both sides land
+        # in lowercase so the comparison is order-of-argument-safe.
+        assert "lower(login_codes.email) = 'alice@example.com'" in sql
 
     async def test_uses_exact_equality_no_like(self) -> None:
         # Pin: equality, not LIKE. Drift to LIKE would let an
