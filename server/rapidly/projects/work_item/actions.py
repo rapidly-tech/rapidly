@@ -240,7 +240,17 @@ async def archive(
     # archive (which gates on admin because it hides every work item).
     await _ensure_member(session, auth_subject, work_item.project_id)
     repo = WorkItemRepository.from_session(session)
-    return await repo.update(work_item, update_dict={"archived_at": now_utc()})
+    work_item = await repo.update(work_item, update_dict={"archived_at": now_utc()})
+    # WorkItemActivityVerb defines ``archived`` / ``unarchived`` for
+    # exactly this transition — emit so the detail-page timeline shows
+    # the action.
+    await emit_activity(
+        session,
+        work_item=work_item,
+        actor=auth_subject,
+        verb=WorkItemActivityVerb.archived,
+    )
+    return work_item
 
 
 async def unarchive(
@@ -250,7 +260,14 @@ async def unarchive(
 ) -> WorkItem:
     await _ensure_member(session, auth_subject, work_item.project_id)
     repo = WorkItemRepository.from_session(session)
-    return await repo.update(work_item, update_dict={"archived_at": None})
+    work_item = await repo.update(work_item, update_dict={"archived_at": None})
+    await emit_activity(
+        session,
+        work_item=work_item,
+        actor=auth_subject,
+        verb=WorkItemActivityVerb.unarchived,
+    )
+    return work_item
 
 
 async def delete(
