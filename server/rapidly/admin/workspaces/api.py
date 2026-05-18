@@ -321,9 +321,9 @@ async def list(
             escaped = escape_like(query)
             statement = statement.where(
                 or_(
-                    Workspace.name.ilike(f"%{escaped}%"),
-                    Workspace.slug.ilike(f"%{escaped}%"),
-                    Workspace.website.ilike(f"%{escaped}%"),
+                    Workspace.name.ilike(f"%{escaped}%", escape="\\"),
+                    Workspace.slug.ilike(f"%{escaped}%", escape="\\"),
+                    Workspace.website.ilike(f"%{escaped}%", escape="\\"),
                 )
             )
     if workspace_status:
