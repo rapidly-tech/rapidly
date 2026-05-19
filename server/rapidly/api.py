@@ -61,6 +61,7 @@ from rapidly.platform.workspace_access_token.api import (
     router as workspace_access_token_router,
 )
 from rapidly.projects.activity.api import router as work_item_activity_router
+from rapidly.projects.attachment.api import router as work_item_attachment_router
 from rapidly.projects.comment.api import router as work_item_comment_router
 from rapidly.projects.cycle.api import router as project_cycle_router
 
@@ -190,6 +191,8 @@ router.include_router(work_item_router)
 router.include_router(work_item_comment_router)
 # work item relations (blocks, relates_to, duplicates)
 router.include_router(work_item_relation_router)
+# work item attachments (uploaded files)
+router.include_router(work_item_attachment_router)
 # project cycles (sprints)
 router.include_router(project_cycle_router)
 # project modules (feature workstreams)

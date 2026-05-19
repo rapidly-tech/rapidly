@@ -84,6 +84,7 @@ from .webhook_event import WebhookEvent
 from .work_item import WorkItem, WorkItemPriority
 from .work_item_activity import WorkItemActivity, WorkItemActivityVerb
 from .work_item_assignee import WorkItemAssignee
+from .work_item_attachment import WorkItemAttachment
 from .work_item_comment import WorkItemComment
 from .work_item_label import WorkItemLabel
 from .work_item_relation import WorkItemRelation, WorkItemRelationType
@@ -167,6 +168,7 @@ __all__ = [
     "WorkItemActivity",
     "WorkItemActivityVerb",
     "WorkItemAssignee",
+    "WorkItemAttachment",
     "WorkItemComment",
     "WorkItemLabel",
     "WorkItemPriority",
