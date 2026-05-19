@@ -71,6 +71,8 @@ def upgrade() -> None:
         "work_item_activities",
         # Phase 15 (pages)
         "project_pages",
+        # Phase 16 (saved views)
+        "project_views",
     }
     bind = op.get_bind()
     tables_to_create = [
