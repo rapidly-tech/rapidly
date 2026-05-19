@@ -686,3 +686,76 @@ export const useDeleteUserFavorite = () =>
       getQueryClient().invalidateQueries({ queryKey: ['user_favorites'] })
     },
   })
+
+// ══════════════════════════════════════════════
+//  Project members
+// ══════════════════════════════════════════════
+
+export type ProjectMember = schemas['ProjectMember']
+export type ProjectMemberCreate = schemas['ProjectMemberCreate']
+export type ProjectMemberUpdate = schemas['ProjectMemberUpdate']
+export type ProjectMemberRole = schemas['ProjectMemberRole']
+
+const memberKey = (...parts: (string | object)[]) => [
+  'project_members',
+  ...parts,
+]
+
+export const useProjectMembers = (
+  params?: operations['project-members:list']['parameters']['query'],
+  enabled: boolean = true,
+) =>
+  useQuery({
+    queryKey: memberKey('list', params ?? {}),
+    queryFn: () =>
+      resolveResponse(
+        api.GET('/api/project-members/', { params: { query: params } }),
+      ),
+    retry: baseRetry,
+    enabled,
+  })
+
+export const useProjectMember = (id: string | undefined) =>
+  useQuery({
+    queryKey: memberKey('detail', { id: id ?? '' }),
+    queryFn: () =>
+      resolveResponse(
+        api.GET('/api/project-members/{id}', {
+          params: { path: { id: id! } },
+        }),
+      ),
+    retry: baseRetry,
+    enabled: !!id,
+  })
+
+export const useCreateProjectMember = () =>
+  useMutation({
+    mutationFn: (body: ProjectMemberCreate) =>
+      resolveResponse(api.POST('/api/project-members/', { body })),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['project_members'] })
+    },
+  })
+
+export const useUpdateProjectMember = () =>
+  useMutation({
+    mutationFn: ({ id, body }: { id: string; body: ProjectMemberUpdate }) =>
+      resolveResponse(
+        api.PATCH('/api/project-members/{id}', {
+          params: { path: { id } },
+          body,
+        }),
+      ),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['project_members'] })
+    },
+  })
+
+export const useDeleteProjectMember = () =>
+  useMutation({
+    mutationFn: (id: string) =>
+      api.DELETE('/api/project-members/{id}', { params: { path: { id } } }),
+    onSuccess: () => {
+      getQueryClient().invalidateQueries({ queryKey: ['project_members'] })
+    },
+  })

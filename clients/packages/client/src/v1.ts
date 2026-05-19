@@ -3379,6 +3379,58 @@ export interface paths {
     patch?: never
     trace?: never
   }
+  '/api/project-members/': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * List Project Members
+     * @description **Scopes**: `project_members:read` `project_members:write` `projects:read` `projects:write`
+     */
+    get: operations['project-members:list']
+    put?: never
+    /**
+     * Add Project Member
+     * @description **Scopes**: `project_members:write`
+     */
+    post: operations['project-members:create']
+    delete?: never
+    options?: never
+    head?: never
+    patch?: never
+    trace?: never
+  }
+  '/api/project-members/{id}': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    /**
+     * Get Project Member
+     * @description **Scopes**: `project_members:read` `project_members:write` `projects:read` `projects:write`
+     */
+    get: operations['project-members:get']
+    put?: never
+    post?: never
+    /**
+     * Remove Project Member
+     * @description **Scopes**: `project_members:write`
+     */
+    delete: operations['project-members:delete']
+    options?: never
+    head?: never
+    /**
+     * Update Project Member
+     * @description **Scopes**: `project_members:write`
+     */
+    patch: operations['project-members:update']
+    trace?: never
+  }
   '/api/project-states/': {
     parameters: {
       query?: never
@@ -5068,6 +5120,8 @@ export interface components {
        *       "file_sharing:write": "Create or modify file sharing sessions",
        *       "projects:read": "Read projects",
        *       "projects:write": "Create or modify projects",
+       *       "project_members:read": "Read project members",
+       *       "project_members:write": "Create or modify project members",
        *       "project_states:read": "Read project workflow states",
        *       "project_states:write": "Create or modify project workflow states",
        *       "project_labels:read": "Read project labels",
@@ -5147,6 +5201,8 @@ export interface components {
        *       "file_sharing:write": "Create or modify file sharing sessions",
        *       "projects:read": "Read projects",
        *       "projects:write": "Create or modify projects",
+       *       "project_members:read": "Read project members",
+       *       "project_members:write": "Create or modify project members",
        *       "project_states:read": "Read project workflow states",
        *       "project_states:write": "Create or modify project workflow states",
        *       "project_labels:read": "Read project labels",
@@ -5244,6 +5300,8 @@ export interface components {
       | 'file_sharing:write'
       | 'projects:read'
       | 'projects:write'
+      | 'project_members:read'
+      | 'project_members:write'
       | 'project_states:read'
       | 'project_states:write'
       | 'project_labels:read'
@@ -9585,7 +9643,7 @@ export interface components {
       response_types: 'code'[]
       /**
        * Scope
-       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write user_favorites:read user_favorites:write
+       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_members:read project_members:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write user_favorites:read user_favorites:write
        */
       scope: string
       /** Client Uri */
@@ -9653,7 +9711,7 @@ export interface components {
       response_types: 'code'[]
       /**
        * Scope
-       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write user_favorites:read user_favorites:write
+       * @default openid profile email user:write workspaces:read workspaces:write custom_fields:read custom_fields:write shares:read shares:write events:read events:write files:read files:write customers:read customers:write members:read members:write customer_sessions:write member_sessions:write payments:read metrics:read webhooks:read webhooks:write customer_portal:read customer_portal:write notifications:read notifications:write notification_recipients:read notification_recipients:write workspace_access_tokens:read workspace_access_tokens:write file_sharing:read file_sharing:write projects:read projects:write project_members:read project_members:write project_states:read project_states:write project_labels:read project_labels:write project_estimates:read project_estimates:write work_items:read work_items:write work_item_comments:read work_item_comments:write work_item_relations:read work_item_relations:write project_cycles:read project_cycles:write project_modules:read project_modules:write work_item_activities:read project_pages:read project_pages:write user_favorites:read user_favorites:write
        */
       scope: string
       /** Client Uri */
@@ -9874,6 +9932,12 @@ export interface components {
     PaginatedList_ProjectLabel_: {
       /** Data */
       data: components['schemas']['ProjectLabel'][]
+      meta: components['schemas']['PageMeta']
+    }
+    /** PaginatedList[ProjectMember] */
+    PaginatedList_ProjectMember_: {
+      /** Data */
+      data: components['schemas']['ProjectMember'][]
       meta: components['schemas']['PageMeta']
     }
     /** PaginatedList[ProjectModule] */
@@ -10618,6 +10682,69 @@ export interface components {
       /** Description */
       description?: string | null
     }
+    /** ProjectMember */
+    ProjectMember: {
+      /**
+       * Created At
+       * Format: date-time
+       * @description Creation timestamp of the object.
+       */
+      created_at: string
+      /**
+       * Modified At
+       * @description Last modification timestamp of the object.
+       */
+      modified_at: string | null
+      /**
+       * Id
+       * Format: uuid4
+       * @description The ID of the object.
+       */
+      id: string
+      /**
+       * Project Id
+       * Format: uuid4
+       */
+      project_id: string
+      /**
+       * User Id
+       * Format: uuid4
+       */
+      user_id: string
+      role: components['schemas']['ProjectMemberRole']
+    }
+    /** ProjectMemberCreate */
+    ProjectMemberCreate: {
+      /**
+       * Project Id
+       * Format: uuid4
+       * @description Owning project.
+       */
+      project_id: string
+      /**
+       * User Id
+       * Format: uuid4
+       * @description User to add to the project.
+       */
+      user_id: string
+      /** @default member */
+      role: components['schemas']['ProjectMemberRole']
+    }
+    /**
+     * ProjectMemberRole
+     * @description Project-scoped role.  Hierarchical: admin > member > guest.
+     * @enum {string}
+     */
+    ProjectMemberRole: 'admin' | 'member' | 'guest'
+    /**
+     * ProjectMemberSortProperty
+     * @enum {string}
+     */
+    ProjectMemberSortProperty: 'role' | '-role' | 'created_at' | '-created_at'
+    /** ProjectMemberUpdate */
+    ProjectMemberUpdate: {
+      role?: components['schemas']['ProjectMemberRole'] | null
+    }
     /** ProjectModule */
     ProjectModule: {
       /**
@@ -11143,6 +11270,8 @@ export interface components {
       | 'file_sharing:write'
       | 'projects:read'
       | 'projects:write'
+      | 'project_members:read'
+      | 'project_members:write'
       | 'project_states:read'
       | 'project_states:write'
       | 'project_labels:read'
@@ -22106,6 +22235,231 @@ export interface operations {
       }
     }
   }
+  'project-members:list': {
+    parameters: {
+      query?: {
+        /** @description Filter by project ID. */
+        project_id?: string | string[] | null
+        /** @description Page number, defaults to 1. */
+        page?: number
+        /** @description Size of a page, defaults to 10. Maximum is 100. */
+        limit?: number
+        /** @description Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order. */
+        sorting?: components['schemas']['ProjectMemberSortProperty'][] | null
+      }
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['PaginatedList_ProjectMember_']
+        }
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-members:create': {
+    parameters: {
+      query?: never
+      header?: never
+      path?: never
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectMemberCreate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      201: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectMember']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Conflict */
+      409: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-members:get': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project-member ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectMember']
+        }
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-members:delete': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project-member ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody?: never
+    responses: {
+      /** @description Successful Response */
+      204: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
+  'project-members:update': {
+    parameters: {
+      query?: never
+      header?: never
+      path: {
+        /** @description The project-member ID. */
+        id: string
+      }
+      cookie?: never
+    }
+    requestBody: {
+      content: {
+        'application/json': components['schemas']['ProjectMemberUpdate']
+      }
+    }
+    responses: {
+      /** @description Successful Response */
+      200: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['ProjectMember']
+        }
+      }
+      /** @description Bad Request */
+      400: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Not Found */
+      404: {
+        headers: {
+          [name: string]: unknown
+        }
+        content?: never
+      }
+      /** @description Validation Error */
+      422: {
+        headers: {
+          [name: string]: unknown
+        }
+        content: {
+          'application/json': components['schemas']['HTTPValidationError']
+        }
+      }
+    }
+  }
   'project-states:list': {
     parameters: {
       query?: {
@@ -26668,6 +27022,8 @@ export const availableScopeValues: ReadonlyArray<
   'file_sharing:write',
   'projects:read',
   'projects:write',
+  'project_members:read',
+  'project_members:write',
   'project_states:read',
   'project_states:write',
   'project_labels:read',
@@ -27399,6 +27755,12 @@ export const projectEstimateSortPropertyValues: ReadonlyArray<
 export const projectLabelSortPropertyValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['ProjectLabelSortProperty']
 > = ['name', '-name', 'created_at', '-created_at']
+export const projectMemberRoleValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectMemberRole']
+> = ['admin', 'member', 'guest']
+export const projectMemberSortPropertyValues: ReadonlyArray<
+  FlattenedDeepRequired<components>['schemas']['ProjectMemberSortProperty']
+> = ['role', '-role', 'created_at', '-created_at']
 export const projectModuleSortPropertyValues: ReadonlyArray<
   FlattenedDeepRequired<components>['schemas']['ProjectModuleSortProperty']
 > = [
@@ -27498,6 +27860,8 @@ export const scopeValues: ReadonlyArray<
   'file_sharing:write',
   'projects:read',
   'projects:write',
+  'project_members:read',
+  'project_members:write',
   'project_states:read',
   'project_states:write',
   'project_labels:read',
