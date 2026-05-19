@@ -66,6 +66,7 @@ from rapidly.projects.cycle.api import router as project_cycle_router
 
 # ── Project management ──
 from rapidly.projects.estimate.api import router as project_estimate_router
+from rapidly.projects.external_link.api import router as work_item_link_router
 from rapidly.projects.favorite.api import router as user_favorite_router
 from rapidly.projects.label.api import router as project_label_router
 from rapidly.projects.link.api import router as work_item_relation_router
@@ -190,6 +191,8 @@ router.include_router(work_item_router)
 router.include_router(work_item_comment_router)
 # work item relations (blocks, relates_to, duplicates)
 router.include_router(work_item_relation_router)
+# work item external links (Figma, PRs, docs)
+router.include_router(work_item_link_router)
 # project cycles (sprints)
 router.include_router(project_cycle_router)
 # project modules (feature workstreams)
