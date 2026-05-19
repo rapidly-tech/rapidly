@@ -53,6 +53,7 @@ from .project_module import ModuleStatus, ProjectModule
 from .project_module_work_item import ProjectModuleWorkItem
 from .project_page import ProjectPage, ProjectPageAccess
 from .project_state import ProjectState, StateGroup
+from .project_view import ProjectView, ProjectViewAccess
 
 # ── Products & pricing ──
 from .share import Share, ShareVisibility
@@ -143,6 +144,8 @@ __all__ = [
     "ProjectPage",
     "ProjectPageAccess",
     "ProjectState",
+    "ProjectView",
+    "ProjectViewAccess",
     "ProjectVisibility",
     "Share",
     "ShareCustomField",

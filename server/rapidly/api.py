@@ -73,6 +73,7 @@ from rapidly.projects.module.api import router as project_module_router
 from rapidly.projects.page.api import router as project_page_router
 from rapidly.projects.project.api import router as project_router
 from rapidly.projects.state.api import router as project_state_router
+from rapidly.projects.view.api import router as project_view_router
 from rapidly.projects.work_item.api import router as work_item_router
 from rapidly.sharing.call.api import router as call_router
 from rapidly.sharing.collab.api import router as collab_router
@@ -198,5 +199,7 @@ router.include_router(project_module_router)
 router.include_router(work_item_activity_router)
 # project pages (wiki / docs)
 router.include_router(project_page_router)
+# project saved views (filter + display presets)
+router.include_router(project_view_router)
 # per-user favorites of project-domain entities
 router.include_router(user_favorite_router)

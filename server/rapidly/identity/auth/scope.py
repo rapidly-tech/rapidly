@@ -107,6 +107,8 @@ class Scope(StrEnum):
     work_item_activities_read = "work_item_activities:read"
     project_pages_read = "project_pages:read"
     project_pages_write = "project_pages:write"
+    project_views_read = "project_views:read"
+    project_views_write = "project_views:write"
     user_favorites_read = "user_favorites:read"
     user_favorites_write = "user_favorites:write"
 
@@ -182,6 +184,8 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.work_item_activities_read: "Read work-item activity history",
     Scope.project_pages_read: "Read project pages",
     Scope.project_pages_write: "Create or modify project pages",
+    Scope.project_views_read: "Read project saved views",
+    Scope.project_views_write: "Create or modify project saved views",
     Scope.user_favorites_read: "Read your favourites",
     Scope.user_favorites_write: "Create or modify your favourites",
 }
