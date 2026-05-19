@@ -85,7 +85,9 @@ from .work_item import WorkItem, WorkItemPriority
 from .work_item_activity import WorkItemActivity, WorkItemActivityVerb
 from .work_item_assignee import WorkItemAssignee
 from .work_item_comment import WorkItemComment
+from .work_item_comment_reaction import WorkItemCommentReaction
 from .work_item_label import WorkItemLabel
+from .work_item_reaction import WorkItemReaction
 from .work_item_relation import WorkItemRelation, WorkItemRelationType
 
 # ── Workspaces ──
@@ -168,8 +170,10 @@ __all__ = [
     "WorkItemActivityVerb",
     "WorkItemAssignee",
     "WorkItemComment",
+    "WorkItemCommentReaction",
     "WorkItemLabel",
     "WorkItemPriority",
+    "WorkItemReaction",
     "WorkItemRelation",
     "WorkItemRelationType",
     "Workspace",
