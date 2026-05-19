@@ -32,6 +32,7 @@ from rapidly.models import (
     Project,
     ProjectMemberRole,
     ProjectPage,
+    ProjectPageVersion,
 )
 from rapidly.postgres import AsyncReadSession, AsyncSession
 from rapidly.projects.page.ordering import ProjectPageSortProperty
@@ -51,6 +52,27 @@ async def get(
     repo = ProjectPageRepository.from_session(session)
     stmt = repo.get_readable_statement(auth_subject).where(ProjectPage.id == id)
     return await repo.get_one_or_none(stmt)
+
+
+async def list_versions(
+    session: AsyncReadSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    *,
+    page: ProjectPage,
+    pagination: PaginationParams,
+) -> tuple[Sequence[ProjectPageVersion], int]:
+    """Return the snapshot history for a page in descending version order.
+
+    The caller is expected to have already authorised access to ``page``
+    via the page submodule's standard read checks — versions inherit
+    their parent's visibility (no separate ACL).
+    """
+    statement = (
+        select(ProjectPageVersion)
+        .where(ProjectPageVersion.page_id == page.id)
+        .order_by(ProjectPageVersion.version_number.desc())
+    )
+    return await paginate(session, statement, pagination=pagination)
 
 
 async def list_for_project(
@@ -142,6 +164,16 @@ async def update(
     update_dict = data.model_dump(exclude_unset=True)
     if not update_dict:
         return page
+
+    # Snapshot the previous content state before the update commits.
+    # Why before: ``ProjectPageVersion`` records the page as it looked
+    # *prior* to this edit, so reading versions in order reconstructs
+    # the page's history.  We only snapshot when at least one content
+    # field is actually changing — pure metadata edits (access, lock,
+    # parent_id) don't generate a version.
+    if _content_changed(page, update_dict):
+        await _snapshot_page(session, page, auth_subject)
+
     return await repo.update(page, update_dict=update_dict)
 
 
@@ -202,3 +234,45 @@ async def _require_author_or_admin(
     if page.owner_id is not None and auth_subject.subject.id == page.owner_id:
         return
     await require_role(session, auth_subject, project, minimum=ProjectMemberRole.admin)
+
+
+_VERSIONED_FIELDS = frozenset({"name", "description_json", "description_html"})
+
+
+def _content_changed(page: ProjectPage, update_dict: dict[str, object]) -> bool:
+    """Return True iff at least one versioned field is actually changing.
+
+    ``model_dump(exclude_unset=True)`` keeps a key when the caller
+    passed it — even if the value matches the current row.  Comparing
+    against the current page lets us skip no-op rewrites.
+    """
+    for field in _VERSIONED_FIELDS & update_dict.keys():
+        if update_dict[field] != getattr(page, field):
+            return True
+    return False
+
+
+async def _snapshot_page(
+    session: AsyncSession,
+    page: ProjectPage,
+    auth_subject: AuthPrincipal[User | Workspace],
+) -> None:
+    next_number = (
+        await session.execute(
+            select(ProjectPageVersion.version_number)
+            .where(ProjectPageVersion.page_id == page.id)
+            .order_by(ProjectPageVersion.version_number.desc())
+            .limit(1)
+        )
+    ).scalar_one_or_none() or 0
+    author_id = auth_subject.subject.id if is_user_principal(auth_subject) else None
+    session.add(
+        ProjectPageVersion(
+            page_id=page.id,
+            author_id=author_id,
+            version_number=next_number + 1,
+            name=page.name,
+            description_json=page.description_json,
+            description_html=page.description_html,
+        )
+    )

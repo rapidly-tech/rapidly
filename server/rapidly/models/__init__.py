@@ -52,6 +52,7 @@ from .project_member import ProjectMember, ProjectMemberRole
 from .project_module import ModuleStatus, ProjectModule
 from .project_module_work_item import ProjectModuleWorkItem
 from .project_page import ProjectPage, ProjectPageAccess
+from .project_page_version import ProjectPageVersion
 from .project_state import ProjectState, StateGroup
 
 # ── Products & pricing ──
@@ -142,6 +143,7 @@ __all__ = [
     "ProjectModuleWorkItem",
     "ProjectPage",
     "ProjectPageAccess",
+    "ProjectPageVersion",
     "ProjectState",
     "ProjectVisibility",
     "Share",

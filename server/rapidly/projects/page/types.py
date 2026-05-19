@@ -53,3 +53,15 @@ class ProjectPageUpdate(Schema):
     description_html: str | None = Field(None, max_length=4_194_304)
     access: ProjectPageAccess | None = None
     is_locked: bool | None = None
+
+
+# ── Versions ──────────────────────────────────────────────────────────
+
+
+class ProjectPageVersion(IdentifiableSchema, AuditableSchema):
+    page_id: UUID4
+    author_id: UUID4 | None = None
+    version_number: int
+    name: str
+    description_json: dict[str, Any] | None = None
+    description_html: str | None = None

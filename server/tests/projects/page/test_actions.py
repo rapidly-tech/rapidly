@@ -225,7 +225,15 @@ class TestUpdate:
         async def _ensure(*_a: Any, **_k: Any) -> Any:
             return project
 
+        async def _snapshot(*_a: Any, **_k: Any) -> None:
+            return None
+
         monkeypatch.setattr("rapidly.projects.page.actions._ensure_member", _ensure)
+        # Versioning hook writes a snapshot row when content changes — stub
+        # it so this test stays focused on the update path itself.
+        monkeypatch.setattr(
+            "rapidly.projects.page.actions._snapshot_page", _snapshot
+        )
 
         repo = MagicMock()
         repo.update = AsyncMock(return_value=page)

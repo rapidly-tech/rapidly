@@ -124,3 +124,28 @@ async def delete(
     if page is None:
         raise ResourceNotFound()
     await page_actions.delete(session, auth_subject, page)
+
+
+@router.get(
+    "/{id}/versions",
+    summary="List Project Page Versions",
+    response_model=PaginatedList[schemas.ProjectPageVersion],
+    responses={404: {}},
+)
+async def list_versions(
+    id: schemas.ProjectPageID,
+    auth_subject: auth.ProjectPagesRead,
+    pagination: PaginationParamsQuery,
+    session: AsyncReadSession = Depends(get_db_read_session),
+) -> PaginatedList[schemas.ProjectPageVersion]:
+    page = await page_actions.get(session, auth_subject, id)
+    if page is None:
+        raise ResourceNotFound()
+    versions, count = await page_actions.list_versions(
+        session, auth_subject, page=page, pagination=pagination
+    )
+    return PaginatedList.from_paginated_results(
+        [schemas.ProjectPageVersion.model_validate(v) for v in versions],
+        count,
+        pagination,
+    )
