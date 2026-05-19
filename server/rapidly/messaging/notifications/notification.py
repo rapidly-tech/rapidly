@@ -23,6 +23,7 @@ class NotificationType(StrEnum):
     file_share_download_completed = "FileShareDownloadCompletedNotification"
     file_share_session_expired = "FileShareSessionExpiredNotification"
     file_share_payment_received = "FileSharePaymentReceivedNotification"
+    work_item_assigned = "WorkItemAssignedNotification"
 
 
 class NotificationPayloadBase(BaseModel):
@@ -123,11 +124,33 @@ class FileSharePaymentReceivedNotification(NotificationBase):
     payload: FileSharePaymentReceivedNotificationPayload
 
 
+# ── Projects Notifications ──
+
+
+class WorkItemAssignedNotificationPayload(NotificationPayloadBase):
+    project_name: str
+    work_item_name: str
+    work_item_url: str
+
+    def subject(self) -> str:
+        return f"You were assigned: {self.work_item_name}"
+
+    @classmethod
+    def template_name(cls) -> str:
+        return "notification_work_item_assigned"
+
+
+class WorkItemAssignedNotification(NotificationBase):
+    type: Literal[NotificationType.work_item_assigned]
+    payload: WorkItemAssignedNotificationPayload
+
+
 NotificationPayload = (
     WorkspaceCreateAccountNotificationPayload
     | FileShareDownloadCompletedNotificationPayload
     | FileShareSessionExpiredNotificationPayload
     | FileSharePaymentReceivedNotificationPayload
+    | WorkItemAssignedNotificationPayload
 )
 
 Notification = (
@@ -135,4 +158,5 @@ Notification = (
     | FileShareDownloadCompletedNotification
     | FileShareSessionExpiredNotification
     | FileSharePaymentReceivedNotification
+    | WorkItemAssignedNotification
 )

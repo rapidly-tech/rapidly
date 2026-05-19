@@ -16,10 +16,16 @@ from uuid import UUID
 
 from sqlalchemy import select
 
+from rapidly.config import settings
 from rapidly.core.ordering import Sorting
 from rapidly.core.pagination import PaginationParams, paginate
 from rapidly.errors import BadRequest, ResourceNotFound
 from rapidly.identity.auth.models import AuthPrincipal, User, Workspace
+from rapidly.messaging.notifications import actions as notification_actions
+from rapidly.messaging.notifications.notification import (
+    NotificationType,
+    WorkItemAssignedNotificationPayload,
+)
 from rapidly.models import (
     Project,
     ProjectLabel,
@@ -149,7 +155,8 @@ async def create(
     )
     work_item = await repo.create(work_item, flush=True)
 
-    for user_id in dict.fromkeys(data.assignee_ids):
+    initial_assignees: set[UUID] = set(dict.fromkeys(data.assignee_ids))
+    for user_id in initial_assignees:
         session.add(WorkItemAssignee(work_item_id=work_item.id, user_id=user_id))
     for label_id in dict.fromkeys(data.label_ids):
         session.add(WorkItemLabel(work_item_id=work_item.id, label_id=label_id))
@@ -161,6 +168,14 @@ async def create(
         work_item=work_item,
         actor=auth_subject,
         verb=WorkItemActivityVerb.created,
+    )
+
+    await _notify_new_assignees(
+        session,
+        work_item=work_item,
+        project=project,
+        actor=auth_subject,
+        new_assignee_ids=initial_assignees,
     )
 
     return work_item
@@ -192,10 +207,13 @@ async def update(
     if scalar_fields:
         work_item = await repo.update(work_item, update_dict=scalar_fields, flush=True)
 
+    newly_added_assignees: set[UUID] = set()
     if data.assignee_ids is not None:
         if data.assignee_ids:
             await _verify_assignees(session, project.workspace_id, data.assignee_ids)
-        await _reconcile_assignees(session, work_item.id, data.assignee_ids)
+        newly_added_assignees = await _reconcile_assignees(
+            session, work_item.id, data.assignee_ids
+        )
 
     if data.label_ids is not None:
         if data.label_ids:
@@ -224,6 +242,14 @@ async def update(
             old_value=previous_priority,
             new_value=data.priority,
         )
+
+    await _notify_new_assignees(
+        session,
+        work_item=work_item,
+        project=project,
+        actor=auth_subject,
+        new_assignee_ids=newly_added_assignees,
+    )
 
     return work_item
 
@@ -313,7 +339,13 @@ async def _verify_assignees(
 
 async def _reconcile_assignees(
     session: AsyncSession, work_item_id: UUID, target_user_ids: list[UUID]
-) -> None:
+) -> set[UUID]:
+    """Reconcile assignees and return the set of newly-added user IDs.
+
+    Why return new IDs: callers need to fire a notification per *new*
+    assignee, not for assignees who were already on the work item.
+    Computing the delta here keeps the caller's branching minimal.
+    """
     target: set[UUID] = set(target_user_ids)
     existing_stmt = select(WorkItemAssignee).where(
         WorkItemAssignee.work_item_id == work_item_id,
@@ -322,13 +354,15 @@ async def _reconcile_assignees(
     existing = (await session.execute(existing_stmt)).scalars().all()
     existing_by_user = {row.user_id: row for row in existing}
 
-    for user_id in target - set(existing_by_user.keys()):
+    newly_added = target - set(existing_by_user.keys())
+    for user_id in newly_added:
         session.add(WorkItemAssignee(work_item_id=work_item_id, user_id=user_id))
 
     for user_id in set(existing_by_user.keys()) - target:
         existing_by_user[user_id].set_deleted_at()
 
     await session.flush()
+    return newly_added
 
 
 async def _reconcile_labels(
@@ -349,3 +383,46 @@ async def _reconcile_labels(
         existing_by_label[label_id].set_deleted_at()
 
     await session.flush()
+
+
+async def _notify_new_assignees(
+    session: AsyncSession,
+    *,
+    work_item: WorkItem,
+    project: Project,
+    actor: AuthPrincipal[User | Workspace],
+    new_assignee_ids: set[UUID],
+) -> None:
+    """Dispatch a "work item assigned" notification for each new assignee.
+
+    Why filter out the actor's own id: assigning yourself to a work
+    item shouldn't trigger a notification to yourself.  This mirrors
+    Plane's behaviour and prevents noisy self-pings.
+    """
+    if not new_assignee_ids:
+        return
+
+    actor_id: UUID | None = None
+    if isinstance(actor.subject, User):
+        actor_id = actor.subject.id
+
+    work_item_url = settings.generate_frontend_url(
+        f"/preview/projects/{project.id}/work-items/{work_item.id}"
+    )
+    payload = WorkItemAssignedNotificationPayload(
+        project_name=project.name,
+        work_item_name=work_item.name,
+        work_item_url=work_item_url,
+    )
+
+    for user_id in new_assignee_ids:
+        if user_id == actor_id:
+            continue
+        await notification_actions.send_to_user(
+            session,
+            user_id,
+            notification_actions.PartialNotification(
+                type=NotificationType.work_item_assigned,
+                payload=payload,
+            ),
+        )

@@ -8,6 +8,7 @@ import { NotificationCreditsGranted } from './notification_credits_granted'
 import { NotificationFileShareDownloadCompleted } from './notification_file_share_download_completed'
 import { NotificationFileSharePaymentReceived } from './notification_file_share_payment_received'
 import { NotificationFileShareSessionExpired } from './notification_file_share_session_expired'
+import { NotificationWorkItemAssigned } from './notification_work_item_assigned'
 import { OAuth2LeakedClient } from './oauth2_leaked_client'
 import { OAuth2LeakedToken } from './oauth2_leaked_token'
 import { OrganizationAccessTokenLeaked } from './organization_access_token_leaked'
@@ -36,6 +37,7 @@ const TEMPLATES: Record<string, React.FC<any>> = {
   notification_file_share_session_expired: NotificationFileShareSessionExpired,
   notification_file_share_payment_received:
     NotificationFileSharePaymentReceived,
+  notification_work_item_assigned: NotificationWorkItemAssigned,
 }
 
 export default TEMPLATES
