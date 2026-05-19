@@ -1,9 +1,12 @@
 'use client'
 
+import { useListWorkspaceMembers } from '@/hooks/api/org'
 import {
   type ModuleStatus,
   type ProjectCycle,
   type ProjectCycleCreate,
+  type ProjectMember,
+  type ProjectMemberRole,
   type ProjectModule,
   type ProjectModuleCreate,
   type ProjectPage,
@@ -13,16 +16,20 @@ import {
   type WorkItem,
   type WorkItemCreate,
   useCreateProjectCycle,
+  useCreateProjectMember,
   useCreateProjectModule,
   useCreateProjectPage,
   useCreateProjectState,
   useCreateWorkItem,
+  useDeleteProjectMember,
   useProject,
   useProjectCycles,
+  useProjectMembers,
   useProjectModules,
   useProjectPages,
   useProjectStates,
   useReassignWorkItem,
+  useUpdateProjectMember,
   useWorkItems,
 } from '@/hooks/api/projects'
 import Button from '@rapidly-tech/ui/components/forms/Button'
@@ -172,6 +179,13 @@ export default function ProjectDetailPage() {
 
       {states.length > 0 && (
         <PagesSection projectId={project.id} identifier={project.identifier} />
+      )}
+
+      {states.length > 0 && (
+        <MembersSection
+          projectId={project.id}
+          workspaceId={project.workspace_id}
+        />
       )}
 
       {states.length > 0 && (
@@ -1437,6 +1451,266 @@ function CreateWorkItemDialog({
             disabled={!name.trim() || !stateId || mutation.isPending}
           >
             {mutation.isPending ? 'Creating…' : 'Create'}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ── Members section ──
+
+const MEMBER_ROLES: ProjectMemberRole[] = ['admin', 'member', 'guest']
+
+function MembersSection({
+  projectId,
+  workspaceId,
+}: {
+  projectId: string
+  workspaceId: string
+}) {
+  const membersQuery = useProjectMembers(
+    { project_id: [projectId], limit: 100, page: 1 },
+    true,
+  )
+  const members: ProjectMember[] = membersQuery.data?.data ?? []
+
+  if (membersQuery.isLoading) {
+    return (
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium tracking-wider text-slate-500 uppercase dark:text-slate-400">
+          Members
+        </h2>
+        <div className="h-20 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+      </section>
+    )
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <div className="flex items-center justify-between">
+        <h2 className="text-sm font-medium tracking-wider text-slate-500 uppercase dark:text-slate-400">
+          Members
+        </h2>
+        <AddMemberDialog
+          projectId={projectId}
+          workspaceId={workspaceId}
+          existingUserIds={members.map((m) => m.user_id)}
+        />
+      </div>
+      {members.length === 0 ? (
+        <p className="rounded-lg border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+          No project members yet. Add one to share access.
+        </p>
+      ) : (
+        <ul className="flex flex-col gap-2">
+          {members.map((m) => (
+            <MemberRow
+              key={m.id}
+              member={m}
+              workspaceId={workspaceId}
+              isOnlyAdmin={
+                m.role === 'admin' &&
+                members.filter((x) => x.role === 'admin').length === 1
+              }
+            />
+          ))}
+        </ul>
+      )}
+    </section>
+  )
+}
+
+function MemberRow({
+  member,
+  workspaceId,
+  isOnlyAdmin,
+}: {
+  member: ProjectMember
+  workspaceId: string
+  isOnlyAdmin: boolean
+}) {
+  const wsMembersQuery = useListWorkspaceMembers(workspaceId)
+  const wsMember = wsMembersQuery.data?.data.find(
+    (w) => w.user_id === member.user_id,
+  )
+  const update = useUpdateProjectMember()
+  const remove = useDeleteProjectMember()
+
+  // Why: the backend blocks demoting / removing the last admin (returns 400).
+  // We disable the controls client-side so users get an obvious cue instead of
+  // an error toast — but we still let the server be the source of truth.
+  const onRoleChange = (next: ProjectMemberRole) => {
+    if (next === member.role) return
+    update.mutate({ id: member.id, body: { role: next } })
+  }
+
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-3 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex min-w-0 flex-col">
+        <span className="truncate text-sm font-medium text-slate-900 dark:text-slate-100">
+          {wsMember?.email ?? member.user_id}
+        </span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          Added {new Date(member.created_at).toLocaleDateString()}
+        </span>
+      </div>
+      <div className="flex items-center gap-2">
+        <select
+          value={member.role}
+          onChange={(e) => onRoleChange(e.target.value as ProjectMemberRole)}
+          disabled={update.isPending || isOnlyAdmin}
+          className="rounded-md border border-slate-300 bg-white px-2 py-1 text-sm text-slate-900 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+        >
+          {MEMBER_ROLES.map((r) => (
+            <option key={r} value={r}>
+              {r}
+            </option>
+          ))}
+        </select>
+        <Button
+          size="sm"
+          variant="secondary"
+          onClick={() => remove.mutate(member.id)}
+          disabled={remove.isPending || isOnlyAdmin}
+        >
+          {remove.isPending ? 'Removing…' : 'Remove'}
+        </Button>
+      </div>
+    </li>
+  )
+}
+
+function AddMemberDialog({
+  projectId,
+  workspaceId,
+  existingUserIds,
+}: {
+  projectId: string
+  workspaceId: string
+  existingUserIds: string[]
+}) {
+  const [open, setOpen] = useState(false)
+  const [userId, setUserId] = useState('')
+  const [role, setRole] = useState<ProjectMemberRole>('member')
+  const wsMembersQuery = useListWorkspaceMembers(workspaceId)
+  const mutation = useCreateProjectMember()
+
+  const candidates = useMemo(() => {
+    const existing = new Set(existingUserIds)
+    return (wsMembersQuery.data?.data ?? []).filter(
+      (w) => !existing.has(w.user_id),
+    )
+  }, [wsMembersQuery.data, existingUserIds])
+
+  const reset = () => {
+    setUserId('')
+    setRole('member')
+    mutation.reset()
+  }
+
+  const submit = async () => {
+    try {
+      await mutation.mutateAsync({
+        project_id: projectId,
+        user_id: userId,
+        role,
+      })
+      setOpen(false)
+      reset()
+    } catch {
+      // surfaced inline below
+    }
+  }
+
+  const errorMessage = useMemo(() => {
+    if (!mutation.isError) return null
+    const err = mutation.error as unknown as {
+      detail?: string
+      message?: string
+    }
+    return err?.detail ?? err?.message ?? 'Something went wrong.'
+  }, [mutation.isError, mutation.error])
+
+  return (
+    <Dialog
+      open={open}
+      onOpenChange={(next) => {
+        setOpen(next)
+        if (!next) reset()
+      }}
+    >
+      <DialogTrigger asChild>
+        <Button size="sm" variant="secondary">
+          Add member
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>Add a project member</DialogTitle>
+          <DialogDescription>
+            Pick a workspace teammate and the role they should have on this
+            project.
+          </DialogDescription>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              User
+            </span>
+            <select
+              value={userId}
+              onChange={(e) => setUserId(e.target.value)}
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              <option value="" disabled>
+                {candidates.length === 0
+                  ? 'Everyone is already a member'
+                  : 'Select a workspace teammate'}
+              </option>
+              {candidates.map((c: { user_id: string; email: string }) => (
+                <option key={c.user_id} value={c.user_id}>
+                  {c.email}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-slate-700 dark:text-slate-300">
+              Role
+            </span>
+            <select
+              value={role}
+              onChange={(e) => setRole(e.target.value as ProjectMemberRole)}
+              className="rounded-md border border-slate-300 bg-white px-2.5 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+            >
+              {MEMBER_ROLES.map((r) => (
+                <option key={r} value={r}>
+                  {r}
+                </option>
+              ))}
+            </select>
+          </label>
+          {errorMessage && (
+            <p className="rounded-md bg-red-50 px-3 py-2 text-sm text-red-700 dark:bg-red-900/20 dark:text-red-300">
+              {errorMessage}
+            </p>
+          )}
+        </div>
+        <DialogFooter>
+          <Button
+            variant="secondary"
+            type="button"
+            onClick={() => setOpen(false)}
+          >
+            Cancel
+          </Button>
+          <Button
+            type="button"
+            onClick={submit}
+            disabled={!userId || mutation.isPending}
+          >
+            {mutation.isPending ? 'Adding…' : 'Add'}
           </Button>
         </DialogFooter>
       </DialogContent>
