@@ -69,6 +69,7 @@ from rapidly.projects.estimate.api import router as project_estimate_router
 from rapidly.projects.favorite.api import router as user_favorite_router
 from rapidly.projects.label.api import router as project_label_router
 from rapidly.projects.link.api import router as work_item_relation_router
+from rapidly.projects.member.api import router as project_member_router
 from rapidly.projects.module.api import router as project_module_router
 from rapidly.projects.page.api import router as project_page_router
 from rapidly.projects.project.api import router as project_router
@@ -178,6 +179,8 @@ router.include_router(event_type_router)
 
 # projects CRUD
 router.include_router(project_router)
+# project members
+router.include_router(project_member_router)
 # project workflow states
 router.include_router(project_state_router)
 # project labels
