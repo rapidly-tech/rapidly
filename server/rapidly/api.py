@@ -73,6 +73,7 @@ from rapidly.projects.module.api import router as project_module_router
 from rapidly.projects.page.api import router as project_page_router
 from rapidly.projects.project.api import router as project_router
 from rapidly.projects.state.api import router as project_state_router
+from rapidly.projects.subscriber.api import router as work_item_subscriber_router
 from rapidly.projects.work_item.api import router as work_item_router
 from rapidly.sharing.call.api import router as call_router
 from rapidly.sharing.collab.api import router as collab_router
@@ -190,6 +191,8 @@ router.include_router(work_item_router)
 router.include_router(work_item_comment_router)
 # work item relations (blocks, relates_to, duplicates)
 router.include_router(work_item_relation_router)
+# work item subscribers (watch/follow)
+router.include_router(work_item_subscriber_router)
 # project cycles (sprints)
 router.include_router(project_cycle_router)
 # project modules (feature workstreams)
