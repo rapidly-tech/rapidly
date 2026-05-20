@@ -66,6 +66,7 @@ from .share_price import (
     SharePriceMeteredUnit,
     SharePriceSeatUnit,
 )
+from .sticky import Sticky
 
 # ── Identity & access ──
 from .user import OAuthAccount, User
@@ -155,6 +156,7 @@ __all__ = [
     "SharePriceSeatUnit",
     "ShareVisibility",
     "StateGroup",
+    "Sticky",
     "User",
     "UserFavorite",
     "UserFavoriteEntityType",
