@@ -67,6 +67,7 @@ from rapidly.projects.cycle.api import router as project_cycle_router
 # ── Project management ──
 from rapidly.projects.estimate.api import router as project_estimate_router
 from rapidly.projects.favorite.api import router as user_favorite_router
+from rapidly.projects.intake.api import router as intake_work_item_router
 from rapidly.projects.label.api import router as project_label_router
 from rapidly.projects.link.api import router as work_item_relation_router
 from rapidly.projects.module.api import router as project_module_router
@@ -186,6 +187,8 @@ router.include_router(project_label_router)
 router.include_router(project_estimate_router)
 # work items
 router.include_router(work_item_router)
+# project intake queue (triage state for incoming work items)
+router.include_router(intake_work_item_router)
 # work item comments
 router.include_router(work_item_comment_router)
 # work item relations (blocks, relates_to, duplicates)

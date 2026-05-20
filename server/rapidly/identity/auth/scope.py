@@ -96,6 +96,8 @@ class Scope(StrEnum):
     project_estimates_write = "project_estimates:write"
     work_items_read = "work_items:read"
     work_items_write = "work_items:write"
+    intake_work_items_read = "intake_work_items:read"
+    intake_work_items_write = "intake_work_items:write"
     work_item_comments_read = "work_item_comments:read"
     work_item_comments_write = "work_item_comments:write"
     work_item_relations_read = "work_item_relations:read"
@@ -171,6 +173,8 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.project_estimates_write: "Create or modify project estimation scales",
     Scope.work_items_read: "Read work items",
     Scope.work_items_write: "Create or modify work items",
+    Scope.intake_work_items_read: "Read the project intake queue",
+    Scope.intake_work_items_write: "Triage items in the project intake queue",
     Scope.work_item_comments_read: "Read work item comments",
     Scope.work_item_comments_write: "Create or modify work item comments",
     Scope.work_item_relations_read: "Read work item relations",
