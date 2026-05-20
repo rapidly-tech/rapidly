@@ -109,6 +109,8 @@ class Scope(StrEnum):
     project_pages_write = "project_pages:write"
     user_favorites_read = "user_favorites:read"
     user_favorites_write = "user_favorites:write"
+    analytic_views_read = "analytic_views:read"
+    analytic_views_write = "analytic_views:write"
 
     @classmethod
     def __get_pydantic_json_schema__(
@@ -182,6 +184,8 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.work_item_activities_read: "Read work-item activity history",
     Scope.project_pages_read: "Read project pages",
     Scope.project_pages_write: "Create or modify project pages",
+    Scope.analytic_views_read: "Read saved analytics dashboards",
+    Scope.analytic_views_write: "Create or modify saved analytics dashboards",
     Scope.user_favorites_read: "Read your favourites",
     Scope.user_favorites_write: "Create or modify your favourites",
 }

@@ -5,6 +5,9 @@ from rapidly.core.db.models import AuditableModel, Model
 # ── Financial ──
 from .account import Account
 
+# ── Analytics ──
+from .analytic_view import AnalyticView
+
 # ── Custom fields ──
 from .custom_field import CustomField
 
@@ -96,6 +99,7 @@ from .workspace_review import WorkspaceReview
 
 __all__ = [
     "Account",
+    "AnalyticView",
     "AuditableModel",
     "CustomField",
     "Customer",

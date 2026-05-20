@@ -61,6 +61,7 @@ from rapidly.platform.workspace_access_token.api import (
     router as workspace_access_token_router,
 )
 from rapidly.projects.activity.api import router as work_item_activity_router
+from rapidly.projects.analytic_view.api import router as analytic_view_router
 from rapidly.projects.comment.api import router as work_item_comment_router
 from rapidly.projects.cycle.api import router as project_cycle_router
 
@@ -200,3 +201,5 @@ router.include_router(work_item_activity_router)
 router.include_router(project_page_router)
 # per-user favorites of project-domain entities
 router.include_router(user_favorite_router)
+# saved analytics dashboards
+router.include_router(analytic_view_router)
