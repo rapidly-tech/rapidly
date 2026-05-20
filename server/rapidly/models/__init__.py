@@ -87,6 +87,7 @@ from .work_item_assignee import WorkItemAssignee
 from .work_item_comment import WorkItemComment
 from .work_item_label import WorkItemLabel
 from .work_item_relation import WorkItemRelation, WorkItemRelationType
+from .work_item_type import WorkItemType
 
 # ── Workspaces ──
 from .workspace import Workspace
@@ -172,6 +173,7 @@ __all__ = [
     "WorkItemPriority",
     "WorkItemRelation",
     "WorkItemRelationType",
+    "WorkItemType",
     "Workspace",
     "WorkspaceAccessToken",
     "WorkspaceMembership",

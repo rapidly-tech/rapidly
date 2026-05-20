@@ -108,6 +108,16 @@ class WorkItem(BaseEntity):
         index=True,
     )
 
+    # Nullable until #708-stack types are populated and the frontend
+    # starts requiring a type on every work item.  Existing rows
+    # remain untyped (=None) without backfill.
+    type_id: Mapped[UUID | None] = mapped_column(
+        Uuid,
+        ForeignKey("work_item_types.id", ondelete="set null"),
+        nullable=True,
+        index=True,
+    )
+
     parent_id: Mapped[UUID | None] = mapped_column(
         Uuid,
         ForeignKey("work_items.id", ondelete="set null"),

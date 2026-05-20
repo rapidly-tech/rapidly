@@ -74,6 +74,7 @@ from rapidly.projects.page.api import router as project_page_router
 from rapidly.projects.project.api import router as project_router
 from rapidly.projects.state.api import router as project_state_router
 from rapidly.projects.work_item.api import router as work_item_router
+from rapidly.projects.work_item_type.api import router as work_item_type_router
 from rapidly.sharing.call.api import router as call_router
 from rapidly.sharing.collab.api import router as collab_router
 from rapidly.sharing.file_sharing.api import router as file_sharing_router
@@ -184,6 +185,8 @@ router.include_router(project_state_router)
 router.include_router(project_label_router)
 # project estimation scales + points
 router.include_router(project_estimate_router)
+# work item types (Bug, Task, Story, Epic...)
+router.include_router(work_item_type_router)
 # work items
 router.include_router(work_item_router)
 # work item comments

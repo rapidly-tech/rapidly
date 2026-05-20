@@ -92,6 +92,8 @@ class Scope(StrEnum):
     project_states_write = "project_states:write"
     project_labels_read = "project_labels:read"
     project_labels_write = "project_labels:write"
+    work_item_types_read = "work_item_types:read"
+    work_item_types_write = "work_item_types:write"
     project_estimates_read = "project_estimates:read"
     project_estimates_write = "project_estimates:write"
     work_items_read = "work_items:read"
@@ -167,6 +169,8 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.project_states_write: "Create or modify project workflow states",
     Scope.project_labels_read: "Read project labels",
     Scope.project_labels_write: "Create or modify project labels",
+    Scope.work_item_types_read: "Read work item types",
+    Scope.work_item_types_write: "Create or modify work item types",
     Scope.project_estimates_read: "Read project estimation scales",
     Scope.project_estimates_write: "Create or modify project estimation scales",
     Scope.work_items_read: "Read work items",

@@ -25,6 +25,7 @@ class WorkItem(IdentifiableSchema, AuditableSchema):
     priority: WorkItemPriority
     state_id: UUID4
     estimate_point_id: UUID4 | None = None
+    type_id: UUID4 | None = None
     parent_id: UUID4 | None = None
 
     start_date: datetime | None = None
@@ -55,6 +56,9 @@ class WorkItemCreate(Schema):
     priority: WorkItemPriority = WorkItemPriority.none
     state_id: UUID4 = Field(..., description="Workflow state for this work item.")
     estimate_point_id: UUID4 | None = None
+    type_id: UUID4 | None = Field(
+        None, description="Optional work-item type (Bug, Task, Story…)."
+    )
     parent_id: UUID4 | None = Field(
         None, description="Parent work item if this is a sub-item."
     )
@@ -79,6 +83,7 @@ class WorkItemUpdate(Schema):
     priority: WorkItemPriority | None = None
     state_id: UUID4 | None = None
     estimate_point_id: UUID4 | None = None
+    type_id: UUID4 | None = None
     parent_id: UUID4 | None = None
 
     start_date: datetime | None = None

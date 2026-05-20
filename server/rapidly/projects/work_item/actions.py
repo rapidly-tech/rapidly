@@ -29,6 +29,7 @@ from rapidly.models import (
     WorkItemActivityVerb,
     WorkItemAssignee,
     WorkItemLabel,
+    WorkItemType,
     WorkspaceMembership,
 )
 from rapidly.postgres import AsyncReadSession, AsyncSession
@@ -124,6 +125,8 @@ async def create(
     await _verify_state(session, project.id, data.state_id)
     if data.parent_id is not None:
         await _verify_parent(session, project.id, data.parent_id)
+    if data.type_id is not None:
+        await _verify_type(session, project.id, data.type_id)
     if data.label_ids:
         await _verify_labels(session, project.id, data.label_ids)
     if data.assignee_ids:
@@ -141,6 +144,7 @@ async def create(
         priority=data.priority,
         state_id=data.state_id,
         estimate_point_id=data.estimate_point_id,
+        type_id=data.type_id,
         parent_id=data.parent_id,
         start_date=data.start_date,
         target_date=data.target_date,
@@ -180,6 +184,8 @@ async def update(
         if data.parent_id == work_item.id:
             raise BadRequest("A work item cannot be its own parent.")
         await _verify_parent(session, project.id, data.parent_id)
+    if data.type_id is not None:
+        await _verify_type(session, project.id, data.type_id)
 
     # Capture the values we want to diff before they're mutated.
     previous_state_id = work_item.state_id
@@ -280,6 +286,17 @@ async def _verify_parent(
     )
     if (await session.execute(stmt)).scalar_one_or_none() is None:
         raise BadRequest("Parent work item does not belong to this project.")
+
+
+async def _verify_type(session: AsyncSession, project_id: UUID, type_id: UUID) -> None:
+    """Work-item type must live in the same project as the work item."""
+    stmt = select(WorkItemType.id).where(
+        WorkItemType.id == type_id,
+        WorkItemType.project_id == project_id,
+        WorkItemType.deleted_at.is_(None),
+    )
+    if (await session.execute(stmt)).scalar_one_or_none() is None:
+        raise BadRequest("Work-item type does not belong to this project.")
 
 
 async def _verify_labels(
