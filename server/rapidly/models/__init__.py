@@ -86,6 +86,7 @@ from .work_item_activity import WorkItemActivity, WorkItemActivityVerb
 from .work_item_assignee import WorkItemAssignee
 from .work_item_comment import WorkItemComment
 from .work_item_label import WorkItemLabel
+from .work_item_mention import WorkItemMention
 from .work_item_relation import WorkItemRelation, WorkItemRelationType
 
 # ── Workspaces ──
@@ -169,6 +170,7 @@ __all__ = [
     "WorkItemAssignee",
     "WorkItemComment",
     "WorkItemLabel",
+    "WorkItemMention",
     "WorkItemPriority",
     "WorkItemRelation",
     "WorkItemRelationType",

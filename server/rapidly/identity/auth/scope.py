@@ -98,6 +98,8 @@ class Scope(StrEnum):
     work_items_write = "work_items:write"
     work_item_comments_read = "work_item_comments:read"
     work_item_comments_write = "work_item_comments:write"
+    work_item_mentions_read = "work_item_mentions:read"
+    work_item_mentions_write = "work_item_mentions:write"
     work_item_relations_read = "work_item_relations:read"
     work_item_relations_write = "work_item_relations:write"
     project_cycles_read = "project_cycles:read"
@@ -173,6 +175,8 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.work_items_write: "Create or modify work items",
     Scope.work_item_comments_read: "Read work item comments",
     Scope.work_item_comments_write: "Create or modify work item comments",
+    Scope.work_item_mentions_read: "Read @mentions on work items",
+    Scope.work_item_mentions_write: "Create or remove @mentions on work items",
     Scope.work_item_relations_read: "Read work item relations",
     Scope.work_item_relations_write: "Create or modify work item relations",
     Scope.project_cycles_read: "Read project cycles",

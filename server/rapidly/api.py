@@ -69,6 +69,7 @@ from rapidly.projects.estimate.api import router as project_estimate_router
 from rapidly.projects.favorite.api import router as user_favorite_router
 from rapidly.projects.label.api import router as project_label_router
 from rapidly.projects.link.api import router as work_item_relation_router
+from rapidly.projects.mention.api import router as work_item_mention_router
 from rapidly.projects.module.api import router as project_module_router
 from rapidly.projects.page.api import router as project_page_router
 from rapidly.projects.project.api import router as project_router
@@ -188,6 +189,8 @@ router.include_router(project_estimate_router)
 router.include_router(work_item_router)
 # work item comments
 router.include_router(work_item_comment_router)
+# @mentions in work item comments
+router.include_router(work_item_mention_router)
 # work item relations (blocks, relates_to, duplicates)
 router.include_router(work_item_relation_router)
 # project cycles (sprints)
