@@ -104,6 +104,10 @@ class Scope(StrEnum):
     project_cycles_write = "project_cycles:write"
     project_modules_read = "project_modules:read"
     project_modules_write = "project_modules:write"
+    project_module_members_read = "project_module_members:read"
+    project_module_members_write = "project_module_members:write"
+    project_module_links_read = "project_module_links:read"
+    project_module_links_write = "project_module_links:write"
     work_item_activities_read = "work_item_activities:read"
     project_pages_read = "project_pages:read"
     project_pages_write = "project_pages:write"
@@ -179,6 +183,10 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.project_cycles_write: "Create or modify project cycles",
     Scope.project_modules_read: "Read project modules",
     Scope.project_modules_write: "Create or modify project modules",
+    Scope.project_module_members_read: "Read project module members",
+    Scope.project_module_members_write: "Create or modify project module members",
+    Scope.project_module_links_read: "Read project module external links",
+    Scope.project_module_links_write: "Create or modify project module external links",
     Scope.work_item_activities_read: "Read work-item activity history",
     Scope.project_pages_read: "Read project pages",
     Scope.project_pages_write: "Create or modify project pages",

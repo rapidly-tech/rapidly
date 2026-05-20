@@ -70,6 +70,12 @@ from rapidly.projects.favorite.api import router as user_favorite_router
 from rapidly.projects.label.api import router as project_label_router
 from rapidly.projects.link.api import router as work_item_relation_router
 from rapidly.projects.module.api import router as project_module_router
+from rapidly.projects.module_extras.api import (
+    links_router as project_module_link_router,
+)
+from rapidly.projects.module_extras.api import (
+    members_router as project_module_member_router,
+)
 from rapidly.projects.page.api import router as project_page_router
 from rapidly.projects.project.api import router as project_router
 from rapidly.projects.state.api import router as project_state_router
@@ -194,6 +200,9 @@ router.include_router(work_item_relation_router)
 router.include_router(project_cycle_router)
 # project modules (feature workstreams)
 router.include_router(project_module_router)
+# project module roster + external links
+router.include_router(project_module_member_router)
+router.include_router(project_module_link_router)
 # work-item activity log
 router.include_router(work_item_activity_router)
 # project pages (wiki / docs)
