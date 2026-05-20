@@ -53,6 +53,7 @@ from .project_module import ModuleStatus, ProjectModule
 from .project_module_work_item import ProjectModuleWorkItem
 from .project_page import ProjectPage, ProjectPageAccess
 from .project_state import ProjectState, StateGroup
+from .recent_visit import RecentVisit, RecentVisitEntityType
 
 # ── Products & pricing ──
 from .share import Share, ShareVisibility
@@ -144,6 +145,8 @@ __all__ = [
     "ProjectPageAccess",
     "ProjectState",
     "ProjectVisibility",
+    "RecentVisit",
+    "RecentVisitEntityType",
     "Share",
     "ShareCustomField",
     "ShareMedia",
