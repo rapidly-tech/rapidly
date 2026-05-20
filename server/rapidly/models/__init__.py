@@ -49,6 +49,7 @@ from .project_estimate import EstimateType, ProjectEstimate
 from .project_estimate_point import ProjectEstimatePoint
 from .project_label import ProjectLabel
 from .project_member import ProjectMember, ProjectMemberRole
+from .project_member_invite import ProjectMemberInvite, ProjectMemberInviteStatus
 from .project_module import ModuleStatus, ProjectModule
 from .project_module_work_item import ProjectModuleWorkItem
 from .project_page import ProjectPage, ProjectPageAccess
@@ -137,6 +138,8 @@ __all__ = [
     "ProjectEstimatePoint",
     "ProjectLabel",
     "ProjectMember",
+    "ProjectMemberInvite",
+    "ProjectMemberInviteStatus",
     "ProjectMemberRole",
     "ProjectModule",
     "ProjectModuleWorkItem",
