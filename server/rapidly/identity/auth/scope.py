@@ -102,8 +102,12 @@ class Scope(StrEnum):
     work_item_relations_write = "work_item_relations:write"
     project_cycles_read = "project_cycles:read"
     project_cycles_write = "project_cycles:write"
+    project_cycle_user_properties_read = "project_cycle_user_properties:read"
+    project_cycle_user_properties_write = "project_cycle_user_properties:write"
     project_modules_read = "project_modules:read"
     project_modules_write = "project_modules:write"
+    project_module_user_properties_read = "project_module_user_properties:read"
+    project_module_user_properties_write = "project_module_user_properties:write"
     work_item_activities_read = "work_item_activities:read"
     project_pages_read = "project_pages:read"
     project_pages_write = "project_pages:write"
@@ -177,8 +181,12 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.work_item_relations_write: "Create or modify work item relations",
     Scope.project_cycles_read: "Read project cycles",
     Scope.project_cycles_write: "Create or modify project cycles",
+    Scope.project_cycle_user_properties_read: "Read your cycle view preferences",
+    Scope.project_cycle_user_properties_write: "Update your cycle view preferences",
     Scope.project_modules_read: "Read project modules",
     Scope.project_modules_write: "Create or modify project modules",
+    Scope.project_module_user_properties_read: "Read your module view preferences",
+    Scope.project_module_user_properties_write: "Update your module view preferences",
     Scope.work_item_activities_read: "Read work-item activity history",
     Scope.project_pages_read: "Read project pages",
     Scope.project_pages_write: "Create or modify project pages",

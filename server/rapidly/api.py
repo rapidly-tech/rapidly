@@ -72,6 +72,12 @@ from rapidly.projects.link.api import router as work_item_relation_router
 from rapidly.projects.module.api import router as project_module_router
 from rapidly.projects.page.api import router as project_page_router
 from rapidly.projects.project.api import router as project_router
+from rapidly.projects.resource_user_property.api import (
+    cycle_router as project_cycle_user_property_router,
+)
+from rapidly.projects.resource_user_property.api import (
+    module_router as project_module_user_property_router,
+)
 from rapidly.projects.state.api import router as project_state_router
 from rapidly.projects.work_item.api import router as work_item_router
 from rapidly.sharing.call.api import router as call_router
@@ -194,6 +200,9 @@ router.include_router(work_item_relation_router)
 router.include_router(project_cycle_router)
 # project modules (feature workstreams)
 router.include_router(project_module_router)
+# per-user sticky view state on a cycle / module
+router.include_router(project_cycle_user_property_router)
+router.include_router(project_module_user_property_router)
 # work-item activity log
 router.include_router(work_item_activity_router)
 # project pages (wiki / docs)

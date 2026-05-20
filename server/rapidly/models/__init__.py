@@ -44,12 +44,14 @@ from .payment_method import PaymentMethod
 # ── Project management ──
 from .project import Project, ProjectVisibility
 from .project_cycle import ProjectCycle
+from .project_cycle_user_property import ProjectCycleUserProperty
 from .project_cycle_work_item import ProjectCycleWorkItem
 from .project_estimate import EstimateType, ProjectEstimate
 from .project_estimate_point import ProjectEstimatePoint
 from .project_label import ProjectLabel
 from .project_member import ProjectMember, ProjectMemberRole
 from .project_module import ModuleStatus, ProjectModule
+from .project_module_user_property import ProjectModuleUserProperty
 from .project_module_work_item import ProjectModuleWorkItem
 from .project_page import ProjectPage, ProjectPageAccess
 from .project_state import ProjectState, StateGroup
@@ -132,6 +134,7 @@ __all__ = [
     "PaymentMethod",
     "Project",
     "ProjectCycle",
+    "ProjectCycleUserProperty",
     "ProjectCycleWorkItem",
     "ProjectEstimate",
     "ProjectEstimatePoint",
@@ -139,6 +142,7 @@ __all__ = [
     "ProjectMember",
     "ProjectMemberRole",
     "ProjectModule",
+    "ProjectModuleUserProperty",
     "ProjectModuleWorkItem",
     "ProjectPage",
     "ProjectPageAccess",
