@@ -88,6 +88,8 @@ class Scope(StrEnum):
     # Projects (project management product)
     projects_read = "projects:read"
     projects_write = "projects:write"
+    project_deploy_boards_read = "project_deploy_boards:read"
+    project_deploy_boards_write = "project_deploy_boards:write"
     project_states_read = "project_states:read"
     project_states_write = "project_states:write"
     project_labels_read = "project_labels:read"
@@ -163,6 +165,8 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.file_sharing_write: "Create or modify file sharing sessions",
     Scope.projects_read: "Read projects",
     Scope.projects_write: "Create or modify projects",
+    Scope.project_deploy_boards_read: "Read project public-board config",
+    Scope.project_deploy_boards_write: "Configure project public-board settings",
     Scope.project_states_read: "Read project workflow states",
     Scope.project_states_write: "Create or modify project workflow states",
     Scope.project_labels_read: "Read project labels",

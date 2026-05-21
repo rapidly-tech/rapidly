@@ -63,6 +63,7 @@ from rapidly.platform.workspace_access_token.api import (
 from rapidly.projects.activity.api import router as work_item_activity_router
 from rapidly.projects.comment.api import router as work_item_comment_router
 from rapidly.projects.cycle.api import router as project_cycle_router
+from rapidly.projects.deploy_board.api import router as project_deploy_board_router
 
 # ── Project management ──
 from rapidly.projects.estimate.api import router as project_estimate_router
@@ -178,6 +179,8 @@ router.include_router(event_type_router)
 
 # projects CRUD
 router.include_router(project_router)
+# project public-board config (anonymous read endpoints land later)
+router.include_router(project_deploy_board_router)
 # project workflow states
 router.include_router(project_state_router)
 # project labels

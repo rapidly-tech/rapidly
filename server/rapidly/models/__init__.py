@@ -45,6 +45,7 @@ from .payment_method import PaymentMethod
 from .project import Project, ProjectVisibility
 from .project_cycle import ProjectCycle
 from .project_cycle_work_item import ProjectCycleWorkItem
+from .project_deploy_board import ProjectDeployBoard
 from .project_estimate import EstimateType, ProjectEstimate
 from .project_estimate_point import ProjectEstimatePoint
 from .project_label import ProjectLabel
@@ -133,6 +134,7 @@ __all__ = [
     "Project",
     "ProjectCycle",
     "ProjectCycleWorkItem",
+    "ProjectDeployBoard",
     "ProjectEstimate",
     "ProjectEstimatePoint",
     "ProjectLabel",
