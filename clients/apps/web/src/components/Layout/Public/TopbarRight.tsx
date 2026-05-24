@@ -25,10 +25,8 @@ const AuthenticatedView = ({ user }: { user: schemas['UserRead'] }) => (
 
 const TopbarRight = ({
   authenticatedUser,
-  storefrontOrg,
 }: {
   authenticatedUser?: schemas['UserRead']
-  storefrontOrg?: schemas['Workspace']
 }) => {
   const posthog = usePostHog()
   const pathname = usePathname()
@@ -55,7 +53,6 @@ const TopbarRight = ({
         className="hidden md:flex"
         size="default"
         text="Get Started"
-        storefrontOrg={storefrontOrg}
       />
 
       <Modal

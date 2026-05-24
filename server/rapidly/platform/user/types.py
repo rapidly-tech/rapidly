@@ -57,9 +57,6 @@ class UserSignupAttribution(Schema):
 
     intent: _SIGNUP_INTENTS | None = None
 
-    # Source tracking
-    from_storefront: UUID4ToStr | None = None
-
     # Referrer
     path: str | None = None
     host: str | None = None
