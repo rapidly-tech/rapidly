@@ -36,7 +36,6 @@
     "@radix-ui/react-toast": "^1.2.15",
     "@rapidly-tech/client": "workspace:*",
     "@rapidly-tech/currency": "workspace:^",
-    "@rapidly-tech/customer-portal": "workspace:*",
     "@rapidly-tech/mdx": "workspace:*",
     "@rapidly-tech/ui": "workspace:*",
     "@sentry/nextjs": "^10.37.0",
