@@ -14,9 +14,10 @@ import { CHAMBERS } from './chambers'
 describe('chamber registry', () => {
   it('has exactly 2 chambers', () => {
     // Pinned at the test boundary so adds / drops surface in review.
-    // After the engineering-suite pivot, only Secret + Collab remain as
+    // After the engineering-suite pivot, only Secret + Markup remain as
     // public product chambers. Files / Screen / Watch / Call were
-    // removed in M1.0 + M1.1 (see RAPIDLY_ENGINEERING_SUITE_PLAN.md §2).
+    // removed in M1.0 + M1.1, and Collab was renamed to Markup in M1.4
+    // (see RAPIDLY_ENGINEERING_SUITE_PLAN.md §2).
     expect(CHAMBERS).toHaveLength(2)
   })
 
@@ -26,10 +27,10 @@ describe('chamber registry', () => {
   })
 
   it('exposes the expected chamber set', () => {
-    expect(CHAMBERS.map((c) => c.id).sort()).toEqual(['collab', 'secret'])
+    expect(CHAMBERS.map((c) => c.id).sort()).toEqual(['markup', 'secret'])
   })
 
-  it.each(['files', 'screen', 'watch', 'call'])(
+  it.each(['files', 'screen', 'watch', 'call', 'collab'])(
     'does not include the removed chamber "%s"',
     (id) => {
       // file_sharing stays in code as transport but is not a product
@@ -80,7 +81,7 @@ describe('chamber registry', () => {
     // future chamber is added in preview, explicitly update this
     // assertion instead of silently letting it drift.
     const liveIds = CHAMBERS.filter((c) => c.status === 'live').map((c) => c.id)
-    expect(liveIds.sort()).toEqual(['collab', 'secret'])
+    expect(liveIds.sort()).toEqual(['markup', 'secret'])
   })
 
   it('has no soon chambers', () => {
