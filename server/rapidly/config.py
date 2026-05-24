@@ -313,20 +313,6 @@ class Settings(BaseSettings):
     FILE_SHARING_MAX_PRICE_CENTS: int = 100_000_000
     FILE_SHARING_PAID_CHANNEL_TTL: int = 86400
 
-    # Enables the Screen chamber API (/api/v1/screen/*). Default False so
-    # the endpoints don't appear in the surface until a staging rollout
-    # gates production exposure. See specs/screen-session-backend.md.
-    FILE_SHARING_SCREEN_ENABLED: bool = False
-
-    # Enables the Watch chamber API (/api/v1/watch/*). Same rollout posture
-    # as Screen — default False; flip in staging before production. See
-    # specs/watch-chamber-plan.md.
-    FILE_SHARING_WATCH_ENABLED: bool = False
-
-    # Enables the Call chamber API (/api/v1/call/*). Default False. See
-    # specs/call-chamber-plan.md. v1 is a 4-participant mesh.
-    FILE_SHARING_CALL_ENABLED: bool = False
-
     # Enables the Collab chamber API (/api/v1/collab/*). Default False.
     # See specs/collab-chamber-plan.md. Backed by a Yjs CRDT synced
     # over the existing PeerDataConnection.

@@ -70,12 +70,15 @@ CHANNEL_DESTRUCTION_DELAY = 30
 # Registry of supported session kinds. Extended by each chamber. Kept as
 # a single source of truth so validation at call sites can fail closed on
 # typos or malicious input.
-#   "file"   — file sharing (Phase A).
-#   "screen" — Screen chamber (Phase B, PR 5).
-#   "watch"  — Watch chamber (Phase C, PR 9).
-#   "call"   — Call chamber (Phase D, PR 13).
-#   "collab" — Collab chamber (Phase E, PR 16).
-SESSION_KINDS: set[str] = {"file", "screen", "watch", "call", "collab"}
+#   "file"   — file sharing (the transport infrastructure)
+#   "collab" — Collab chamber (renamed to Markup in M1.4)
+#
+# The "screen", "watch", "call" kinds were removed in M1.1 along with
+# their chambers. ChannelData.from_dict still tolerates them in historical
+# Redis state (validate_session_kind is not called there) so a session
+# in-flight at the cutover doesn't crash on read — but no new channel of
+# those kinds can be created.
+SESSION_KINDS: set[str] = {"file", "collab"}
 
 
 def validate_session_kind(kind: str) -> None:
