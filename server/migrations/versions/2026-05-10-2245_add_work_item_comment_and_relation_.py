@@ -13,7 +13,14 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.dialects import postgresql
 
 from rapidly.core.extensions.sqlalchemy.types import StringEnum
-from rapidly.models.work_item_relation import WorkItemRelationType
+from enum import StrEnum
+
+
+class WorkItemRelationType(StrEnum):
+    """Inlined for M1.5 post-deletion compatibility."""
+    blocks = "blocks"
+    relates_to = "relates_to"
+    duplicates = "duplicates"
 
 # Rapidly Custom Imports
 

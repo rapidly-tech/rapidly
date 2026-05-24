@@ -13,7 +13,13 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.dialects import postgresql
 
 from rapidly.core.extensions.sqlalchemy.types import StringEnum
-from rapidly.models.project_page import ProjectPageAccess
+from enum import StrEnum
+
+
+class ProjectPageAccess(StrEnum):
+    """Inlined for M1.5 post-deletion compatibility."""
+    private = "private"
+    public = "public"
 
 # Rapidly Custom Imports
 
