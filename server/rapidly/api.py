@@ -72,7 +72,6 @@ from rapidly.projects.state.api import router as project_state_router
 from rapidly.projects.work_item.api import router as work_item_router
 from rapidly.sharing.collab.api import router as collab_router
 from rapidly.sharing.file_sharing.api import router as file_sharing_router
-from rapidly.sharing.storefront.api import router as storefront_router
 
 router = APIRouter(prefix="/api")
 
@@ -104,8 +103,6 @@ router.include_router(accounts_router)
 
 # share listings (shares)
 router.include_router(product_router)
-# storefront configuration
-router.include_router(storefront_router)
 # analytics and usage metrics
 router.include_router(metrics_router)
 
