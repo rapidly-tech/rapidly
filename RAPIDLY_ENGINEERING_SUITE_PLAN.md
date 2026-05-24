@@ -162,20 +162,35 @@ These are non-trivial existing dependencies that materially shrink the build cos
 
 ## 2. Target state — the suite
 
+**Revised 2026-05-21 (Framing B).** The product pitch leads with the
+three surfaces where Rapidly genuinely beats the engineering-tool
+incumbents. file_sharing is kept as **transport infrastructure** for
+Markup (and for occasional live-handoff use), not as a top-level
+product surface. There is no "Files" chamber in the nav. Documents
+(durable storage with versions + ACL) is **out of scope** —
+engineers will keep using Aconex/SharePoint/BIM360 for their primary
+async file workflow; Rapidly does not try to displace that.
+
 ```
-                        Rapidly Engineering Suite
-                                  │
-        ┌─────────────────┬───────┴────────┬─────────────────┐
-        │                 │                │                 │
-     Markup            Agents        Coordination         Documents
-   (formerly        (new, clean-     (work_item,         (catalog/file,
-    sharing/collab)  room)            project, state)    versioned, ACL)
-        │                 │                │                 │
-        └─────────────────┴────────────────┴─────────────────┘
-                                  │
-                    shared:  identity / platform / billing /
-                             messaging / analytics / storage /
-                             observability
+                  Rapidly Engineering Suite
+                            │
+        ┌───────────────────┼───────────────────┐
+        │                   │                   │
+     Markup              Agents             3D Viewer
+   (sharing/collab    (new, clean-       (xeokit-sdk,
+    renamed → markup) room agent runtime) IFC + GLB)
+        │                   │                   │
+        └───────────────────┴───────────────────┘
+                            │
+                    Coordination (ambient)
+                  (work_item, project, state,
+                   comment, activity — slim)
+                            │
+                shared:  identity / platform / billing /
+                         messaging / analytics / observability
+                         + file_sharing (transport, not surface) +
+                         catalog/file (storage primitives, no
+                         versioning/ACL product on top)
 ```
 
 ### 2.1 Markup chamber
@@ -221,20 +236,30 @@ A simplified slice of today's `projects/`:
 
 Drop everything else from current `projects/`.
 
-### 2.4 Documents chamber
+### 2.4 Documents — out of scope
 
-`catalog/file` renamed to `documents`. Adds:
-
-- `document_version` — each upload becomes a version; the document entity owns the version history
-- `document_access` — explicit ACL beyond workspace boundary (for sharing a deliverable PDF with a client)
+Originally listed as a chamber. Cut after the 2026-05-21 framing
+decision. Rapidly doesn't try to be an async document store with
+versioning + ACL — engineers will keep their daily document workflow
+in Aconex/SharePoint/BIM360. `catalog/file` stays as a storage
+primitive (it backs file_sharing transfers and any Markup
+attachments) but there is no product surface called "Documents".
 
 ### 2.5 What's removed entirely
 
-- `sharing/file_sharing`, `sharing/screen`, `sharing/watch`, `sharing/call`, `sharing/storefront`
-- `customers/`
-- `catalog/share` (and its `share_*` ORM family)
-- `docker-compose.coturn.yml` and the TURN server it ran
-- Frontend `components/FileSharing`, `components/Call`, `components/CustomerPortal`, `utils/file-sharing`, `utils/watch`, `utils/call`, `utils/screen`, `hooks/file-sharing`, `hooks/watch`, `hooks/screen`, `hooks/call`
+- `sharing/screen`, `sharing/watch`, `sharing/call` (consumer-y chambers; not engineering use cases)
+- `sharing/storefront` (Polar-inherited; never used)
+- `customers/` and `customers/customer_portal/` (B2C surface; engineering suite is workspace-internal)
+- Frontend `components/Screen`, `components/Watch`, `components/Call`, `components/Storefront`, `components/CustomerPortal`, `utils/screen`, `utils/watch`, `utils/call`, `hooks/screen`, `hooks/watch`, `hooks/call`, `clients/packages/customer-portal/`
+
+### 2.6 What's kept (Framing B)
+
+- **`sharing/file_sharing/`** — entire P2P chamber, COTURN, signaling, E2EE. No top-level nav entry; powers the Markup chamber's transport and remains available as a "send live" handoff for the niche where E2EE + no-server-bandwidth genuinely beats the incumbents.
+- **`sharing/collab/` → renamed to `sharing/markup/`** — the markup chamber.
+- **`catalog/share/`** — dashboard entry point to file_sharing. Kept because file_sharing is kept.
+- **`admin/file_sharing/`** — admin UI for the kept chamber.
+- **`messaging/webhook` file-share handlers** — kept (events for the kept chamber).
+- **`docker-compose.coturn.yml` + COTURN** — kept (Markup uses it, file_sharing uses it).
 
 ---
 
@@ -614,18 +639,30 @@ The `feedback_no_ai.md` rule from the Collab chamber stays. AI features are scop
 
 ## 11. Open decisions
 
-These must be resolved before the milestone that depends on them starts:
+Resolved during plan drafting (2026-05-21 / 24):
 
-| # | Decision | Blocks | Default if not decided |
+| # | Decision | Resolution | Resolved in |
 |---|---|---|---|
-| 1 | xeokit-sdk commercial license vs IFC.js + three.js | M3 | xeokit, commercial license (~ low five-figure USD/year) |
-| 2 | LLM provider priority for v1 (Anthropic, OpenAI, Google, Ollama) | M4 | Anthropic primary, OpenAI secondary, Ollama for self-hosted |
-| 3 | Pilot construction partner | M6 | Find one before M6 starts |
-| 4 | Pricing model (usage-based, seat-based, both) | M5 | Both — flat-rate workspace + usage-based meter on workflow runs |
-| 5 | Landing-page direction (engineering suite vs. revolver UI from prior plan) | M2 | New landing for engineering suite; archive revolver |
-| 6 | Mobile scope (full PWA vs. tablet-only) | M8 | Tablet-only (iOS Safari + Android Chrome); phone is read-only |
-| 7 | Code-sandbox tech (gVisor, subprocess+seccomp, WebAssembly) | M4 | subprocess+seccomp for v1; gVisor in M9 if real isolation matters |
-| 8 | MCP server hosting (any user-supplied URL vs. allowlist) | M7 | Allowlist for v1; document the contract for self-hosted later |
+| 1 | xeokit-sdk commercial license vs IFC.js + three.js | **xeokit-sdk MIT** (community edition); per the pivot memory's "OSS-licensed" mandate, the commercial license is skipped | M3_EXECUTION.md |
+| 2 | LLM provider priority for v1 | **Anthropic primary, OpenAI secondary, Google + Ollama via pydantic-ai** | M4_EXECUTION.md §4.4 |
+| 5 | Landing-page direction | **Engineering-suite landing**; revolver framing superseded by Framing B | this doc §2 + M1.0 |
+| 6 | Mobile scope | **Tablet PWA, phone read-only** | M8_EXECUTION.md |
+| 7 | Code-sandbox tech | **subprocess+seccomp+rlimit** for v1; gVisor deferred to M9 | M4_EXECUTION.md §4.5 |
+| 8 | MCP server hosting | **Allowlist** (workspace-admin-curated); stdio gated behind separate flag + sandbox | M7_EXECUTION.md §7.5 |
+
+Still open (blocks M5 / M6 / M9 respectively):
+
+| # | Decision | Blocks |
+|---|---|---|
+| 3 | Pilot construction partner | M6 / M9 |
+| 4 | Pricing model (usage-based, seat-based, both) | M5 deploy tab metering |
+
+Additional decision made during M1 drafting (not in the original list):
+
+| # | Decision | Resolution | Resolved in |
+|---|---|---|---|
+| 9 | What's "Files" in the engineering-suite UI? | **Framing B:** file_sharing kept in code as transport infrastructure for Markup + niche live-handoff. No "Files" chamber in the nav. Suite leads with Markup + Agents + 3D Viewer. | this doc §2.6 + M1.0 |
+| 10 | Async durable storage / Documents chamber? | **Out of scope.** Engineers keep their async document workflow in Aconex/SharePoint/BIM360. `catalog/file` stays as a storage primitive (transport for file_sharing + markup asset store); no Documents product surface. | this doc §2.4 |
 
 ---
 
@@ -642,13 +679,34 @@ These must be resolved before the milestone that depends on them starts:
 
 ## 13. Next action
 
-**M0 starts immediately on user go-ahead:**
+**M0 was executed on 2026-05-21.** Status:
+- All `feat/projects-*` PRs closed (59 total — the 22 from this session plus 37 older Plane-mirror PRs from earlier sessions).
+- M0 PR #723 opened — adds the no-attribution gate workflow + this plan file + `M0_EXECUTION.md` to main.
+- Awaiting two user actions to fully complete M0: (1) set the `BLOCKED_PATTERN` Actions secret, (2) merge #723, (3) add `scan` to required-status-checks.
 
-1. Close PRs #698–#722.
-2. Land the CI grep gate.
-3. Update memory.
+**M1–M8 are fully drafted** (one `M<N>_EXECUTION.md` per milestone, all leak-free against the gate). 54 PRs across ~17 engineer-weeks of work:
 
-After that, M1 demolition can run in parallel with the M2 markup foundations work — there are no real dependencies between the two until M3 needs the viewer slot.
+| Milestone | Plan | PRs | ~Weeks |
+|---|---|---|---|
+| M1 — Demolition | M1_EXECUTION.md | 6 | 1.5 |
+| M2 — Markup engineering primitives | M2_EXECUTION.md | 4 | 1 |
+| M3 — 3D viewer + IFC ingestion | M3_EXECUTION.md | 6 | 3 |
+| M4 — Agent runtime backend | M4_EXECUTION.md | 8 | 4 |
+| M5 — Agent runtime UI | M5_EXECUTION.md | 7 | 3 |
+| M6 — Construction layer | M6_EXECUTION.md | 6 | 3 |
+| M7 — Vendor integrations | M7_EXECUTION.md | 5 | 3 |
+| M8 — Mobile + polish | M8_EXECUTION.md | 5 | 2 |
+
+**Sequencing constraints:**
+- M1 must finish before M2 (rename + demolition stable before primitives on top)
+- M3 can start after M1 (independent of M2)
+- M4 can start after M1 (independent of M2 + M3)
+- M5 must wait for M4.1 at minimum
+- M6 must wait for M3 + M4 (uses both)
+- M7 must wait for M4.7 (IntegrationCredential) + M6 (construction nodes consume vendor data)
+- M8 must wait for everything (polish pass touches every chamber)
+
+**M9 — Pilot** is open-ended; first artifact is an `M9_RUNBOOK.md` written when a pilot partner is named (open decision §11/3).
 
 ---
 
