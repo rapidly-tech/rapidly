@@ -12,7 +12,16 @@ from alembic_utils.pg_grant_table import PGGrantTable
 from sqlalchemy import text as sql_text
 
 from rapidly.core.extensions.sqlalchemy.types import StringEnum
-from rapidly.models.project_module import ModuleStatus
+from enum import StrEnum
+
+
+class ModuleStatus(StrEnum):
+    """Inlined for M1.5 post-deletion compatibility."""
+    planned = "planned"
+    in_progress = "in_progress"
+    paused = "paused"
+    completed = "completed"
+    cancelled = "cancelled"
 
 # Rapidly Custom Imports
 

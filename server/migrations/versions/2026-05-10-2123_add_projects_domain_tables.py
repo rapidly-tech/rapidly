@@ -11,11 +11,22 @@ from alembic import op
 from alembic_utils.pg_grant_table import PGGrantTable
 from sqlalchemy import text as sql_text
 
+from enum import StrEnum
+
 from rapidly.core.extensions.sqlalchemy.types import StringEnum
 from rapidly.models.project import ProjectVisibility
-from rapidly.models.project_estimate import EstimateType
 from rapidly.models.project_member import ProjectMemberRole
 from rapidly.models.project_state import StateGroup
+
+
+# ``EstimateType`` was removed in M1.5 along with the project_estimates
+# table family. This migration still references the enum values it
+# originally created, so we keep a local copy here — migrations must
+# stay loadable even after the model code is deleted.
+class EstimateType(StrEnum):
+    points = "points"
+    time = "time"
+    categories = "categories"
 
 # Rapidly Custom Imports
 

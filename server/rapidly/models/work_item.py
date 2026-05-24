@@ -44,7 +44,6 @@ from rapidly.core.extensions.sqlalchemy import StringEnum
 
 if TYPE_CHECKING:
     from .project import Project
-    from .project_estimate_point import ProjectEstimatePoint
     from .project_state import ProjectState
 
 
@@ -101,13 +100,6 @@ class WorkItem(BaseEntity):
         index=True,
     )
 
-    estimate_point_id: Mapped[UUID | None] = mapped_column(
-        Uuid,
-        ForeignKey("project_estimate_points.id", ondelete="set null"),
-        nullable=True,
-        index=True,
-    )
-
     parent_id: Mapped[UUID | None] = mapped_column(
         Uuid,
         ForeignKey("work_items.id", ondelete="set null"),
@@ -141,7 +133,3 @@ class WorkItem(BaseEntity):
     @declared_attr
     def state(cls) -> Mapped["ProjectState"]:
         return relationship("ProjectState", lazy="raise")
-
-    @declared_attr
-    def estimate_point(cls) -> Mapped["ProjectEstimatePoint | None"]:
-        return relationship("ProjectEstimatePoint", lazy="raise")
