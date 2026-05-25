@@ -15,6 +15,7 @@ import rapidly.sharing.markup.signaling_validators  # noqa: F401
 
 # ── Agents (workflow runtime) ──
 from rapidly.agents.workflow.api import router as workflows_router
+from rapidly.agents.workflow_version.api import router as workflow_versions_router
 from rapidly.analytics.event.api import router as event_router
 from rapidly.analytics.event_type.api import router as event_type_router
 from rapidly.analytics.eventstream.api import router as stream_router
@@ -122,8 +123,10 @@ router.include_router(federated_models_router)
 
 # ── Agents (workflow runtime) ──
 
-# workflow CRUD (versions / runs / node_runs land in follow-ups)
+# workflow CRUD (runs / node_runs land in follow-ups)
 router.include_router(workflows_router)
+# workflow_versions (immutable graph_json snapshots)
+router.include_router(workflow_versions_router)
 
 # ── Customer lifecycle ──
 

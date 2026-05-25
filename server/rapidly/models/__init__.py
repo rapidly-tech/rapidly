@@ -85,6 +85,7 @@ from .work_item_label import WorkItemLabel
 
 # ── Workspaces ──
 from .workflow import Workflow
+from .workflow_version import WorkflowVersion
 from .workspace import Workspace
 from .workspace_access_token import WorkspaceAccessToken
 from .workspace_membership import WorkspaceMembership
@@ -158,6 +159,7 @@ __all__ = [
     "WorkItemLabel",
     "WorkItemPriority",
     "Workflow",
+    "WorkflowVersion",
     "Workspace",
     "WorkspaceAccessToken",
     "WorkspaceMembership",
