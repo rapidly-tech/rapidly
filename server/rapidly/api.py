@@ -12,6 +12,9 @@ from fastapi import APIRouter
 # WebSocket can dispatch to the registry. The import is a side-effect
 # (registration via decorator); the name itself is unused here.
 import rapidly.sharing.markup.signaling_validators  # noqa: F401
+
+# ── Agents (workflow runtime) ──
+from rapidly.agents.workflow.api import router as workflows_router
 from rapidly.analytics.event.api import router as event_router
 from rapidly.analytics.event_type.api import router as event_type_router
 from rapidly.analytics.eventstream.api import router as stream_router
@@ -116,6 +119,11 @@ router.include_router(collab_router)
 
 # federated 3D models (IFC ingestion + XKT for the viewer)
 router.include_router(federated_models_router)
+
+# ── Agents (workflow runtime) ──
+
+# workflow CRUD (versions / runs / node_runs land in follow-ups)
+router.include_router(workflows_router)
 
 # ── Customer lifecycle ──
 
