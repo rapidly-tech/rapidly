@@ -183,14 +183,61 @@ async def _run_ifc_convert(model_id: UUID) -> _ParseResult:
         shutil.rmtree(workdir, ignore_errors=True)
 
 
+# Read chunk size for the S3 stream-to-disk. 1 MiB keeps memory
+# pressure bounded on a 250+ MB IFC without making the kernel
+# context-switch on every read.
+_S3_READ_CHUNK = 1 * 1024 * 1024
+
+
 async def _stream_source_to_disk(model_id: UUID, dest: Path) -> None:
-    """Resolve the model's source_file_id to bytes and stage them at
-    ``dest``. Implementation is M3.1c — for now we surface a clear
-    error so the worker tells the user "the asset pipe isn't wired"
-    rather than hanging on a half-stub."""
-    raise NotImplementedError(
-        "M3.1c — wire the catalog/file S3 streamer into the worker"
-    )
+    """Resolve the model's ``source_file_id`` to bytes and stream
+    them onto ``dest``.
+
+    Loads the FederatedModel + its source File row, picks the right
+    S3Service from the catalog/file registry, fetches the object,
+    and streams the boto3 StreamingBody to disk in 1 MiB chunks so
+    the worker doesn't accumulate the full IFC in Python memory.
+
+    Raises ``FileNotFoundError`` if the model or its source row is
+    missing — surfaces as ``status='failed'`` with that message in
+    the actor's error path.
+    """
+    from rapidly.catalog.file.s3 import S3_SERVICES
+    from rapidly.models import File
+
+    async with AsyncSessionMaker() as session:
+        model_stmt = select(FederatedModel).where(FederatedModel.id == model_id)
+        model_row = (await session.execute(model_stmt)).scalar_one_or_none()
+        if model_row is None:
+            raise FileNotFoundError(f"FederatedModel {model_id} not found")
+        file_stmt = select(File).where(File.id == model_row.source_file_id)
+        file_row = (await session.execute(file_stmt)).scalar_one_or_none()
+        if file_row is None:
+            raise FileNotFoundError(
+                f"Source File {model_row.source_file_id} not found "
+                f"for FederatedModel {model_id}"
+            )
+        # Capture the fields we need before the session closes so we
+        # can do the boto3 GetObject + disk write outside the DB
+        # transaction. boto3 is sync; we run it in a thread.
+        service = file_row.service
+        path = file_row.path
+
+    def _download_sync() -> None:
+        s3 = S3_SERVICES[service]
+        obj = s3.get_object_or_raise(path)
+        body = obj.get("Body")
+        if body is None:
+            raise FileNotFoundError(f"S3 GetObject returned no Body for path={path}")
+        with open(dest, "wb") as fh:
+            # StreamingBody's .read(n) returns bytes; b"" signals EOF.
+            while True:
+                chunk = body.read(_S3_READ_CHUNK)
+                if not chunk:
+                    break
+                fh.write(chunk)
+
+    await asyncio.to_thread(_download_sync)
 
 
 def _parse_metadata(meta: dict[str, object]) -> _ParseResult:

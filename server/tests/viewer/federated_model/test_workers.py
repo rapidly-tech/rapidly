@@ -79,14 +79,6 @@ class TestParseMetadata:
 class TestRunIfcConvert:
     """The subprocess path. Fully mocked — we never call IfcConvert."""
 
-    async def test_raises_clear_error_when_streamer_not_wired(self) -> None:
-        # M3.1c will wire ``_stream_source_to_disk``; until then the
-        # worker should fail loudly with a NotImplementedError so the
-        # operator sees a clear diagnostic in the failed row's
-        # error_message.
-        with pytest.raises(NotImplementedError, match="M3.1c"):
-            await workers._run_ifc_convert(uuid4())
-
     async def test_invokes_subprocess_with_expected_cli(self) -> None:
         # With the streamer mocked, the worker should produce the
         # IfcConvert subprocess call and parse the resulting metadata.
@@ -133,7 +125,90 @@ class TestRunIfcConvert:
         assert len(result.disciplines) == 1
 
 
-# NOTE: actor-level integration tests live in M3.1c.
+@pytest.mark.asyncio
+class TestStreamSourceToDisk:
+    """The S3 stream-to-disk path. Mocks the boto3 GetObject so the
+    test runs without MinIO + without a real DB."""
+
+    async def test_streams_chunks_to_dest_file(self, tmp_path: Path) -> None:
+        # Fake StreamingBody — .read(n) returns bytes; b"" on EOF.
+        chunks = [b"chunk-1-", b"chunk-2-", b"chunk-3", b""]
+
+        class FakeBody:
+            def __init__(self) -> None:
+                self._i = 0
+
+            def read(self, _n: int) -> bytes:
+                out = chunks[self._i]
+                self._i += 1
+                return out
+
+        fake_s3 = MagicMock()
+        fake_s3.get_object_or_raise.return_value = {"Body": FakeBody()}
+
+        # FederatedModel + File lookups: synthesise minimal stand-ins.
+        from rapidly.models import FederatedModel, File, ModelStatus
+
+        fake_model = MagicMock(spec=FederatedModel)
+        fake_model.source_file_id = uuid4()
+        fake_model.status = ModelStatus.uploaded
+        fake_file = MagicMock(spec=File)
+        fake_file.service = "rapidly-files"
+        fake_file.path = "tenant/abc/source.ifc"
+
+        # AsyncSessionMaker → session → session.execute returns a
+        # scalar_one_or_none() projection. We need the result to
+        # change per query: first call returns the model, second
+        # call returns the file.
+        from unittest.mock import AsyncMock
+
+        results = [
+            MagicMock(scalar_one_or_none=MagicMock(return_value=fake_model)),
+            MagicMock(scalar_one_or_none=MagicMock(return_value=fake_file)),
+        ]
+        session = MagicMock()
+        session.execute = AsyncMock(side_effect=results)
+        session.__aenter__ = AsyncMock(return_value=session)
+        session.__aexit__ = AsyncMock(return_value=False)
+
+        dest = tmp_path / "streamed.ifc"
+        with patch(
+            "rapidly.viewer.federated_model.workers.AsyncSessionMaker",
+            return_value=session,
+        ):
+            with patch.dict(
+                "rapidly.catalog.file.s3.S3_SERVICES",
+                {"rapidly-files": fake_s3},
+                clear=False,
+            ):
+                await workers._stream_source_to_disk(uuid4(), dest)
+
+        assert dest.exists()
+        assert dest.read_bytes() == b"chunk-1-chunk-2-chunk-3"
+        fake_s3.get_object_or_raise.assert_called_once_with("tenant/abc/source.ifc")
+
+    async def test_raises_file_not_found_when_model_missing(
+        self, tmp_path: Path
+    ) -> None:
+        from unittest.mock import AsyncMock
+
+        results = [MagicMock(scalar_one_or_none=MagicMock(return_value=None))]
+        session = MagicMock()
+        session.execute = AsyncMock(side_effect=results)
+        session.__aenter__ = AsyncMock(return_value=session)
+        session.__aexit__ = AsyncMock(return_value=False)
+
+        dest = tmp_path / "should-not-exist.ifc"
+        with patch(
+            "rapidly.viewer.federated_model.workers.AsyncSessionMaker",
+            return_value=session,
+        ):
+            with pytest.raises(FileNotFoundError, match="FederatedModel"):
+                await workers._stream_source_to_disk(uuid4(), dest)
+        assert not dest.exists()
+
+
+# NOTE: actor-level integration tests live in M3.1d.
 #
 # The ``@actor`` decorator wraps the function in a JobQueueManager
 # + RedisMiddleware context that's awkward to mock in pure unit
