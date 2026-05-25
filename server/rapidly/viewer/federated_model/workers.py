@@ -95,9 +95,8 @@ async def parse_ifc(model_id: UUID) -> None:
         model.units = result.units
         model.element_count = result.element_count
         model.bbox = result.bbox
-        # xkt_file_id is set by the M3.1c post-actor hook once the
-        # XKT staged in the tempdir is uploaded to S3 and a
-        # catalog/file row is created.
+        if result.xkt_file_id is not None:
+            model.xkt_file_id = result.xkt_file_id
         for disc in result.disciplines:
             session.add(
                 ModelDiscipline(
@@ -124,7 +123,7 @@ class _Discipline:
 
 
 class _ParseResult:
-    __slots__ = ("bbox", "disciplines", "element_count", "units")
+    __slots__ = ("bbox", "disciplines", "element_count", "units", "xkt_file_id")
 
     def __init__(
         self,
@@ -132,11 +131,13 @@ class _ParseResult:
         element_count: int,
         bbox: dict[str, object] | None,
         disciplines: list[_Discipline],
+        xkt_file_id: UUID | None = None,
     ) -> None:
         self.units = units
         self.element_count = element_count
         self.bbox = bbox
         self.disciplines = disciplines
+        self.xkt_file_id = xkt_file_id
 
 
 async def _load_model(session: object, model_id: UUID) -> FederatedModel | None:
@@ -147,8 +148,14 @@ async def _load_model(session: object, model_id: UUID) -> FederatedModel | None:
 
 async def _run_ifc_convert(model_id: UUID) -> _ParseResult:
     """Stream the IFC bytes to a temp dir, run IfcConvert, parse the
-    metadata JSON sidecar, and return the result. The XKT staging +
-    S3 upload happens in M3.1c."""
+    metadata JSON sidecar, upload the XKT to S3 + create a File row,
+    and return the result with ``xkt_file_id`` populated.
+
+    The XKT upload happens *inside* the tempdir lifetime so the file
+    bytes survive long enough to upload before the ``finally`` cleans
+    them. The actor then binds ``xkt_file_id`` onto the FederatedModel
+    in its "ready" write.
+    """
     workdir = Path(tempfile.mkdtemp(prefix="rapidly-ifc-"))
     try:
         ifc_path = workdir / "source.ifc"
@@ -178,7 +185,14 @@ async def _run_ifc_convert(model_id: UUID) -> _ParseResult:
         )
 
         meta = json.loads(meta_path.read_text())
-        return _parse_metadata(meta)
+        result = _parse_metadata(meta)
+        # Upload the XKT BEFORE the tempdir's finally cleans it. The
+        # File row's id is what the actor binds onto the
+        # FederatedModel; failures here surface as 'failed' via the
+        # actor's exception handler.
+        xkt_file_id = await _upload_xkt_and_create_file(model_id, xkt_path)
+        result.xkt_file_id = xkt_file_id
+        return result
     finally:
         shutil.rmtree(workdir, ignore_errors=True)
 
@@ -238,6 +252,84 @@ async def _stream_source_to_disk(model_id: UUID, dest: Path) -> None:
                 fh.write(chunk)
 
     await asyncio.to_thread(_download_sync)
+
+
+# XKT files can be quite large for a federated model. 10 MiB write
+# chunks keep memory bounded for the workspace read but otherwise
+# don't matter much — boto3 buffers the put_object body in memory
+# anyway. For v1 we read the whole file into a single put_object
+# call; multipart upload-for-XKT is a v2 if XKTs routinely exceed
+# 100 MB in production.
+_XKT_MIME = "application/octet-stream"
+
+
+async def _upload_xkt_and_create_file(model_id: UUID, xkt_path: Path) -> UUID | None:
+    """Upload the XKT bytes at ``xkt_path`` to S3 and create a ``File``
+    row pointing at it. Returns the new File's id, or ``None`` if the
+    file is empty / oversize (defence-in-depth).
+
+    Resolves the workspace_id via FederatedModel -> Project for the
+    File row's tenancy column.
+
+    Raises on any persistence error; the actor catches and writes
+    status='failed' with the message.
+    """
+    from rapidly.catalog.file.s3 import S3_SERVICES
+    from rapidly.models import FederatedModel, File, Project
+    from rapidly.models.file import FileServiceTypes
+
+    if not xkt_path.exists():
+        raise FileNotFoundError(f"XKT not produced at {xkt_path}")
+    xkt_bytes = xkt_path.read_bytes()
+    size = len(xkt_bytes)
+    if size == 0:
+        # IfcConvert silently produced an empty file. Defensive guard.
+        return None
+    if not _xkt_size_ok(size):
+        raise ValueError(f"XKT size {size} bytes exceeds cap {_MAX_XKT_BYTES}")
+
+    # Resolve workspace via the model -> project chain.
+    async with AsyncSessionMaker() as session:
+        join_stmt = (
+            select(FederatedModel, Project)
+            .join(Project, Project.id == FederatedModel.project_id)
+            .where(FederatedModel.id == model_id)
+        )
+        row = (await session.execute(join_stmt)).first()
+        if row is None:
+            raise FileNotFoundError(
+                f"FederatedModel {model_id} missing during XKT upload"
+            )
+        _, project = row
+        workspace_id = project.workspace_id
+
+    # Storage path under the workspace's tenant prefix. The model_id
+    # in the key gives a deterministic 1:1 mapping back to the model
+    # for ops debugging.
+    s3_path = f"viewer/{workspace_id}/{model_id}/model.xkt"
+    service = FileServiceTypes.downloadable
+    s3 = S3_SERVICES[service]
+
+    def _upload_sync() -> None:
+        s3.upload(data=xkt_bytes, path=s3_path, mime_type=_XKT_MIME)
+
+    await asyncio.to_thread(_upload_sync)
+
+    # Create the File row that the FederatedModel will bind to.
+    async with AsyncSessionMaker() as session:
+        file_row = File(
+            workspace_id=workspace_id,
+            name=f"{model_id}.xkt",
+            path=s3_path,
+            mime_type=_XKT_MIME,
+            size=size,
+            service=service,
+            is_uploaded=True,
+            is_enabled=True,
+        )
+        session.add(file_row)
+        await session.flush()
+        return file_row.id
 
 
 def _parse_metadata(meta: dict[str, object]) -> _ParseResult:

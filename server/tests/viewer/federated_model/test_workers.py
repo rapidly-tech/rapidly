@@ -107,6 +107,13 @@ class TestRunIfcConvert:
             proc.stdout = b""
             return proc
 
+        async def _fake_upload(_model_id, _xkt_path) -> object:
+            # M3.1d wired the XKT upload into _run_ifc_convert; the
+            # unit test doesn't exercise it (covered by
+            # TestUploadXktAndCreateFile below). Stub to a fake id
+            # so the convert flow completes.
+            return uuid4()
+
         with patch(
             "rapidly.viewer.federated_model.workers._stream_source_to_disk",
             _fake_stream,
@@ -115,7 +122,11 @@ class TestRunIfcConvert:
                 "rapidly.viewer.federated_model.workers.subprocess.run",
                 fake_run,
             ):
-                result = await workers._run_ifc_convert(uuid4())
+                with patch(
+                    "rapidly.viewer.federated_model.workers._upload_xkt_and_create_file",
+                    _fake_upload,
+                ):
+                    result = await workers._run_ifc_convert(uuid4())
 
         assert len(captured) == 1
         assert captured[0][0] == "IfcConvert"
@@ -208,7 +219,44 @@ class TestStreamSourceToDisk:
         assert not dest.exists()
 
 
-# NOTE: actor-level integration tests live in M3.1d.
+@pytest.mark.asyncio
+class TestUploadXktAndCreateFile:
+    """The XKT-upload + File-row path. boto3 + DB are mocked."""
+
+    async def test_returns_none_on_empty_xkt(self, tmp_path: Path) -> None:
+        # IfcConvert silently producing an empty file shouldn't crash
+        # the worker; return None so the actor leaves xkt_file_id
+        # null + still marks status='ready' (the engineer can
+        # re-trigger with a known-good IFC).
+        empty = tmp_path / "model.xkt"
+        empty.write_bytes(b"")
+        result = await workers._upload_xkt_and_create_file(uuid4(), empty)
+        assert result is None
+
+    async def test_raises_when_xkt_missing(self, tmp_path: Path) -> None:
+        with pytest.raises(FileNotFoundError, match="XKT not produced"):
+            await workers._upload_xkt_and_create_file(uuid4(), tmp_path / "missing.xkt")
+
+    async def test_raises_when_xkt_oversize(self, tmp_path: Path) -> None:
+        # Defence-in-depth: > 2 GB rejects. Use the cap helper to
+        # avoid actually writing 2 GB of bytes in test.
+        big = tmp_path / "huge.xkt"
+        big.write_bytes(b"x")
+        # Monkey-patch the cap-checker for a tight test boundary.
+        from unittest.mock import patch as _patch
+
+        with _patch(
+            "rapidly.viewer.federated_model.workers._xkt_size_ok",
+            return_value=False,
+        ):
+            with pytest.raises(ValueError, match="exceeds cap"):
+                await workers._upload_xkt_and_create_file(uuid4(), big)
+
+
+# NOTE: full actor-level integration tests with a real DB live in
+# a follow-up. The actor body itself (load model, dispatch helpers,
+# write result back) is thin and is covered by the individual
+# helper tests above.
 #
 # The ``@actor`` decorator wraps the function in a JobQueueManager
 # + RedisMiddleware context that's awkward to mock in pure unit
