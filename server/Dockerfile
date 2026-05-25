@@ -94,10 +94,19 @@ RUN --mount=type=bind,source=uv.lock,target=uv.lock \
     redis \
     libpq-dev \
     tzdata-legacy \
+    ifcopenshell-tools \
   && uv sync --no-group dev --frozen \
   && uv tool install tinybird --python 3.13 \
   && apt-get purge -y --auto-remove build-essential \
   && rm -rf /var/lib/apt/lists/*
+
+# ifcopenshell-tools provides the ``IfcConvert`` CLI that the
+# viewer chamber's parse worker (viewer/federated_model/workers.py)
+# shells out to. The xeokit IFC->XKT conversion path runs in a
+# subprocess so an OOM during a heavy parse kills the worker, not
+# the API. Pinning to the apt-shipped version is acceptable for v1;
+# later milestones may vendor a specific xeokit-flavoured build if
+# the debian version lags upstream.
 
 ENV PATH="/home/rapidly/.local/bin:$PATH"
 

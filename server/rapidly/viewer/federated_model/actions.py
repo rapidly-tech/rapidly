@@ -16,6 +16,7 @@ from rapidly.models import FederatedModel, ModelStatus
 from rapidly.postgres import AsyncReadSession, AsyncSession
 from rapidly.viewer.federated_model.queries import FederatedModelRepository
 from rapidly.viewer.federated_model.types import FederatedModelCreate
+from rapidly.worker import dispatch_task
 
 
 async def get(
@@ -47,11 +48,13 @@ async def create(
     auth_subject: AuthPrincipal[User | Workspace],
     data: FederatedModelCreate,
 ) -> FederatedModel:
-    """Create the row in ``status='uploaded'``.
+    """Create the row in ``status='uploaded'`` and dispatch the
+    parse worker.
 
     The frontend has already done the multipart upload via
     ``catalog/file``'s presigned-PUT flow and passes the resulting
-    ``source_file_id`` here. Parse-worker dispatch happens in M3.1b.
+    ``source_file_id`` here. The actor that flips
+    ``uploaded -> parsing -> ready`` lives in ``workers.parse_ifc``.
     """
     repo = FederatedModelRepository.from_session(session)
     record = FederatedModel(
@@ -60,7 +63,12 @@ async def create(
         source_file_id=data.source_file_id,
         status=ModelStatus.uploaded,
     )
-    return await repo.create(record, flush=True)
+    created = await repo.create(record, flush=True)
+    # Dispatch only after the flush so the worker can SELECT the
+    # row by id. The actor itself re-loads the row in its own
+    # session — we just need the id to be persisted.
+    dispatch_task("viewer.parse_ifc", model_id=created.id)
+    return created
 
 
 async def delete(
