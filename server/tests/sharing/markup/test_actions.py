@@ -6,7 +6,6 @@ import pytest
 
 import rapidly.sharing.markup.signaling_validators  # noqa: F401
 from rapidly.redis import Redis
-from rapidly.sharing.markup import actions as collab_service
 from rapidly.sharing.file_sharing.queries import (
     SESSION_KINDS,
     ChannelData,
@@ -14,6 +13,7 @@ from rapidly.sharing.file_sharing.queries import (
     validate_session_kind,
 )
 from rapidly.sharing.file_sharing.signaling import _AUTH_VALIDATORS
+from rapidly.sharing.markup import actions as collab_service
 
 
 async def _make_sibling_channel(redis: Redis, kind: str) -> tuple[ChannelData, str]:

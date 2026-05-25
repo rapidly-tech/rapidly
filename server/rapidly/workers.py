@@ -15,6 +15,7 @@ from rapidly.platform.user import workers as user
 from rapidly.platform.workspace import workers as workspace
 from rapidly.platform.workspace_access_token import workers as workspace_access_token
 from rapidly.sharing.file_sharing import workers as file_sharing
+from rapidly.viewer.federated_model import workers as viewer_federated_model
 
 __all__ = [
     "auth",
@@ -29,6 +30,7 @@ __all__ = [
     "notifications",
     "stripe",
     "user",
+    "viewer_federated_model",
     "webhook",
     "workspace",
     "workspace_access_token",

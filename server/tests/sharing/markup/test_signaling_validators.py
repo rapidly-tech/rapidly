@@ -7,9 +7,9 @@ from typing import Any
 import pytest
 
 import rapidly.sharing.markup.signaling_validators  # noqa: F401
-from rapidly.sharing.markup import actions as collab_service
 from rapidly.sharing.file_sharing.queries import ChannelRepository
 from rapidly.sharing.file_sharing.signaling import _AUTH_VALIDATORS, AuthContext
+from rapidly.sharing.markup import actions as collab_service
 
 
 class _MockWs:
