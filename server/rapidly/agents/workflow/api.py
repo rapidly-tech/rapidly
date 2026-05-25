@@ -1,0 +1,102 @@
+"""HTTP endpoints for workflows (``/api/v1/workflows/*``)."""
+
+from __future__ import annotations
+
+from uuid import UUID
+
+from fastapi import Depends, Query, status
+
+from rapidly.agents.workflow import actions
+from rapidly.agents.workflow.permissions import WorkflowsRead, WorkflowsWrite
+from rapidly.agents.workflow.types import (
+    WorkflowCreate,
+    WorkflowSchema,
+    WorkflowUpdate,
+)
+from rapidly.core.pagination import PaginatedList, PaginationParamsQuery
+from rapidly.openapi import APITag
+from rapidly.postgres import (
+    AsyncReadSession,
+    AsyncSession,
+    get_db_read_session,
+    get_db_session,
+)
+from rapidly.routing import APIRouter
+
+router = APIRouter(prefix="/v1/workflows", tags=["workflows", APITag.private])
+
+
+@router.get(
+    "/",
+    summary="List Workflows",
+    response_model=PaginatedList[WorkflowSchema],
+)
+async def list_workflows(
+    auth_subject: WorkflowsRead,
+    pagination: PaginationParamsQuery,
+    project_id: UUID | None = Query(None),
+    session: AsyncReadSession = Depends(get_db_read_session),
+) -> PaginatedList[WorkflowSchema]:
+    results, count = await actions.list_workflows(
+        session, auth_subject, project_id=project_id, pagination=pagination
+    )
+    return PaginatedList.from_paginated_results(results, count, pagination)
+
+
+@router.get(
+    "/{id}",
+    summary="Get Workflow",
+    response_model=WorkflowSchema,
+)
+async def get_workflow(
+    id: UUID,
+    auth_subject: WorkflowsRead,
+    session: AsyncReadSession = Depends(get_db_read_session),
+) -> WorkflowSchema:
+    workflow = await actions.get_or_raise(session, auth_subject, id)
+    return WorkflowSchema.model_validate(workflow)
+
+
+@router.post(
+    "/",
+    summary="Create Workflow",
+    response_model=WorkflowSchema,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_workflow(
+    body: WorkflowCreate,
+    auth_subject: WorkflowsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> WorkflowSchema:
+    workflow = await actions.create(session, auth_subject, body)
+    return WorkflowSchema.model_validate(workflow)
+
+
+@router.patch(
+    "/{id}",
+    summary="Update Workflow",
+    response_model=WorkflowSchema,
+)
+async def update_workflow(
+    id: UUID,
+    body: WorkflowUpdate,
+    auth_subject: WorkflowsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> WorkflowSchema:
+    workflow = await actions.get_or_raise(session, auth_subject, id)
+    updated = await actions.update(session, auth_subject, workflow, body)
+    return WorkflowSchema.model_validate(updated)
+
+
+@router.delete(
+    "/{id}",
+    summary="Delete Workflow",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+async def delete_workflow(
+    id: UUID,
+    auth_subject: WorkflowsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> None:
+    workflow = await actions.get_or_raise(session, auth_subject, id)
+    await actions.delete(session, auth_subject, workflow)

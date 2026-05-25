@@ -31,6 +31,15 @@ class Scope(StrEnum):
     federated_models_read = "federated_models:read"
     federated_models_write = "federated_models:write"
 
+    # Agent workflows (Agents chamber)
+    workflows_read = "workflows:read"
+    workflows_write = "workflows:write"
+    # Separate scope so an API-key issuer can grant run-trigger
+    # rights without granting full workflow-edit rights — common
+    # case is letting an external integration start runs while
+    # keeping the graph itself read-only to them.
+    runs_trigger = "runs:trigger"
+
     # Workspaces
     workspaces_read = "workspaces:read"
     workspaces_write = "workspaces:write"
@@ -132,6 +141,9 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.web_write: "Web Write Access",
     Scope.federated_models_read: "Read federated 3D models",
     Scope.federated_models_write: "Create or modify federated 3D models",
+    Scope.workflows_read: "Read agent workflows",
+    Scope.workflows_write: "Create or modify agent workflows",
+    Scope.runs_trigger: "Trigger agent workflow runs",
     Scope.user_write: "Delete your user account",
     Scope.workspaces_read: "Read your workspaces",
     Scope.workspaces_write: "Create or modify workspaces",
