@@ -7,12 +7,16 @@ so the frontend upload UI can be built against a real route surface.
 """
 
 from collections.abc import Sequence
+from datetime import datetime
 from uuid import UUID
 
+from sqlalchemy import select
+
+from rapidly.catalog.file import actions as file_actions
 from rapidly.core.pagination import PaginationParams, paginate
 from rapidly.errors import ResourceNotFound
 from rapidly.identity.auth.models import AuthPrincipal, User, Workspace
-from rapidly.models import FederatedModel, ModelStatus
+from rapidly.models import FederatedModel, File, ModelStatus
 from rapidly.postgres import AsyncReadSession, AsyncSession
 from rapidly.viewer.federated_model.queries import FederatedModelRepository
 from rapidly.viewer.federated_model.types import FederatedModelCreate
@@ -89,3 +93,27 @@ async def get_or_raise(
     if model is None:
         raise ResourceNotFound("Federated model not found.")
     return model
+
+
+async def get_xkt_download_url(
+    session: AsyncSession | AsyncReadSession,
+    model: FederatedModel,
+) -> tuple[str, datetime]:
+    """Return a presigned download URL + expiry for the model's XKT.
+
+    The model must be in ``status='ready'`` with ``xkt_file_id`` set;
+    otherwise raises ``ResourceNotFound`` because the bytes aren't
+    available yet. The caller has already passed the readable-
+    statement gate (via ``get_or_raise`` above) so we don't re-check
+    project membership here.
+    """
+    if model.xkt_file_id is None:
+        raise ResourceNotFound("XKT not available — model is not in ready status yet.")
+    file_stmt = select(File).where(File.id == model.xkt_file_id)
+    file_row = (await session.execute(file_stmt)).scalar_one_or_none()
+    if file_row is None:
+        # Defensive: an xkt_file_id that doesn't resolve is a stale
+        # row (file row got hard-deleted out of band). Treat as
+        # not-found rather than crashing.
+        raise ResourceNotFound("XKT file row not found.")
+    return file_actions.generate_download_url(file_row)

@@ -12,6 +12,7 @@ Invariants pinned:
 
 from __future__ import annotations
 
+from datetime import UTC
 from typing import Any
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
@@ -71,6 +72,62 @@ class TestCreate:
         assert captured[0].units is None
         assert captured[0].element_count is None
         assert captured[0].bbox is None
+
+
+@pytest.mark.asyncio
+class TestGetXktDownloadUrl:
+    async def test_raises_when_xkt_file_id_not_set(self) -> None:
+        # status='uploaded' / 'parsing' / 'failed' all imply
+        # xkt_file_id is None — request the URL on any of those and
+        # we should 404 (handled at the route level via the
+        # ResourceNotFound exception handler).
+        from datetime import datetime
+        from unittest.mock import AsyncMock, MagicMock
+
+        from rapidly.errors import ResourceNotFound
+        from rapidly.models import FederatedModel, ModelStatus
+        from rapidly.viewer.federated_model import actions
+
+        model = MagicMock(spec=FederatedModel)
+        model.xkt_file_id = None
+        model.status = ModelStatus.parsing
+
+        with pytest.raises(ResourceNotFound, match="not in ready"):
+            await actions.get_xkt_download_url(AsyncMock(), model)
+
+        # datetime unused-import elimination
+        _ = datetime
+
+    async def test_returns_url_and_expiry_for_ready_model(self) -> None:
+        # Happy path: status='ready' + xkt_file_id set → delegate to
+        # ``catalog/file.actions.generate_download_url`` and forward.
+        from datetime import datetime
+        from unittest.mock import AsyncMock, MagicMock, patch
+
+        from rapidly.models import FederatedModel, File
+        from rapidly.viewer.federated_model import actions
+
+        model = MagicMock(spec=FederatedModel)
+        model.xkt_file_id = uuid4()
+
+        file_row = MagicMock(spec=File)
+
+        session = MagicMock()
+        session.execute = AsyncMock(
+            return_value=MagicMock(scalar_one_or_none=MagicMock(return_value=file_row))
+        )
+
+        fake_url = "https://s3.example/signed/xkt"
+        fake_expiry = datetime(2026, 12, 31, tzinfo=UTC)
+
+        with patch(
+            "rapidly.viewer.federated_model.actions.file_actions.generate_download_url",
+            return_value=(fake_url, fake_expiry),
+        ):
+            url, expires_at = await actions.get_xkt_download_url(session, model)
+
+        assert url == fake_url
+        assert expires_at == fake_expiry
 
 
 @pytest.mark.asyncio

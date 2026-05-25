@@ -30,6 +30,7 @@ from rapidly.viewer.federated_model.permissions import (
 from rapidly.viewer.federated_model.types import (
     FederatedModelCreate,
     FederatedModelSchema,
+    XktDownloadUrlSchema,
 )
 
 router = APIRouter(
@@ -85,6 +86,25 @@ async def create_model(
 ) -> FederatedModelSchema:
     model = await actions.create(session, auth_subject, body)
     return FederatedModelSchema.model_validate(model)
+
+
+@router.get(
+    "/{id}/xkt-url",
+    summary="Get XKT Download URL",
+    response_model=XktDownloadUrlSchema,
+)
+async def get_xkt_url(
+    id: UUID,
+    auth_subject: FederatedModelsRead,
+    session: AsyncReadSession = Depends(get_db_read_session),
+) -> XktDownloadUrlSchema:
+    """Return a presigned URL the frontend viewer fetches the XKT
+    bytes from. URLs are short-lived; the viewer re-calls this if
+    the cached URL expires.
+    """
+    model = await actions.get_or_raise(session, auth_subject, id)
+    url, expires_at = await actions.get_xkt_download_url(session, model)
+    return XktDownloadUrlSchema(url=url, expires_at=expires_at)
 
 
 @router.delete(
