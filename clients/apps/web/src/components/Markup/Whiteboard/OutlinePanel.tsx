@@ -57,6 +57,7 @@ const ICONS: Record<ElementType, string> = {
   frame: '▣',
   embed: '▤',
   'pdf-underlay': '📄',
+  'image-underlay': '🖽',
 }
 
 export function OutlinePanel({
