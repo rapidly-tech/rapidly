@@ -47,3 +47,16 @@ class ModelDisciplineSchema(BaseModel):
     element_count: int
 
     model_config = {"from_attributes": True}
+
+
+class XktDownloadUrlSchema(BaseModel):
+    """Presigned download URL for a FederatedModel's XKT.
+
+    The frontend viewer calls this endpoint to get a short-lived URL
+    that the xeokit canvas can fetch the XKT bytes from. URLs expire
+    quickly (per ``S3_FILES_PRESIGN_TTL``) so the route is
+    intentionally cheap to re-call.
+    """
+
+    url: str
+    expires_at: datetime
