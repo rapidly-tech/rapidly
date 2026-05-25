@@ -27,6 +27,10 @@ class Scope(StrEnum):
     web_read = "web:read"
     web_write = "web:write"
 
+    # Federated 3D models (Viewer chamber)
+    federated_models_read = "federated_models:read"
+    federated_models_write = "federated_models:write"
+
     # Workspaces
     workspaces_read = "workspaces:read"
     workspaces_write = "workspaces:write"
@@ -126,6 +130,8 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.email: "Read your email address",
     Scope.web_read: "Web Read Access",
     Scope.web_write: "Web Write Access",
+    Scope.federated_models_read: "Read federated 3D models",
+    Scope.federated_models_write: "Create or modify federated 3D models",
     Scope.user_write: "Delete your user account",
     Scope.workspaces_read: "Read your workspaces",
     Scope.workspaces_write: "Create or modify workspaces",

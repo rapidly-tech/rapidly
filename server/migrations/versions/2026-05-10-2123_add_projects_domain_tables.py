@@ -6,12 +6,12 @@ Create Date: 2026-05-10 21:23:16.393380
 
 """
 
+from enum import StrEnum
+
 import sqlalchemy as sa
 from alembic import op
 from alembic_utils.pg_grant_table import PGGrantTable
 from sqlalchemy import text as sql_text
-
-from enum import StrEnum
 
 from rapidly.core.extensions.sqlalchemy.types import StringEnum
 from rapidly.models.project import ProjectVisibility
@@ -27,6 +27,7 @@ class EstimateType(StrEnum):
     points = "points"
     time = "time"
     categories = "categories"
+
 
 # Rapidly Custom Imports
 
