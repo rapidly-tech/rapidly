@@ -12,6 +12,7 @@ from uuid import UUID
 
 from fastapi import Depends, HTTPException, Query, status
 
+from rapidly.agents.execution import actions as execution_actions
 from rapidly.agents.run import actions
 from rapidly.agents.run.permissions import RunsRead, RunsTrigger
 from rapidly.agents.run.types import RunSchema, RunTriggerRequest
@@ -99,16 +100,24 @@ async def trigger_run(
     auth_subject: RunsTrigger,
     session: AsyncSession = Depends(get_db_session),
 ) -> RunSchema:
-    # Pre-flight gate the workflow read; the actual engine arrives
-    # in M4.2.
-    await workflow_actions.get_or_raise(session, auth_subject, workflow_id)
-    # 501 until the engine ships. Body is parsed so request-schema
-    # validation still happens at the boundary.
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail=(
-            "Workflow execution not implemented yet — engine ships in "
-            "M4.2. The request shape + auth gate are wired so the M5 "
-            "UI can build against this contract."
-        ),
-    )
+    workflow = await workflow_actions.get_or_raise(session, auth_subject, workflow_id)
+    try:
+        run = await execution_actions.start_run(
+            session,
+            auth_subject,
+            workflow=workflow,
+            input_data=body.input_data,
+        )
+    except Exception as exc:
+        # NotPermitted from start_run (no published version) maps
+        # to 412 Precondition Failed — the workflow is gettable but
+        # not runnable in its current state.
+        from rapidly.errors import NotPermitted as _NotPermitted
+
+        if isinstance(exc, _NotPermitted):
+            raise HTTPException(
+                status_code=status.HTTP_412_PRECONDITION_FAILED,
+                detail=str(exc),
+            ) from exc
+        raise
+    return RunSchema.model_validate(run)

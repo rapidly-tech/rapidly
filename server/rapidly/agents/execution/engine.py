@@ -1,0 +1,230 @@
+"""DAG walker — the heart of the agent runtime.
+
+For v1 the engine implements **sequential topological execution**:
+
+- Validate the graph (no cycles, no orphans) before walking.
+- Use Kahn's algorithm to produce a deterministic topological
+  order.
+- For each node in order:
+    * check the Run's status; bail if it's been cancelled
+    * create a NodeRun row in ``running``
+    * dispatch to the per-type handler from ``node_registry``
+    * write back ``succeeded`` (with output_data) or ``failed``
+      (with error_message)
+    * cache the output for downstream nodes
+- After the last node: write the Run as ``succeeded`` (or ``failed``
+  if any node failed).
+
+v2 splits will add parallel branches (asyncio.gather across
+independent paths), loop / branch / sub-workflow node semantics,
+and human-in-the-loop pausing. The shape here lets the v1 echo
+node prove the spine works.
+
+The engine does NOT own the Dramatiq actor lifecycle — the actor
+(``workers.execute_run``) is the only caller and handles the
+session + retry semantics. The engine itself is a pure(ish)
+coroutine that takes a session + run_id and walks.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+from uuid import UUID
+
+import structlog
+from sqlalchemy import select
+
+from rapidly.agents.execution.node_registry import get_handler
+from rapidly.agents.execution.state import (
+    can_transition_node_run,
+    can_transition_run,
+    is_run_terminal,
+)
+from rapidly.core.utils import now_utc
+from rapidly.models import NodeRun, NodeRunStatus, Run, RunStatus, WorkflowVersion
+
+_log = structlog.get_logger(__name__)
+
+
+class GraphValidationError(Exception):
+    """Raised when a graph_json can't be walked safely."""
+
+
+def topological_order(graph: dict[str, Any]) -> list[dict[str, Any]]:
+    """Return graph['nodes'] in topological order. Raises
+    ``GraphValidationError`` on cycle / orphan."""
+    nodes_by_id: dict[str, dict[str, Any]] = {n["id"]: n for n in graph["nodes"]}
+    incoming: dict[str, set[str]] = {nid: set() for nid in nodes_by_id}
+    outgoing: dict[str, set[str]] = {nid: set() for nid in nodes_by_id}
+    for edge in graph["edges"]:
+        src, dst = edge["source"], edge["target"]
+        if src not in nodes_by_id or dst not in nodes_by_id:
+            raise GraphValidationError(f"edge {edge!r} references unknown node")
+        outgoing[src].add(dst)
+        incoming[dst].add(src)
+
+    # Kahn's algorithm. Process nodes with no remaining incoming
+    # edges; tie-break by id for determinism so the same graph
+    # produces the same node-execution order across runs.
+    no_incoming = sorted((nid for nid, preds in incoming.items() if not preds))
+    order: list[dict[str, Any]] = []
+    while no_incoming:
+        nid = no_incoming.pop(0)
+        order.append(nodes_by_id[nid])
+        for downstream in sorted(outgoing[nid]):
+            incoming[downstream].discard(nid)
+            if not incoming[downstream]:
+                # Insertion sorted so tie-breaks stay deterministic.
+                _insort(no_incoming, downstream)
+
+    if len(order) != len(nodes_by_id):
+        unreached = sorted(set(nodes_by_id) - {n["id"] for n in order})
+        raise GraphValidationError(f"graph has a cycle; unreached nodes: {unreached!r}")
+
+    return order
+
+
+def _insort(xs: list[str], v: str) -> None:
+    # Tiny binary insort. ``bisect`` would work too; this keeps the
+    # walk module self-contained.
+    lo, hi = 0, len(xs)
+    while lo < hi:
+        mid = (lo + hi) // 2
+        if xs[mid] < v:
+            lo = mid + 1
+        else:
+            hi = mid
+    xs.insert(lo, v)
+
+
+async def walk_run(session: Any, run_id: UUID) -> None:
+    """Execute the run identified by ``run_id``.
+
+    The session is passed in so the actor can wrap retry semantics
+    around it. The engine doesn't open or close sessions on its
+    own.
+    """
+    run = await _load_run(session, run_id)
+    if run is None:
+        _log.warning("agents.execute_run.missing", run_id=str(run_id))
+        return
+    if is_run_terminal(run.status):
+        _log.info(
+            "agents.execute_run.terminal_skip",
+            run_id=str(run_id),
+            status=run.status,
+        )
+        return
+
+    version = await _load_version(session, run.workflow_version_id)
+    if version is None:
+        await _fail_run(session, run, "WorkflowVersion not found")
+        return
+
+    try:
+        order = topological_order(version.graph_json)
+    except GraphValidationError as exc:
+        await _fail_run(session, run, str(exc))
+        return
+
+    # Transition pending → running.
+    if not can_transition_run(run.status, RunStatus.running):
+        _log.info(
+            "agents.execute_run.illegal_transition",
+            run_id=str(run_id),
+            from_=run.status,
+        )
+        return
+    run.status = RunStatus.running
+    run.started_at = now_utc()
+    await session.flush()
+
+    outputs: dict[str, dict[str, Any]] = {}
+    ctx: dict[str, Any] = {"run_id": run.id, "session": session}
+    last_output: dict[str, Any] = dict(run.input_data)
+
+    for node in order:
+        # Cancellation check between nodes. The cancel endpoint
+        # writes the status; we re-read here. M4.x will add a redis
+        # pubsub signal for instant pickup.
+        latest = await _load_run(session, run_id)
+        if latest is None or latest.status == RunStatus.cancelled:
+            return
+
+        node_run = NodeRun(
+            run_id=run.id,
+            node_id=node["id"],
+            node_type=node["type"],
+            status=NodeRunStatus.running,
+            started_at=now_utc(),
+            input_data=last_output,
+        )
+        session.add(node_run)
+        await session.flush()
+
+        handler = get_handler(node["type"])
+        if handler is None:
+            await _fail_node_run(
+                session, node_run, f"no handler for node_type {node['type']!r}"
+            )
+            await _fail_run(session, run, f"unknown node type {node['type']!r}")
+            return
+
+        try:
+            output = await handler(ctx, dict(node.get("config", {})), dict(last_output))
+        except Exception as exc:
+            await _fail_node_run(session, node_run, str(exc)[:1000])
+            await _fail_run(session, run, str(exc)[:1000])
+            _log.exception("agents.execute_run.node_failed", node_id=node["id"])
+            return
+
+        if not can_transition_node_run(node_run.status, NodeRunStatus.succeeded):
+            await _fail_node_run(session, node_run, "illegal node_run transition")
+            await _fail_run(session, run, "engine state-machine violation")
+            return
+        node_run.status = NodeRunStatus.succeeded
+        node_run.completed_at = now_utc()
+        node_run.output_data = output
+        await session.flush()
+        outputs[node["id"]] = output
+        last_output = output
+
+    # All nodes succeeded — write the Run as succeeded with the
+    # last node's output as the run's output_data. Multi-output
+    # aggregation is a v2 concern.
+    if not can_transition_run(run.status, RunStatus.succeeded):
+        return
+    run.status = RunStatus.succeeded
+    run.completed_at = now_utc()
+    run.output_data = last_output
+    await session.flush()
+
+
+async def _load_run(session: Any, run_id: UUID) -> Run | None:
+    stmt = select(Run).where(Run.id == run_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def _load_version(session: Any, version_id: UUID) -> WorkflowVersion | None:
+    stmt = select(WorkflowVersion).where(WorkflowVersion.id == version_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def _fail_run(session: Any, run: Run, message: str) -> None:
+    if not can_transition_run(run.status, RunStatus.failed):
+        return
+    run.status = RunStatus.failed
+    run.completed_at = now_utc()
+    run.error_message = message[:1000]
+    await session.flush()
+
+
+async def _fail_node_run(session: Any, node_run: NodeRun, message: str) -> None:
+    if not can_transition_node_run(node_run.status, NodeRunStatus.failed):
+        return
+    node_run.status = NodeRunStatus.failed
+    node_run.completed_at = now_utc()
+    node_run.error_message = message[:1000]
+    await session.flush()
