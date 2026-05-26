@@ -12,6 +12,9 @@ from fastapi import APIRouter
 # WebSocket can dispatch to the registry. The import is a side-effect
 # (registration via decorator); the name itself is unused here.
 import rapidly.sharing.markup.signaling_validators  # noqa: F401
+from rapidly.agents.integration_credential.api import (
+    router as integration_credentials_router,
+)
 
 # ── Agents (workflow runtime) ──
 from rapidly.agents.node_run.api import router as node_runs_router
@@ -138,6 +141,8 @@ router.include_router(runs_trigger_router)
 router.include_router(node_runs_router)
 # vector_collections — RAG corpus root + indexing-trigger endpoint
 router.include_router(vector_collections_router)
+# integration_credentials — per-workspace LLM/embedding API keys
+router.include_router(integration_credentials_router)
 
 # ── Customer lifecycle ──
 
