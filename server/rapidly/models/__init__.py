@@ -5,6 +5,9 @@ from rapidly.core.db.models import AuditableModel, Model
 # ── Financial ──
 from .account import Account
 
+# ── Workspaces ──
+from .agent_run import Run, RunStatus, TriggeredByKind
+
 # ── Custom fields ──
 from .custom_field import CustomField
 
@@ -82,8 +85,6 @@ from .work_item_activity import WorkItemActivity, WorkItemActivityVerb
 from .work_item_assignee import WorkItemAssignee
 from .work_item_comment import WorkItemComment
 from .work_item_label import WorkItemLabel
-
-# ── Workspaces ──
 from .workflow import Workflow
 from .workflow_version import WorkflowVersion
 from .workspace import Workspace
@@ -134,6 +135,8 @@ __all__ = [
     "ProjectMemberRole",
     "ProjectState",
     "ProjectVisibility",
+    "Run",
+    "RunStatus",
     "Share",
     "ShareCustomField",
     "ShareMedia",
@@ -145,6 +148,7 @@ __all__ = [
     "SharePriceSeatUnit",
     "ShareVisibility",
     "StateGroup",
+    "TriggeredByKind",
     "User",
     "UserNotification",
     "UserSession",
