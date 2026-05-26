@@ -34,6 +34,7 @@ from uuid import UUID
 import structlog
 from sqlalchemy import select
 
+from rapidly.agents.execution.handlers.gate import GateFailedError
 from rapidly.agents.execution.node_registry import get_handler
 from rapidly.agents.execution.state import (
     can_transition_node_run,
@@ -168,6 +169,12 @@ async def walk_run(session: Any, run_id: UUID) -> None:
     }
     last_output: dict[str, Any] = dict(run.input_data)
 
+    # Adjacency map for gate-skip propagation. Built once from
+    # the edge list so the descendant walk doesn't re-scan
+    # every loop iteration.
+    adjacency = _build_adjacency(version.graph_json)
+    skipped: set[str] = set()
+
     for node in order:
         # Cancellation check between nodes. The cancel endpoint
         # writes the status; we re-read here. M4.x will add a redis
@@ -175,6 +182,24 @@ async def walk_run(session: Any, run_id: UUID) -> None:
         latest = await _load_run(session, run_id)
         if latest is None or latest.status == RunStatus.cancelled:
             return
+
+        # Skip nodes downstream of a closed gate. We still emit a
+        # NodeRun row so the API surface can render "this node was
+        # skipped because gate X closed" instead of silently
+        # leaving rows missing.
+        if node["id"] in skipped:
+            skipped_run = NodeRun(
+                run_id=run.id,
+                node_id=node["id"],
+                node_type=node["type"],
+                status=NodeRunStatus.skipped,
+                started_at=now_utc(),
+                completed_at=now_utc(),
+                input_data=last_output,
+            )
+            session.add(skipped_run)
+            await session.flush()
+            continue
 
         node_run = NodeRun(
             run_id=run.id,
@@ -197,6 +222,26 @@ async def walk_run(session: Any, run_id: UUID) -> None:
 
         try:
             output = await handler(ctx, dict(node.get("config", {})), dict(last_output))
+        except GateFailedError as gate_exc:
+            # Deliberate flow-control exit — not a failure. Mark
+            # this gate node succeeded with the failed condition
+            # in its output_data, then mark every descendant as
+            # skipped so the subsequent iteration short-circuits
+            # them.
+            node_run.status = NodeRunStatus.succeeded
+            node_run.completed_at = now_utc()
+            node_run.output_data = {
+                "passed": False,
+                "left": gate_exc.left,
+                "right": gate_exc.right,
+                "operator": gate_exc.operator,
+            }
+            await session.flush()
+            outputs[node["id"]] = node_run.output_data
+            # Downstream propagation. ``_descendants`` walks every
+            # reachable node via the adjacency map.
+            skipped |= _descendants(node["id"], adjacency)
+            continue
         except Exception as exc:
             await _fail_node_run(session, node_run, str(exc)[:1000])
             await _fail_run(session, run, str(exc)[:1000])
@@ -223,6 +268,37 @@ async def walk_run(session: Any, run_id: UUID) -> None:
     run.completed_at = now_utc()
     run.output_data = last_output
     await session.flush()
+
+
+def _build_adjacency(graph: dict[str, Any]) -> dict[str, set[str]]:
+    """Build an outgoing-edge adjacency map for the graph.
+
+    Used by the gate-skip propagation. Kept separate from the
+    topological-order walk so the walk's data shape stays pure
+    (it only cares about incoming counts).
+    """
+    out: dict[str, set[str]] = {n["id"]: set() for n in graph.get("nodes", [])}
+    for edge in graph.get("edges", []):
+        src = edge.get("source")
+        dst = edge.get("target")
+        if src in out and dst is not None:
+            out[src].add(dst)
+    return out
+
+
+def _descendants(start: str, adjacency: dict[str, set[str]]) -> set[str]:
+    """BFS over outgoing edges, returning every node reachable from
+    ``start`` (excluding ``start`` itself).
+    """
+    seen: set[str] = set()
+    frontier = list(adjacency.get(start, ()))
+    while frontier:
+        node = frontier.pop()
+        if node in seen:
+            continue
+        seen.add(node)
+        frontier.extend(adjacency.get(node, ()))
+    return seen
 
 
 async def _load_run(session: Any, run_id: UUID) -> Run | None:

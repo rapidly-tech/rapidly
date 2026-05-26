@@ -25,6 +25,7 @@ from rapidly.agents.execution.handlers.file_io import (
     file_read_handler,
     file_write_handler,
 )
+from rapidly.agents.execution.handlers.gate import gate_handler
 from rapidly.agents.execution.handlers.http import http_handler
 from rapidly.agents.execution.handlers.llm import (
     llm_handler,
@@ -71,6 +72,12 @@ _REGISTRY: dict[str, NodeHandler] = {
     # RAG search: top-K cosine-similarity lookup against a
     # VectorCollection. Indexing pipeline lands in M4.6b.
     "rag_search": rag_search_handler,
+    # Gate: early-exit flow control. On condition failure raises
+    # GateFailedError, which the engine catches and uses to mark
+    # every descendant node as ``skipped``. Run completes as
+    # ``succeeded`` — a closed gate is normal flow control,
+    # not an error.
+    "gate": gate_handler,
 }
 
 
