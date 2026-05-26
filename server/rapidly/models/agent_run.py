@@ -60,6 +60,11 @@ class TriggeredByKind(StrEnum):
     webhook = "webhook"
     schedule = "schedule"
     sub_workflow = "sub_workflow"
+    # Triggered by the eval runner (M4.8b). ``triggered_by_id``
+    # carries the EvalRun.id so operators filtering the run
+    # list by eval can drill down from the eval's summary
+    # straight into the per-case Run timelines.
+    eval = "eval"
 
 
 class Run(BaseEntity):
