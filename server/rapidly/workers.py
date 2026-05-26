@@ -1,5 +1,6 @@
 """Registry of all background job modules for the Dramatiq worker."""
 
+from rapidly.agents.execution import workers as agents_execution
 from rapidly.analytics.event import workers as event
 from rapidly.analytics.eventstream import workers as eventstream
 from rapidly.analytics.external_event import workers as external_event
@@ -18,6 +19,7 @@ from rapidly.sharing.file_sharing import workers as file_sharing
 from rapidly.viewer.federated_model import workers as viewer_federated_model
 
 __all__ = [
+    "agents_execution",
     "auth",
     "customer",
     "customer_session",
