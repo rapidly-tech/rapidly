@@ -199,12 +199,32 @@ def _compare(
 ) -> bool:
     """Score actual_output against expected_output.
 
-    v1 supports ``exact_match`` only. ``json_schema`` + ``llm_judge``
-    land in M4.8c / M4.8d when the assertion-strategy framework
-    grows beyond a single dispatch case.
+    Strategies (M4.8b + M4.8c):
+        - ``exact_match``  — Python ``==``. Brittle for non-
+          deterministic LLM output; precise for structured
+          extraction workflows.
+        - ``json_schema``  — ``expected`` is treated as a JSON
+          Schema, ``actual`` validated against it. Loose enough
+          to accept "any field-shape match" while still pinning
+          required keys + types. The case author writes a schema
+          per case (or shares one across cases via a JSON pointer
+          in the case input — future v2).
+
+    ``llm_judge`` lands in M4.8d.
     """
     if strategy == AssertionStrategy.exact_match:
         return actual == expected
+    if strategy == AssertionStrategy.json_schema:
+        # Inline import — jsonschema is only needed when this
+        # strategy is configured. Keeps the actor's import-time
+        # surface lean for the common exact_match path.
+        from jsonschema import ValidationError, validate
+
+        try:
+            validate(instance=actual, schema=expected)
+        except ValidationError:
+            return False
+        return True
     raise ValueError(f"unsupported assertion_strategy {strategy!r}")
 
 

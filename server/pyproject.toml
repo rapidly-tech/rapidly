@@ -80,6 +80,7 @@ dependencies = [
   # ── Scheduling ──────────────────────────────────────────────
   "apscheduler>=3.10.4",
   "aiosmtplib>=5.1.0",
+  "jsonschema>=4.26.0",
 ]
 
 [dependency-groups]
