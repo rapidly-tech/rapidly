@@ -15,6 +15,7 @@ import rapidly.sharing.markup.signaling_validators  # noqa: F401
 from rapidly.agents.integration_credential.api import (
     router as integration_credentials_router,
 )
+from rapidly.agents.llm_usage.api import router as llm_usage_router
 
 # ── Agents (workflow runtime) ──
 from rapidly.agents.node_run.api import router as node_runs_router
@@ -143,6 +144,8 @@ router.include_router(node_runs_router)
 router.include_router(vector_collections_router)
 # integration_credentials — per-workspace LLM/embedding API keys
 router.include_router(integration_credentials_router)
+# llm_usage — per-call token tracking + grouped rollups
+router.include_router(llm_usage_router)
 
 # ── Customer lifecycle ──
 

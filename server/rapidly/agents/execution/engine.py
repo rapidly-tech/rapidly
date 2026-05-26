@@ -220,6 +220,15 @@ async def walk_run(session: Any, run_id: UUID) -> None:
             await _fail_run(session, run, f"unknown node type {node['type']!r}")
             return
 
+        # node_run_id is per-iteration ctx — handlers that emit
+        # ancillary records (LlmUsage, future cost-tracking
+        # tables) tag them with this id so a run's per-step
+        # cost split is queryable. Reset _resolved_credential_id
+        # too so a credential-store hit from a *previous* node
+        # doesn't bleed into the next one's usage attribution.
+        ctx["node_run_id"] = node_run.id
+        ctx.pop("_resolved_credential_id", None)
+
         try:
             output = await handler(ctx, dict(node.get("config", {})), dict(last_output))
         except GateFailedError as gate_exc:
