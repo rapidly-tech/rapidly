@@ -48,6 +48,14 @@ class Scope(StrEnum):
     vector_collections_read = "vector_collections:read"
     vector_collections_write = "vector_collections:write"
 
+    # Integration credentials (Agents chamber). The API never
+    # returns plaintext secrets; ``read`` only sees metadata
+    # (provider + name + base_url + is_default). ``write``
+    # covers create + delete + default-toggle. Both are
+    # admin-tier — these touch billing-significant config.
+    integration_credentials_read = "integration_credentials:read"
+    integration_credentials_write = "integration_credentials:write"
+
     # Workspaces
     workspaces_read = "workspaces:read"
     workspaces_write = "workspaces:write"
@@ -155,6 +163,12 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.vector_collections_read: "Read RAG vector collections",
     Scope.vector_collections_write: (
         "Create, modify, or trigger indexing of RAG vector collections"
+    ),
+    Scope.integration_credentials_read: (
+        "Read integration credential metadata (never the secret itself)"
+    ),
+    Scope.integration_credentials_write: (
+        "Create or delete integration credentials and set defaults"
     ),
     Scope.user_write: "Delete your user account",
     Scope.workspaces_read: "Read your workspaces",

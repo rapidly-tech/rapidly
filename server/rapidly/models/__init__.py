@@ -32,6 +32,9 @@ from .file_share_download import FileShareDownload
 from .file_share_payment import FileSharePayment, FileSharePaymentStatus
 from .file_share_report import FileShareReport, FileShareReportStatus
 from .file_share_session import FileShareSession, FileShareSessionStatus
+
+# ── Integration credentials (Agents chamber) ──
+from .integration_credential import IntegrationCredential
 from .login_code import LoginCode
 from .member import Member, MemberRole
 from .member_session import MemberSession
@@ -116,6 +119,7 @@ __all__ = [
     "FileShareReportStatus",
     "FileShareSession",
     "FileShareSessionStatus",
+    "IntegrationCredential",
     "LoginCode",
     "Member",
     "MemberRole",
