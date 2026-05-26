@@ -52,3 +52,31 @@ class UsageRollupResponse(BaseModel):
     window_start: datetime
     window_end: datetime
     rows: list[UsageRollupRow]
+
+
+class CredentialBudgetRow(BaseModel):
+    """One credential's month-to-date utilisation against its cap.
+
+    ``percent_used`` is ``None`` when no budget is set (the cap
+    is unlimited, so the question doesn't apply); ``> 1.0`` when
+    the credential has blown its monthly budget.
+    """
+
+    credential_id: UUID
+    workspace_id: UUID
+    provider: str
+    name: str
+    monthly_budget_tokens: int | None
+    month_to_date_tokens: int
+    percent_used: float | None
+
+
+class CredentialBudgetResponse(BaseModel):
+    """A snapshot of every credential's MTD utilisation.
+
+    ``month_start`` reports the UTC first-of-month anchor used to
+    compute MTD so a dashboard doesn't have to derive it.
+    """
+
+    month_start: datetime
+    rows: list[CredentialBudgetRow]

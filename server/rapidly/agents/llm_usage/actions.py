@@ -4,8 +4,17 @@ from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from uuid import UUID
 
-from rapidly.agents.llm_usage.queries import LlmUsageRepository, rollup_grouped
-from rapidly.agents.llm_usage.types import UsageRollupResponse, UsageRollupRow
+from rapidly.agents.llm_usage.queries import (
+    LlmUsageRepository,
+    credential_budgets,
+    rollup_grouped,
+)
+from rapidly.agents.llm_usage.types import (
+    CredentialBudgetResponse,
+    CredentialBudgetRow,
+    UsageRollupResponse,
+    UsageRollupRow,
+)
 from rapidly.core.pagination import PaginationParams, paginate
 from rapidly.identity.auth.models import AuthPrincipal, User, Workspace
 from rapidly.models import LlmUsage
@@ -89,3 +98,40 @@ async def rollup(
         window_end=end,
         rows=rollup_rows,
     )
+
+
+async def budgets(
+    session: AsyncReadSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+) -> CredentialBudgetResponse:
+    """Return month-to-date utilisation per credential.
+
+    Anchor: first day of the current month in UTC. Operators on
+    other timezones can derive their local month-start client-side
+    and call /rollup with explicit window_start instead.
+    """
+    now = datetime.now(UTC)
+    month_start = datetime(now.year, now.month, 1, tzinfo=UTC)
+
+    rows = await credential_budgets(
+        session, auth_subject=auth_subject, month_start=month_start
+    )
+
+    out: list[CredentialBudgetRow] = []
+    for cred_id, ws_id, provider, name, budget, mtd in rows:
+        mtd_int = int(mtd)
+        percent: float | None = None
+        if budget is not None and budget > 0:
+            percent = mtd_int / float(budget)
+        out.append(
+            CredentialBudgetRow(
+                credential_id=cred_id,
+                workspace_id=ws_id,
+                provider=provider,
+                name=name,
+                monthly_budget_tokens=budget,
+                month_to_date_tokens=mtd_int,
+                percent_used=percent,
+            )
+        )
+    return CredentialBudgetResponse(month_start=month_start, rows=out)

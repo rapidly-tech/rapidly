@@ -95,6 +95,7 @@ async def create(
         secret_encrypted=encrypt_secret(data.secret),
         base_url=data.base_url,
         is_default=data.is_default,
+        monthly_budget_tokens=data.monthly_budget_tokens,
     )
     return await repo.create(record, flush=True)
 

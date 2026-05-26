@@ -23,7 +23,7 @@ into a response model.
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import Boolean, ForeignKey, String, Text, Uuid
+from sqlalchemy import BigInteger, Boolean, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from rapidly.core.db.models.base import BaseEntity
@@ -71,6 +71,15 @@ class IntegrationCredential(BaseEntity):
     # unique index in the migration (only one ``is_default=true``
     # per workspace+provider).
     is_default: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+    # Monthly budget cap in tokens (input + output, summed). Nullable
+    # = unlimited. Operators set it to bound a tenant's spend on a
+    # provider; the budgets endpoint reports current month-to-date
+    # consumption against this cap so dashboards can render
+    # utilisation. We store tokens not dollars because provider
+    # price tables drift — the UI converts to dollars at display
+    # time against whatever rate card the operator configures.
+    monthly_budget_tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
 
     @declared_attr
     def workspace(cls) -> Mapped["Workspace"]:
