@@ -18,7 +18,11 @@ from fastapi import Depends, Query
 
 from rapidly.agents.llm_usage import actions
 from rapidly.agents.llm_usage.permissions import LlmUsageRead
-from rapidly.agents.llm_usage.types import LlmUsageSchema, UsageRollupResponse
+from rapidly.agents.llm_usage.types import (
+    CredentialBudgetResponse,
+    LlmUsageSchema,
+    UsageRollupResponse,
+)
 from rapidly.core.pagination import PaginatedList, PaginationParamsQuery
 from rapidly.openapi import APITag
 from rapidly.postgres import AsyncReadSession, get_db_read_session
@@ -80,3 +84,22 @@ async def rollup(
         credential_id=credential_id,
         provider=provider,
     )
+
+
+@router.get(
+    "/budgets",
+    summary="Credential Budgets",
+    response_model=CredentialBudgetResponse,
+    description=(
+        "Return each visible credential's month-to-date token "
+        "consumption and (if set) its monthly budget + percent "
+        "used. The MTD anchor is the first day of the current "
+        "month in UTC. Operators on other timezones can compute "
+        "their own anchor and use the /rollup endpoint instead."
+    ),
+)
+async def budgets(
+    auth_subject: LlmUsageRead,
+    session: AsyncReadSession = Depends(get_db_read_session),
+) -> CredentialBudgetResponse:
+    return await actions.budgets(session, auth_subject)

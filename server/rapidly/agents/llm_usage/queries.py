@@ -115,3 +115,74 @@ async def rollup_grouped(
 
     rows = (await session.execute(stmt)).all()
     return [tuple(r) for r in rows]  # type: ignore[misc]
+
+
+async def credential_budgets(
+    session: AsyncSession | AsyncReadSession,
+    *,
+    auth_subject: AuthPrincipal[User | Workspace],
+    month_start: datetime,
+) -> Sequence[tuple[UUID, UUID, str, str, int | None, int]]:
+    """Per-credential MTD utilisation.
+
+    Returns one row per credential the caller can see, each:
+    ``(credential_id, workspace_id, provider, name,
+       monthly_budget_tokens, month_to_date_tokens)``.
+
+    A LEFT OUTER JOIN keeps credentials with zero usage in the
+    result so a dashboard can show "0% used" rather than just
+    omitting them. The ``LlmUsage.occurred_at`` filter goes in
+    the JOIN clause (not WHERE) — putting it in WHERE would
+    drop zero-usage credentials.
+    """
+    # Inline imports to keep the dependency graph tight.
+    from rapidly.models import IntegrationCredential
+
+    mtd_tokens = func.coalesce(
+        func.sum(LlmUsage.input_tokens + LlmUsage.output_tokens), 0
+    ).label("mtd_tokens")
+
+    stmt = (
+        select(
+            IntegrationCredential.id,
+            IntegrationCredential.workspace_id,
+            IntegrationCredential.provider,
+            IntegrationCredential.name,
+            IntegrationCredential.monthly_budget_tokens,
+            mtd_tokens,
+        )
+        .outerjoin(
+            LlmUsage,
+            (LlmUsage.credential_id == IntegrationCredential.id)
+            & (LlmUsage.occurred_at >= month_start),
+        )
+        .where(IntegrationCredential.deleted_at.is_(None))
+        .group_by(
+            IntegrationCredential.id,
+            IntegrationCredential.workspace_id,
+            IntegrationCredential.provider,
+            IntegrationCredential.name,
+            IntegrationCredential.monthly_budget_tokens,
+        )
+        .order_by(
+            IntegrationCredential.workspace_id,
+            IntegrationCredential.provider,
+            IntegrationCredential.name,
+        )
+    )
+
+    if is_user_principal(auth_subject):
+        user = auth_subject.subject
+        stmt = stmt.where(
+            IntegrationCredential.workspace_id.in_(
+                select(WorkspaceMembership.workspace_id).where(
+                    WorkspaceMembership.user_id == user.id,
+                    WorkspaceMembership.deleted_at.is_(None),
+                )
+            )
+        )
+    elif is_workspace_principal(auth_subject):
+        stmt = stmt.where(IntegrationCredential.workspace_id == auth_subject.subject.id)
+
+    rows = (await session.execute(stmt)).all()
+    return [tuple(r) for r in rows]  # type: ignore[misc]

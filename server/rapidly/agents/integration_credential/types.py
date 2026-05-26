@@ -61,6 +61,15 @@ class IntegrationCredentialCreate(BaseModel):
             "pair is allowed (enforced by partial unique index)."
         ),
     )
+    monthly_budget_tokens: int | None = Field(
+        default=None,
+        ge=1,
+        description=(
+            "Monthly token cap (input + output, summed). Null = unlimited. "
+            "Used by the /budgets endpoint to report utilisation; "
+            "actual call enforcement (block-on-overage) is M4.7h."
+        ),
+    )
 
 
 class IntegrationCredentialSchema(BaseModel):
@@ -72,6 +81,7 @@ class IntegrationCredentialSchema(BaseModel):
     name: str
     base_url: str | None
     is_default: bool
+    monthly_budget_tokens: int | None
     created_at: datetime
     modified_at: datetime | None
 
