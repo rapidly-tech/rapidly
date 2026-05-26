@@ -18,12 +18,12 @@ target Cohere / Ollama / etc. via the same dispatch shape.
 
 from __future__ import annotations
 
-import os
 from typing import Any
 from uuid import UUID
 
 from sqlalchemy import select
 
+from rapidly.agents.rag.embedder import EmbedderError, embed_one
 from rapidly.models import VectorChunk, VectorCollection
 from rapidly.worker import AsyncSessionMaker
 
@@ -78,11 +78,18 @@ async def rag_search_handler(
         if collection is None:
             raise RagNodeError(f"VectorCollection {collection_id} not found")
 
-        query_vec = await _embed_query(
-            text=query,
-            model_id=collection.embedding_model,
-            node_config=node_config,
-        )
+        options = {
+            "api_key": node_config.get("api_key"),
+            "base_url": node_config.get("base_url"),
+        }
+        try:
+            query_vec = await embed_one(
+                query,
+                model_id=collection.embedding_model,
+                options=options,
+            )
+        except EmbedderError as exc:
+            raise RagNodeError(str(exc)) from exc
         if len(query_vec) != collection.dimensions:
             raise RagNodeError(
                 f"embedded query has {len(query_vec)} dims; "
@@ -126,49 +133,18 @@ async def _embed_query(
     model_id: str,
     node_config: dict[str, Any],
 ) -> list[float]:
-    """Turn a query string into a vector via the collection's
-    configured embedding model.
+    """Compat shim — routes through the shared embedder module.
 
-    Format expected: ``"<provider>:<model>"`` (e.g.
-    ``"openai:text-embedding-3-small"``). For v1 we only call the
-    OpenAI path — Anthropic + Google don't ship hosted embedding
-    models in the pydantic-ai providers we have on hand, and
-    Ollama-compatible endpoints use the OpenAI client shape.
-
-    Test-only path: ``"test:<dim>"`` returns a deterministic
-    vector for unit tests. The dim is parsed from the suffix
-    after the colon (e.g. ``"test:4"`` → ``[0.0, 0.25, 0.5, 0.75]``).
+    Kept as a private wrapper so existing tests
+    (``tests/agents/execution/test_rag_search_handler.py``) that
+    import ``_embed_query`` directly still pass. The real
+    implementation lives in ``rapidly.agents.rag.embedder``.
     """
-    if ":" not in model_id:
-        raise RagNodeError(
-            f"embedding_model {model_id!r} must be in 'provider:model' form"
-        )
-    provider, model = model_id.split(":", 1)
-    if provider == "test":
-        try:
-            dim = int(model)
-        except ValueError as exc:
-            raise RagNodeError(
-                f"test embedding model suffix must be int, got {model!r}"
-            ) from exc
-        # Deterministic fixture — the actual values don't matter
-        # for the search query test (we control what's inserted).
-        return [i / dim for i in range(dim)]
-    if provider in ("openai", "ollama"):
-        try:
-            from openai import AsyncOpenAI
-        except ImportError as exc:  # pragma: no cover - openai is in deps
-            raise RagNodeError("openai package not installed") from exc
-
-        api_key = node_config.get("api_key") or os.environ.get("OPENAI_API_KEY")
-        base_url = node_config.get("base_url") or None
-        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-        try:
-            resp = await client.embeddings.create(model=model, input=text)
-        except Exception as exc:
-            raise RagNodeError(f"embedding call failed: {exc}") from exc
-        return list(resp.data[0].embedding)
-    raise RagNodeError(
-        f"unsupported embedding provider {provider!r} "
-        "(v1 supports openai / ollama / test)"
-    )
+    options = {
+        "api_key": node_config.get("api_key"),
+        "base_url": node_config.get("base_url"),
+    }
+    try:
+        return await embed_one(text, model_id=model_id, options=options)
+    except EmbedderError as exc:
+        raise RagNodeError(str(exc)) from exc
