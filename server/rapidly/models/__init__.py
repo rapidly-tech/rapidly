@@ -16,6 +16,10 @@ from .custom_field import CustomField
 from .customer import Customer
 from .customer_session import CustomerSession
 from .customer_session_code import CustomerSessionCode
+
+# ── Agent eval datasets (Agents chamber) ──
+from .dataset import Dataset
+from .dataset_case import DatasetCase
 from .email_verification import EmailVerification
 
 # ── Events & webhooks ──
@@ -108,6 +112,8 @@ __all__ = [
     "Customer",
     "CustomerSession",
     "CustomerSessionCode",
+    "Dataset",
+    "DatasetCase",
     "EmailVerification",
     "Event",
     "EventClosure",
