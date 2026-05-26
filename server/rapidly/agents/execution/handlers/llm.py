@@ -75,6 +75,13 @@ async def _resolve_credential(
     only comes from the credential row in path 2 — paths 1 and 3
     return ``None`` for it. The handler still consults
     ``node_config["base_url"]`` as the highest-priority override.
+
+    Side effect: when the lookup hits the credential store, the
+    matched credential's id is stuffed into ``ctx`` under
+    ``_resolved_credential_id`` so the usage-tracking writer
+    knows which credential to attribute the call to. The
+    leading underscore signals "engine internal" — handlers
+    should treat ctx fields starting with ``_`` as opaque.
     """
     raw = node_config.get("api_key")
     if isinstance(raw, str) and raw:
@@ -84,7 +91,7 @@ async def _resolve_credential(
     workspace_id = ctx.get("workspace_id")
     if session is not None and workspace_id is not None:
         from rapidly.agents.integration_credential.queries import (
-            resolve_for_workspace,
+            resolve_for_workspace_with_id,
         )
 
         ws_uuid = (
@@ -98,14 +105,16 @@ async def _resolve_credential(
                 if isinstance(credential_id_raw, UUID)
                 else UUID(str(credential_id_raw))
             )
-        result = await resolve_for_workspace(
+        hit = await resolve_for_workspace_with_id(
             session,
             workspace_id=ws_uuid,
             provider=provider,
             credential_id=cred_uuid,
         )
-        if result is not None:
-            return result
+        if hit is not None:
+            resolved_id, secret, base_url = hit
+            ctx["_resolved_credential_id"] = resolved_id
+            return secret, base_url
 
     env_var = _ENV_VAR_BY_PROVIDER.get(provider)
     if env_var is None:
@@ -231,9 +240,11 @@ async def llm_handler(
         raise LlmNodeError(f"llm call failed: {exc}") from exc
 
     output = result.output
+    usage = _extract_usage(result)
+    await _record_usage(ctx=ctx, provider=provider, model=model_name, usage=usage)
     return {
         "text": output if isinstance(output, str) else str(output),
-        "usage": _extract_usage(result),
+        "usage": usage,
     }
 
 
@@ -279,7 +290,9 @@ async def structured_output_handler(
         if hasattr(output, "model_dump")
         else dict(cast(Any, output))
     )
-    return {"data": data, "usage": _extract_usage(result)}
+    usage = _extract_usage(result)
+    await _record_usage(ctx=ctx, provider=provider, model=model_name, usage=usage)
+    return {"data": data, "usage": usage}
 
 
 def _json_schema_to_pydantic_model(schema: dict[str, Any]) -> type:
@@ -358,3 +371,57 @@ def _extract_usage(result: Any) -> dict[str, int]:
         }
     except Exception:
         return {"input_tokens": 0, "output_tokens": 0}
+
+
+async def _record_usage(
+    *,
+    ctx: dict[str, Any],
+    provider: str,
+    model: str,
+    usage: dict[str, int],
+) -> None:
+    """Insert an ``LlmUsage`` row attributing this call's tokens.
+
+    Best-effort: if the engine isn't supplying a session
+    (handler invoked outside a Run, like a future eval/smoke
+    test), we skip the write rather than crash. The provider
+    call already succeeded by the time we reach here — losing
+    a usage row is annoying but shouldn't fail the workflow.
+
+    ``credential_id`` is the credential the resolver matched
+    (stashed in ctx by ``_resolve_credential``); ``None`` for
+    env-fallback or explicit-key calls.
+    """
+    session = ctx.get("session")
+    workspace_id = ctx.get("workspace_id")
+    if session is None or workspace_id is None:
+        return
+
+    from rapidly.models import LlmUsage
+
+    ws_uuid = (
+        workspace_id if isinstance(workspace_id, UUID) else UUID(str(workspace_id))
+    )
+
+    cred_id = ctx.get("_resolved_credential_id")
+    cred_uuid: UUID | None = None
+    if cred_id is not None:
+        cred_uuid = cred_id if isinstance(cred_id, UUID) else UUID(str(cred_id))
+
+    run_id_raw = ctx.get("run_id")
+    run_uuid: UUID | None = None
+    if run_id_raw is not None:
+        run_uuid = run_id_raw if isinstance(run_id_raw, UUID) else UUID(str(run_id_raw))
+
+    record = LlmUsage(
+        workspace_id=ws_uuid,
+        credential_id=cred_uuid,
+        run_id=run_uuid,
+        node_run_id=None,  # NodeRun id isn't on ctx today; M4.7e plumbs it
+        provider=provider,
+        model=model,
+        input_tokens=int(usage.get("input_tokens", 0) or 0),
+        output_tokens=int(usage.get("output_tokens", 0) or 0),
+    )
+    session.add(record)
+    await session.flush()

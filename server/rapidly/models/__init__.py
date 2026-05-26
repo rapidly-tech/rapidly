@@ -35,6 +35,9 @@ from .file_share_session import FileShareSession, FileShareSessionStatus
 
 # ── Integration credentials (Agents chamber) ──
 from .integration_credential import IntegrationCredential
+
+# ── LLM usage tracking (Agents chamber) ──
+from .llm_usage import LlmUsage
 from .login_code import LoginCode
 from .member import Member, MemberRole
 from .member_session import MemberSession
@@ -120,6 +123,7 @@ __all__ = [
     "FileShareSession",
     "FileShareSessionStatus",
     "IntegrationCredential",
+    "LlmUsage",
     "LoginCode",
     "Member",
     "MemberRole",

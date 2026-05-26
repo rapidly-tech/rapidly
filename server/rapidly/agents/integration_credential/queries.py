@@ -109,6 +109,33 @@ async def resolve_for_workspace(
     miss. The plaintext stays in memory for the call; callers
     should not log or persist it.
     """
+    hit = await resolve_for_workspace_with_id(
+        session,
+        workspace_id=workspace_id,
+        provider=provider,
+        credential_id=credential_id,
+    )
+    if hit is None:
+        return None
+    _credential_id, secret, base_url = hit
+    return secret, base_url
+
+
+async def resolve_for_workspace_with_id(
+    session: AsyncSession | AsyncReadSession,
+    *,
+    workspace_id: UUID,
+    provider: str,
+    credential_id: UUID | None = None,
+) -> tuple[UUID, str, str | None] | None:
+    """Same as ``resolve_for_workspace`` but also returns the matched
+    credential's id.
+
+    Used by the LLM usage-tracking writer (M4.7d) so each usage
+    row can be attributed to the credential that paid for it.
+    Env-fallback callers should use the simpler ``resolve_for_workspace``
+    surface to avoid carrying around a None id.
+    """
     stmt = select(IntegrationCredential).where(
         IntegrationCredential.workspace_id == workspace_id,
         IntegrationCredential.provider == provider,
@@ -121,4 +148,4 @@ async def resolve_for_workspace(
     row = (await session.execute(stmt)).scalar_one_or_none()
     if row is None:
         return None
-    return decrypt_secret(row.secret_encrypted), row.base_url
+    return row.id, decrypt_secret(row.secret_encrypted), row.base_url
