@@ -6,6 +6,7 @@ from rapidly.core.db.models import AuditableModel, Model
 from .account import Account
 
 # ── Workspaces ──
+from .agent_node_run import NodeRun, NodeRunStatus
 from .agent_run import Run, RunStatus, TriggeredByKind
 
 # ── Custom fields ──
@@ -120,6 +121,8 @@ __all__ = [
     "Model",
     "ModelDiscipline",
     "ModelStatus",
+    "NodeRun",
+    "NodeRunStatus",
     "Notification",
     "NotificationRecipient",
     "OAuth2AuthorizationCode",
