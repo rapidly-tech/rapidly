@@ -22,7 +22,14 @@ services:
   # ── Primary database ────────────────────────────────────────────
 
   db:
-    image: postgres:16-bookworm
+    # pgvector-flavoured Postgres image. The Agents chamber's RAG
+    # node (M4.6) activates the ``vector`` extension via
+    # ``CREATE EXTENSION``; the stock postgres:16-bookworm image
+    # doesn't ship it. pgvector/pgvector:pg16 is the official
+    # extension-bundled image — same Postgres 16 base, no other
+    # behaviour change. Operators upgrading need to ``docker compose
+    # pull db`` once before the migration applies.
+    image: pgvector/pgvector:pg16
     environment:
       POSTGRES_USER: ${RAPIDLY_POSTGRES_USER}
       POSTGRES_PASSWORD: ${RAPIDLY_POSTGRES_PWD}

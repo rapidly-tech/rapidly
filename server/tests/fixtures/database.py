@@ -53,6 +53,13 @@ async def initialize_test_database(worker_id: str) -> AsyncIterator[None]:
     )
 
     async with engine.begin() as conn:
+        # pgvector extension is required by the agents/rag vector_*
+        # tables (M4.6). The dev compose image now ships pgvector;
+        # tests need the extension activated in each per-worker test
+        # DB before metadata.create_all touches the Vector() column.
+        from sqlalchemy import text as _sa_text
+
+        await conn.execute(_sa_text("CREATE EXTENSION IF NOT EXISTS vector"))
         await conn.execute(CreateSequence(Customer.short_id_sequence))
         for entity in entities_registry.entities():
             if isinstance(entity, PGTrigger):
