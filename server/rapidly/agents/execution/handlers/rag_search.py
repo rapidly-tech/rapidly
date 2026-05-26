@@ -78,9 +78,17 @@ async def rag_search_handler(
         if collection is None:
             raise RagNodeError(f"VectorCollection {collection_id} not found")
 
+        # Embedder credential resolution order (M4.7b):
+        #   1. node_config.api_key (caller override)
+        #   2. IntegrationCredential for ctx.workspace_id +
+        #      provider (default unless credential_id pinned)
+        #   3. OPENAI_API_KEY env (fallback)
         options = {
             "api_key": node_config.get("api_key"),
             "base_url": node_config.get("base_url"),
+            "credential_id": node_config.get("credential_id"),
+            "workspace_id": ctx.get("workspace_id"),
+            "session": session,
         }
         try:
             query_vec = await embed_one(

@@ -41,7 +41,14 @@ from rapidly.agents.execution.state import (
     is_run_terminal,
 )
 from rapidly.core.utils import now_utc
-from rapidly.models import NodeRun, NodeRunStatus, Run, RunStatus, WorkflowVersion
+from rapidly.models import (
+    NodeRun,
+    NodeRunStatus,
+    Run,
+    RunStatus,
+    Workflow,
+    WorkflowVersion,
+)
 
 _log = structlog.get_logger(__name__)
 
@@ -121,6 +128,16 @@ async def walk_run(session: Any, run_id: UUID) -> None:
         await _fail_run(session, run, "WorkflowVersion not found")
         return
 
+    workspace_id = await _load_workspace_id(session, version.workflow_id)
+    if workspace_id is None:
+        # The version references a workflow that no longer
+        # exists. Should be unreachable in steady state — the
+        # workflow_id FK forbids it — but a partial delete
+        # would land here, and we'd rather fail the run cleanly
+        # than have the handlers crash on a None ctx field.
+        await _fail_run(session, run, "Workflow not found for version")
+        return
+
     try:
         order = topological_order(version.graph_json)
     except GraphValidationError as exc:
@@ -140,7 +157,15 @@ async def walk_run(session: Any, run_id: UUID) -> None:
     await session.flush()
 
     outputs: dict[str, dict[str, Any]] = {}
-    ctx: dict[str, Any] = {"run_id": run.id, "session": session}
+    # workspace_id is the tenancy boundary every handler needs.
+    # Threading it here means individual handlers don't re-query
+    # the chain (run → version → workflow → workspace) and the
+    # M4.7b credential resolver can look up keys by workspace.
+    ctx: dict[str, Any] = {
+        "run_id": run.id,
+        "session": session,
+        "workspace_id": workspace_id,
+    }
     last_output: dict[str, Any] = dict(run.input_data)
 
     for node in order:
@@ -208,6 +233,13 @@ async def _load_run(session: Any, run_id: UUID) -> Run | None:
 
 async def _load_version(session: Any, version_id: UUID) -> WorkflowVersion | None:
     stmt = select(WorkflowVersion).where(WorkflowVersion.id == version_id)
+    result = await session.execute(stmt)
+    return result.scalar_one_or_none()
+
+
+async def _load_workspace_id(session: Any, workflow_id: UUID) -> UUID | None:
+    """Look up the workspace_id for a workflow without loading the row."""
+    stmt = select(Workflow.workspace_id).where(Workflow.id == workflow_id)
     result = await session.execute(stmt)
     return result.scalar_one_or_none()
 

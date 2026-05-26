@@ -5,12 +5,16 @@ Both handlers route through pydantic-ai for provider abstraction
 combination is picked at runtime from the node config so a single
 workflow can mix providers across nodes.
 
-Credentials path: v1 reads the API key from the node config (the
-editor surfaces a workspace-settings dropdown that injects it).
-The proper ``IntegrationCredential`` store lands in M4.7; this
-handler reads ``api_key`` straight from ``node_config`` for now
-and falls back to the corresponding ``OPENAI_API_KEY`` /
-``ANTHROPIC_API_KEY`` / ``GOOGLE_API_KEY`` env var if absent.
+Credential resolution order (M4.7b):
+    1. ``node_config.api_key`` — explicit override, wins over all
+    2. ``IntegrationCredential`` for ``(ctx.workspace_id,
+       provider)`` looked up via ``resolve_for_workspace``
+    3. ``OPENAI_API_KEY`` / ``ANTHROPIC_API_KEY`` /
+       ``GOOGLE_API_KEY`` env var — fallback for dev / unit tests
+       and contexts without an engine-supplied session
+
+When ``credential_id`` is present in node_config the lookup pins
+to that specific row (still scoped to the workspace).
 
 Why a single dispatch helper for both handlers: building the
 pydantic-ai Agent + Model + Provider is the same dance whether
@@ -26,6 +30,7 @@ from __future__ import annotations
 
 import os
 from typing import Any, cast
+from uuid import UUID
 
 from pydantic_ai import Agent
 
@@ -38,22 +43,82 @@ class LlmNodeError(RuntimeError):
     """Surfaces to the engine's per-node failure path."""
 
 
-def _resolve_api_key(provider: str, node_config: dict[str, Any]) -> str | None:
+_ENV_VAR_BY_PROVIDER = {
+    "openai": "OPENAI_API_KEY",
+    "anthropic": "ANTHROPIC_API_KEY",
+    "google": "GOOGLE_API_KEY",
+    # Ollama uses the OpenAI-compatible client; the env-var
+    # fallback shares the openai slot (operators typically point
+    # it at a local key or leave it unset for unauthenticated
+    # Ollama instances).
+    "ollama": "OPENAI_API_KEY",
+}
+
+
+async def _resolve_credential(
+    provider: str,
+    node_config: dict[str, Any],
+    ctx: dict[str, Any],
+) -> tuple[str | None, str | None]:
+    """Pick the API key + base URL for ``provider``.
+
+    Priority order:
+        1. ``node_config["api_key"]`` if non-empty
+        2. ``IntegrationCredential`` looked up via the engine's
+           session + workspace_id (when both are in ctx). A
+           ``credential_id`` in node_config pins the lookup;
+           otherwise the workspace's default credential for
+           ``provider`` is used.
+        3. ``{PROVIDER}_API_KEY`` env var
+
+    Returns ``(api_key_or_None, base_url_or_None)``. The base_url
+    only comes from the credential row in path 2 — paths 1 and 3
+    return ``None`` for it. The handler still consults
+    ``node_config["base_url"]`` as the highest-priority override.
+    """
     raw = node_config.get("api_key")
     if isinstance(raw, str) and raw:
-        return raw
-    env_var = {
-        "openai": "OPENAI_API_KEY",
-        "anthropic": "ANTHROPIC_API_KEY",
-        "google": "GOOGLE_API_KEY",
-        "ollama": "OPENAI_API_KEY",  # ollama uses OpenAI-compatible client
-    }.get(provider)
+        return raw, None
+
+    session = ctx.get("session")
+    workspace_id = ctx.get("workspace_id")
+    if session is not None and workspace_id is not None:
+        from rapidly.agents.integration_credential.queries import (
+            resolve_for_workspace,
+        )
+
+        ws_uuid = (
+            workspace_id if isinstance(workspace_id, UUID) else UUID(str(workspace_id))
+        )
+        credential_id_raw = node_config.get("credential_id")
+        cred_uuid: UUID | None = None
+        if credential_id_raw is not None:
+            cred_uuid = (
+                credential_id_raw
+                if isinstance(credential_id_raw, UUID)
+                else UUID(str(credential_id_raw))
+            )
+        result = await resolve_for_workspace(
+            session,
+            workspace_id=ws_uuid,
+            provider=provider,
+            credential_id=cred_uuid,
+        )
+        if result is not None:
+            return result
+
+    env_var = _ENV_VAR_BY_PROVIDER.get(provider)
     if env_var is None:
-        return None
-    return os.environ.get(env_var)
+        return None, None
+    return os.environ.get(env_var), None
 
 
-def _build_model(provider: str, model: str, node_config: dict[str, Any]) -> Any:
+async def _build_model(
+    provider: str,
+    model: str,
+    node_config: dict[str, Any],
+    ctx: dict[str, Any],
+) -> Any:
     """Construct the pydantic-ai Model for the given provider + name.
 
     Imports the provider's module lazily so a workflow that only
@@ -68,8 +133,17 @@ def _build_model(provider: str, model: str, node_config: dict[str, Any]) -> Any:
         from pydantic_ai.models.openai import OpenAIChatModel
         from pydantic_ai.providers.openai import OpenAIProvider
 
-        api_key = _resolve_api_key(provider, node_config)
-        base_url = node_config.get("base_url")
+        api_key, cred_base_url = await _resolve_credential(provider, node_config, ctx)
+        # node_config.base_url wins over credential.base_url — a
+        # workflow that explicitly points at, say, a private LLM
+        # proxy shouldn't get overridden by what's set on the
+        # default credential.
+        node_base_url = node_config.get("base_url")
+        base_url = (
+            node_base_url
+            if isinstance(node_base_url, str) and node_base_url
+            else cred_base_url
+        )
         kwargs: dict[str, Any] = {}
         if api_key is not None:
             kwargs["api_key"] = api_key
@@ -84,7 +158,7 @@ def _build_model(provider: str, model: str, node_config: dict[str, Any]) -> Any:
             raise LlmNodeError(
                 "anthropic provider not installed — add the [anthropic] extra"
             ) from exc
-        api_key = _resolve_api_key(provider, node_config)
+        api_key, _ = await _resolve_credential(provider, node_config, ctx)
         kwargs = {}
         if api_key is not None:
             kwargs["api_key"] = api_key
@@ -97,7 +171,7 @@ def _build_model(provider: str, model: str, node_config: dict[str, Any]) -> Any:
             raise LlmNodeError(
                 "google provider not installed — add the [google] extra"
             ) from exc
-        api_key = _resolve_api_key(provider, node_config)
+        api_key, _ = await _resolve_credential(provider, node_config, ctx)
         kwargs = {}
         if api_key is not None:
             kwargs["api_key"] = api_key
@@ -149,7 +223,7 @@ async def llm_handler(
     prompt = _render_prompt(template, input_data)
     system_prompt = node_config.get("system_prompt", "")
 
-    model = _build_model(provider, model_name, node_config)
+    model = await _build_model(provider, model_name, node_config, ctx)
     agent: Agent[None, str] = Agent(model, system_prompt=system_prompt)
     try:
         result = await agent.run(prompt)
@@ -191,7 +265,7 @@ async def structured_output_handler(
     prompt = _render_prompt(template, input_data)
     system_prompt = node_config.get("system_prompt", "")
 
-    model = _build_model(provider, model_name, node_config)
+    model = await _build_model(provider, model_name, node_config, ctx)
     agent = Agent(model, output_type=target_model, system_prompt=system_prompt)
     try:
         result = await agent.run(prompt)
