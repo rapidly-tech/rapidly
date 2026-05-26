@@ -22,6 +22,14 @@ from .dataset import Dataset
 from .dataset_case import DatasetCase
 from .email_verification import EmailVerification
 
+# ── Agent eval runs (Agents chamber) ──
+from .eval_run import (
+    AssertionStrategy,
+    EvalRun,
+    EvalRunStatus,
+)
+from .eval_run_case import EvalRunCase
+
 # ── Events & webhooks ──
 from .event import Event, EventClosure
 from .event_type import EventType
@@ -107,6 +115,7 @@ from .workspace_review import WorkspaceReview
 
 __all__ = [
     "Account",
+    "AssertionStrategy",
     "AuditableModel",
     "CustomField",
     "Customer",
@@ -115,6 +124,9 @@ __all__ = [
     "Dataset",
     "DatasetCase",
     "EmailVerification",
+    "EvalRun",
+    "EvalRunCase",
+    "EvalRunStatus",
     "Event",
     "EventClosure",
     "EventType",

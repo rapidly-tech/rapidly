@@ -13,6 +13,7 @@ from fastapi import APIRouter
 # (registration via decorator); the name itself is unused here.
 import rapidly.sharing.markup.signaling_validators  # noqa: F401
 from rapidly.agents.dataset.api import router as datasets_router
+from rapidly.agents.eval_run.api import router as eval_runs_router
 from rapidly.agents.integration_credential.api import (
     router as integration_credentials_router,
 )
@@ -149,6 +150,8 @@ router.include_router(integration_credentials_router)
 router.include_router(llm_usage_router)
 # datasets — eval fixtures (CRUD; runner lands in M4.8b)
 router.include_router(datasets_router)
+# eval_runs — drives a workflow over every case in a dataset
+router.include_router(eval_runs_router)
 
 # ── Customer lifecycle ──
 
