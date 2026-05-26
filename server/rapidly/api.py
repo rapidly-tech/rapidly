@@ -17,6 +17,7 @@ import rapidly.sharing.markup.signaling_validators  # noqa: F401
 from rapidly.agents.node_run.api import router as node_runs_router
 from rapidly.agents.run.api import router as runs_router
 from rapidly.agents.run.api import trigger_router as runs_trigger_router
+from rapidly.agents.vector_collection.api import router as vector_collections_router
 from rapidly.agents.workflow.api import router as workflows_router
 from rapidly.agents.workflow_version.api import router as workflow_versions_router
 from rapidly.analytics.event.api import router as event_router
@@ -135,6 +136,8 @@ router.include_router(runs_router)
 router.include_router(runs_trigger_router)
 # node_runs — per-step records under a run (read-only surface)
 router.include_router(node_runs_router)
+# vector_collections — RAG corpus root + indexing-trigger endpoint
+router.include_router(vector_collections_router)
 
 # ── Customer lifecycle ──
 

@@ -40,6 +40,14 @@ class Scope(StrEnum):
     # keeping the graph itself read-only to them.
     runs_trigger = "runs:trigger"
 
+    # RAG vector collections (Agents chamber). Separate from
+    # workflow scopes — a workflow editor reads collections (to
+    # populate the rag_search node's collection_id), but only an
+    # admin should be able to create/delete one or trigger
+    # indexing (which spends embedding-API budget).
+    vector_collections_read = "vector_collections:read"
+    vector_collections_write = "vector_collections:write"
+
     # Workspaces
     workspaces_read = "workspaces:read"
     workspaces_write = "workspaces:write"
@@ -144,6 +152,10 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.workflows_read: "Read agent workflows",
     Scope.workflows_write: "Create or modify agent workflows",
     Scope.runs_trigger: "Trigger agent workflow runs",
+    Scope.vector_collections_read: "Read RAG vector collections",
+    Scope.vector_collections_write: (
+        "Create, modify, or trigger indexing of RAG vector collections"
+    ),
     Scope.user_write: "Delete your user account",
     Scope.workspaces_read: "Read your workspaces",
     Scope.workspaces_write: "Create or modify workspaces",
