@@ -413,11 +413,20 @@ async def _record_usage(
     if run_id_raw is not None:
         run_uuid = run_id_raw if isinstance(run_id_raw, UUID) else UUID(str(run_id_raw))
 
+    node_run_id_raw = ctx.get("node_run_id")
+    node_run_uuid: UUID | None = None
+    if node_run_id_raw is not None:
+        node_run_uuid = (
+            node_run_id_raw
+            if isinstance(node_run_id_raw, UUID)
+            else UUID(str(node_run_id_raw))
+        )
+
     record = LlmUsage(
         workspace_id=ws_uuid,
         credential_id=cred_uuid,
         run_id=run_uuid,
-        node_run_id=None,  # NodeRun id isn't on ctx today; M4.7e plumbs it
+        node_run_id=node_run_uuid,
         provider=provider,
         model=model,
         input_tokens=int(usage.get("input_tokens", 0) or 0),
