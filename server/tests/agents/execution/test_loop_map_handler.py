@@ -98,7 +98,10 @@ class TestLoopMap:
             {"inner_type": "echo", "inner_config": {}},
             {"items": []},
         )
-        assert out == {"results": [], "item_count": 0}
+        # ``failures`` is always present (empty when nothing
+        # failed). Keeps the output shape stable whether the
+        # workflow opted into continue-on-error or not.
+        assert out == {"results": [], "item_count": 0, "failures": []}
 
     async def test_rejects_missing_inner_type(self) -> None:
         with pytest.raises(LoopMapNodeError, match="inner_type is required"):
@@ -171,6 +174,230 @@ class TestLoopMap:
                 )
         finally:
             del node_registry._REGISTRY["_test_boom"]  # type: ignore[index]
+
+
+@pytest.mark.asyncio
+class TestParallelDispatch:
+    async def test_parallel_results_preserve_input_order(self) -> None:
+        # Mark each iteration's completion order via a shared
+        # counter; assert that the output ``results`` list still
+        # reflects input order, not completion order. We use
+        # asyncio.sleep with different durations so iteration 0
+        # finishes last, exposing any "completion order" bug.
+        import asyncio
+
+        from rapidly.agents.execution import node_registry
+
+        async def _slow(
+            ctx: dict[str, Any],
+            cfg: dict[str, Any],
+            inp: dict[str, Any],
+        ) -> dict[str, Any]:
+            # Higher index = shorter sleep → finishes earlier.
+            await asyncio.sleep(0.05 * (3 - inp["index"]))
+            return {"value": inp["item"]}
+
+        node_registry._REGISTRY["_test_slow"] = _slow  # type: ignore[index]
+        try:
+            out = await loop_map_handler(
+                {},
+                {
+                    "inner_type": "_test_slow",
+                    "inner_config": {},
+                    "parallel": True,
+                    "concurrency": 3,
+                },
+                {"items": ["A", "B", "C"]},
+            )
+        finally:
+            del node_registry._REGISTRY["_test_slow"]  # type: ignore[index]
+
+        assert [r["value"] for r in out["results"]] == ["A", "B", "C"]
+        assert out["item_count"] == 3
+        assert out["failures"] == []
+
+    async def test_parallel_respects_concurrency_cap(self) -> None:
+        # Track the maximum number of in-flight iterations. With
+        # concurrency=2 and 6 items, we should see at most 2
+        # iterations active simultaneously.
+        import asyncio
+
+        from rapidly.agents.execution import node_registry
+
+        in_flight = 0
+        max_in_flight = 0
+        lock = asyncio.Lock()
+
+        async def _watched(
+            ctx: dict[str, Any],
+            cfg: dict[str, Any],
+            inp: dict[str, Any],
+        ) -> dict[str, Any]:
+            nonlocal in_flight, max_in_flight
+            async with lock:
+                in_flight += 1
+                max_in_flight = max(max_in_flight, in_flight)
+            try:
+                await asyncio.sleep(0.02)
+                return {"ok": True}
+            finally:
+                async with lock:
+                    in_flight -= 1
+
+        node_registry._REGISTRY["_test_watched"] = _watched  # type: ignore[index]
+        try:
+            await loop_map_handler(
+                {},
+                {
+                    "inner_type": "_test_watched",
+                    "inner_config": {},
+                    "parallel": True,
+                    "concurrency": 2,
+                },
+                {"items": list(range(6))},
+            )
+        finally:
+            del node_registry._REGISTRY["_test_watched"]  # type: ignore[index]
+
+        assert max_in_flight <= 2
+
+    async def test_parallel_concurrency_capped_at_max(self) -> None:
+        # A workflow author asking for concurrency=1000 should be
+        # silently clamped — we don't reject (the workflow still
+        # runs correctly), just bound it. ``_MAX_CONCURRENCY=32``
+        # so any input above 32 should track that ceiling.
+        import asyncio
+
+        from rapidly.agents.execution import node_registry
+
+        in_flight = 0
+        max_in_flight = 0
+        lock = asyncio.Lock()
+
+        async def _watched(
+            ctx: dict[str, Any],
+            cfg: dict[str, Any],
+            inp: dict[str, Any],
+        ) -> dict[str, Any]:
+            nonlocal in_flight, max_in_flight
+            async with lock:
+                in_flight += 1
+                max_in_flight = max(max_in_flight, in_flight)
+            try:
+                await asyncio.sleep(0.01)
+                return {"ok": True}
+            finally:
+                async with lock:
+                    in_flight -= 1
+
+        node_registry._REGISTRY["_test_capped"] = _watched  # type: ignore[index]
+        try:
+            await loop_map_handler(
+                {},
+                {
+                    "inner_type": "_test_capped",
+                    "inner_config": {},
+                    "parallel": True,
+                    "concurrency": 1000,
+                    "max_items": 100,
+                },
+                {"items": list(range(60))},
+            )
+        finally:
+            del node_registry._REGISTRY["_test_capped"]  # type: ignore[index]
+
+        # Hard cap is 32. Allow some slack for scheduling.
+        assert max_in_flight <= 32
+
+    async def test_rejects_concurrency_below_one(self) -> None:
+        with pytest.raises(LoopMapNodeError, match="concurrency must be"):
+            await loop_map_handler(
+                {},
+                {
+                    "inner_type": "echo",
+                    "inner_config": {},
+                    "parallel": True,
+                    "concurrency": 0,
+                },
+                {"items": [1]},
+            )
+
+
+@pytest.mark.asyncio
+class TestContinueOnError:
+    async def test_sequential_continue_collects_failures(self) -> None:
+        # Iteration 1 + 3 fail, others pass. continue_on_error
+        # should leave None at the failed positions and append
+        # {"index": ..., "error": ...} to failures.
+        from rapidly.agents.execution import node_registry
+
+        async def _flaky(
+            ctx: dict[str, Any],
+            cfg: dict[str, Any],
+            inp: dict[str, Any],
+        ) -> dict[str, Any]:
+            if inp["index"] in (1, 3):
+                raise RuntimeError(f"boom @ {inp['index']}")
+            return {"item": inp["item"]}
+
+        node_registry._REGISTRY["_test_flaky"] = _flaky  # type: ignore[index]
+        try:
+            out = await loop_map_handler(
+                {},
+                {
+                    "inner_type": "_test_flaky",
+                    "inner_config": {},
+                    "continue_on_error": True,
+                },
+                {"items": ["a", "b", "c", "d"]},
+            )
+        finally:
+            del node_registry._REGISTRY["_test_flaky"]  # type: ignore[index]
+
+        assert out["item_count"] == 4
+        assert out["results"][0]["item"] == "a"
+        assert out["results"][1] is None
+        assert out["results"][2]["item"] == "c"
+        assert out["results"][3] is None
+        # Failures carry the original index, not the position
+        # in the failures list — operators correlate to source.
+        failure_indices = {f["index"] for f in out["failures"]}
+        assert failure_indices == {1, 3}
+        # And each error message is captured (truncated to 500
+        # chars in the writer; we just check it's non-empty here).
+        assert all(f["error"] for f in out["failures"])
+
+    async def test_parallel_continue_collects_failures(self) -> None:
+        from rapidly.agents.execution import node_registry
+
+        async def _flaky(
+            ctx: dict[str, Any],
+            cfg: dict[str, Any],
+            inp: dict[str, Any],
+        ) -> dict[str, Any]:
+            if inp["index"] == 2:
+                raise RuntimeError("boom")
+            return {"ok": True}
+
+        node_registry._REGISTRY["_test_pflaky"] = _flaky  # type: ignore[index]
+        try:
+            out = await loop_map_handler(
+                {},
+                {
+                    "inner_type": "_test_pflaky",
+                    "inner_config": {},
+                    "parallel": True,
+                    "concurrency": 4,
+                    "continue_on_error": True,
+                },
+                {"items": list(range(5))},
+            )
+        finally:
+            del node_registry._REGISTRY["_test_pflaky"]  # type: ignore[index]
+
+        assert out["item_count"] == 5
+        assert out["results"][2] is None
+        assert out["failures"] == [{"index": 2, "error": "boom"}]
 
 
 class TestRenderConfig:

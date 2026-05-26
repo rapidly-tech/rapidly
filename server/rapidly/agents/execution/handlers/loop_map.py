@@ -6,46 +6,68 @@ Useful for "for each RFI in the digest, run the LLM extraction"
 style flows without forcing the workflow author to draw N
 parallel branches.
 
-Scope (deliberately tight for v1):
-    - Single inner node type per loop, not a sub-graph
-    - Sequential execution — parallel fan-out lands in M4.3e
-      (needs concurrency control + per-item error policy)
-    - All-or-nothing error semantics: any inner-iteration
-      failure raises and short-circuits the loop. M4.3e can
-      add continue-on-error + a partial_failures output channel
-      once the policy is settled.
+Execution modes (M4.3e):
+    - Sequential (default) — one iteration at a time. Simpler
+      mental model + zero risk of overwhelming a downstream
+      provider quota. Use for small N or rate-sensitive APIs.
+    - Parallel — up to ``concurrency`` iterations in flight at
+      once. Use for embarrassingly-parallel workloads where the
+      provider can handle the burst (LLM with high RPM, internal
+      services, batch indexing).
 
-Why a single inner node, not a sub-graph:
-    Sub-graph execution needs a sub-Run abstraction so per-step
-    NodeRun rows write under a parent. That refactor is M4.3f.
-    For v1 the single-inner-node shape covers the most common
-    workflow author intent — "fan an LLM call out across a
-    list of inputs" — without changing the Run model.
+Error policy (M4.3e):
+    - All-or-nothing (default) — any inner iteration failure
+      raises ``LoopMapNodeError`` and short-circuits the loop.
+      Use for workflows where partial results are useless
+      (e.g., "all-or-nothing batch import").
+    - Continue-on-error — failed iterations are captured into
+      a ``failures`` list in the output; remaining iterations
+      run. Use for tolerable-failure workloads (e.g., "send
+      digest to each of N recipients, log the ones that
+      bounced and move on").
+
+Scope (still tight for v1):
+    - Single inner node type per loop, not a sub-graph. Sub-graph
+      execution lands in M4.3f.
+    - Order-preserving — ``results`` is indexed by the *input
+      position* of the item, even when running in parallel, so
+      downstream nodes don't have to re-sort.
 
 ``node_config`` shape:
-    inner_type:   str   A registered node type (rag_search, llm,
-                        http, ...). Must exist in node_registry.
-    inner_config: dict  Passed straight to the inner handler.
-                        ``{item}`` placeholders inside any string
-                        values are rendered per-iteration.
-    items_path:   str   Optional. Names the input_data key that
-                        carries the iterable; defaults to
-                        ``"items"``. Workflow author can wire it
-                        to a previous node's output without an
-                        adapter node.
-    max_items:    int   Optional cap on iteration count. Default
-                        100. Caps a runaway input from monopolising
-                        the engine + downstream provider quota.
+    inner_type:        str   A registered node type. Required.
+    inner_config:      dict  Passed to the inner handler.
+                             ``{item}`` / ``{index}`` placeholders
+                             rendered per iteration.
+    items_path:        str   Optional. input_data key for the
+                             iterable; default "items".
+    max_items:         int   Optional cap. Default 100.
+    parallel:          bool  Optional. Default False (sequential).
+    concurrency:       int   Optional. Default 5. Ignored when
+                             parallel is False. Capped at 32 so
+                             a single node can't exhaust the
+                             worker's connection pool.
+    continue_on_error: bool  Optional. Default False (all-or-
+                             nothing). When True, failed
+                             iterations land in ``failures``
+                             and the loop runs to completion.
 
 Output shape:
     {
-        "results":   [...],  # one entry per inner-handler output
-        "item_count": int,    # len(results)
+        "results":    [output | None, ...],   # one entry per input
+                                              # item; None where
+                                              # continue_on_error
+                                              # caught a failure
+        "item_count": int,                    # len(input items)
+        "failures":   [{"index": int,         # only present when
+                        "error": str}, ...]    # continue_on_error
+                                              # is True; empty if
+                                              # everything passed
     }
 """
 
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 
@@ -54,6 +76,13 @@ class LoopMapNodeError(RuntimeError):
 
 
 _DEFAULT_MAX_ITEMS = 100
+_DEFAULT_CONCURRENCY = 5
+# Hard cap on the parallel knob. A workflow author asking for
+# concurrency=1000 would exhaust the worker process's outbound
+# connection pool and degrade every other workflow. 32 is
+# generous enough for LLM batch workloads + tight enough to
+# stay polite.
+_MAX_CONCURRENCY = 32
 
 
 async def loop_map_handler(
@@ -100,19 +129,141 @@ async def loop_map_handler(
             f"inner_type {inner_type!r} is not a registered node type"
         )
 
-    results: list[Any] = []
-    for index, item in enumerate(raw_items):
-        rendered = _render_config(raw_inner_config, item=item, index=index)
-        iter_input = {"item": item, "index": index}
-        try:
-            output = await inner(ctx, rendered, iter_input)
-        except Exception as exc:
-            raise LoopMapNodeError(
-                f"inner iteration {index} (type={inner_type!r}) failed: {exc}"
-            ) from exc
-        results.append(output)
+    parallel = bool(node_config.get("parallel", False))
+    continue_on_error = bool(node_config.get("continue_on_error", False))
 
-    return {"results": results, "item_count": len(results)}
+    concurrency = int(node_config.get("concurrency", _DEFAULT_CONCURRENCY))
+    if concurrency < 1:
+        raise LoopMapNodeError("concurrency must be >= 1")
+    if concurrency > _MAX_CONCURRENCY:
+        concurrency = _MAX_CONCURRENCY
+
+    # Allocate results upfront so order is preserved regardless
+    # of completion order — downstream nodes index by position.
+    results: list[Any] = [None] * len(raw_items)
+    failures: list[dict[str, Any]] = []
+
+    if parallel:
+        await _run_parallel(
+            inner=inner,
+            inner_type=inner_type,
+            ctx=ctx,
+            inner_config_template=raw_inner_config,
+            items=list(raw_items),
+            results=results,
+            failures=failures,
+            concurrency=concurrency,
+            continue_on_error=continue_on_error,
+        )
+    else:
+        await _run_sequential(
+            inner=inner,
+            inner_type=inner_type,
+            ctx=ctx,
+            inner_config_template=raw_inner_config,
+            items=list(raw_items),
+            results=results,
+            failures=failures,
+            continue_on_error=continue_on_error,
+        )
+
+    return {
+        "results": results,
+        "item_count": len(results),
+        "failures": failures,
+    }
+
+
+async def _run_sequential(
+    *,
+    inner: Any,
+    inner_type: str,
+    ctx: dict[str, Any],
+    inner_config_template: dict[str, Any],
+    items: list[Any],
+    results: list[Any],
+    failures: list[dict[str, Any]],
+    continue_on_error: bool,
+) -> None:
+    for index, item in enumerate(items):
+        try:
+            results[index] = await _run_one(
+                inner=inner,
+                ctx=ctx,
+                inner_config_template=inner_config_template,
+                item=item,
+                index=index,
+            )
+        except Exception as exc:
+            if not continue_on_error:
+                raise LoopMapNodeError(
+                    f"inner iteration {index} (type={inner_type!r}) failed: {exc}"
+                ) from exc
+            failures.append({"index": index, "error": str(exc)[:500]})
+
+
+async def _run_parallel(
+    *,
+    inner: Any,
+    inner_type: str,
+    ctx: dict[str, Any],
+    inner_config_template: dict[str, Any],
+    items: list[Any],
+    results: list[Any],
+    failures: list[dict[str, Any]],
+    concurrency: int,
+    continue_on_error: bool,
+) -> None:
+    """Fan out N iterations, capped at ``concurrency`` in flight.
+
+    The Semaphore bounds in-flight work; ``asyncio.gather`` with
+    ``return_exceptions=True`` lets us collect every result
+    (success or failure) in one pass even when ``continue_on_error``
+    is False — we surface the first exception after gathering so
+    other iterations don't keep running for nothing once one's
+    been chosen as the failure to report.
+    """
+    sem = asyncio.Semaphore(concurrency)
+
+    async def _wrapped(idx: int, item_value: Any) -> tuple[int, Any]:
+        async with sem:
+            try:
+                output = await _run_one(
+                    inner=inner,
+                    ctx=ctx,
+                    inner_config_template=inner_config_template,
+                    item=item_value,
+                    index=idx,
+                )
+                return idx, output
+            except Exception as exc:
+                return idx, exc
+
+    coros = [_wrapped(i, item) for i, item in enumerate(items)]
+    gathered = await asyncio.gather(*coros)
+
+    for index, outcome in gathered:
+        if isinstance(outcome, Exception):
+            if not continue_on_error:
+                raise LoopMapNodeError(
+                    f"inner iteration {index} (type={inner_type!r}) failed: {outcome}"
+                ) from outcome
+            failures.append({"index": index, "error": str(outcome)[:500]})
+        else:
+            results[index] = outcome
+
+
+async def _run_one(
+    *,
+    inner: Any,
+    ctx: dict[str, Any],
+    inner_config_template: dict[str, Any],
+    item: Any,
+    index: int,
+) -> dict[str, Any]:
+    rendered = _render_config(inner_config_template, item=item, index=index)
+    iter_input = {"item": item, "index": index}
+    return await inner(ctx, rendered, iter_input)
 
 
 def _render_config(
