@@ -14,6 +14,8 @@ from fastapi import APIRouter
 import rapidly.sharing.markup.signaling_validators  # noqa: F401
 
 # ── Agents (workflow runtime) ──
+from rapidly.agents.run.api import router as runs_router
+from rapidly.agents.run.api import trigger_router as runs_trigger_router
 from rapidly.agents.workflow.api import router as workflows_router
 from rapidly.agents.workflow_version.api import router as workflow_versions_router
 from rapidly.analytics.event.api import router as event_router
@@ -127,6 +129,9 @@ router.include_router(federated_models_router)
 router.include_router(workflows_router)
 # workflow_versions (immutable graph_json snapshots)
 router.include_router(workflow_versions_router)
+# runs — list + get + cancel (trigger is 501 until M4.2 engine)
+router.include_router(runs_router)
+router.include_router(runs_trigger_router)
 
 # ── Customer lifecycle ──
 
