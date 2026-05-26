@@ -56,6 +56,14 @@ class Scope(StrEnum):
     integration_credentials_read = "integration_credentials:read"
     integration_credentials_write = "integration_credentials:write"
 
+    # Eval datasets (Agents chamber). Read for case authoring +
+    # eval result viewing; write for create/update/delete on
+    # both datasets + cases. Cases inherit the dataset's scope
+    # because operators editing cases need the same trust level
+    # as editing the parent.
+    datasets_read = "datasets:read"
+    datasets_write = "datasets:write"
+
     # Workspaces
     workspaces_read = "workspaces:read"
     workspaces_write = "workspaces:write"
@@ -169,6 +177,10 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     ),
     Scope.integration_credentials_write: (
         "Create or delete integration credentials and set defaults"
+    ),
+    Scope.datasets_read: "Read agent evaluation datasets and their cases",
+    Scope.datasets_write: (
+        "Create, modify, or delete agent evaluation datasets and cases"
     ),
     Scope.user_write: "Delete your user account",
     Scope.workspaces_read: "Read your workspaces",

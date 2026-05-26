@@ -12,6 +12,7 @@ from fastapi import APIRouter
 # WebSocket can dispatch to the registry. The import is a side-effect
 # (registration via decorator); the name itself is unused here.
 import rapidly.sharing.markup.signaling_validators  # noqa: F401
+from rapidly.agents.dataset.api import router as datasets_router
 from rapidly.agents.integration_credential.api import (
     router as integration_credentials_router,
 )
@@ -146,6 +147,8 @@ router.include_router(vector_collections_router)
 router.include_router(integration_credentials_router)
 # llm_usage — per-call token tracking + grouped rollups
 router.include_router(llm_usage_router)
+# datasets — eval fixtures (CRUD; runner lands in M4.8b)
+router.include_router(datasets_router)
 
 # ── Customer lifecycle ──
 
