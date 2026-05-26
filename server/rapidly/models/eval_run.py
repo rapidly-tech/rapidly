@@ -62,7 +62,14 @@ class EvalRunStatus(StrEnum):
 
 class AssertionStrategy(StrEnum):
     exact_match = "exact_match"
-    # json_schema, llm_judge land in M4.8c / M4.8d.
+    # JSON-Schema validation. The case's ``expected_output`` is
+    # treated as a JSON Schema (not a concrete value); the case
+    # passes when ``actual_output`` validates against it. Useful
+    # when the workflow's output shape is stable but specific
+    # field values are non-deterministic (LLM extraction
+    # producing varying paraphrases of the same field).
+    json_schema = "json_schema"
+    # llm_judge lands in M4.8d.
 
 
 TERMINAL_EVAL_RUN_STATUSES: frozenset[EvalRunStatus] = frozenset(
