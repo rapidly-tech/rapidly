@@ -30,6 +30,7 @@ from rapidly.agents.execution.handlers.llm import (
     llm_handler,
     structured_output_handler,
 )
+from rapidly.agents.execution.handlers.rag_search import rag_search_handler
 
 # A NodeHandler receives the run's context + the node's config +
 # its input_data, returns its output_data. Failures raise.
@@ -67,6 +68,9 @@ _REGISTRY: dict[str, NodeHandler] = {
     # arrives in M4.5b). Gated behind AGENTS_CODE_SANDBOX_ENABLED
     # — DO NOT enable in production until M4.5b + filter review.
     "code": code_handler,
+    # RAG search: top-K cosine-similarity lookup against a
+    # VectorCollection. Indexing pipeline lands in M4.6b.
+    "rag_search": rag_search_handler,
 }
 
 

@@ -58,6 +58,12 @@ dependencies = [
   # the existing openai extra. Ollama rides via OpenAI-compatible
   # endpoints so it needs no separate extra.
   "pydantic-ai-slim[openai,anthropic,google]>=0.7.1",
+  # Agents chamber RAG (M4.6) — vector store via Postgres pgvector.
+  # The Postgres image must have the ``vector`` extension available;
+  # the dev compose file's ``postgres:16-bookworm`` doesn't include
+  # it. Swap to ``pgvector/pgvector:pg16`` for the migration's
+  # ``CREATE EXTENSION vector`` to succeed locally.
+  "pgvector>=0.3.0",
   # ── Internationalisation & geography ─────────────────────────
   "babel>=2.16.0",
   "pycountry>=24.6.1",

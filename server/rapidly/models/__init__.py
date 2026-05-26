@@ -72,6 +72,8 @@ from .share_price import (
 from .user import OAuthAccount, User
 from .user_notification import UserNotification
 from .user_session import UserSession
+from .vector_chunk import VectorChunk
+from .vector_collection import VectorCollection
 
 # ── Legacy (DB tables exist, imported for SQLAlchemy relationship resolution) ──
 from .wallet import Wallet as Wallet
@@ -155,6 +157,8 @@ __all__ = [
     "User",
     "UserNotification",
     "UserSession",
+    "VectorChunk",
+    "VectorCollection",
     "WebhookDelivery",
     "WebhookEndpoint",
     "WebhookEvent",
