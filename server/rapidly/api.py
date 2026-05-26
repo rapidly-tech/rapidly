@@ -14,6 +14,7 @@ from fastapi import APIRouter
 import rapidly.sharing.markup.signaling_validators  # noqa: F401
 
 # ── Agents (workflow runtime) ──
+from rapidly.agents.node_run.api import router as node_runs_router
 from rapidly.agents.run.api import router as runs_router
 from rapidly.agents.run.api import trigger_router as runs_trigger_router
 from rapidly.agents.workflow.api import router as workflows_router
@@ -132,6 +133,8 @@ router.include_router(workflow_versions_router)
 # runs — list + get + cancel (trigger is 501 until M4.2 engine)
 router.include_router(runs_router)
 router.include_router(runs_trigger_router)
+# node_runs — per-step records under a run (read-only surface)
+router.include_router(node_runs_router)
 
 # ── Customer lifecycle ──
 
