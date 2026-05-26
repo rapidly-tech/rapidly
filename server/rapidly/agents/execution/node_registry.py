@@ -20,6 +20,11 @@ from collections.abc import Awaitable, Callable
 from typing import Any
 
 from rapidly.agents.execution.handlers.echo import echo_handler
+from rapidly.agents.execution.handlers.file_io import (
+    file_read_handler,
+    file_write_handler,
+)
+from rapidly.agents.execution.handlers.http import http_handler
 
 # A NodeHandler receives the run's context + the node's config +
 # its input_data, returns its output_data. Failures raise.
@@ -36,9 +41,17 @@ NodeHandler = Callable[
 
 _REGISTRY: dict[str, NodeHandler] = {
     # Echo: copies input straight to output. Exists so the engine's
-    # graph-walk can be exercised end-to-end before the real node
-    # catalog (M4.3) lands.
+    # graph-walk can be exercised without a real node.
     "echo": echo_handler,
+    # HTTP: GET/POST/etc. to any external URL — SSRF-hardened in
+    # the handler (rejects private IPs, caps body sizes, capped
+    # redirect-follow disabled by default).
+    "http": http_handler,
+    # File read/write — reads from + writes to the catalog/file
+    # S3 store. Tenancy enforced via the workspace_id column on
+    # the File row.
+    "file_read": file_read_handler,
+    "file_write": file_write_handler,
 }
 
 
