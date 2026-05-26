@@ -31,6 +31,7 @@ from rapidly.agents.execution.handlers.llm import (
     llm_handler,
     structured_output_handler,
 )
+from rapidly.agents.execution.handlers.loop_map import loop_map_handler
 from rapidly.agents.execution.handlers.rag_search import rag_search_handler
 
 # A NodeHandler receives the run's context + the node's config +
@@ -78,6 +79,10 @@ _REGISTRY: dict[str, NodeHandler] = {
     # ``succeeded`` — a closed gate is normal flow control,
     # not an error.
     "gate": gate_handler,
+    # Loop / Map: iterate an inner registered handler over an
+    # array from input_data. Sequential, all-or-nothing v1 —
+    # parallel fan-out + continue-on-error land in M4.3e.
+    "loop_map": loop_map_handler,
 }
 
 
