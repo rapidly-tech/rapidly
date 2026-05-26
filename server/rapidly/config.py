@@ -318,6 +318,13 @@ class Settings(BaseSettings):
     # over the existing PeerDataConnection.
     FILE_SHARING_COLLAB_ENABLED: bool = False
 
+    # Agents chamber — code-sandbox node (M4.5). Default OFF
+    # because the seccomp syscall filter (M4.5b) lands after
+    # external review; rlimit-only isolation is necessary but not
+    # sufficient. DO NOT flip this on in production until M4.5b
+    # ships and the filter contents have been audited.
+    AGENTS_CODE_SANDBOX_ENABLED: bool = False
+
     # Signaling backend. "memory" keeps room state in-process (requires a
     # single worker); "redis" uses Redis hashes + pub/sub for cross-worker
     # signaling. Default stays on "memory" so existing deployments keep

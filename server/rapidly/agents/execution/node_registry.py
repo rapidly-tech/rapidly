@@ -19,6 +19,7 @@ module) is the single source of truth.
 from collections.abc import Awaitable, Callable
 from typing import Any
 
+from rapidly.agents.execution.handlers.code import code_handler
 from rapidly.agents.execution.handlers.echo import echo_handler
 from rapidly.agents.execution.handlers.file_io import (
     file_read_handler,
@@ -62,6 +63,10 @@ _REGISTRY: dict[str, NodeHandler] = {
     # Structured output: text-in, typed-JSON-out via pydantic-ai
     # with a JSON Schema-derived target model.
     "structured_output": structured_output_handler,
+    # Code: subprocess+rlimit-sandboxed Python (seccomp filter
+    # arrives in M4.5b). Gated behind AGENTS_CODE_SANDBOX_ENABLED
+    # — DO NOT enable in production until M4.5b + filter review.
+    "code": code_handler,
 }
 
 
