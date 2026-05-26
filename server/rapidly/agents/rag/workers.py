@@ -2,10 +2,13 @@
 
 End-to-end flow:
     1. Load the VectorCollection + File rows.
-    2. Download the file bytes from S3.
-    3. Dispatch the chunker by mime type.
-    4. Embed each chunk in batches (via the shared embedder).
-    5. Replace any existing chunks for ``(collection_id, file_id)``
+    2. Resolve the workspace's embedding credential via the
+       IntegrationCredential store (M4.7c); fall back to
+       ``OPENAI_API_KEY`` env if the workspace has no default.
+    3. Download the file bytes from S3.
+    4. Dispatch the chunker by mime type.
+    5. Embed each chunk in batches (via the shared embedder).
+    6. Replace any existing chunks for ``(collection_id, file_id)``
        with the new ones — re-indexing is the normal way to update
        a document.
 
@@ -19,12 +22,17 @@ Session discipline:
     ``await session.flush()`` only. The actor framework commits at
     task completion; an explicit commit here would force-write
     state ahead of the framework's transaction boundary.
+
+Workspace_id source:
+    Derived from ``collection.workspace_id`` after loading the
+    collection — no new ``dispatch_task`` parameter needed.
+    Keeps the API trigger surface (``POST .../{id}/index``)
+    backward-compatible with M4.6c.
 """
 
 from __future__ import annotations
 
 import asyncio
-import os
 from typing import Any
 from uuid import UUID
 
@@ -117,8 +125,13 @@ async def _index_document_inner(
             f"max per run is {_MAX_CHUNKS_PER_RUN}"
         )
 
+    # Hand the embedder the session + workspace_id so it can read
+    # the workspace's default credential from IntegrationCredential
+    # (M4.7c). Falls back to OPENAI_API_KEY env when no credential
+    # is configured — the embedder's own resolver owns that path.
     embed_options: dict[str, Any] = {
-        "api_key": os.environ.get("OPENAI_API_KEY"),
+        "session": session,
+        "workspace_id": collection.workspace_id,
     }
     embeddings: list[list[float]] = []
     for batch_start in range(0, len(chunk_texts), _EMBED_BATCH_SIZE):
