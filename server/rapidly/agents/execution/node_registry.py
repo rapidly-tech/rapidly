@@ -25,6 +25,10 @@ from rapidly.agents.execution.handlers.file_io import (
     file_write_handler,
 )
 from rapidly.agents.execution.handlers.http import http_handler
+from rapidly.agents.execution.handlers.llm import (
+    llm_handler,
+    structured_output_handler,
+)
 
 # A NodeHandler receives the run's context + the node's config +
 # its input_data, returns its output_data. Failures raise.
@@ -52,6 +56,12 @@ _REGISTRY: dict[str, NodeHandler] = {
     # the File row.
     "file_read": file_read_handler,
     "file_write": file_write_handler,
+    # LLM: text-in, text-out via pydantic-ai. Supports openai /
+    # anthropic / google / ollama / test providers.
+    "llm": llm_handler,
+    # Structured output: text-in, typed-JSON-out via pydantic-ai
+    # with a JSON Schema-derived target model.
+    "structured_output": structured_output_handler,
 }
 
 

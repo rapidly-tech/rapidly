@@ -54,7 +54,10 @@ dependencies = [
   # ── Analytics ────────────────────────────────────────────────
   "clickhouse-connect>=0.8.0",
   # ── AI ───────────────────────────────────────────────────────
-  "pydantic-ai-slim[openai]>=0.7.1",
+  # Agents chamber (M4.4) adds anthropic + google extras alongside
+  # the existing openai extra. Ollama rides via OpenAI-compatible
+  # endpoints so it needs no separate extra.
+  "pydantic-ai-slim[openai,anthropic,google]>=0.7.1",
   # ── Internationalisation & geography ─────────────────────────
   "babel>=2.16.0",
   "pycountry>=24.6.1",
