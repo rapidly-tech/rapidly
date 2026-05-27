@@ -167,13 +167,22 @@ async def walk_run(session: Any, run_id: UUID) -> None:
         "session": session,
         "workspace_id": workspace_id,
     }
-    last_output: dict[str, Any] = dict(run.input_data)
 
     # Adjacency map for gate-skip propagation. Built once from
     # the edge list so the descendant walk doesn't re-scan
     # every loop iteration.
     adjacency = _build_adjacency(version.graph_json)
+    incoming = _build_incoming_edges(version.graph_json)
     skipped: set[str] = set()
+    # Edges deactivated by their per-edge ``condition`` — keyed
+    # by (source_id, target_id, edge_index). The engine consults
+    # this when picking each node's input so a closed conditional
+    # edge can't propagate data to its target.
+    closed_edges: set[tuple[str, str, int]] = set()
+    # Track the most recently produced output so the run's final
+    # ``output_data`` reflects the last successful node (the
+    # workflow's "result"). Multi-output aggregation is v2.
+    last_output: dict[str, Any] = dict(run.input_data)
 
     for node in order:
         # Cancellation check between nodes. The cancel endpoint
@@ -183,11 +192,25 @@ async def walk_run(session: Any, run_id: UUID) -> None:
         if latest is None or latest.status == RunStatus.cancelled:
             return
 
-        # Skip nodes downstream of a closed gate. We still emit a
-        # NodeRun row so the API surface can render "this node was
-        # skipped because gate X closed" instead of silently
-        # leaving rows missing.
-        if node["id"] in skipped:
+        # Resolve this node's input from its incoming edges.
+        # Nodes with no incoming edges get the run's input_data
+        # (workflow entry-points). Nodes whose every incoming
+        # edge originates from a skipped source OR is closed by
+        # a condition get marked skipped — cascades naturally.
+        node_input, is_skipped = _select_input(
+            node_id=node["id"],
+            incoming=incoming,
+            outputs=outputs,
+            skipped=skipped,
+            closed_edges=closed_edges,
+            run_input=dict(run.input_data),
+        )
+
+        if is_skipped or node["id"] in skipped:
+            # Mark + emit a NodeRun row so the API surface can
+            # render "this node was skipped" rather than silently
+            # omitting it.
+            skipped.add(node["id"])
             skipped_run = NodeRun(
                 run_id=run.id,
                 node_id=node["id"],
@@ -195,7 +218,7 @@ async def walk_run(session: Any, run_id: UUID) -> None:
                 status=NodeRunStatus.skipped,
                 started_at=now_utc(),
                 completed_at=now_utc(),
-                input_data=last_output,
+                input_data=node_input,
             )
             session.add(skipped_run)
             await session.flush()
@@ -207,7 +230,7 @@ async def walk_run(session: Any, run_id: UUID) -> None:
             node_type=node["type"],
             status=NodeRunStatus.running,
             started_at=now_utc(),
-            input_data=last_output,
+            input_data=node_input,
         )
         session.add(node_run)
         await session.flush()
@@ -230,7 +253,7 @@ async def walk_run(session: Any, run_id: UUID) -> None:
         ctx.pop("_resolved_credential_id", None)
 
         try:
-            output = await handler(ctx, dict(node.get("config", {})), dict(last_output))
+            output = await handler(ctx, dict(node.get("config", {})), dict(node_input))
         except GateFailedError as gate_exc:
             # Deliberate flow-control exit — not a failure. Mark
             # this gate node succeeded with the failed condition
@@ -268,6 +291,19 @@ async def walk_run(session: Any, run_id: UUID) -> None:
         outputs[node["id"]] = output
         last_output = output
 
+        # Evaluate outgoing edges' per-edge conditions against
+        # the node's output. Conditional edges that fail close;
+        # their targets can't pull input through that edge.
+        # Unconditional edges (no ``condition`` field) stay open.
+        for edge_index, edge in enumerate(
+            _outgoing_edges_for(version.graph_json, node["id"])
+        ):
+            cond = edge.get("condition")
+            if cond is None:
+                continue
+            if not _evaluate_edge_condition(cond, output):
+                closed_edges.add((node["id"], edge["target"], edge_index))
+
     # All nodes succeeded — write the Run as succeeded with the
     # last node's output as the run's output_data. Multi-output
     # aggregation is a v2 concern.
@@ -277,6 +313,154 @@ async def walk_run(session: Any, run_id: UUID) -> None:
     run.completed_at = now_utc()
     run.output_data = last_output
     await session.flush()
+
+
+def _build_incoming_edges(
+    graph: dict[str, Any],
+) -> dict[str, list[tuple[int, dict[str, Any]]]]:
+    """Map ``target_id`` → list of ``(edge_index, edge_dict)``.
+
+    The edge_index pairs with the source's outgoing-edge order so
+    the engine can key ``closed_edges`` uniquely even when two
+    edges share the same (source, target) pair (rare but legal:
+    a workflow with both a "true" branch and a "false" branch
+    pointing back to the same merge node).
+    """
+    out: dict[str, list[tuple[int, dict[str, Any]]]] = {
+        n["id"]: [] for n in graph.get("nodes", [])
+    }
+    # Re-number edges per source so the same edge_index keys
+    # both outgoing-side closed_edges entries + incoming-side
+    # lookups.
+    per_source_counter: dict[str, int] = {}
+    for edge in graph.get("edges", []):
+        src = edge.get("source")
+        dst = edge.get("target")
+        if dst not in out or src is None:
+            continue
+        idx = per_source_counter.get(src, 0)
+        per_source_counter[src] = idx + 1
+        out[dst].append((idx, edge))
+    return out
+
+
+def _outgoing_edges_for(graph: dict[str, Any], source_id: str) -> list[dict[str, Any]]:
+    """All edges originating at ``source_id``, in graph_json order.
+
+    The list-index in the returned list pairs with the
+    edge_index assigned by ``_build_incoming_edges`` (both walk
+    edges in graph_json order, incrementing per source).
+    """
+    return [e for e in graph.get("edges", []) if e.get("source") == source_id]
+
+
+def _select_input(
+    *,
+    node_id: str,
+    incoming: dict[str, list[tuple[int, dict[str, Any]]]],
+    outputs: dict[str, dict[str, Any]],
+    skipped: set[str],
+    closed_edges: set[tuple[str, str, int]],
+    run_input: dict[str, Any],
+) -> tuple[dict[str, Any], bool]:
+    """Pick a node's input from its incoming edges.
+
+    Returns ``(input, is_skipped)``. The bool is True when every
+    incoming edge has been closed or comes from a skipped source
+    — the engine then emits a ``skipped`` NodeRun and moves on.
+
+    Workflow entry-points (no incoming edges) get ``run_input``.
+    Nodes with multiple open incoming edges currently take the
+    first one's source output. Multi-input merge (concat /
+    structured join) is v2 — workflow authors today can wire an
+    explicit merge node if they need it.
+    """
+    edges = incoming.get(node_id, [])
+    if not edges:
+        return run_input, False
+
+    for edge_index, edge in edges:
+        src = edge.get("source")
+        if src in skipped:
+            continue
+        if (src, node_id, edge_index) in closed_edges:
+            continue
+        if src not in outputs:
+            # Source hasn't run yet — possible if it failed
+            # earlier (we'd have already aborted) or if the
+            # topological walk ran out of order (engine bug).
+            # Either way, this edge can't supply input.
+            continue
+        return dict(outputs[src]), False
+    return {}, True
+
+
+def _evaluate_edge_condition(condition: str, source_output: dict[str, Any]) -> bool:
+    """Evaluate an edge ``condition`` against the source's output.
+
+    The condition uses the same templating + operator surface as
+    the ``gate`` handler (M4.3b): a string of the form
+    ``"{field} <op> <value>"`` where ``field`` is a key from
+    the source's output and ``op`` is one of ``==``, ``!=``,
+    ``<``, ``<=``, ``>``, ``>=``, ``contains``. Anything else
+    is treated as a Python truthiness of the rendered string —
+    rarely useful, but lets a workflow author write
+    ``"{passed}"`` for a bare bool check.
+
+    Failure modes default to closed (the safer side): any
+    parsing or rendering error → return False so the edge
+    closes rather than spuriously opening through a malformed
+    config.
+    """
+    if not condition or not isinstance(condition, str):
+        return True
+
+    # Render placeholders against source_output (same SafeDict
+    # pattern the gate + loop_map renderers use).
+    class _SafeDict(dict):  # type: ignore[type-arg]
+        def __missing__(self, key: str) -> str:
+            return "{" + key + "}"
+
+    try:
+        rendered = condition.format_map(_SafeDict(source_output))
+    except (KeyError, ValueError):
+        return False
+
+    # Quick truthiness shortcut for the bare ``{passed}`` style.
+    stripped = rendered.strip()
+    if stripped.lower() in ("true", "1", "yes"):
+        return True
+    if stripped.lower() in ("false", "0", "no", ""):
+        return False
+
+    # Operator dispatch — same surface as the gate handler.
+    for op_token in (" == ", " != ", " >= ", " <= ", " > ", " < ", " contains "):
+        if op_token in rendered:
+            left, right = rendered.split(op_token, 1)
+            left, right = left.strip(), right.strip()
+            op = op_token.strip()
+            if op == "==":
+                return left == right
+            if op == "!=":
+                return left != right
+            if op == "contains":
+                return right in left
+            # Numeric ops — coerce; fall back to closed on cast
+            # failure.
+            try:
+                lv, rv = float(left), float(right)
+            except ValueError:
+                return False
+            if op == ">":
+                return lv > rv
+            if op == ">=":
+                return lv >= rv
+            if op == "<":
+                return lv < rv
+            if op == "<=":
+                return lv <= rv
+    # Unrecognised condition shape — fail closed.
+    return False
 
 
 def _build_adjacency(graph: dict[str, Any]) -> dict[str, set[str]]:
