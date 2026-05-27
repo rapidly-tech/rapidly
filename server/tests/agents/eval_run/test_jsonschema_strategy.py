@@ -7,15 +7,47 @@ schemas without the engine overhead.
 
 from __future__ import annotations
 
+from typing import Any
+
+import pytest
+
 from rapidly.agents.eval_run.workers import _compare
-from rapidly.models import AssertionStrategy
+from rapidly.models import AssertionStrategy, EvalRun
 
 
+def _make_eval_run(strategy: AssertionStrategy) -> EvalRun:
+    """Build a bare EvalRun for the comparator. The comparator
+    only reads ``assertion_strategy`` + (for llm_judge) the
+    workspace_id/judge_model_id — everything else can stay
+    unset for these unit tests.
+    """
+    return EvalRun(assertion_strategy=strategy)
+
+
+async def _compare_sync(
+    *,
+    strategy: AssertionStrategy,
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+) -> bool:
+    """Sync-style wrapper around the async comparator for tests
+    that don't need to drive the LLM path. session is unused for
+    exact_match + json_schema.
+    """
+    return await _compare(
+        session=None,
+        eval_run=_make_eval_run(strategy),
+        actual=actual,
+        expected=expected,
+    )
+
+
+@pytest.mark.asyncio
 class TestJsonSchemaStrategy:
-    def test_passes_when_actual_matches_required_keys_and_types(self) -> None:
-        # Expected is a schema: actual must be an object with
-        # a string ``status`` and integer ``count``.
-        passed = _compare(
+    async def test_passes_when_actual_matches_required_keys_and_types(
+        self,
+    ) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.json_schema,
             actual={"status": "open", "count": 3, "note": "extra field is OK"},
             expected={
@@ -29,8 +61,8 @@ class TestJsonSchemaStrategy:
         )
         assert passed is True
 
-    def test_fails_on_missing_required_key(self) -> None:
-        passed = _compare(
+    async def test_fails_on_missing_required_key(self) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.json_schema,
             actual={"count": 3},
             expected={
@@ -44,9 +76,8 @@ class TestJsonSchemaStrategy:
         )
         assert passed is False
 
-    def test_fails_on_wrong_type(self) -> None:
-        # ``count`` is required to be integer; got string.
-        passed = _compare(
+    async def test_fails_on_wrong_type(self) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.json_schema,
             actual={"status": "open", "count": "three"},
             expected={
@@ -59,8 +90,10 @@ class TestJsonSchemaStrategy:
         )
         assert passed is False
 
-    def test_passes_when_required_array_has_correct_item_type(self) -> None:
-        passed = _compare(
+    async def test_passes_when_required_array_has_correct_item_type(
+        self,
+    ) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.json_schema,
             actual={"tags": ["concrete", "spec"]},
             expected={
@@ -76,8 +109,8 @@ class TestJsonSchemaStrategy:
         )
         assert passed is True
 
-    def test_fails_on_array_with_wrong_item_type(self) -> None:
-        passed = _compare(
+    async def test_fails_on_array_with_wrong_item_type(self) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.json_schema,
             actual={"tags": [1, 2, 3]},
             expected={
@@ -93,10 +126,8 @@ class TestJsonSchemaStrategy:
         )
         assert passed is False
 
-    def test_passes_with_enum_constraint(self) -> None:
-        # Enum-style allowed values — useful for classification
-        # workflows where actual is one of N labels.
-        passed = _compare(
+    async def test_passes_with_enum_constraint(self) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.json_schema,
             actual={"label": "urgent"},
             expected={
@@ -112,8 +143,8 @@ class TestJsonSchemaStrategy:
         )
         assert passed is True
 
-    def test_fails_on_enum_violation(self) -> None:
-        passed = _compare(
+    async def test_fails_on_enum_violation(self) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.json_schema,
             actual={"label": "unknown-label"},
             expected={
@@ -129,8 +160,8 @@ class TestJsonSchemaStrategy:
         )
         assert passed is False
 
-    def test_passes_on_nested_object(self) -> None:
-        passed = _compare(
+    async def test_passes_on_nested_object(self) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.json_schema,
             actual={"file": {"name": "drawing.pdf", "size": 1024}},
             expected={
@@ -151,25 +182,22 @@ class TestJsonSchemaStrategy:
         assert passed is True
 
 
+@pytest.mark.asyncio
 class TestExactMatchUnchanged:
     """Regression: M4.8b's exact_match strategy keeps its
-    semantics after the new dispatch case is added.
+    semantics after M4.8c/d add new dispatch cases.
     """
 
-    def test_passes_on_equal_dicts(self) -> None:
-        passed = _compare(
+    async def test_passes_on_equal_dicts(self) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.exact_match,
             actual={"x": 1, "y": 2},
             expected={"x": 1, "y": 2},
         )
         assert passed is True
 
-    def test_fails_on_extra_field(self) -> None:
-        # Distinction from json_schema: exact_match rejects
-        # extra fields. Same actual would pass under
-        # json_schema if the schema didn't forbid additional
-        # properties.
-        passed = _compare(
+    async def test_fails_on_extra_field(self) -> None:
+        passed = await _compare_sync(
             strategy=AssertionStrategy.exact_match,
             actual={"x": 1, "y": 2, "z": 3},
             expected={"x": 1, "y": 2},

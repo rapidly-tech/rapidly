@@ -115,12 +115,21 @@ async def trigger(
     if version is None:
         raise ResourceNotFound("WorkflowVersion not found in this workspace.")
 
+    # llm_judge requires a configured grader model — fail fast
+    # at trigger time rather than per-case at run time so the
+    # operator sees the misconfig immediately.
+    if data.assertion_strategy.value == "llm_judge" and not data.judge_model_id:
+        raise ResourceNotFound(
+            "judge_model_id is required when assertion_strategy is llm_judge."
+        )
+
     repo = EvalRunRepository.from_session(session)
     record = EvalRun(
         workspace_id=dataset.workspace_id,
         dataset_id=dataset.id,
         workflow_version_id=version.id,
         assertion_strategy=data.assertion_strategy,
+        judge_model_id=data.judge_model_id,
     )
     created = await repo.create(record, flush=True)
     dispatch_task("agents.eval.run", eval_run_id=created.id)

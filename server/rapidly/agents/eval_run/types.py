@@ -17,6 +17,7 @@ class EvalRunTrigger(BaseModel):
     workflow_version_id: UUID
     dataset_id: UUID
     assertion_strategy: AssertionStrategy = AssertionStrategy.exact_match
+    judge_model_id: str | None = None  # required when llm_judge
 
 
 class EvalRunSchema(BaseModel):
@@ -26,6 +27,7 @@ class EvalRunSchema(BaseModel):
     workflow_version_id: UUID
     status: EvalRunStatus
     assertion_strategy: AssertionStrategy
+    judge_model_id: str | None
     case_count: int
     pass_count: int
     fail_count: int

@@ -41,6 +41,7 @@ import structlog
 from sqlalchemy import select
 
 from rapidly.agents.execution.engine import walk_run
+from rapidly.agents.execution.handlers.llm import structured_output_handler
 from rapidly.core.utils import now_utc
 from rapidly.models import (
     AssertionStrategy,
@@ -162,8 +163,9 @@ async def _execute_case(
             # passed stays None.
         else:
             eval_case.actual_output = dict(synthetic_run.output_data or {})
-            passed = _compare(
-                strategy=eval_run.assertion_strategy,
+            passed = await _compare(
+                session=session,
+                eval_run=eval_run,
                 actual=eval_case.actual_output,
                 expected=case.expected_output,
             )
@@ -191,33 +193,33 @@ async def _execute_case(
     await session.flush()
 
 
-def _compare(
+async def _compare(
     *,
-    strategy: AssertionStrategy,
+    session: Any,
+    eval_run: EvalRun,
     actual: dict[str, Any],
     expected: dict[str, Any],
 ) -> bool:
     """Score actual_output against expected_output.
 
-    Strategies (M4.8b + M4.8c):
+    Strategies (M4.8b–d):
         - ``exact_match``  — Python ``==``. Brittle for non-
           deterministic LLM output; precise for structured
           extraction workflows.
         - ``json_schema``  — ``expected`` is treated as a JSON
           Schema, ``actual`` validated against it. Loose enough
           to accept "any field-shape match" while still pinning
-          required keys + types. The case author writes a schema
-          per case (or shares one across cases via a JSON pointer
-          in the case input — future v2).
-
-    ``llm_judge`` lands in M4.8d.
+          required keys + types.
+        - ``llm_judge``    — a grader LLM scores ``actual``
+          against ``expected`` (interpreted as a free-form
+          rubric) and returns ``passed`` + ``reason``. Costs
+          tokens per case. Uses the workspace's configured
+          credentials via the existing resolver.
     """
+    strategy = eval_run.assertion_strategy
     if strategy == AssertionStrategy.exact_match:
         return actual == expected
     if strategy == AssertionStrategy.json_schema:
-        # Inline import — jsonschema is only needed when this
-        # strategy is configured. Keeps the actor's import-time
-        # surface lean for the common exact_match path.
         from jsonschema import ValidationError, validate
 
         try:
@@ -225,7 +227,132 @@ def _compare(
         except ValidationError:
             return False
         return True
+    if strategy == AssertionStrategy.llm_judge:
+        return await _llm_judge(
+            session=session,
+            eval_run=eval_run,
+            actual=actual,
+            expected=expected,
+        )
     raise ValueError(f"unsupported assertion_strategy {strategy!r}")
+
+
+async def _llm_judge(
+    *,
+    session: Any,
+    eval_run: EvalRun,
+    actual: dict[str, Any],
+    expected: dict[str, Any],
+) -> bool:
+    """Use a grader LLM to score actual vs expected.
+
+    The judge sees the case's ``expected_output`` as a rubric
+    (free-form criteria, JSON-serialised) and the workflow's
+    ``actual_output`` as the candidate to grade. It's prompted
+    to return a typed pass/fail with a one-sentence reason.
+    The reason isn't persisted today — operators reading the
+    eval-case row just see the pass/fail — but the grader sees
+    the prompt to reason about it, which improves the binary
+    decision's quality. The reason text will land in
+    ``EvalRunCase.judge_reason`` in M4.8e.
+
+    Credential resolution + usage attribution all run through
+    the same machinery the LLM handler uses, so judge calls
+    show up in the workspace's LlmUsage rollups exactly like
+    workflow LLM calls do.
+    """
+    judge_model_id = eval_run.judge_model_id
+    if not judge_model_id:
+        raise ValueError(
+            "llm_judge requires eval_run.judge_model_id; "
+            "EvalRunTrigger should have caught this at submit time."
+        )
+
+    # Build a synthetic ctx so the LLM handler's _resolve_credential
+    # can look up the workspace's grader credential exactly like a
+    # workflow-LLM-node call would. The handler reads:
+    #   - ctx["session"] for the credential lookup
+    #   - ctx["workspace_id"] for tenancy scope
+    #   - ctx["run_id"] / ctx["node_run_id"] for usage attribution
+    # (run_id stays None — the judge call isn't tied to a single
+    # synthetic Run; the LlmUsage row carries workspace_id which
+    # is enough for billing rollups.)
+    ctx = {
+        "session": session,
+        "workspace_id": eval_run.workspace_id,
+        "run_id": None,
+        "node_run_id": None,
+    }
+
+    if ":" not in judge_model_id:
+        raise ValueError(f"judge_model_id {judge_model_id!r} must be 'provider:model'")
+    provider, model = judge_model_id.split(":", 1)
+
+    node_config = {
+        "provider": provider,
+        "model": model,
+        "system_prompt": _JUDGE_SYSTEM_PROMPT,
+        "prompt_template": _JUDGE_PROMPT_TEMPLATE,
+        "schema_json": {
+            "type": "object",
+            "required": ["passed"],
+            "properties": {
+                "passed": {"type": "boolean"},
+                "reason": {"type": "string"},
+            },
+        },
+    }
+    input_data = {
+        "expected": _safe_dump(expected),
+        "actual": _safe_dump(actual),
+    }
+
+    out = await structured_output_handler(ctx, node_config, input_data)
+    data = out.get("data") or {}
+    return bool(data.get("passed", False))
+
+
+def _safe_dump(obj: Any) -> str:
+    """JSON-serialise ``obj`` for safe inclusion in the judge
+    prompt. Falls back to ``repr`` on non-serialisable types so
+    the judge sees something rather than the case erroring.
+    """
+    import json
+
+    try:
+        return json.dumps(obj, ensure_ascii=False, sort_keys=True)
+    except (TypeError, ValueError):
+        return repr(obj)
+
+
+_JUDGE_SYSTEM_PROMPT = """\
+You are an evaluator grading workflow outputs against a rubric.
+
+You'll see two JSON documents:
+- EXPECTED: the rubric/criteria the actual output should satisfy.
+  This is NOT a literal answer to match — interpret it as a
+  description of what a passing answer looks like.
+- ACTUAL: the workflow's output that needs grading.
+
+Return a structured judgement:
+- passed: true if ACTUAL satisfies the rubric, false otherwise
+- reason: one-sentence explanation (under 200 chars)
+
+Be strict about clear failures (missing required behaviour,
+wrong direction). Be lenient about paraphrasing — if ACTUAL
+says the same thing as EXPECTED in different words, that's
+a pass.
+"""
+
+_JUDGE_PROMPT_TEMPLATE = """\
+EXPECTED:
+{expected}
+
+ACTUAL:
+{actual}
+
+Grade the ACTUAL against the EXPECTED rubric.
+"""
 
 
 async def _load_eval_run(session: Any, eval_run_id: UUID) -> EvalRun | None:
