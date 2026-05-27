@@ -548,12 +548,29 @@ async function fetchEvalRun(id: string): Promise<EvalRun> {
   return (await res.json()) as EvalRun
 }
 
+const TERMINAL_EVAL_STATUSES: EvalRunStatus[] = [
+  'succeeded',
+  'failed',
+  'cancelled',
+]
+
 export const useEvalRun = (id: string | undefined) =>
   useQuery({
     queryKey: evalRunKey('detail', id ?? ''),
     queryFn: () => fetchEvalRun(id!),
     retry: baseRetry,
     enabled: !!id,
+    // Poll while the eval is non-terminal so the header
+    // case_count + pass/fail counters tick live as the
+    // runner increments them. Same shape as useRun (M5.9).
+    // The cases endpoint already polls (M5.5); pairing
+    // the two means the whole eval-run detail page feels
+    // live without a websocket.
+    refetchInterval: (q) => {
+      const data = q.state.data as EvalRun | undefined
+      if (!data) return 2500
+      return TERMINAL_EVAL_STATUSES.includes(data.status) ? false : 2500
+    },
   })
 
 async function fetchEvalRunCases(id: string): Promise<EvalRunCase[]> {
@@ -604,18 +621,21 @@ export const useTriggerEval = () => {
   })
 }
 
-export const useEvalRunCases = (id: string | undefined) =>
+export const useEvalRunCases = (
+  id: string | undefined,
+  options: { isEvalActive?: boolean } = {},
+) =>
   useQuery({
     queryKey: evalRunKey('cases', id ?? ''),
     queryFn: () => fetchEvalRunCases(id!),
     retry: baseRetry,
     enabled: !!id,
-    // Polling: the cases endpoint is the operator's
-    // "is my eval done yet" surface. 3-second refetch while
-    // the parent eval is in-flight is cheap and gives a
-    // near-live UI. Once the eval completes the React Query
-    // cache won't change so the polling effectively idles.
-    refetchInterval: 3000,
+    // Poll only while the parent eval is non-terminal —
+    // mirrors the pattern useNodeRuns uses for run-detail
+    // polling. The page passes ``isEvalActive`` based on
+    // the eval's status; once it goes false the cache stops
+    // moving and the polling effectively idles.
+    refetchInterval: options.isEvalActive ? 3000 : false,
   })
 
 // ══════════════════════════════════════════════
