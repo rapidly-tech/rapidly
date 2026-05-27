@@ -27,12 +27,18 @@ export default function WorkflowDetailPage({
   const workflowQuery = useWorkflow(id)
   const workflow = workflowQuery.data
 
+  // Status filter for the runs list. ``null`` is "all"; chip-
+  // driven. Kept here at the page level (not inside RunsSection)
+  // so it can also drive the empty-state copy below.
+  const [statusFilter, setStatusFilter] = useState<RunStatus | null>(null)
+
   // Runs are listed per workflow_version. Use the workflow's
   // current_version_id when available — drafts without a
   // published version can't have runs.
   const runsQuery = useRuns(
     {
       workflow_version_id: workflow?.current_version_id ?? undefined,
+      status: statusFilter ?? undefined,
       limit: 25,
       page: 1,
     },
@@ -66,6 +72,8 @@ export default function WorkflowDetailPage({
                 ? runsQuery.error.message
                 : undefined
             }
+            statusFilter={statusFilter}
+            onStatusFilterChange={setStatusFilter}
           />
           <DangerZone workflow={workflow} />
         </>
@@ -461,24 +469,49 @@ function TriggerRunSection({ workflow }: { workflow: Workflow }) {
   )
 }
 
+const STATUS_FILTERS: { label: string; value: RunStatus | null }[] = [
+  { label: 'All', value: null },
+  { label: 'Running', value: 'running' },
+  { label: 'Succeeded', value: 'succeeded' },
+  { label: 'Failed', value: 'failed' },
+  { label: 'Cancelled', value: 'cancelled' },
+  { label: 'Awaiting human', value: 'awaiting_human' },
+]
+
 function RunsSection({
   workflow,
   runs,
   isLoading,
   isError,
   errorMessage,
+  statusFilter,
+  onStatusFilterChange,
 }: {
   workflow: Workflow
   runs: Run[]
   isLoading: boolean
   isError: boolean
   errorMessage?: string
+  statusFilter: RunStatus | null
+  onStatusFilterChange: (status: RunStatus | null) => void
 }) {
+  const filterLabel =
+    STATUS_FILTERS.find((f) => f.value === statusFilter)?.label.toLowerCase() ??
+    'matching'
+
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-        Recent runs
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Recent runs
+        </h2>
+        {workflow.current_version_id && (
+          <RunsStatusFilter
+            value={statusFilter}
+            onChange={onStatusFilterChange}
+          />
+        )}
+      </div>
 
       {!workflow.current_version_id ? (
         <EmptyRuns message="This workflow has no published version yet — publish a version to trigger runs." />
@@ -487,11 +520,47 @@ function RunsSection({
       ) : isError ? (
         <ErrorBanner message={errorMessage ?? 'Unknown error'} />
       ) : runs.length === 0 ? (
-        <EmptyRuns message="No runs yet. Click Trigger run above to fire one." />
+        <EmptyRuns
+          message={
+            statusFilter
+              ? `No ${filterLabel} runs.`
+              : 'No runs yet. Click Trigger run above to fire one.'
+          }
+        />
       ) : (
         <RunsList runs={runs} workflowId={workflow.id} />
       )}
     </section>
+  )
+}
+
+function RunsStatusFilter({
+  value,
+  onChange,
+}: {
+  value: RunStatus | null
+  onChange: (status: RunStatus | null) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {STATUS_FILTERS.map((filter) => {
+        const active = filter.value === value
+        return (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {filter.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
