@@ -193,6 +193,23 @@ function RunError({ message }: { message: string }) {
   )
 }
 
+type CaseOutcome = 'passed' | 'failed' | 'errored' | 'qualitative'
+
+function classifyCase(caseItem: EvalRunCase): CaseOutcome {
+  if (caseItem.error_message) return 'errored'
+  if (caseItem.passed === true) return 'passed'
+  if (caseItem.passed === false) return 'failed'
+  return 'qualitative'
+}
+
+const CASE_FILTERS: { label: string; value: CaseOutcome | null }[] = [
+  { label: 'All', value: null },
+  { label: 'Passed', value: 'passed' },
+  { label: 'Failed', value: 'failed' },
+  { label: 'Errored', value: 'errored' },
+  { label: 'Qualitative', value: 'qualitative' },
+]
+
 function CasesSection({
   cases,
   isLoading,
@@ -204,25 +221,100 @@ function CasesSection({
   isError: boolean
   errorMessage?: string
 }) {
+  const [outcome, setOutcome] = useState<CaseOutcome | null>(null)
+
+  // Tag every case with its outcome once so the chip counts +
+  // the visible-row filter use the same classification — no
+  // chance of \"chip says 3 failed, list shows 4\".
+  const classified = cases.map((c) => ({
+    caseItem: c,
+    outcome: classifyCase(c),
+  }))
+  const counts: Record<CaseOutcome, number> = {
+    passed: 0,
+    failed: 0,
+    errored: 0,
+    qualitative: 0,
+  }
+  for (const { outcome } of classified) counts[outcome] += 1
+
+  const visible =
+    outcome === null
+      ? classified
+      : classified.filter((c) => c.outcome === outcome)
+
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-        Cases
-      </h2>
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Cases
+        </h2>
+        {cases.length > 0 && (
+          <CaseFilter value={outcome} onChange={setOutcome} counts={counts} />
+        )}
+      </div>
       {isLoading ? (
         <CasesSkeleton />
       ) : isError ? (
         <ErrorBanner message={errorMessage ?? 'Unknown error'} />
       ) : cases.length === 0 ? (
         <EmptyCases />
+      ) : visible.length === 0 ? (
+        <EmptyFiltered outcome={outcome!} />
       ) : (
         <ul className="flex flex-col gap-2">
-          {cases.map((c, idx) => (
-            <CaseRow key={c.id} caseItem={c} index={idx + 1} />
+          {visible.map(({ caseItem }, idx) => (
+            <CaseRow key={caseItem.id} caseItem={caseItem} index={idx + 1} />
           ))}
         </ul>
       )}
     </section>
+  )
+}
+
+function CaseFilter({
+  value,
+  onChange,
+  counts,
+}: {
+  value: CaseOutcome | null
+  onChange: (next: CaseOutcome | null) => void
+  counts: Record<CaseOutcome, number>
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {CASE_FILTERS.map((filter) => {
+        const active = filter.value === value
+        const count = filter.value === null ? null : counts[filter.value]
+        return (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {filter.label}
+            {count !== null && (
+              <span className="ml-1 font-mono text-[10px] opacity-70">
+                {count}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function EmptyFiltered({ outcome }: { outcome: CaseOutcome }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No <span className="font-mono">{outcome}</span> cases in this eval run.
+    </div>
   )
 }
 
