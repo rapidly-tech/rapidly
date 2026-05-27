@@ -1,11 +1,14 @@
 'use client'
 
 import {
+  type EvalRun,
+  type EvalRunStatus,
   type Run,
   type RunStatus,
   type Workflow,
   type WorkflowVersion,
   useDeleteWorkflow,
+  useEvalRuns,
   usePublishVersion,
   useRuns,
   useSetCurrentVersion,
@@ -75,6 +78,11 @@ export default function WorkflowDetailPage({
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
           />
+          {workflow.current_version_id && (
+            <EvalHistorySection
+              workflowVersionId={workflow.current_version_id}
+            />
+          )}
           <DangerZone workflow={workflow} />
         </>
       ) : null}
@@ -830,6 +838,146 @@ function VersionRow({
         </pre>
       )}
     </li>
+  )
+}
+
+function EvalHistorySection({
+  workflowVersionId,
+}: {
+  workflowVersionId: string
+}) {
+  // 10 most recent eval-runs against this workflow version. The
+  // eval-runs endpoint already accepts workflow_version_id; pure
+  // UI over that.
+  const query = useEvalRuns({
+    workflow_version_id: workflowVersionId,
+    limit: 10,
+    page: 1,
+  })
+  const runs: EvalRun[] = query.data?.data ?? []
+
+  if (query.isLoading) {
+    return (
+      <section className="flex flex-col gap-3">
+        <EvalHistoryHeader workflowVersionId={workflowVersionId} />
+        <div className="h-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+      </section>
+    )
+  }
+  if (query.isError || runs.length === 0) {
+    // Hide on error/empty — symmetric with the dataset-detail
+    // history section. No chrome when there's nothing to show.
+    return null
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <EvalHistoryHeader
+        workflowVersionId={workflowVersionId}
+        total={query.data?.meta.total}
+      />
+      <ul className="flex flex-col gap-2">
+        {runs.map((run) => (
+          <EvalHistoryRow key={run.id} run={run} />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function EvalHistoryHeader({
+  workflowVersionId,
+  total,
+}: {
+  workflowVersionId: string
+  total?: number
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        Eval history (current version)
+      </h2>
+      {typeof total === 'number' && total > 10 && (
+        <Link
+          href={`/preview/agents/eval-runs?workflow_version_id=${workflowVersionId}`}
+          className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+        >
+          See all {total} →
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function EvalHistoryRow({ run }: { run: EvalRun }) {
+  const passRate =
+    run.case_count > 0
+      ? Math.round((run.pass_count / run.case_count) * 100)
+      : null
+  return (
+    <li>
+      <Link
+        href={`/preview/agents/eval-runs/${run.id}`}
+        className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
+      >
+        <EvalStatusPill status={run.status} />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-sm text-slate-700 dark:text-slate-300">
+            {run.assertion_strategy}
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {run.started_at ? formatRelative(run.started_at) : 'not started'}
+          </span>
+        </div>
+        <span className="flex items-baseline gap-2 text-sm">
+          {run.case_count > 0 ? (
+            <>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {run.pass_count}
+              </span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                / {run.case_count}
+              </span>
+              {passRate !== null && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  · {passRate}%
+                </span>
+              )}
+              {run.error_count > 0 && (
+                <span className="text-xs text-rose-600 dark:text-rose-400">
+                  · {run.error_count} err
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              no cases
+            </span>
+          )}
+        </span>
+      </Link>
+    </li>
+  )
+}
+
+const EVAL_STATUS_STYLES: Record<EvalRunStatus, string> = {
+  pending: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  running:
+    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  succeeded:
+    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  failed: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+  cancelled:
+    'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+}
+
+function EvalStatusPill({ status }: { status: EvalRunStatus }) {
+  return (
+    <span
+      className={`rounded-md px-2 py-0.5 text-xs font-medium ${EVAL_STATUS_STYLES[status]}`}
+    >
+      {status}
+    </span>
   )
 }
 
