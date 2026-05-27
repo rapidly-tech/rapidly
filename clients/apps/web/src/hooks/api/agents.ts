@@ -953,6 +953,7 @@ async function fetchEvalRuns(
   params: {
     dataset_id?: string
     workflow_version_id?: string
+    status?: EvalRunStatus
     page?: number
     limit?: number
   } = {},
@@ -963,6 +964,7 @@ async function fetchEvalRuns(
   if (params.dataset_id) url.searchParams.set('dataset_id', params.dataset_id)
   if (params.workflow_version_id)
     url.searchParams.set('workflow_version_id', params.workflow_version_id)
+  if (params.status) url.searchParams.set('status', params.status)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
 
@@ -978,6 +980,7 @@ export const useEvalRuns = (
   params: {
     dataset_id?: string
     workflow_version_id?: string
+    status?: EvalRunStatus
     page?: number
     limit?: number
   } = {},

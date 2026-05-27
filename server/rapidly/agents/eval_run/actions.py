@@ -19,6 +19,7 @@ from rapidly.models import (
     Workflow,
     WorkflowVersion,
 )
+from rapidly.models.eval_run import EvalRunStatus
 from rapidly.postgres import AsyncReadSession, AsyncSession
 from rapidly.worker import dispatch_task
 
@@ -50,6 +51,7 @@ async def list_eval_runs(
     *,
     dataset_id: UUID | None = None,
     workflow_version_id: UUID | None = None,
+    status: EvalRunStatus | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[EvalRun], int]:
     repo = EvalRunRepository.from_session(session)
@@ -60,6 +62,8 @@ async def list_eval_runs(
         statement = statement.where(EvalRun.dataset_id == dataset_id)
     if workflow_version_id is not None:
         statement = statement.where(EvalRun.workflow_version_id == workflow_version_id)
+    if status is not None:
+        statement = statement.where(EvalRun.status == status)
     return await paginate(session, statement, pagination=pagination)
 
 

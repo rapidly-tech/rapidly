@@ -6,25 +6,83 @@ import {
   useEvalRuns,
 } from '@/hooks/api/agents'
 import Link from 'next/link'
+import { useState } from 'react'
 
 export default function EvalRunsListPage() {
-  const query = useEvalRuns({ limit: 50, page: 1 })
+  const [statusFilter, setStatusFilter] = useState<EvalRunStatus | null>(null)
+  const query = useEvalRuns({
+    status: statusFilter ?? undefined,
+    limit: 50,
+    page: 1,
+  })
   const runs: EvalRun[] = query.data?.data ?? []
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-16">
       <Header />
 
+      <StatusFilter value={statusFilter} onChange={setStatusFilter} />
+
       {query.isLoading ? (
         <Skeleton />
       ) : query.isError ? (
         <ErrorBanner message={(query.error as Error).message} />
       ) : runs.length === 0 ? (
-        <Empty />
+        statusFilter ? (
+          <EmptyFiltered status={statusFilter} />
+        ) : (
+          <Empty />
+        )
       ) : (
         <EvalRunList runs={runs} />
       )}
     </main>
+  )
+}
+
+const STATUS_FILTERS: { label: string; value: EvalRunStatus | null }[] = [
+  { label: 'All', value: null },
+  { label: 'Running', value: 'running' },
+  { label: 'Succeeded', value: 'succeeded' },
+  { label: 'Failed', value: 'failed' },
+  { label: 'Cancelled', value: 'cancelled' },
+]
+
+function StatusFilter({
+  value,
+  onChange,
+}: {
+  value: EvalRunStatus | null
+  onChange: (status: EvalRunStatus | null) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {STATUS_FILTERS.map((filter) => {
+        const active = filter.value === value
+        return (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {filter.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function EmptyFiltered({ status }: { status: EvalRunStatus }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No <span className="font-mono">{status}</span> eval runs.
+    </div>
   )
 }
 
