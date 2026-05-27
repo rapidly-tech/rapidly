@@ -40,7 +40,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import TIMESTAMP, ForeignKey, Integer, Text, Uuid
+from sqlalchemy import TIMESTAMP, ForeignKey, Integer, String, Text, Uuid
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from rapidly.core.db.models.base import BaseEntity
@@ -69,7 +69,15 @@ class AssertionStrategy(StrEnum):
     # field values are non-deterministic (LLM extraction
     # producing varying paraphrases of the same field).
     json_schema = "json_schema"
-    # llm_judge lands in M4.8d.
+    # LLM-as-judge. The case's ``expected_output`` is treated as
+    # a free-form rubric (criteria the actual output should
+    # satisfy); a grader LLM scores actual against that rubric
+    # and returns a pass/fail. Costs tokens — every case in the
+    # eval run incurs an additional LLM call against the
+    # workspace's configured judge model. Useful for creative or
+    # qualitative workflows where exact_match + json_schema both
+    # fail to express "did this do the right thing?".
+    llm_judge = "llm_judge"
 
 
 TERMINAL_EVAL_RUN_STATUSES: frozenset[EvalRunStatus] = frozenset(
@@ -115,6 +123,13 @@ class EvalRun(BaseEntity):
         nullable=False,
         default=AssertionStrategy.exact_match,
     )
+
+    # Required when ``assertion_strategy == llm_judge``; the
+    # ``provider:model`` identifier the comparator passes to the
+    # embedder/LLM dispatch. Stored on the EvalRun (not per-case)
+    # so the whole eval uses a single judge — switching mid-run
+    # would make pass-rate trends non-comparable.
+    judge_model_id: Mapped[str | None] = mapped_column(String(128), nullable=True)
 
     # Per-eval summary counters. Populated incrementally by the
     # actor; final values surface in the API response so
