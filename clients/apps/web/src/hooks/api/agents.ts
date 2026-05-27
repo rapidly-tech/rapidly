@@ -266,6 +266,44 @@ export const useRun = (id: string | undefined) =>
     },
   })
 
+export interface TriggerRunPayload {
+  input_data: Record<string, unknown>
+}
+
+async function triggerRun(args: {
+  workflowId: string
+  body: TriggerRunPayload
+}): Promise<Run> {
+  const { workflowId, body } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${workflowId}/runs`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `run trigger failed: ${res.status}`)
+  }
+  return (await res.json()) as Run
+}
+
+export const useTriggerRun = (workflowId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: TriggerRunPayload) => triggerRun({ workflowId, body }),
+    onSuccess: () => {
+      // Invalidate all run-list queries so the workflow detail
+      // page picks up the new row immediately.
+      qc.invalidateQueries({ queryKey: runKey() })
+    },
+  })
+}
+
 async function cancelRun(id: string): Promise<RunDetail> {
   const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/${id}/cancel`
   const res = await fetch(url, {

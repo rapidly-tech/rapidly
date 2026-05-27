@@ -5,10 +5,12 @@ import {
   type RunStatus,
   type Workflow,
   useRuns,
+  useTriggerRun,
   useWorkflow,
 } from '@/hooks/api/agents'
 import Link from 'next/link'
-import { use } from 'react'
+import { useRouter } from 'next/navigation'
+import { use, useState } from 'react'
 
 export default function WorkflowDetailPage({
   params,
@@ -43,6 +45,9 @@ export default function WorkflowDetailPage({
       ) : workflow ? (
         <>
           <WorkflowHeader workflow={workflow} />
+          {workflow.current_version_id && (
+            <TriggerRunSection workflow={workflow} />
+          )}
           <RunsSection
             workflow={workflow}
             runs={runs}
@@ -97,6 +102,102 @@ function WorkflowHeader({ workflow }: { workflow: Workflow }) {
   )
 }
 
+function TriggerRunSection({ workflow }: { workflow: Workflow }) {
+  const [open, setOpen] = useState(false)
+  const [inputText, setInputText] = useState('{\n  "text": "your input"\n}')
+  const [parseError, setParseError] = useState<string | null>(null)
+  const trigger = useTriggerRun(workflow.id)
+  const router = useRouter()
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setParseError(null)
+    let inputData: Record<string, unknown>
+    try {
+      const parsed = JSON.parse(inputText)
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) {
+        setParseError('input_data must be a JSON object')
+        return
+      }
+      inputData = parsed as Record<string, unknown>
+    } catch (err) {
+      setParseError(
+        `JSON parse failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
+      return
+    }
+
+    trigger.mutate(
+      { input_data: inputData },
+      {
+        onSuccess: (run) => {
+          router.push(`/preview/agents/workflows/${workflow.id}/runs/${run.id}`)
+        },
+      },
+    )
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="self-start rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+      >
+        Trigger run
+      </button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        Trigger run
+      </h2>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+          Input (JSON object)
+        </label>
+        <textarea
+          rows={6}
+          required
+          value={inputText}
+          onChange={(e) => setInputText(e.target.value)}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+        />
+      </div>
+      {(parseError || trigger.isError) && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {parseError ?? (trigger.error as Error).message}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={trigger.isPending}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {trigger.isPending ? 'Triggering…' : 'Trigger'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
 function RunsSection({
   workflow,
   runs,
@@ -123,7 +224,7 @@ function RunsSection({
       ) : isError ? (
         <ErrorBanner message={errorMessage ?? 'Unknown error'} />
       ) : runs.length === 0 ? (
-        <EmptyRuns message="No runs yet. Trigger one via POST /api/v1/workflows/{id}/runs." />
+        <EmptyRuns message="No runs yet. Click Trigger run above to fire one." />
       ) : (
         <RunsList runs={runs} workflowId={workflow.id} />
       )}
