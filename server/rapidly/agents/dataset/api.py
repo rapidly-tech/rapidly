@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import Depends, status
+from fastapi import Depends, Query, status
 
 from rapidly.agents.dataset import actions
 from rapidly.agents.dataset.permissions import DatasetsRead, DatasetsWrite
@@ -44,10 +44,18 @@ router = APIRouter(prefix="/v1/agents/datasets", tags=["datasets", APITag.privat
 async def list_datasets(
     auth_subject: DatasetsRead,
     pagination: PaginationParamsQuery,
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the display name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[DatasetSchema]:
     results, count = await actions.list_datasets(
-        session, auth_subject, pagination=pagination
+        session, auth_subject, name=name, pagination=pagination
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
 

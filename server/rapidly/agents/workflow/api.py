@@ -35,10 +35,22 @@ async def list_workflows(
     auth_subject: WorkflowsRead,
     pagination: PaginationParamsQuery,
     project_id: UUID | None = Query(None),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the display name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[WorkflowSchema]:
     results, count = await actions.list_workflows(
-        session, auth_subject, project_id=project_id, pagination=pagination
+        session,
+        auth_subject,
+        project_id=project_id,
+        name=name,
+        pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
 

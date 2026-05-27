@@ -147,3 +147,99 @@ class TestDelete:
             await actions.delete(MagicMock(), principal, workflow)
 
         repo.soft_delete.assert_awaited_once_with(workflow)
+
+
+@pytest.mark.asyncio
+class TestListWorkflows:
+    """``name`` filter — substring match through the standard escape
+    pattern. We can't assert SQL text through a MagicMock chain (per
+    the project's documented test pattern) so we count ``.where``
+    calls and inspect the escape side-effect indirectly."""
+
+    async def test_no_name_no_extra_where(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.workflow.actions.WorkflowRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.workflow.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_workflows(
+                MagicMock(),
+                principal,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 0
+
+    async def test_name_filter_adds_where(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.workflow.actions.WorkflowRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.workflow.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_workflows(
+                MagicMock(),
+                principal,
+                name="triage",
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 1
+
+    async def test_empty_name_is_noop(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.workflow.actions.WorkflowRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.workflow.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_workflows(
+                MagicMock(),
+                principal,
+                name="   ",
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # Whitespace-only name is ignored — same contract as the
+        # projects/labels list filter.
+        assert statement.where.call_count == 0

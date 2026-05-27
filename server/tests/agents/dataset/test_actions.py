@@ -105,6 +105,64 @@ class TestListAndGet:
         with pytest.raises(ResourceNotFound):
             await actions.get_dataset_or_raise(session, principal, other_dataset.id)
 
+    async def test_name_filter_substring_match(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        # Real-DB substring match: name is case-insensitive,
+        # internal whitespace + casing differences must not break
+        # the match, and SQL wildcards in the input must be
+        # treated as literals.
+        principal = await _member_principal(session, workspace)
+        await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="rfi-triage"),
+        )
+        await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="rfi_other"),
+        )
+        await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="unrelated"),
+        )
+
+        rows, count = await actions.list_datasets(
+            session,
+            principal,
+            name="RFI",
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        # Case-insensitive substring catches both rfi-* datasets.
+        assert count == 2
+        names = sorted(r.name for r in rows)
+        assert names == ["rfi-triage", "rfi_other"]
+
+        # ``_`` in the input must be treated as a literal, not a
+        # SQL single-char wildcard — so "rfi_" should match only
+        # the literal-underscore row.
+        rows, count = await actions.list_datasets(
+            session,
+            principal,
+            name="rfi_",
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 1
+        assert rows[0].name == "rfi_other"
+
+        # Whitespace-only input is treated as "no filter".
+        rows, count = await actions.list_datasets(
+            session,
+            principal,
+            name="   ",
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 3
+
 
 @pytest.mark.asyncio
 class TestUpdateDataset:
