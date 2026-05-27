@@ -392,3 +392,151 @@ export const useDatasetCases = (datasetId: string | undefined) =>
     retry: baseRetry,
     enabled: !!datasetId,
   })
+
+// ══════════════════════════════════════════════
+//  Eval runs (M4.8b–e)
+// ══════════════════════════════════════════════
+
+export type EvalRunStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+
+export type AssertionStrategy = 'exact_match' | 'json_schema' | 'llm_judge'
+
+export interface EvalRun {
+  id: string
+  workspace_id: string
+  dataset_id: string
+  workflow_version_id: string
+  status: EvalRunStatus
+  assertion_strategy: AssertionStrategy
+  judge_model_id: string | null
+  case_count: number
+  pass_count: number
+  fail_count: number
+  error_count: number
+  started_at: string | null
+  completed_at: string | null
+  error_message: string | null
+  created_at: string
+}
+
+export interface PaginatedEvalRuns {
+  data: EvalRun[]
+  meta: {
+    total: number
+    page: number
+    per_page: number
+    pages: number
+  }
+}
+
+export interface EvalRunCase {
+  id: string
+  eval_run_id: string
+  case_id: string | null
+  run_id: string | null
+  case_name: string
+  case_input_data: Record<string, unknown>
+  case_expected_output: Record<string, unknown> | null
+  actual_output: Record<string, unknown> | null
+  passed: boolean | null
+  error_message: string | null
+  judge_reason: string | null
+  duration_ms: number | null
+  created_at: string
+}
+
+const evalRunKey = (...parts: (string | object)[]) => [
+  'agents-eval-runs',
+  ...parts,
+]
+
+async function fetchEvalRuns(
+  params: {
+    dataset_id?: string
+    workflow_version_id?: string
+    page?: number
+    limit?: number
+  } = {},
+): Promise<PaginatedEvalRuns> {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/eval-runs/`,
+  )
+  if (params.dataset_id) url.searchParams.set('dataset_id', params.dataset_id)
+  if (params.workflow_version_id)
+    url.searchParams.set('workflow_version_id', params.workflow_version_id)
+  if (params.page) url.searchParams.set('page', String(params.page))
+  if (params.limit) url.searchParams.set('limit', String(params.limit))
+
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`eval-runs list failed: ${res.status}`)
+  return (await res.json()) as PaginatedEvalRuns
+}
+
+export const useEvalRuns = (
+  params: {
+    dataset_id?: string
+    workflow_version_id?: string
+    page?: number
+    limit?: number
+  } = {},
+  enabled: boolean = true,
+) =>
+  useQuery({
+    queryKey: evalRunKey('list', params),
+    queryFn: () => fetchEvalRuns(params),
+    retry: baseRetry,
+    enabled,
+  })
+
+async function fetchEvalRun(id: string): Promise<EvalRun> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/eval-runs/${id}`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`eval-run fetch failed: ${res.status}`)
+  return (await res.json()) as EvalRun
+}
+
+export const useEvalRun = (id: string | undefined) =>
+  useQuery({
+    queryKey: evalRunKey('detail', id ?? ''),
+    queryFn: () => fetchEvalRun(id!),
+    retry: baseRetry,
+    enabled: !!id,
+  })
+
+async function fetchEvalRunCases(id: string): Promise<EvalRunCase[]> {
+  // Bare array — mirrors the dataset cases endpoint's choice
+  // not to paginate (eval runs against curated datasets rarely
+  // exceed 100 cases).
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/eval-runs/${id}/cases`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`eval-run cases failed: ${res.status}`)
+  return (await res.json()) as EvalRunCase[]
+}
+
+export const useEvalRunCases = (id: string | undefined) =>
+  useQuery({
+    queryKey: evalRunKey('cases', id ?? ''),
+    queryFn: () => fetchEvalRunCases(id!),
+    retry: baseRetry,
+    enabled: !!id,
+    // Polling: the cases endpoint is the operator's
+    // "is my eval done yet" surface. 3-second refetch while
+    // the parent eval is in-flight is cheap and gives a
+    // near-live UI. Once the eval completes the React Query
+    // cache won't change so the polling effectively idles.
+    refetchInterval: 3000,
+  })
