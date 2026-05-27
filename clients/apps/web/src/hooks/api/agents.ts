@@ -785,6 +785,96 @@ export const useCreateDatasetCase = (datasetId: string) => {
   })
 }
 
+// ── Dataset rename + delete + case delete ──────────────────────
+
+export interface DatasetUpdatePayload {
+  name?: string
+  description?: string | null
+}
+
+async function updateDataset(args: {
+  datasetId: string
+  body: DatasetUpdatePayload
+}): Promise<Dataset> {
+  const { datasetId, body } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${datasetId}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `dataset update failed: ${res.status}`)
+  }
+  return (await res.json()) as Dataset
+}
+
+export const useUpdateDataset = (datasetId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: DatasetUpdatePayload) =>
+      updateDataset({ datasetId, body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: datasetKey() })
+    },
+  })
+}
+
+async function deleteDataset(datasetId: string): Promise<void> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${datasetId}`
+  const res = await fetch(url, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `dataset delete failed: ${res.status}`)
+  }
+}
+
+export const useDeleteDataset = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteDataset,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: datasetKey() })
+    },
+  })
+}
+
+async function deleteDatasetCase(args: {
+  datasetId: string
+  caseId: string
+}): Promise<void> {
+  const { datasetId, caseId } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${datasetId}/cases/${caseId}`
+  const res = await fetch(url, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `case delete failed: ${res.status}`)
+  }
+}
+
+export const useDeleteDatasetCase = (datasetId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (caseId: string) => deleteDatasetCase({ datasetId, caseId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: datasetKey('cases', datasetId) })
+    },
+  })
+}
+
 // ══════════════════════════════════════════════
 //  Eval runs (M4.8b–e)
 // ══════════════════════════════════════════════

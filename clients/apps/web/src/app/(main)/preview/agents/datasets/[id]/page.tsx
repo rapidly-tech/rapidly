@@ -7,7 +7,10 @@ import {
   useCreateDatasetCase,
   useDataset,
   useDatasetCases,
+  useDeleteDataset,
+  useDeleteDatasetCase,
   useTriggerEval,
+  useUpdateDataset,
   useWorkflows,
 } from '@/hooks/api/agents'
 import Link from 'next/link'
@@ -54,6 +57,7 @@ export default function DatasetDetailPage({
                 : 0
             }
           />
+          <DangerZone dataset={dataset} />
         </>
       ) : null}
     </main>
@@ -78,22 +82,155 @@ function DatasetHeader({
   dataset: Dataset
   caseCount: number
 }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(dataset.name)
+  const [description, setDescription] = useState(dataset.description ?? '')
+  const update = useUpdateDataset(dataset.id)
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (trimmed.length === 0) return
+    update.mutate(
+      {
+        name: trimmed,
+        description: description.trim() === '' ? null : description.trim(),
+      },
+      { onSuccess: () => setEditing(false) },
+    )
+  }
+
+  if (editing) {
+    return (
+      <header className="flex flex-col gap-3">
+        <form
+          onSubmit={submit}
+          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+        >
+          <input
+            type="text"
+            required
+            minLength={1}
+            maxLength={256}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-lg font-semibold text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+          />
+          <textarea
+            rows={3}
+            maxLength={4096}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional description"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          />
+          {update.isError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+              {(update.error as Error).message}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={update.isPending || name.trim().length === 0}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {update.isPending ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false)
+                setName(dataset.name)
+                setDescription(dataset.description ?? '')
+              }}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </header>
+    )
+  }
+
   return (
     <header className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-          {dataset.name}
-        </h1>
-        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-          {caseCount} case{caseCount === 1 ? '' : 's'}
-        </span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
+              {dataset.name}
+            </h1>
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {caseCount} case{caseCount === 1 ? '' : 's'}
+            </span>
+          </div>
+          {dataset.description && (
+            <p className="max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
+              {dataset.description}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="shrink-0 rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Edit
+        </button>
       </div>
-      {dataset.description && (
-        <p className="max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
-          {dataset.description}
-        </p>
-      )}
     </header>
+  )
+}
+
+function DangerZone({ dataset }: { dataset: Dataset }) {
+  const del = useDeleteDataset()
+  const router = useRouter()
+  const [confirmText, setConfirmText] = useState('')
+
+  const canDelete = confirmText.trim() === dataset.name
+
+  const onDelete = () => {
+    if (!canDelete) return
+    del.mutate(dataset.id, {
+      onSuccess: () => {
+        router.push('/preview/agents/datasets')
+      },
+    })
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50/50 p-5 dark:border-red-900/40 dark:bg-red-900/10">
+      <h2 className="text-sm font-medium text-red-700 dark:text-red-300">
+        Danger zone
+      </h2>
+      <p className="text-xs text-red-700/80 dark:text-red-300/80">
+        Deleting a dataset soft-deletes its cases and detaches any eval runs
+        that referenced it. Past eval run results remain queryable by ID but
+        stop appearing in list views. Type the dataset name to confirm.
+      </p>
+      <input
+        type="text"
+        value={confirmText}
+        onChange={(e) => setConfirmText(e.target.value)}
+        placeholder={dataset.name}
+        className="w-full max-w-md rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-red-900/40 dark:bg-slate-900 dark:text-slate-200"
+      />
+      {del.isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {(del.error as Error).message}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={!canDelete || del.isPending}
+        className="self-start rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+      >
+        {del.isPending ? 'Deleting…' : 'Delete dataset'}
+      </button>
+    </section>
   )
 }
 
@@ -316,7 +453,12 @@ function CasesSection({
       ) : (
         <ul className="flex flex-col gap-2">
           {cases.map((c, idx) => (
-            <CaseRow key={c.id} caseItem={c} index={idx + 1} />
+            <CaseRow
+              key={c.id}
+              caseItem={c}
+              index={idx + 1}
+              datasetId={datasetId}
+            />
           ))}
         </ul>
       )}
@@ -501,14 +643,17 @@ function AddCaseForm({
 function CaseRow({
   caseItem,
   index,
+  datasetId,
 }: {
   caseItem: DatasetCase
   index: number
+  datasetId: string
 }) {
   // Each case is collapsed by default — operators scan the
   // list, expand the one they care about, then drill into
   // the JSON.
   const [open, setOpen] = useState(false)
+  const del = useDeleteDatasetCase(datasetId)
   return (
     <li className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
       <button
@@ -534,13 +679,33 @@ function CaseRow({
         </span>
       </button>
       {open && (
-        <div className="grid gap-4 border-t border-slate-100 px-4 py-3 sm:grid-cols-2 dark:border-slate-800">
-          <JsonPanel title="Input" data={caseItem.input_data} />
-          <JsonPanel
-            title="Expected output"
-            data={caseItem.expected_output}
-            placeholder="No expected output (qualitative case)"
-          />
+        <div className="border-t border-slate-100 px-4 py-3 dark:border-slate-800">
+          <div className="grid gap-4 sm:grid-cols-2">
+            <JsonPanel title="Input" data={caseItem.input_data} />
+            <JsonPanel
+              title="Expected output"
+              data={caseItem.expected_output}
+              placeholder="No expected output (qualitative case)"
+            />
+          </div>
+          <div className="mt-3 flex justify-end">
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Delete case "${caseItem.name}"? Past eval runs that referenced this case keep their scores but the case can't be re-evaluated.`,
+                  )
+                ) {
+                  del.mutate(caseItem.id)
+                }
+              }}
+              disabled={del.isPending}
+              className="rounded-md border border-rose-200 px-3 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
+            >
+              {del.isPending ? 'Deleting…' : 'Delete case'}
+            </button>
+          </div>
         </div>
       )}
     </li>
