@@ -448,6 +448,40 @@ export const useDataset = (id: string | undefined) =>
     enabled: !!id,
   })
 
+export interface DatasetCreatePayload {
+  workspace_id: string
+  name: string
+  description?: string | null
+}
+
+async function createDataset(body: DatasetCreatePayload): Promise<Dataset> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `dataset create failed: ${res.status}`)
+  }
+  return (await res.json()) as Dataset
+}
+
+export const useCreateDataset = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createDataset,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: datasetKey() })
+    },
+  })
+}
+
 async function fetchDatasetCases(datasetId: string): Promise<DatasetCase[]> {
   // The cases list endpoint returns a bare array (no pagination
   // envelope) — see ``server/rapidly/agents/dataset/api.py``;
