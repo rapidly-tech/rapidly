@@ -125,33 +125,37 @@ function RunsSection({
       ) : runs.length === 0 ? (
         <EmptyRuns message="No runs yet. Trigger one via POST /api/v1/workflows/{id}/runs." />
       ) : (
-        <RunsList runs={runs} />
+        <RunsList runs={runs} workflowId={workflow.id} />
       )}
     </section>
   )
 }
 
-function RunsList({ runs }: { runs: Run[] }) {
+function RunsList({ runs, workflowId }: { runs: Run[]; workflowId: string }) {
   return (
     <ul className="grid gap-2">
       {runs.map((run) => (
-        <li
-          key={run.id}
-          className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
-        >
-          <StatusPill status={run.status} />
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate font-mono text-xs text-slate-700 dark:text-slate-300">
-              {run.id}
+        <li key={run.id}>
+          <Link
+            href={`/preview/agents/workflows/${workflowId}/runs/${run.id}`}
+            className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
+          >
+            <StatusPill status={run.status} />
+            <div className="flex min-w-0 flex-col gap-0.5">
+              <span className="truncate font-mono text-xs text-slate-700 dark:text-slate-300">
+                {run.id}
+              </span>
+              <span className="text-xs text-slate-500 dark:text-slate-400">
+                Triggered by {run.triggered_by_kind} ·{' '}
+                {run.started_at
+                  ? formatRelative(run.started_at)
+                  : 'not started'}
+              </span>
+            </div>
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              {formatDuration(run.started_at, run.completed_at)}
             </span>
-            <span className="text-xs text-slate-500 dark:text-slate-400">
-              Triggered by {run.triggered_by_kind} ·{' '}
-              {run.started_at ? formatRelative(run.started_at) : 'not started'}
-            </span>
-          </div>
-          <span className="text-xs text-slate-400 dark:text-slate-500">
-            {formatDuration(run.started_at, run.completed_at)}
-          </span>
+          </Link>
         </li>
       ))}
     </ul>

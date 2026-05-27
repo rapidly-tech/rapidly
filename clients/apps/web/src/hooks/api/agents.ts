@@ -186,3 +186,102 @@ export const useRuns = (
     retry: baseRetry,
     enabled,
   })
+
+// ══════════════════════════════════════════════
+//  Run detail + node-runs
+// ══════════════════════════════════════════════
+
+async function fetchRun(id: string): Promise<RunDetail> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/${id}`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`run fetch failed: ${res.status}`)
+  }
+  return (await res.json()) as RunDetail
+}
+
+export interface RunDetail extends Run {
+  // The GET /runs/{id} endpoint returns the same shape as the
+  // list endpoint plus input_data / output_data. Listed here so
+  // the detail page picks up the typed extras.
+  input_data: Record<string, unknown>
+  output_data: Record<string, unknown>
+}
+
+export const useRun = (id: string | undefined) =>
+  useQuery({
+    queryKey: runKey('detail', id ?? ''),
+    queryFn: () => fetchRun(id!),
+    retry: baseRetry,
+    enabled: !!id,
+  })
+
+// ── Node runs (per-step records under a run) ──
+
+export type NodeRunStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'skipped'
+  | 'awaiting_human'
+
+export interface NodeRun {
+  id: string
+  run_id: string
+  node_id: string
+  node_type: string
+  status: NodeRunStatus
+  started_at: string | null
+  completed_at: string | null
+  input_data: Record<string, unknown>
+  output_data: Record<string, unknown> | null
+  error_message: string | null
+  created_at: string
+}
+
+export interface PaginatedNodeRuns {
+  data: NodeRun[]
+  meta: {
+    total: number
+    page: number
+    per_page: number
+    pages: number
+  }
+}
+
+const nodeRunKey = (...parts: (string | object)[]) => [
+  'agents-node-runs',
+  ...parts,
+]
+
+async function fetchNodeRuns(runId: string): Promise<PaginatedNodeRuns> {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/${runId}/nodes`,
+  )
+  // The list defaults to 50 items; the engine rarely produces
+  // more steps than that. Bigger graphs can scroll once
+  // pagination lands on the UI side.
+  url.searchParams.set('limit', '100')
+  url.searchParams.set('page', '1')
+
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`node-runs list failed: ${res.status}`)
+  }
+  return (await res.json()) as PaginatedNodeRuns
+}
+
+export const useNodeRuns = (runId: string | undefined) =>
+  useQuery({
+    queryKey: nodeRunKey('list', runId ?? ''),
+    queryFn: () => fetchNodeRuns(runId!),
+    retry: baseRetry,
+    enabled: !!runId,
+  })
