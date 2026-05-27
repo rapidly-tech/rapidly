@@ -80,3 +80,29 @@ class CredentialBudgetResponse(BaseModel):
 
     month_start: datetime
     rows: list[CredentialBudgetRow]
+
+
+class CredentialAlertRow(BaseModel):
+    """One credential currently in alert state.
+
+    ``triggered_at`` is when the threshold was first crossed
+    this month. ``percent_used`` is the MTD percent at the time
+    of reading (may be higher than ``threshold_percent`` if
+    usage continued after the alert armed).
+    """
+
+    credential_id: UUID
+    workspace_id: UUID
+    provider: str
+    name: str
+    monthly_budget_tokens: int
+    threshold_percent: int
+    month_to_date_tokens: int
+    percent_used: float
+    triggered_at: datetime
+
+
+class CredentialAlertResponse(BaseModel):
+    """Active budget alerts for every credential the caller can see."""
+
+    rows: list[CredentialAlertRow]

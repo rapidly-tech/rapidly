@@ -434,3 +434,14 @@ async def _record_usage(
     )
     session.add(record)
     await session.flush()
+
+    # M4.7h: arm the budget alert if this write tipped the
+    # credential's MTD past its configured threshold. No-op
+    # when there's no credential (env-fallback call) or no
+    # threshold configured.
+    if cred_uuid is not None:
+        from rapidly.agents.integration_credential.queries import (
+            check_and_arm_budget_alert,
+        )
+
+        await check_and_arm_budget_alert(session, credential_id=cred_uuid)

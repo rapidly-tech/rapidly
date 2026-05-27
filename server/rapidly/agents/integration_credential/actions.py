@@ -96,6 +96,7 @@ async def create(
         base_url=data.base_url,
         is_default=data.is_default,
         monthly_budget_tokens=data.monthly_budget_tokens,
+        budget_alert_threshold_percent=data.budget_alert_threshold_percent,
     )
     return await repo.create(record, flush=True)
 

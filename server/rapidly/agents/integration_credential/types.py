@@ -66,8 +66,18 @@ class IntegrationCredentialCreate(BaseModel):
         ge=1,
         description=(
             "Monthly token cap (input + output, summed). Null = unlimited. "
-            "Used by the /budgets endpoint to report utilisation; "
-            "actual call enforcement (block-on-overage) is M4.7h."
+            "Used by the /budgets endpoint to report utilisation."
+        ),
+    )
+    budget_alert_threshold_percent: int | None = Field(
+        default=None,
+        ge=1,
+        le=100,
+        description=(
+            "Alert threshold as a whole-percent integer (1-100). When "
+            "MTD usage crosses this percent of ``monthly_budget_tokens`` "
+            "the credential lands in the alerts endpoint. Null = no "
+            "alerting. Useless without ``monthly_budget_tokens`` set."
         ),
     )
 
@@ -82,6 +92,8 @@ class IntegrationCredentialSchema(BaseModel):
     base_url: str | None
     is_default: bool
     monthly_budget_tokens: int | None
+    budget_alert_threshold_percent: int | None
+    budget_alert_triggered_at: datetime | None
     created_at: datetime
     modified_at: datetime | None
 

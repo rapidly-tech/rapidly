@@ -20,10 +20,20 @@ module so consumers can't accidentally serialise the plaintext
 into a response model.
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import BigInteger, Boolean, ForeignKey, String, Text, Uuid
+from sqlalchemy import (
+    TIMESTAMP,
+    BigInteger,
+    Boolean,
+    ForeignKey,
+    Integer,
+    String,
+    Text,
+    Uuid,
+)
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from rapidly.core.db.models.base import BaseEntity
@@ -80,6 +90,27 @@ class IntegrationCredential(BaseEntity):
     # price tables drift — the UI converts to dollars at display
     # time against whatever rate card the operator configures.
     monthly_budget_tokens: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+
+    # Alert threshold as a whole-percent integer (e.g., 80 = 80% of
+    # monthly_budget_tokens). Null = no alerting. The LLM handler
+    # checks this after each LlmUsage write — when MTD consumption
+    # crosses the threshold for the first time this month,
+    # ``budget_alert_triggered_at`` is set to ``now_utc()`` so the
+    # alerts endpoint surfaces it. Operators subscribe via webhook
+    # or poll the endpoint; we deliberately don't push notifications
+    # here because notification dispatch is its own concern (Slack,
+    # email, on-call) that operators wire up however they want.
+    budget_alert_threshold_percent: Mapped[int | None] = mapped_column(
+        Integer, nullable=True
+    )
+    # Set the first time MTD crosses the threshold each month. The
+    # alerts endpoint compares this timestamp's calendar month to
+    # the current month — if they match, the alert is "active". On
+    # a new month MTD resets and this naturally becomes stale,
+    # so a re-cross gets a fresh alert.
+    budget_alert_triggered_at: Mapped[datetime | None] = mapped_column(
+        TIMESTAMP(timezone=True), nullable=True
+    )
 
     @declared_attr
     def workspace(cls) -> Mapped["Workspace"]:
