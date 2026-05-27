@@ -4,10 +4,13 @@ import {
   type Run,
   type RunStatus,
   type Workflow,
+  type WorkflowVersion,
   usePublishVersion,
   useRuns,
+  useSetCurrentVersion,
   useTriggerRun,
   useWorkflow,
+  useWorkflowVersions,
 } from '@/hooks/api/agents'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -47,6 +50,7 @@ export default function WorkflowDetailPage({
         <>
           <WorkflowHeader workflow={workflow} />
           <PublishVersionSection workflow={workflow} />
+          <VersionHistorySection workflow={workflow} />
           {workflow.current_version_id && (
             <TriggerRunSection workflow={workflow} />
           )}
@@ -477,4 +481,115 @@ function formatDuration(
   if (seconds < 60) return `${seconds}s`
   const minutes = Math.floor(seconds / 60)
   return `${minutes}m ${seconds % 60}s`
+}
+
+function VersionHistorySection({ workflow }: { workflow: Workflow }) {
+  const query = useWorkflowVersions(workflow.id, { limit: 25, page: 1 })
+  const versions: WorkflowVersion[] = query.data?.data ?? []
+
+  if (query.isLoading) {
+    return (
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Version history
+        </h2>
+        <div className="h-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+      </section>
+    )
+  }
+
+  if (query.isError) {
+    return (
+      <section className="flex flex-col gap-3">
+        <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Version history
+        </h2>
+        <ErrorBanner message={(query.error as Error).message} />
+      </section>
+    )
+  }
+
+  if (versions.length === 0) {
+    return null
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        Version history
+      </h2>
+      <ul className="flex flex-col gap-2">
+        {versions.map((version) => (
+          <VersionRow
+            key={version.id}
+            workflow={workflow}
+            version={version}
+            isCurrent={version.id === workflow.current_version_id}
+          />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function VersionRow({
+  workflow,
+  version,
+  isCurrent,
+}: {
+  workflow: Workflow
+  version: WorkflowVersion
+  isCurrent: boolean
+}) {
+  const setCurrent = useSetCurrentVersion(workflow.id)
+  return (
+    <li className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex min-w-0 flex-col gap-1">
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-sm font-medium text-slate-900 dark:text-slate-100">
+            v{version.version_number}
+          </span>
+          {isCurrent && (
+            <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+              Current
+            </span>
+          )}
+        </div>
+        <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
+          <span>
+            <span className="text-slate-400 dark:text-slate-500">created:</span>{' '}
+            {formatTimestamp(version.created_at)}
+          </span>
+          <span>
+            <span className="text-slate-400 dark:text-slate-500">id:</span>{' '}
+            <span className="font-mono">{version.id.slice(0, 8)}</span>
+          </span>
+        </div>
+      </div>
+      {!isCurrent && (
+        <button
+          type="button"
+          onClick={() => {
+            if (
+              confirm(
+                `Roll workflow back to v${version.version_number}? New runs will execute against this version's graph.`,
+              )
+            ) {
+              setCurrent.mutate(version.id)
+            }
+          }}
+          disabled={setCurrent.isPending}
+          className="shrink-0 rounded-md border border-emerald-300 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
+        >
+          {setCurrent.isPending ? 'Setting…' : 'Set as current'}
+        </button>
+      )}
+    </li>
+  )
+}
+
+function formatTimestamp(iso: string): string {
+  const ms = Date.parse(iso)
+  if (Number.isNaN(ms)) return iso
+  return new Date(ms).toLocaleString()
 }

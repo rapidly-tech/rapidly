@@ -379,6 +379,66 @@ export const usePublishVersion = (workflowId: string) => {
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: workflowKey() })
+      qc.invalidateQueries({ queryKey: workflowKey(workflowId, 'versions') })
+    },
+  })
+}
+
+// ── Workflow version listing + rollback ────────────────────────
+
+export interface PaginatedWorkflowVersions {
+  data: WorkflowVersion[]
+  meta: {
+    total: number
+    page: number
+    per_page: number
+    pages: number
+  }
+}
+
+async function fetchWorkflowVersions(args: {
+  workflowId: string
+  page?: number
+  limit?: number
+}): Promise<PaginatedWorkflowVersions> {
+  const { workflowId, page = 1, limit = 25 } = args
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${workflowId}/versions`,
+  )
+  url.searchParams.set('page', String(page))
+  url.searchParams.set('limit', String(limit))
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`versions list failed: ${res.status}`)
+  }
+  return (await res.json()) as PaginatedWorkflowVersions
+}
+
+export const useWorkflowVersions = (
+  workflowId: string,
+  params: { page?: number; limit?: number } = {},
+  enabled: boolean = true,
+) =>
+  useQuery({
+    queryKey: workflowKey(workflowId, 'versions', params),
+    queryFn: () => fetchWorkflowVersions({ workflowId, ...params }),
+    retry: baseRetry,
+    enabled,
+  })
+
+export const useSetCurrentVersion = (workflowId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    // Plain PATCH — same fetcher publish uses, but without the
+    // POST /versions step. Used by the version-history section
+    // to roll back to a past version.
+    mutationFn: (versionId: string) =>
+      setCurrentVersion({ workflowId, versionId }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: workflowKey() })
     },
   })
 }
