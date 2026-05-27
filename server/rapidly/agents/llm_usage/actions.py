@@ -6,10 +6,13 @@ from uuid import UUID
 
 from rapidly.agents.llm_usage.queries import (
     LlmUsageRepository,
+    active_credential_alerts,
     credential_budgets,
     rollup_grouped,
 )
 from rapidly.agents.llm_usage.types import (
+    CredentialAlertResponse,
+    CredentialAlertRow,
     CredentialBudgetResponse,
     CredentialBudgetRow,
     UsageRollupResponse,
@@ -135,3 +138,53 @@ async def budgets(
             )
         )
     return CredentialBudgetResponse(month_start=month_start, rows=out)
+
+
+async def alerts(
+    session: AsyncReadSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+) -> CredentialAlertResponse:
+    """List credentials currently in alert state for the caller.
+
+    A credential is "in alert" when:
+        - It has a budget + threshold configured
+        - ``budget_alert_triggered_at`` is set and falls within
+          the current calendar month (UTC)
+
+    This is a polling surface — operators integrate via webhook
+    subscription or dashboard polling. M4.7h deliberately doesn't
+    push notifications because dispatch (email, Slack, on-call)
+    is its own concern with operator-specific wiring.
+    """
+    now = datetime.now(UTC)
+    month_start = datetime(now.year, now.month, 1, tzinfo=UTC)
+
+    rows = await active_credential_alerts(
+        session, auth_subject=auth_subject, month_start=month_start
+    )
+
+    out: list[CredentialAlertRow] = []
+    for (
+        cred_id,
+        ws_id,
+        provider,
+        name,
+        budget,
+        threshold,
+        mtd,
+        triggered_at,
+    ) in rows:
+        out.append(
+            CredentialAlertRow(
+                credential_id=cred_id,
+                workspace_id=ws_id,
+                provider=provider,
+                name=name,
+                monthly_budget_tokens=int(budget),
+                threshold_percent=int(threshold),
+                month_to_date_tokens=int(mtd),
+                percent_used=int(mtd) / float(budget) if budget else 0.0,
+                triggered_at=triggered_at,
+            )
+        )
+    return CredentialAlertResponse(rows=out)

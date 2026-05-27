@@ -11,10 +11,11 @@ from __future__ import annotations
 import base64
 import functools
 import hashlib
+from datetime import datetime
 from uuid import UUID
 
 from cryptography.fernet import Fernet
-from sqlalchemy import Select, select
+from sqlalchemy import Select, func, select
 
 from rapidly.config import settings
 from rapidly.core.queries import FindByIdMixin, Repository, SoftDeleteMixin
@@ -119,6 +120,69 @@ async def resolve_for_workspace(
         return None
     _credential_id, secret, base_url = hit
     return secret, base_url
+
+
+async def check_and_arm_budget_alert(
+    session: AsyncSession,
+    *,
+    credential_id: UUID,
+) -> None:
+    """Inspect the credential's MTD vs threshold and arm the alert
+    if the threshold is crossed.
+
+    Called by the LLM handler after each ``LlmUsage`` write so the
+    check is incremental — we don't have to scan the whole table
+    on a cron. Idempotent within a month: re-crossing on the same
+    month doesn't move ``budget_alert_triggered_at`` (the operator
+    has already been notified).
+
+    Null safety:
+        - No threshold or no budget → no-op
+        - Credential soft-deleted → no-op
+        - MTD below threshold → no-op
+        - Already triggered this month → no-op
+    """
+    from rapidly.core.utils import now_utc
+    from rapidly.models import LlmUsage
+
+    cred = await session.get(IntegrationCredential, credential_id)
+    if cred is None:
+        return
+    if cred.deleted_at is not None:
+        return
+    if (
+        cred.monthly_budget_tokens is None
+        or cred.budget_alert_threshold_percent is None
+    ):
+        return
+
+    now = now_utc()
+    month_start = datetime(now.year, now.month, 1, tzinfo=now.tzinfo)
+
+    # Already alerted this month?
+    if (
+        cred.budget_alert_triggered_at is not None
+        and cred.budget_alert_triggered_at >= month_start
+    ):
+        return
+
+    # Sum MTD tokens for this credential.
+    mtd_stmt = select(
+        func.coalesce(func.sum(LlmUsage.input_tokens + LlmUsage.output_tokens), 0)
+    ).where(
+        LlmUsage.credential_id == credential_id,
+        LlmUsage.occurred_at >= month_start,
+    )
+    mtd = int((await session.execute(mtd_stmt)).scalar() or 0)
+
+    threshold_tokens = (
+        cred.monthly_budget_tokens * cred.budget_alert_threshold_percent
+    ) / 100.0
+    if mtd < threshold_tokens:
+        return
+
+    cred.budget_alert_triggered_at = now
+    await session.flush()
 
 
 async def resolve_for_workspace_with_id(

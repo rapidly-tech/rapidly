@@ -117,6 +117,82 @@ async def rollup_grouped(
     return [tuple(r) for r in rows]  # type: ignore[misc]
 
 
+async def active_credential_alerts(
+    session: AsyncSession | AsyncReadSession,
+    *,
+    auth_subject: AuthPrincipal[User | Workspace],
+    month_start: datetime,
+) -> Sequence[tuple[UUID, UUID, str, str, int, int, int, datetime]]:
+    """List credentials with an active budget alert.
+
+    Returns one row per credential whose ``budget_alert_triggered_at``
+    falls in the current month + has the budget + threshold
+    configured to actually mean something. Same tenancy filter as
+    the budgets endpoint.
+
+    Tuple shape:
+        ``(credential_id, workspace_id, provider, name,
+           monthly_budget_tokens, threshold_percent,
+           month_to_date_tokens, triggered_at)``
+    """
+    from rapidly.models import IntegrationCredential
+
+    mtd_tokens = func.coalesce(
+        func.sum(LlmUsage.input_tokens + LlmUsage.output_tokens), 0
+    ).label("mtd_tokens")
+
+    stmt = (
+        select(
+            IntegrationCredential.id,
+            IntegrationCredential.workspace_id,
+            IntegrationCredential.provider,
+            IntegrationCredential.name,
+            IntegrationCredential.monthly_budget_tokens,
+            IntegrationCredential.budget_alert_threshold_percent,
+            mtd_tokens,
+            IntegrationCredential.budget_alert_triggered_at,
+        )
+        .outerjoin(
+            LlmUsage,
+            (LlmUsage.credential_id == IntegrationCredential.id)
+            & (LlmUsage.occurred_at >= month_start),
+        )
+        .where(
+            IntegrationCredential.deleted_at.is_(None),
+            IntegrationCredential.monthly_budget_tokens.is_not(None),
+            IntegrationCredential.budget_alert_threshold_percent.is_not(None),
+            IntegrationCredential.budget_alert_triggered_at.is_not(None),
+            IntegrationCredential.budget_alert_triggered_at >= month_start,
+        )
+        .group_by(
+            IntegrationCredential.id,
+            IntegrationCredential.workspace_id,
+            IntegrationCredential.provider,
+            IntegrationCredential.name,
+            IntegrationCredential.monthly_budget_tokens,
+            IntegrationCredential.budget_alert_threshold_percent,
+            IntegrationCredential.budget_alert_triggered_at,
+        )
+        .order_by(IntegrationCredential.budget_alert_triggered_at.desc())
+    )
+
+    if is_user_principal(auth_subject):
+        user = auth_subject.subject
+        stmt = stmt.where(
+            IntegrationCredential.workspace_id.in_(
+                select(WorkspaceMembership.workspace_id).where(
+                    WorkspaceMembership.user_id == user.id,
+                    WorkspaceMembership.deleted_at.is_(None),
+                )
+            )
+        )
+    elif is_workspace_principal(auth_subject):
+        stmt = stmt.where(IntegrationCredential.workspace_id == auth_subject.subject.id)
+
+    rows = (await session.execute(stmt)).all()
+    return [tuple(r) for r in rows]  # type: ignore[misc]
+
+
 async def credential_budgets(
     session: AsyncSession | AsyncReadSession,
     *,

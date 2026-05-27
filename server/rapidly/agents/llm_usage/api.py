@@ -19,6 +19,7 @@ from fastapi import Depends, Query
 from rapidly.agents.llm_usage import actions
 from rapidly.agents.llm_usage.permissions import LlmUsageRead
 from rapidly.agents.llm_usage.types import (
+    CredentialAlertResponse,
     CredentialBudgetResponse,
     LlmUsageSchema,
     UsageRollupResponse,
@@ -103,3 +104,24 @@ async def budgets(
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> CredentialBudgetResponse:
     return await actions.budgets(session, auth_subject)
+
+
+@router.get(
+    "/alerts",
+    summary="Active Credential Budget Alerts",
+    response_model=CredentialAlertResponse,
+    description=(
+        "List credentials currently in budget-alert state for the "
+        "caller. A credential is in alert when its MTD usage has "
+        "crossed its configured threshold percent this month. "
+        "Operators integrate via webhook subscription or dashboard "
+        "polling; we deliberately don't push notifications because "
+        "dispatch (email, Slack, on-call) is its own concern with "
+        "operator-specific wiring."
+    ),
+)
+async def alerts(
+    auth_subject: LlmUsageRead,
+    session: AsyncReadSession = Depends(get_db_read_session),
+) -> CredentialAlertResponse:
+    return await actions.alerts(session, auth_subject)
