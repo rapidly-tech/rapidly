@@ -51,6 +51,7 @@ class EvalRunCaseSchema(BaseModel):
     actual_output: dict[str, Any] | None
     passed: bool | None
     error_message: str | None
+    judge_reason: str | None
     duration_ms: int | None
     created_at: datetime
 

@@ -34,12 +34,13 @@ async def _compare_sync(
     that don't need to drive the LLM path. session is unused for
     exact_match + json_schema.
     """
-    return await _compare(
+    passed, _reason = await _compare(
         session=None,
         eval_run=_make_eval_run(strategy),
         actual=actual,
         expected=expected,
     )
+    return passed
 
 
 @pytest.mark.asyncio

@@ -81,6 +81,13 @@ class EvalRunCase(BaseEntity):
     # produced the wrong answer".
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
+    # Captured from the grader LLM when assertion_strategy is
+    # ``llm_judge``. Null for exact_match + json_schema (they
+    # have no narrative output beyond pass/fail). Truncated to
+    # 1000 chars by the writer; the UI can show this verbatim
+    # next to the actual_output for fast triage of failed cases.
+    judge_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+
     duration_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
 
     @declared_attr
