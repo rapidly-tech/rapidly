@@ -5,10 +5,12 @@ import {
   type RunStatus,
   type Workflow,
   type WorkflowVersion,
+  useDeleteWorkflow,
   usePublishVersion,
   useRuns,
   useSetCurrentVersion,
   useTriggerRun,
+  useUpdateWorkflow,
   useWorkflow,
   useWorkflowVersions,
 } from '@/hooks/api/agents'
@@ -65,6 +67,7 @@ export default function WorkflowDetailPage({
                 : undefined
             }
           />
+          <DangerZone workflow={workflow} />
         </>
       ) : null}
     </main>
@@ -83,28 +86,163 @@ function BackLink() {
 }
 
 function WorkflowHeader({ workflow }: { workflow: Workflow }) {
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(workflow.name)
+  const [description, setDescription] = useState(workflow.description ?? '')
+  const update = useUpdateWorkflow(workflow.id)
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (trimmed.length === 0) return
+    update.mutate(
+      {
+        name: trimmed,
+        // Empty description → null so we don't store ''. The backend
+        // treats `null` and missing-from-payload the same (no change),
+        // but we want explicit clear semantics here.
+        description: description.trim() === '' ? null : description.trim(),
+      },
+      { onSuccess: () => setEditing(false) },
+    )
+  }
+
+  if (editing) {
+    return (
+      <header className="flex flex-col gap-3">
+        <form
+          onSubmit={submit}
+          className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+        >
+          <input
+            type="text"
+            required
+            minLength={1}
+            maxLength={256}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-lg font-semibold text-slate-900 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100"
+          />
+          <textarea
+            rows={3}
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional description"
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          />
+          {update.isError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+              {(update.error as Error).message}
+            </div>
+          )}
+          <div className="flex gap-2">
+            <button
+              type="submit"
+              disabled={update.isPending || name.trim().length === 0}
+              className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {update.isPending ? 'Saving…' : 'Save'}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setEditing(false)
+                setName(workflow.name)
+                setDescription(workflow.description ?? '')
+              }}
+              className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      </header>
+    )
+  }
+
   return (
     <header className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-          {workflow.name}
-        </h1>
-        {workflow.current_version_id ? (
-          <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-            Published
-          </span>
-        ) : (
-          <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-            Draft
-          </span>
-        )}
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-3">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
+              {workflow.name}
+            </h1>
+            {workflow.current_version_id ? (
+              <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                Published
+              </span>
+            ) : (
+              <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                Draft
+              </span>
+            )}
+          </div>
+          {workflow.description && (
+            <p className="max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
+              {workflow.description}
+            </p>
+          )}
+        </div>
+        <button
+          type="button"
+          onClick={() => setEditing(true)}
+          className="shrink-0 rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Edit
+        </button>
       </div>
-      {workflow.description && (
-        <p className="max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
-          {workflow.description}
-        </p>
-      )}
     </header>
+  )
+}
+
+function DangerZone({ workflow }: { workflow: Workflow }) {
+  const del = useDeleteWorkflow()
+  const router = useRouter()
+  const [confirmText, setConfirmText] = useState('')
+
+  const canDelete = confirmText.trim() === workflow.name
+
+  const onDelete = () => {
+    if (!canDelete) return
+    del.mutate(workflow.id, {
+      onSuccess: () => {
+        router.push('/preview/agents/workflows')
+      },
+    })
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50/50 p-5 dark:border-red-900/40 dark:bg-red-900/10">
+      <h2 className="text-sm font-medium text-red-700 dark:text-red-300">
+        Danger zone
+      </h2>
+      <p className="text-xs text-red-700/80 dark:text-red-300/80">
+        Deleting a workflow soft-deletes its versions and runs. Past run results
+        remain queryable by ID but stop appearing in list views. To confirm,
+        type the workflow name below.
+      </p>
+      <input
+        type="text"
+        value={confirmText}
+        onChange={(e) => setConfirmText(e.target.value)}
+        placeholder={workflow.name}
+        className="w-full max-w-md rounded-lg border border-red-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-red-900/40 dark:bg-slate-900 dark:text-slate-200"
+      />
+      {del.isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {(del.error as Error).message}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={onDelete}
+        disabled={!canDelete || del.isPending}
+        className="self-start rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:opacity-50"
+      >
+        {del.isPending ? 'Deleting…' : 'Delete workflow'}
+      </button>
+    </section>
   )
 }
 

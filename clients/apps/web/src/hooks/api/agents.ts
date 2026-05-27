@@ -443,6 +443,70 @@ export const useSetCurrentVersion = (workflowId: string) => {
   })
 }
 
+// ── Workflow rename + delete ───────────────────────────────────
+
+export interface WorkflowUpdatePayload {
+  name?: string
+  description?: string | null
+  project_id?: string | null
+}
+
+async function updateWorkflow(args: {
+  workflowId: string
+  body: WorkflowUpdatePayload
+}): Promise<Workflow> {
+  const { workflowId, body } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${workflowId}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `workflow update failed: ${res.status}`)
+  }
+  return (await res.json()) as Workflow
+}
+
+export const useUpdateWorkflow = (workflowId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: WorkflowUpdatePayload) =>
+      updateWorkflow({ workflowId, body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: workflowKey() })
+    },
+  })
+}
+
+async function deleteWorkflow(workflowId: string): Promise<void> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${workflowId}`
+  const res = await fetch(url, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `workflow delete failed: ${res.status}`)
+  }
+}
+
+export const useDeleteWorkflow = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteWorkflow,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: workflowKey() })
+    },
+  })
+}
+
 async function cancelRun(id: string): Promise<RunDetail> {
   const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/${id}/cancel`
   const res = await fetch(url, {
