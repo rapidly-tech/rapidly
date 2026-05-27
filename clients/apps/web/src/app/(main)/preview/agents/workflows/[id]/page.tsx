@@ -542,47 +542,85 @@ function VersionRow({
   isCurrent: boolean
 }) {
   const setCurrent = useSetCurrentVersion(workflow.id)
+  const [showGraph, setShowGraph] = useState(false)
+
+  // Node + edge counts are useful at-a-glance even when the
+  // graph itself isn't expanded — they signal "how big is this
+  // version" without forcing the operator to open the JSON.
+  const graph = version.graph_json as {
+    nodes?: unknown[]
+    edges?: unknown[]
+  }
+  const nodeCount = Array.isArray(graph.nodes) ? graph.nodes.length : 0
+  const edgeCount = Array.isArray(graph.edges) ? graph.edges.length : 0
+
   return (
-    <li className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex min-w-0 flex-col gap-1">
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-sm font-medium text-slate-900 dark:text-slate-100">
-            v{version.version_number}
-          </span>
-          {isCurrent && (
-            <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-              Current
+    <li className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex min-w-0 flex-col gap-1">
+          <div className="flex items-center gap-2">
+            <span className="font-mono text-sm font-medium text-slate-900 dark:text-slate-100">
+              v{version.version_number}
             </span>
+            {isCurrent && (
+              <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                Current
+              </span>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
+            <span>
+              <span className="text-slate-400 dark:text-slate-500">
+                created:
+              </span>{' '}
+              {formatTimestamp(version.created_at)}
+            </span>
+            <span>
+              <span className="text-slate-400 dark:text-slate-500">nodes:</span>{' '}
+              <span className="font-mono">{nodeCount}</span>
+            </span>
+            <span>
+              <span className="text-slate-400 dark:text-slate-500">edges:</span>{' '}
+              <span className="font-mono">{edgeCount}</span>
+            </span>
+            <span>
+              <span className="text-slate-400 dark:text-slate-500">id:</span>{' '}
+              <span className="font-mono">{version.id.slice(0, 8)}</span>
+            </span>
+          </div>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <button
+            type="button"
+            onClick={() => setShowGraph((v) => !v)}
+            className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+          >
+            {showGraph ? 'Hide graph' : 'View graph'}
+          </button>
+          {!isCurrent && (
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Roll workflow back to v${version.version_number}? New runs will execute against this version's graph.`,
+                  )
+                ) {
+                  setCurrent.mutate(version.id)
+                }
+              }}
+              disabled={setCurrent.isPending}
+              className="rounded-md border border-emerald-300 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
+            >
+              {setCurrent.isPending ? 'Setting…' : 'Set as current'}
+            </button>
           )}
         </div>
-        <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
-          <span>
-            <span className="text-slate-400 dark:text-slate-500">created:</span>{' '}
-            {formatTimestamp(version.created_at)}
-          </span>
-          <span>
-            <span className="text-slate-400 dark:text-slate-500">id:</span>{' '}
-            <span className="font-mono">{version.id.slice(0, 8)}</span>
-          </span>
-        </div>
       </div>
-      {!isCurrent && (
-        <button
-          type="button"
-          onClick={() => {
-            if (
-              confirm(
-                `Roll workflow back to v${version.version_number}? New runs will execute against this version's graph.`,
-              )
-            ) {
-              setCurrent.mutate(version.id)
-            }
-          }}
-          disabled={setCurrent.isPending}
-          className="shrink-0 rounded-md border border-emerald-300 px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-50 disabled:opacity-50 dark:border-emerald-700 dark:text-emerald-300 dark:hover:bg-emerald-900/20"
-        >
-          {setCurrent.isPending ? 'Setting…' : 'Set as current'}
-        </button>
+      {showGraph && (
+        <pre className="max-h-96 overflow-auto rounded-md bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-700 dark:bg-slate-950 dark:text-slate-300">
+          {JSON.stringify(version.graph_json, null, 2)}
+        </pre>
       )}
     </li>
   )
