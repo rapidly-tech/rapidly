@@ -56,13 +56,17 @@ class TestLlmJudgeStrategy:
         mocker.patch.object(eval_workers, "structured_output_handler", _stub)
 
         eval_run = _make_eval_run(judge_model_id="openai:gpt-4o-mini")
-        passed = await _compare(
+        passed, reason = await _compare(
             session=object(),  # ctx pass-through, judge stub ignores it
             eval_run=eval_run,
             actual={"summary": "Concrete spec attached"},
             expected={"criteria": "ACTUAL describes a concrete specification."},
         )
         assert passed is True
+        # Judge's narrative explanation surfaces back through
+        # the tuple — the actor's writer persists it on the
+        # EvalRunCase row.
+        assert reason == "looks good"
 
         # Provider + model split out correctly.
         assert captured["cfg"]["provider"] == "openai"
@@ -92,13 +96,14 @@ class TestLlmJudgeStrategy:
 
         mocker.patch.object(eval_workers, "structured_output_handler", _stub)
 
-        passed = await _compare(
+        passed, reason = await _compare(
             session=object(),
             eval_run=_make_eval_run(),
             actual={"x": 1},
             expected={"criteria": "anything"},
         )
         assert passed is False
+        assert reason == "missed the criterion"
 
     async def test_missing_judge_model_raises(self) -> None:
         # The trigger endpoint guards against creating an
@@ -150,13 +155,17 @@ class TestLlmJudgeStrategy:
 
         mocker.patch.object(eval_workers, "structured_output_handler", _stub)
 
-        passed = await _compare(
+        passed, reason = await _compare(
             session=object(),
             eval_run=_make_eval_run(),
             actual={"x": 1},
             expected={"y": 1},
         )
         assert passed is False
+        # The judge did provide a reason — we should still
+        # capture it even though the missing ``passed`` flag
+        # defaulted us to fail.
+        assert reason == "forgot to set passed"
 
 
 class TestSafeDump:

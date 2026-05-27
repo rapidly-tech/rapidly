@@ -163,13 +163,15 @@ async def _execute_case(
             # passed stays None.
         else:
             eval_case.actual_output = dict(synthetic_run.output_data or {})
-            passed = await _compare(
+            passed, reason = await _compare(
                 session=session,
                 eval_run=eval_run,
                 actual=eval_case.actual_output,
                 expected=case.expected_output,
             )
             eval_case.passed = passed
+            if reason is not None:
+                eval_case.judge_reason = reason[:1000]
             if passed:
                 eval_run.pass_count += 1
             else:
@@ -199,34 +201,36 @@ async def _compare(
     eval_run: EvalRun,
     actual: dict[str, Any],
     expected: dict[str, Any],
-) -> bool:
+) -> tuple[bool, str | None]:
     """Score actual_output against expected_output.
 
+    Returns ``(passed, reason)``. The reason is non-null only
+    for ``llm_judge`` — that's the strategy with a narrative
+    explanation worth persisting (M4.8e). exact_match +
+    json_schema don't carry textual context beyond the
+    pass/fail bit.
+
     Strategies (M4.8b–d):
-        - ``exact_match``  — Python ``==``. Brittle for non-
-          deterministic LLM output; precise for structured
-          extraction workflows.
-        - ``json_schema``  — ``expected`` is treated as a JSON
-          Schema, ``actual`` validated against it. Loose enough
-          to accept "any field-shape match" while still pinning
-          required keys + types.
-        - ``llm_judge``    — a grader LLM scores ``actual``
-          against ``expected`` (interpreted as a free-form
-          rubric) and returns ``passed`` + ``reason``. Costs
-          tokens per case. Uses the workspace's configured
+        - ``exact_match``  — Python ``==``. Precise for
+          structured extraction; brittle for free-text LLM
+          output.
+        - ``json_schema``  — ``expected`` is a JSON Schema;
+          ``actual`` validated against it.
+        - ``llm_judge``    — grader LLM scores actual against
+          expected (rubric). Costs tokens; reuses the workspace
           credentials via the existing resolver.
     """
     strategy = eval_run.assertion_strategy
     if strategy == AssertionStrategy.exact_match:
-        return actual == expected
+        return actual == expected, None
     if strategy == AssertionStrategy.json_schema:
         from jsonschema import ValidationError, validate
 
         try:
             validate(instance=actual, schema=expected)
         except ValidationError:
-            return False
-        return True
+            return False, None
+        return True, None
     if strategy == AssertionStrategy.llm_judge:
         return await _llm_judge(
             session=session,
@@ -243,18 +247,18 @@ async def _llm_judge(
     eval_run: EvalRun,
     actual: dict[str, Any],
     expected: dict[str, Any],
-) -> bool:
+) -> tuple[bool, str | None]:
     """Use a grader LLM to score actual vs expected.
+
+    Returns ``(passed, reason)``. The grader's
+    one-sentence-or-less explanation is captured here and
+    persisted by the caller — operators triaging a failed
+    case read this verbatim before drilling into the actual
+    output diff.
 
     The judge sees the case's ``expected_output`` as a rubric
     (free-form criteria, JSON-serialised) and the workflow's
-    ``actual_output`` as the candidate to grade. It's prompted
-    to return a typed pass/fail with a one-sentence reason.
-    The reason isn't persisted today — operators reading the
-    eval-case row just see the pass/fail — but the grader sees
-    the prompt to reason about it, which improves the binary
-    decision's quality. The reason text will land in
-    ``EvalRunCase.judge_reason`` in M4.8e.
+    ``actual_output`` as the candidate to grade.
 
     Credential resolution + usage attribution all run through
     the same machinery the LLM handler uses, so judge calls
@@ -309,7 +313,10 @@ async def _llm_judge(
 
     out = await structured_output_handler(ctx, node_config, input_data)
     data = out.get("data") or {}
-    return bool(data.get("passed", False))
+    passed = bool(data.get("passed", False))
+    reason_raw = data.get("reason")
+    reason = reason_raw if isinstance(reason_raw, str) and reason_raw else None
+    return passed, reason
 
 
 def _safe_dump(obj: Any) -> str:

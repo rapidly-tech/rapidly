@@ -275,3 +275,139 @@ class TestEvalRunner:
         # and bailed.
         assert eval_run.case_count == 42
         assert eval_run.pass_count == 42
+
+
+@pytest.mark.asyncio
+class TestJudgeReasonPersistence:
+    """M4.8e: the judge's narrative explanation lands on the
+    EvalRunCase row. Exact_match cases have no reason — the
+    column stays null.
+    """
+
+    async def test_judge_reason_persisted_to_case(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+        mocker: MockerFixture,
+    ) -> None:
+        from typing import Any
+
+        from rapidly.models import AssertionStrategy
+
+        version = await _seed_workflow_version(session, workspace)
+        dataset = Dataset(workspace_id=workspace.id, name="ds")
+        session.add(dataset)
+        await session.flush()
+        case = DatasetCase(
+            dataset_id=dataset.id,
+            name="case-a",
+            input_data={"x": 1},
+            expected_output={"criteria": "looks like 1"},
+            order_index=0,
+        )
+        session.add(case)
+        await session.flush()
+
+        eval_run = EvalRun(
+            workspace_id=workspace.id,
+            dataset_id=dataset.id,
+            workflow_version_id=version.id,
+            assertion_strategy=AssertionStrategy.llm_judge,
+            judge_model_id="openai:gpt-4o-mini",
+        )
+        session.add(eval_run)
+        await session.flush()
+
+        class _Ctx:
+            async def __aenter__(self) -> AsyncSession:
+                return session
+
+            async def __aexit__(self, *args: object) -> None:
+                return None
+
+        mocker.patch.object(eval_workers, "AsyncSessionMaker", return_value=_Ctx())
+
+        async def _judge_stub(
+            ctx: dict[str, Any],
+            cfg: dict[str, Any],
+            inp: dict[str, Any],
+        ) -> dict[str, Any]:
+            return {
+                "data": {
+                    "passed": True,
+                    "reason": "actual matches the criterion clearly",
+                },
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            }
+
+        mocker.patch.object(eval_workers, "structured_output_handler", _judge_stub)
+
+        await eval_workers.run_eval(eval_run.id)
+
+        rows = (
+            (
+                await session.execute(
+                    select(EvalRunCase).where(EvalRunCase.eval_run_id == eval_run.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+        assert rows[0].passed is True
+        assert rows[0].judge_reason == "actual matches the criterion clearly"
+
+    async def test_exact_match_leaves_reason_null(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+        mocker: MockerFixture,
+    ) -> None:
+        # Sanity: M4.8b's exact_match strategy doesn't produce a
+        # narrative, so the column should stay null for those
+        # cases.
+        version = await _seed_workflow_version(session, workspace)
+        dataset = Dataset(workspace_id=workspace.id, name="ds")
+        session.add(dataset)
+        await session.flush()
+        case = DatasetCase(
+            dataset_id=dataset.id,
+            name="case-a",
+            input_data={"x": 1},
+            expected_output={"x": 1},
+            order_index=0,
+        )
+        session.add(case)
+        await session.flush()
+
+        eval_run = EvalRun(
+            workspace_id=workspace.id,
+            dataset_id=dataset.id,
+            workflow_version_id=version.id,
+        )
+        session.add(eval_run)
+        await session.flush()
+
+        class _Ctx:
+            async def __aenter__(self) -> AsyncSession:
+                return session
+
+            async def __aexit__(self, *args: object) -> None:
+                return None
+
+        mocker.patch.object(eval_workers, "AsyncSessionMaker", return_value=_Ctx())
+
+        await eval_workers.run_eval(eval_run.id)
+
+        rows = (
+            (
+                await session.execute(
+                    select(EvalRunCase).where(EvalRunCase.eval_run_id == eval_run.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+        assert rows[0].passed is True
+        assert rows[0].judge_reason is None
