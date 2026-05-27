@@ -304,6 +304,85 @@ export const useTriggerRun = (workflowId: string) => {
   })
 }
 
+// ── Workflow version publishing (M4.1 graph_json upload) ───
+
+export interface WorkflowVersion {
+  id: string
+  workflow_id: string
+  version_number: number
+  graph_json: Record<string, unknown>
+  created_by_id: string
+  created_at: string
+}
+
+export interface PublishVersionPayload {
+  graph_json: { nodes: unknown[]; edges: unknown[] }
+}
+
+async function publishVersion(args: {
+  workflowId: string
+  body: PublishVersionPayload
+}): Promise<WorkflowVersion> {
+  const { workflowId, body } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${workflowId}/versions`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `version publish failed: ${res.status}`)
+  }
+  return (await res.json()) as WorkflowVersion
+}
+
+async function setCurrentVersion(args: {
+  workflowId: string
+  versionId: string
+}): Promise<Workflow> {
+  const { workflowId, versionId } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${workflowId}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ current_version_id: versionId }),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `set-current-version failed: ${res.status}`)
+  }
+  return (await res.json()) as Workflow
+}
+
+export const usePublishVersion = (workflowId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    // Two-step: POST the version, then PATCH the workflow to
+    // make it the active one. Workflow authors who publish
+    // overwhelmingly want the new version to be the live one;
+    // if they wanted a non-active snapshot they'd POST the
+    // version via API and skip the PATCH. v1 collapses the
+    // common case into one click.
+    mutationFn: async (body: PublishVersionPayload) => {
+      const version = await publishVersion({ workflowId, body })
+      await setCurrentVersion({ workflowId, versionId: version.id })
+      return version
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: workflowKey() })
+    },
+  })
+}
+
 async function cancelRun(id: string): Promise<RunDetail> {
   const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/${id}/cancel`
   const res = await fetch(url, {

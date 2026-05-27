@@ -4,6 +4,7 @@ import {
   type Run,
   type RunStatus,
   type Workflow,
+  usePublishVersion,
   useRuns,
   useTriggerRun,
   useWorkflow,
@@ -45,6 +46,7 @@ export default function WorkflowDetailPage({
       ) : workflow ? (
         <>
           <WorkflowHeader workflow={workflow} />
+          <PublishVersionSection workflow={workflow} />
           {workflow.current_version_id && (
             <TriggerRunSection workflow={workflow} />
           )}
@@ -99,6 +101,125 @@ function WorkflowHeader({ workflow }: { workflow: Workflow }) {
         </p>
       )}
     </header>
+  )
+}
+
+const STARTER_GRAPH = `{
+  "nodes": [
+    {
+      "id": "echo1",
+      "type": "echo",
+      "config": {}
+    }
+  ],
+  "edges": []
+}`
+
+function PublishVersionSection({ workflow }: { workflow: Workflow }) {
+  const [open, setOpen] = useState(false)
+  const [graphText, setGraphText] = useState(STARTER_GRAPH)
+  const [parseError, setParseError] = useState<string | null>(null)
+  const publish = usePublishVersion(workflow.id)
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setParseError(null)
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(graphText)
+    } catch (err) {
+      setParseError(
+        `JSON parse failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
+      return
+    }
+    if (
+      typeof parsed !== 'object' ||
+      parsed === null ||
+      Array.isArray(parsed) ||
+      !('nodes' in parsed) ||
+      !('edges' in parsed)
+    ) {
+      setParseError('graph_json must be an object with nodes + edges arrays')
+      return
+    }
+    const obj = parsed as { nodes: unknown; edges: unknown }
+    if (!Array.isArray(obj.nodes) || !Array.isArray(obj.edges)) {
+      setParseError('graph_json.nodes and .edges must be arrays')
+      return
+    }
+
+    publish.mutate(
+      { graph_json: { nodes: obj.nodes, edges: obj.edges } },
+      {
+        onSuccess: () => setOpen(false),
+      },
+    )
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="self-start rounded-lg border border-emerald-500 px-4 py-2 text-sm font-medium text-emerald-600 hover:bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+      >
+        {workflow.current_version_id
+          ? 'Publish new version'
+          : 'Publish first version'}
+      </button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        Publish version
+      </h2>
+      <p className="text-xs text-slate-500 dark:text-slate-400">
+        Paste a graph JSON with{' '}
+        <code className="rounded bg-slate-100 px-1 font-mono dark:bg-slate-800">
+          nodes
+        </code>{' '}
+        and{' '}
+        <code className="rounded bg-slate-100 px-1 font-mono dark:bg-slate-800">
+          edges
+        </code>{' '}
+        arrays. The new version becomes the workflow&apos;s current version on
+        success — runs triggered after will execute against this graph.
+      </p>
+      <textarea
+        rows={14}
+        required
+        value={graphText}
+        onChange={(e) => setGraphText(e.target.value)}
+        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+      />
+      {(parseError || publish.isError) && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {parseError ?? (publish.error as Error).message}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={publish.isPending}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {publish.isPending ? 'Publishing…' : 'Publish'}
+        </button>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 
