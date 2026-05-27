@@ -5,11 +5,14 @@ import {
   type NodeRunStatus,
   type RunDetail,
   type RunStatus,
+  useCancelRun,
   useNodeRuns,
   useRun,
 } from '@/hooks/api/agents'
 import Link from 'next/link'
 import { use } from 'react'
+
+const TERMINAL: RunStatus[] = ['succeeded', 'failed', 'cancelled']
 
 export default function RunDetailPage({
   params,
@@ -18,9 +21,10 @@ export default function RunDetailPage({
 }) {
   const { id: workflowId, runId } = use(params)
   const runQuery = useRun(runId)
-  const nodesQuery = useNodeRuns(runId)
-
   const run = runQuery.data
+  const isActive = run ? !TERMINAL.includes(run.status) : false
+  const nodesQuery = useNodeRuns(runId, { isRunActive: isActive })
+
   const nodes: NodeRun[] = nodesQuery.data?.data ?? []
 
   return (
@@ -64,6 +68,8 @@ function BackLink({ workflowId }: { workflowId: string }) {
 }
 
 function RunHeader({ run }: { run: RunDetail }) {
+  const cancelMutation = useCancelRun()
+  const canCancel = !TERMINAL.includes(run.status)
   return (
     <header className="flex flex-col gap-3">
       <div className="flex items-center gap-3">
@@ -71,6 +77,20 @@ function RunHeader({ run }: { run: RunDetail }) {
           Run
         </h1>
         <RunStatusPill status={run.status} />
+        {canCancel && (
+          <button
+            type="button"
+            onClick={() => {
+              if (confirm('Cancel this run?')) {
+                cancelMutation.mutate(run.id)
+              }
+            }}
+            disabled={cancelMutation.isPending}
+            className="ml-auto rounded-md border border-rose-200 px-3 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
+          >
+            {cancelMutation.isPending ? 'Cancelling…' : 'Cancel run'}
+          </button>
+        )}
       </div>
       <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
         {run.id}
