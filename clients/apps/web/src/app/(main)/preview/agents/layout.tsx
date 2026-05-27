@@ -44,6 +44,11 @@ const NAV: SidebarItem[] = [
     matchPrefixes: ['/preview/agents/eval-runs'],
   },
   {
+    href: '/preview/agents/vector-collections',
+    label: 'Collections',
+    matchPrefixes: ['/preview/agents/vector-collections'],
+  },
+  {
     href: '/preview/agents/credentials',
     label: 'Credentials',
     matchPrefixes: ['/preview/agents/credentials'],

@@ -944,6 +944,125 @@ export const useUsageRollup = (
     retry: baseRetry,
   })
 
+// ══════════════════════════════════════════════
+//  Vector collections (M4.6c — RAG corpus root)
+// ══════════════════════════════════════════════
+
+export interface VectorCollection {
+  id: string
+  workspace_id: string
+  project_id: string | null
+  name: string
+  embedding_model: string
+  dimensions: number
+  created_at: string
+  modified_at: string | null
+}
+
+export interface PaginatedVectorCollections {
+  data: VectorCollection[]
+  meta: {
+    total: number
+    page: number
+    per_page: number
+    pages: number
+  }
+}
+
+export interface VectorCollectionCreatePayload {
+  workspace_id: string
+  name: string
+  embedding_model: string
+  dimensions: number
+  project_id?: string | null
+}
+
+const vectorCollectionKey = (...parts: (string | object)[]) => [
+  'agents-vector-collections',
+  ...parts,
+]
+
+async function fetchVectorCollections(
+  params: { page?: number; limit?: number; project_id?: string } = {},
+): Promise<PaginatedVectorCollections> {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/vector-collections/`,
+  )
+  if (params.page) url.searchParams.set('page', String(params.page))
+  if (params.limit) url.searchParams.set('limit', String(params.limit))
+  if (params.project_id) url.searchParams.set('project_id', params.project_id)
+
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`vector collections list failed: ${res.status}`)
+  }
+  return (await res.json()) as PaginatedVectorCollections
+}
+
+export const useVectorCollections = (
+  params: { page?: number; limit?: number; project_id?: string } = {},
+) =>
+  useQuery({
+    queryKey: vectorCollectionKey('list', params),
+    queryFn: () => fetchVectorCollections(params),
+    retry: baseRetry,
+  })
+
+async function createVectorCollection(
+  body: VectorCollectionCreatePayload,
+): Promise<VectorCollection> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/vector-collections/`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `vector collection create failed: ${res.status}`)
+  }
+  return (await res.json()) as VectorCollection
+}
+
+export const useCreateVectorCollection = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createVectorCollection,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vectorCollectionKey() })
+    },
+  })
+}
+
+async function deleteVectorCollection(id: string): Promise<void> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/vector-collections/${id}`
+  const res = await fetch(url, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`vector collection delete failed: ${res.status}`)
+  }
+}
+
+export const useDeleteVectorCollection = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteVectorCollection,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vectorCollectionKey() })
+    },
+  })
+}
+
 // ── Mutations ─────────────────────────────────────────────────
 
 async function createCredential(
