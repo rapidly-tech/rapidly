@@ -102,3 +102,24 @@ async def trigger_eval_run(
 ) -> EvalRunSchema:
     eval_run = await actions.trigger(session, auth_subject, body)
     return EvalRunSchema.model_validate(eval_run)
+
+
+@router.post(
+    "/{id}/cancel",
+    summary="Cancel Eval Run",
+    response_model=EvalRunSchema,
+    description=(
+        "Flip a pending/running eval run to ``cancelled``. The runner "
+        "re-reads status before scoring each case, so case results already "
+        "computed are kept and remaining cases are skipped. Returns 403 "
+        "if the run is already in a terminal status."
+    ),
+)
+async def cancel_eval_run(
+    id: UUID,
+    auth_subject: EvalRunsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> EvalRunSchema:
+    eval_run = await actions.get_or_raise(session, auth_subject, id)
+    cancelled = await actions.cancel(session, auth_subject, eval_run)
+    return EvalRunSchema.model_validate(cancelled)

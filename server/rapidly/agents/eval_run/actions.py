@@ -11,7 +11,8 @@ from rapidly.agents.eval_run.queries import (
 )
 from rapidly.agents.eval_run.types import EvalRunTrigger
 from rapidly.core.pagination import PaginationParams, paginate
-from rapidly.errors import ResourceNotFound
+from rapidly.core.utils import now_utc
+from rapidly.errors import NotPermitted, ResourceNotFound
 from rapidly.identity.auth.models import AuthPrincipal, User, Workspace
 from rapidly.models import (
     EvalRun,
@@ -19,7 +20,10 @@ from rapidly.models import (
     Workflow,
     WorkflowVersion,
 )
-from rapidly.models.eval_run import EvalRunStatus
+from rapidly.models.eval_run import (
+    TERMINAL_EVAL_RUN_STATUSES,
+    EvalRunStatus,
+)
 from rapidly.postgres import AsyncReadSession, AsyncSession
 from rapidly.worker import dispatch_task
 
@@ -65,6 +69,32 @@ async def list_eval_runs(
     if status is not None:
         statement = statement.where(EvalRun.status == status)
     return await paginate(session, statement, pagination=pagination)
+
+
+async def cancel(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    eval_run: EvalRun,
+) -> EvalRun:
+    """Flip a non-terminal eval run to ``cancelled``.
+
+    Mirrors the workflow-run cancel action (rapidly.agents.run.actions.cancel):
+    refuses to cancel an already-terminal run with NotPermitted so the
+    caller sees a clear 403 rather than a silent no-op.
+
+    The runner worker re-reads the eval run's status before scoring each
+    case, so the flip here propagates without any pubsub plumbing —
+    cases already finished keep their scores, cases not yet started
+    are skipped.
+    """
+    if eval_run.status in TERMINAL_EVAL_RUN_STATUSES:
+        raise NotPermitted(
+            f"Eval run already in terminal status {eval_run.status.value}."
+        )
+    eval_run.status = EvalRunStatus.cancelled
+    eval_run.completed_at = now_utc()
+    await session.flush()
+    return eval_run
 
 
 async def list_cases(

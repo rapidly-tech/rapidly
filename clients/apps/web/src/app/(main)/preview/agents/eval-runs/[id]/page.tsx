@@ -4,6 +4,7 @@ import {
   type EvalRun,
   type EvalRunCase,
   type EvalRunStatus,
+  useCancelEvalRun,
   useEvalRun,
   useEvalRunCases,
 } from '@/hooks/api/agents'
@@ -68,20 +69,49 @@ function BackLink() {
 }
 
 function Header({ evalRun }: { evalRun: EvalRun }) {
+  const cancel = useCancelEvalRun()
+  const canCancel = !TERMINAL_EVAL.includes(evalRun.status)
   return (
     <header className="flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
-          Eval run
-        </h1>
-        <StatusPill status={evalRun.status} />
-        <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
-          {evalRun.assertion_strategy}
-        </span>
+      <div className="flex items-start justify-between gap-3">
+        <div className="flex flex-col gap-2">
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-semibold text-slate-900 dark:text-slate-100">
+              Eval run
+            </h1>
+            <StatusPill status={evalRun.status} />
+            <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+              {evalRun.assertion_strategy}
+            </span>
+          </div>
+          <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
+            {evalRun.id}
+          </p>
+        </div>
+        {canCancel && (
+          <button
+            type="button"
+            onClick={() => {
+              if (
+                confirm(
+                  'Cancel this eval run? Cases already scored keep their results; remaining cases are skipped.',
+                )
+              ) {
+                cancel.mutate(evalRun.id)
+              }
+            }}
+            disabled={cancel.isPending}
+            className="shrink-0 rounded-md border border-rose-200 px-3 py-1 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
+          >
+            {cancel.isPending ? 'Cancelling…' : 'Cancel'}
+          </button>
+        )}
       </div>
-      <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
-        {evalRun.id}
-      </p>
+      {cancel.isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          Cancel failed: {(cancel.error as Error).message}
+        </div>
+      )}
     </header>
   )
 }
