@@ -248,7 +248,7 @@ function EvalHistorySection({ datasetId }: { datasetId: string }) {
   if (query.isLoading) {
     return (
       <section className="flex flex-col gap-3">
-        <SectionHeader />
+        <SectionHeader datasetId={datasetId} />
         <div className="h-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
       </section>
     )
@@ -262,7 +262,7 @@ function EvalHistorySection({ datasetId }: { datasetId: string }) {
 
   return (
     <section className="flex flex-col gap-3">
-      <SectionHeader total={query.data?.meta.total} />
+      <SectionHeader datasetId={datasetId} total={query.data?.meta.total} />
       <ul className="flex flex-col gap-2">
         {runs.map((run) => (
           <EvalHistoryRow key={run.id} run={run} />
@@ -272,7 +272,13 @@ function EvalHistorySection({ datasetId }: { datasetId: string }) {
   )
 }
 
-function SectionHeader({ total }: { total?: number }) {
+function SectionHeader({
+  datasetId,
+  total,
+}: {
+  datasetId: string
+  total?: number
+}) {
   return (
     <div className="flex items-center justify-between gap-3">
       <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
@@ -280,7 +286,7 @@ function SectionHeader({ total }: { total?: number }) {
       </h2>
       {typeof total === 'number' && total > 10 && (
         <Link
-          href={`/preview/agents/eval-runs`}
+          href={`/preview/agents/eval-runs?dataset_id=${datasetId}`}
           className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
         >
           See all {total} →

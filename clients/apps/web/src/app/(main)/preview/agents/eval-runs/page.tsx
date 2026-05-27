@@ -3,22 +3,37 @@
 import {
   type EvalRun,
   type EvalRunStatus,
+  useDataset,
   useEvalRuns,
 } from '@/hooks/api/agents'
 import Link from 'next/link'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
 
 const PAGE_SIZE = 20
 
 export default function EvalRunsListPage() {
+  const searchParams = useSearchParams()
+  const router = useRouter()
+  // dataset_id arrives via URL from links like the dataset detail
+  // "See all N →" — read once and pin it through page state.
+  // Status filter stays UI-only because it changes too fast to
+  // round-trip through the router.
+  const datasetId = searchParams.get('dataset_id') ?? null
+
   const [statusFilter, setStatusFilter] = useState<EvalRunStatus | null>(null)
   const [page, setPage] = useState(1)
   const onStatusChange = (next: EvalRunStatus | null) => {
     setStatusFilter(next)
     setPage(1)
   }
+  const clearDatasetFilter = () => {
+    router.push('/preview/agents/eval-runs')
+    setPage(1)
+  }
 
   const query = useEvalRuns({
+    dataset_id: datasetId ?? undefined,
     status: statusFilter ?? undefined,
     limit: PAGE_SIZE,
     page,
@@ -29,6 +44,13 @@ export default function EvalRunsListPage() {
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-16">
       <Header />
+
+      {datasetId && (
+        <DatasetFilterBadge
+          datasetId={datasetId}
+          onClear={clearDatasetFilter}
+        />
+      )}
 
       <StatusFilter value={statusFilter} onChange={onStatusChange} />
 
@@ -134,6 +156,36 @@ function StatusFilter({
           </button>
         )
       })}
+    </div>
+  )
+}
+
+function DatasetFilterBadge({
+  datasetId,
+  onClear,
+}: {
+  datasetId: string
+  onClear: () => void
+}) {
+  // useDataset returns 404 if the operator pasted a non-existent
+  // id; in that case we still render the badge but show the raw
+  // id so they can clear the filter.
+  const datasetQuery = useDataset(datasetId)
+  const label = datasetQuery.data?.name ?? `id ${datasetId.slice(0, 8)}`
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900/40 dark:bg-emerald-900/10">
+      <span className="text-slate-500 dark:text-slate-400">Dataset:</span>
+      <span className="font-medium text-emerald-700 dark:text-emerald-300">
+        {label}
+      </span>
+      <button
+        type="button"
+        onClick={onClear}
+        className="ml-auto rounded-md px-2 py-0.5 text-slate-500 hover:bg-emerald-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-slate-200"
+        aria-label="Clear dataset filter"
+      >
+        ✕ Clear
+      </button>
     </div>
   )
 }
