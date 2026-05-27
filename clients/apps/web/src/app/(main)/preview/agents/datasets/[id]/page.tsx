@@ -4,6 +4,7 @@ import {
   type AssertionStrategy,
   type Dataset,
   type DatasetCase,
+  useCreateDatasetCase,
   useDataset,
   useDatasetCases,
   useTriggerEval,
@@ -45,6 +46,12 @@ export default function DatasetDetailPage({
               casesQuery.error instanceof Error
                 ? casesQuery.error.message
                 : undefined
+            }
+            datasetId={dataset.id}
+            nextOrderIndex={
+              cases.length > 0
+                ? Math.max(...cases.map((c) => c.order_index)) + 1
+                : 0
             }
           />
         </>
@@ -282,17 +289,24 @@ function CasesSection({
   isLoading,
   isError,
   errorMessage,
+  datasetId,
+  nextOrderIndex,
 }: {
   cases: DatasetCase[]
   isLoading: boolean
   isError: boolean
   errorMessage?: string
+  datasetId: string
+  nextOrderIndex: number
 }) {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-        Cases
-      </h2>
+      <div className="flex items-baseline justify-between gap-3">
+        <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Cases
+        </h2>
+        <AddCaseForm datasetId={datasetId} nextOrderIndex={nextOrderIndex} />
+      </div>
       {isLoading ? (
         <CasesSkeleton />
       ) : isError ? (
@@ -307,6 +321,180 @@ function CasesSection({
         </ul>
       )}
     </section>
+  )
+}
+
+function AddCaseForm({
+  datasetId,
+  nextOrderIndex,
+}: {
+  datasetId: string
+  nextOrderIndex: number
+}) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [inputText, setInputText] = useState('{\n  "text": "example input"\n}')
+  const [expectedText, setExpectedText] = useState('')
+  const [parseError, setParseError] = useState<string | null>(null)
+  const create = useCreateDatasetCase(datasetId)
+
+  const reset = () => {
+    setName('')
+    setInputText('{\n  "text": "example input"\n}')
+    setExpectedText('')
+    setParseError(null)
+  }
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    setParseError(null)
+
+    // Parse input JSON. Required + must be an object so the
+    // backend's ``input_data: dict`` constraint passes.
+    let inputData: Record<string, unknown>
+    try {
+      const parsed = JSON.parse(inputText)
+      if (
+        typeof parsed !== 'object' ||
+        parsed === null ||
+        Array.isArray(parsed)
+      ) {
+        setParseError('input must be a JSON object')
+        return
+      }
+      inputData = parsed as Record<string, unknown>
+    } catch (err) {
+      setParseError(
+        `input JSON parse failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
+      return
+    }
+
+    // Expected output is optional — empty textarea → null
+    // (qualitative case). Otherwise parse + require object.
+    let expectedData: Record<string, unknown> | null = null
+    if (expectedText.trim()) {
+      try {
+        const parsed = JSON.parse(expectedText)
+        if (
+          typeof parsed !== 'object' ||
+          parsed === null ||
+          Array.isArray(parsed)
+        ) {
+          setParseError('expected_output must be a JSON object')
+          return
+        }
+        expectedData = parsed as Record<string, unknown>
+      } catch (err) {
+        setParseError(
+          `expected JSON parse failed: ${err instanceof Error ? err.message : 'unknown'}`,
+        )
+        return
+      }
+    }
+
+    create.mutate(
+      {
+        name: name.trim(),
+        input_data: inputData,
+        expected_output: expectedData,
+        order_index: nextOrderIndex,
+      },
+      {
+        onSuccess: () => {
+          reset()
+          setOpen(false)
+        },
+      },
+    )
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-emerald-500 px-3 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+      >
+        + Add case
+      </button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:col-span-full dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        Add case
+      </h3>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+          Name
+        </label>
+        <input
+          type="text"
+          required
+          minLength={1}
+          maxLength={256}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          placeholder="case-rfi-with-concrete-spec"
+        />
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+            Input (JSON)
+          </label>
+          <textarea
+            rows={8}
+            required
+            value={inputText}
+            onChange={(e) => setInputText(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+            Expected output (JSON, optional)
+          </label>
+          <textarea
+            rows={8}
+            value={expectedText}
+            onChange={(e) => setExpectedText(e.target.value)}
+            className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+            placeholder="Leave blank for qualitative cases"
+          />
+        </div>
+      </div>
+      {(parseError || create.isError) && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {parseError ?? (create.error as Error).message}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={create.isPending}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {create.isPending ? 'Adding…' : 'Add case'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            reset()
+            setOpen(false)
+          }}
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 

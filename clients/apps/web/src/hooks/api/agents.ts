@@ -504,6 +504,46 @@ export const useDatasetCases = (datasetId: string | undefined) =>
     enabled: !!datasetId,
   })
 
+export interface DatasetCaseCreatePayload {
+  name: string
+  input_data: Record<string, unknown>
+  expected_output?: Record<string, unknown> | null
+  order_index?: number
+}
+
+async function createDatasetCase(args: {
+  datasetId: string
+  body: DatasetCaseCreatePayload
+}): Promise<DatasetCase> {
+  const { datasetId, body } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${datasetId}/cases`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `case create failed: ${res.status}`)
+  }
+  return (await res.json()) as DatasetCase
+}
+
+export const useCreateDatasetCase = (datasetId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: DatasetCaseCreatePayload) =>
+      createDatasetCase({ datasetId, body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: datasetKey('cases', datasetId) })
+    },
+  })
+}
+
 // ══════════════════════════════════════════════
 //  Eval runs (M4.8b–e)
 // ══════════════════════════════════════════════
