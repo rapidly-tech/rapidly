@@ -309,6 +309,14 @@ function EvalRunRow({ run }: { run: EvalRun }) {
           {run.assertion_strategy} ·{' '}
           {run.started_at ? formatRelative(run.started_at) : 'not started'}
         </span>
+        {run.error_message && (
+          <span
+            className="truncate text-xs text-rose-600 dark:text-rose-400"
+            title={run.error_message}
+          >
+            {run.error_message}
+          </span>
+        )}
       </Link>
       <PassFailBadge run={run} />
       {canCancel ? (

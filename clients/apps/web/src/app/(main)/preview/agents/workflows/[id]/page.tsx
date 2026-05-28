@@ -737,6 +737,14 @@ function RunRow({ run, workflowId }: { run: Run; workflowId: string }) {
           Triggered by {run.triggered_by_kind} ·{' '}
           {run.started_at ? formatRelative(run.started_at) : 'not started'}
         </span>
+        {run.error_message && (
+          <span
+            className="truncate text-xs text-rose-600 dark:text-rose-400"
+            title={run.error_message}
+          >
+            {run.error_message}
+          </span>
+        )}
       </Link>
       <span className="text-xs text-slate-400 dark:text-slate-500">
         {formatDuration(run.started_at, run.completed_at)}
