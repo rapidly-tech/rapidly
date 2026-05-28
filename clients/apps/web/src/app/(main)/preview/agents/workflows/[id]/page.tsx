@@ -220,6 +220,12 @@ function WorkflowHeader({ workflow }: { workflow: Workflow }) {
               {workflow.description}
             </p>
           )}
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Created {formatRelative(workflow.created_at)}
+            {workflow.updated_at !== workflow.created_at && (
+              <> · Updated {formatRelative(workflow.updated_at)}</>
+            )}
+          </p>
           <CopyId id={workflow.id} label="workflow ID" />
         </div>
         <button
