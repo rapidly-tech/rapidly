@@ -9,6 +9,7 @@ import {
   useNodeRuns,
   useRun,
 } from '@/hooks/api/agents'
+import { buildNodeRunsCsv } from '@/utils/agents/run-export'
 import Link from 'next/link'
 import { use, useState } from 'react'
 
@@ -40,6 +41,7 @@ export default function RunDetailPage({
           <RunHeader run={run} />
           {run.error_message && <RunError message={run.error_message} />}
           <NodeRunsSection
+            runId={run.id}
             nodes={nodes}
             isLoading={nodesQuery.isLoading}
             isError={nodesQuery.isError}
@@ -145,17 +147,26 @@ const NODE_STATUS_FILTERS: { label: string; value: NodeRunStatus | null }[] = [
 ]
 
 function NodeRunsSection({
+  runId,
   nodes,
   isLoading,
   isError,
   errorMessage,
 }: {
+  runId: string
   nodes: NodeRun[]
   isLoading: boolean
   isError: boolean
   errorMessage?: string
 }) {
   const [statusFilter, setStatusFilter] = useState<NodeRunStatus | null>(null)
+
+  // Sort once here so both the export and the visible list
+  // see the same execution order; chip filter applies *after*
+  // sort.
+  const sorted = [...nodes].sort((a, b) =>
+    a.created_at.localeCompare(b.created_at),
+  )
 
   // Count per status so the chips can show the at-a-glance
   // distribution — operators triaging a 30-step run want to
@@ -171,8 +182,8 @@ function NodeRunsSection({
   for (const n of nodes) counts[n.status] += 1
 
   const visible = statusFilter
-    ? nodes.filter((n) => n.status === statusFilter)
-    : nodes
+    ? sorted.filter((n) => n.status === statusFilter)
+    : sorted
 
   return (
     <section className="flex flex-col gap-3">
@@ -181,11 +192,14 @@ function NodeRunsSection({
           Steps
         </h2>
         {nodes.length > 0 && (
-          <NodeStatusFilter
-            value={statusFilter}
-            onChange={setStatusFilter}
-            counts={counts}
-          />
+          <div className="flex flex-wrap items-center gap-2">
+            <NodeStatusFilter
+              value={statusFilter}
+              onChange={setStatusFilter}
+              counts={counts}
+            />
+            <ExportStepsCsv runId={runId} nodes={sorted} />
+          </div>
         )}
       </div>
       {isLoading ? (
@@ -200,6 +214,32 @@ function NodeRunsSection({
         <NodeRunsList nodes={visible} />
       )}
     </section>
+  )
+}
+
+function ExportStepsCsv({ runId, nodes }: { runId: string; nodes: NodeRun[] }) {
+  const onExport = () => {
+    const csv = buildNodeRunsCsv(nodes)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // Short id keeps a folder of exports addressable; full id
+    // would be unwieldy.
+    a.download = `run-${runId.slice(0, 8)}-steps.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <button
+      type="button"
+      onClick={onExport}
+      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+    >
+      Export CSV
+    </button>
   )
 }
 
