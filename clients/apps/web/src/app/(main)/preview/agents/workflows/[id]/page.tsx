@@ -8,6 +8,7 @@ import {
   type TriggeredByKind,
   type Workflow,
   type WorkflowVersion,
+  useCancelRun,
   useDeleteWorkflow,
   useEvalRuns,
   usePublishVersion,
@@ -707,34 +708,58 @@ function RunsStatusFilter({
   )
 }
 
+const TERMINAL_RUN_STATUSES: RunStatus[] = ['succeeded', 'failed', 'cancelled']
+
 function RunsList({ runs, workflowId }: { runs: Run[]; workflowId: string }) {
   return (
     <ul className="grid gap-2">
       {runs.map((run) => (
-        <li key={run.id}>
-          <Link
-            href={`/preview/agents/workflows/${workflowId}/runs/${run.id}`}
-            className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
-          >
-            <StatusPill status={run.status} />
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate font-mono text-xs text-slate-700 dark:text-slate-300">
-                {run.id}
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                Triggered by {run.triggered_by_kind} ·{' '}
-                {run.started_at
-                  ? formatRelative(run.started_at)
-                  : 'not started'}
-              </span>
-            </div>
-            <span className="text-xs text-slate-400 dark:text-slate-500">
-              {formatDuration(run.started_at, run.completed_at)}
-            </span>
-          </Link>
-        </li>
+        <RunRow key={run.id} run={run} workflowId={workflowId} />
       ))}
     </ul>
+  )
+}
+
+function RunRow({ run, workflowId }: { run: Run; workflowId: string }) {
+  const cancel = useCancelRun()
+  const canCancel = !TERMINAL_RUN_STATUSES.includes(run.status)
+  return (
+    <li className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600">
+      <StatusPill status={run.status} />
+      <Link
+        href={`/preview/agents/workflows/${workflowId}/runs/${run.id}`}
+        className="flex min-w-0 flex-col gap-0.5"
+      >
+        <span className="truncate font-mono text-xs text-slate-700 dark:text-slate-300">
+          {run.id}
+        </span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          Triggered by {run.triggered_by_kind} ·{' '}
+          {run.started_at ? formatRelative(run.started_at) : 'not started'}
+        </span>
+      </Link>
+      <span className="text-xs text-slate-400 dark:text-slate-500">
+        {formatDuration(run.started_at, run.completed_at)}
+      </span>
+      {canCancel ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm(`Cancel run ${run.id.slice(0, 8)}?`)) {
+              cancel.mutate(run.id)
+            }
+          }}
+          disabled={cancel.isPending}
+          className="rounded-md border border-rose-200 px-2 py-0.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
+        >
+          {cancel.isPending ? '…' : 'Cancel'}
+        </button>
+      ) : (
+        // Empty cell keeps the grid alignment consistent across
+        // rows whether the cancel button is present or not.
+        <span aria-hidden="true" />
+      )}
+    </li>
   )
 }
 
