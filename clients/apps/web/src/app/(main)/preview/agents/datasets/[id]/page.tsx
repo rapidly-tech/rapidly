@@ -179,6 +179,12 @@ function DatasetHeader({
               {dataset.description}
             </p>
           )}
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Created {formatRelative(dataset.created_at)}
+            {dataset.modified_at && (
+              <> · Updated {formatRelative(dataset.modified_at)}</>
+            )}
+          </p>
           <CopyId id={dataset.id} label="dataset ID" />
         </div>
         <button
