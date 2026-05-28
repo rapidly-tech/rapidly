@@ -1,5 +1,6 @@
 'use client'
 
+import { CopyId } from '@/components/agents/CopyId'
 import {
   type EvalRun,
   type EvalRunCase,
@@ -90,9 +91,7 @@ function Header({ evalRun }: { evalRun: EvalRun }) {
               {evalRun.assertion_strategy}
             </span>
           </div>
-          <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
-            {evalRun.id}
-          </p>
+          <CopyId id={evalRun.id} label="eval run ID" />
         </div>
         {canCancel && (
           <button
