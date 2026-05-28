@@ -10,6 +10,7 @@ import {
   useNodeRuns,
   useRun,
 } from '@/hooks/api/agents'
+import { formatDuration, formatTime } from '@/utils/agents/datetime'
 import { buildNodeRunsCsv } from '@/utils/agents/run-export'
 import Link from 'next/link'
 import { use, useState } from 'react'
@@ -483,35 +484,4 @@ function EmptyNodes() {
       No steps recorded yet.
     </div>
   )
-}
-
-// ── Formatters ──────────────────────────────────────────────
-
-function formatTime(iso: string): string {
-  try {
-    return new Date(iso).toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
-      second: '2-digit',
-    })
-  } catch {
-    return iso
-  }
-}
-
-function formatDuration(
-  startedIso: string | null,
-  completedIso: string | null,
-): string {
-  if (!startedIso) return '—'
-  if (!completedIso) return 'running'
-  const start = Date.parse(startedIso)
-  const end = Date.parse(completedIso)
-  if (Number.isNaN(start) || Number.isNaN(end)) return '—'
-  const ms = end - start
-  if (ms < 1000) return `${ms}ms`
-  const seconds = Math.floor(ms / 1000)
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.floor(seconds / 60)
-  return `${minutes}m ${seconds % 60}s`
 }
