@@ -34,6 +34,14 @@ router = APIRouter(prefix="/v1/workflows", tags=["workflows", APITag.private])
 async def list_workflows(
     auth_subject: WorkflowsRead,
     pagination: PaginationParamsQuery,
+    workspace_id: UUID | None = Query(
+        None,
+        description=(
+            "Narrow to a single workspace. The caller still needs read "
+            "access to that workspace; unknown IDs return an empty set "
+            "rather than 403 so we don't leak membership."
+        ),
+    ),
     project_id: UUID | None = Query(None),
     name: str | None = Query(
         None,
@@ -56,6 +64,7 @@ async def list_workflows(
     results, count = await actions.list_workflows(
         session,
         auth_subject,
+        workspace_id=workspace_id,
         project_id=project_id,
         name=name,
         has_version=has_version,
