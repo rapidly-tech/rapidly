@@ -56,12 +56,22 @@ async def list_collections(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     project_id: UUID | None = None,
+    name: str | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[VectorCollection], int]:
     repo = VectorCollectionRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject)
     if project_id is not None:
         statement = statement.where(VectorCollection.project_id == project_id)
+    if name is not None and name.strip():
+        # Same SQL-wildcard-safe escape as the workflows/datasets/
+        # credentials name filter (M5.25, M5.39).
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(
+            VectorCollection.name.ilike(f"%{escaped}%", escape="\\")
+        )
     return await paginate(session, statement, pagination=pagination)
 
 

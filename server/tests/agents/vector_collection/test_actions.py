@@ -279,3 +279,130 @@ class TestAssertWorkspaceWritable:
 
         with pytest.raises(ResourceNotFound):
             await actions._assert_workspace_writable(session, principal, other_id)
+
+
+@pytest.mark.asyncio
+class TestListCollections:
+    """``name`` filter — substring match through the standard
+    escape pattern. We can't assert SQL text through a MagicMock
+    chain (per the project's documented test pattern in
+    server/CLAUDE.md) so we count ``.where`` calls instead."""
+
+    async def test_no_filters_no_where(self) -> None:
+        principal = _user_principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 0
+
+    async def test_name_adds_where(self) -> None:
+        principal = _user_principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                name="docs",
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 1
+
+    async def test_empty_name_is_noop(self) -> None:
+        principal = _user_principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                name="   ",
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # Whitespace-only is ignored — matches the workflow /
+        # dataset / credentials filter contract.
+        assert statement.where.call_count == 0
+
+    async def test_project_and_name_combine_additively(self) -> None:
+        principal = _user_principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                project_id=uuid4(),
+                name="docs",
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # project_id + name → 2 .where predicates.
+        assert statement.where.call_count == 2

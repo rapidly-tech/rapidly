@@ -1374,7 +1374,12 @@ const vectorCollectionKey = (...parts: (string | object)[]) => [
 ]
 
 async function fetchVectorCollections(
-  params: { page?: number; limit?: number; project_id?: string } = {},
+  params: {
+    page?: number
+    limit?: number
+    project_id?: string
+    name?: string
+  } = {},
 ): Promise<PaginatedVectorCollections> {
   const url = new URL(
     `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/vector-collections/`,
@@ -1382,6 +1387,7 @@ async function fetchVectorCollections(
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
   if (params.project_id) url.searchParams.set('project_id', params.project_id)
+  if (params.name) url.searchParams.set('name', params.name)
 
   const res = await fetch(url.toString(), {
     credentials: 'include',
@@ -1394,7 +1400,12 @@ async function fetchVectorCollections(
 }
 
 export const useVectorCollections = (
-  params: { page?: number; limit?: number; project_id?: string } = {},
+  params: {
+    page?: number
+    limit?: number
+    project_id?: string
+    name?: string
+  } = {},
 ) =>
   useQuery({
     queryKey: vectorCollectionKey('list', params),
