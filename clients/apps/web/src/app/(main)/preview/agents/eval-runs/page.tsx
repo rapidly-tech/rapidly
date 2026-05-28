@@ -2,6 +2,7 @@
 
 import { Pagination } from '@/components/agents/ListControls'
 import {
+  type AssertionStrategy,
   type EvalRun,
   type EvalRunStatus,
   useDataset,
@@ -24,9 +25,15 @@ export default function EvalRunsListPage() {
   const workflowVersionId = searchParams.get('workflow_version_id') ?? null
 
   const [statusFilter, setStatusFilter] = useState<EvalRunStatus | null>(null)
+  const [strategyFilter, setStrategyFilter] =
+    useState<AssertionStrategy | null>(null)
   const [page, setPage] = useState(1)
   const onStatusChange = (next: EvalRunStatus | null) => {
     setStatusFilter(next)
+    setPage(1)
+  }
+  const onStrategyChange = (next: AssertionStrategy | null) => {
+    setStrategyFilter(next)
     setPage(1)
   }
   const clearFilters = () => {
@@ -38,6 +45,7 @@ export default function EvalRunsListPage() {
     dataset_id: datasetId ?? undefined,
     workflow_version_id: workflowVersionId ?? undefined,
     status: statusFilter ?? undefined,
+    assertion_strategy: strategyFilter ?? undefined,
     limit: PAGE_SIZE,
     page,
   })
@@ -60,14 +68,15 @@ export default function EvalRunsListPage() {
       )}
 
       <StatusFilter value={statusFilter} onChange={onStatusChange} />
+      <StrategyFilter value={strategyFilter} onChange={onStrategyChange} />
 
       {query.isLoading ? (
         <Skeleton />
       ) : query.isError ? (
         <ErrorBanner message={(query.error as Error).message} />
       ) : runs.length === 0 ? (
-        statusFilter ? (
-          <EmptyFiltered status={statusFilter} />
+        statusFilter || strategyFilter ? (
+          <EmptyFiltered status={statusFilter} strategy={strategyFilter} />
         ) : (
           <Empty />
         )
@@ -106,6 +115,43 @@ function StatusFilter({
   return (
     <div className="flex flex-wrap gap-1.5">
       {STATUS_FILTERS.map((filter) => {
+        const active = filter.value === value
+        return (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {filter.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+const STRATEGY_FILTERS: { label: string; value: AssertionStrategy | null }[] = [
+  { label: 'Any strategy', value: null },
+  { label: 'Exact match', value: 'exact_match' },
+  { label: 'JSON schema', value: 'json_schema' },
+  { label: 'LLM judge', value: 'llm_judge' },
+]
+
+function StrategyFilter({
+  value,
+  onChange,
+}: {
+  value: AssertionStrategy | null
+  onChange: (next: AssertionStrategy | null) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {STRATEGY_FILTERS.map((filter) => {
         const active = filter.value === value
         return (
           <button
@@ -189,10 +235,24 @@ function FilterBadge({
   )
 }
 
-function EmptyFiltered({ status }: { status: EvalRunStatus }) {
+function EmptyFiltered({
+  status,
+  strategy,
+}: {
+  status: EvalRunStatus | null
+  strategy: AssertionStrategy | null
+}) {
+  // Empty copy adapts to whichever filter combination produced
+  // the empty result. Both → "No <status> <strategy> eval runs.";
+  // single → just that filter; neither shouldn't reach this
+  // component (caller falls back to <Empty />).
+  const parts: string[] = ['No']
+  if (status) parts.push(status)
+  if (strategy) parts.push(strategy)
+  parts.push('eval runs.')
   return (
     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-      No <span className="font-mono">{status}</span> eval runs.
+      <span className="font-mono">{parts.join(' ')}</span>
     </div>
   )
 }
