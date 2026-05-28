@@ -1,5 +1,6 @@
 'use client'
 
+import { CopyId } from '@/components/agents/CopyId'
 import {
   type NodeRun,
   type NodeRunStatus,
@@ -94,9 +95,7 @@ function RunHeader({ run }: { run: RunDetail }) {
           </button>
         )}
       </div>
-      <p className="font-mono text-xs text-slate-500 dark:text-slate-400">
-        {run.id}
-      </p>
+      <CopyId id={run.id} label="run ID" />
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
         <Stat label="Triggered by" value={run.triggered_by_kind} />
         <Stat
