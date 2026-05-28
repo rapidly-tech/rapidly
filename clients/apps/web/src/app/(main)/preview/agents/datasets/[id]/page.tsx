@@ -582,6 +582,15 @@ function CasesSection({
   datasetId: string
   nextOrderIndex: number
 }) {
+  const [search, setSearch] = useState('')
+  const trimmed = search.trim().toLowerCase()
+  // Client-side filter — the cases endpoint returns the full
+  // (unpaginated) list, and a dataset with thousands of cases
+  // is out of v1 scope anyway. Case-insensitive substring.
+  const visible = trimmed
+    ? cases.filter((c) => c.name.toLowerCase().includes(trimmed))
+    : cases
+
   return (
     <section className="flex flex-col gap-3">
       <div className="flex items-baseline justify-between gap-3">
@@ -593,19 +602,41 @@ function CasesSection({
           <BulkAddCases datasetId={datasetId} nextOrderIndex={nextOrderIndex} />
         </div>
       </div>
+      {cases.length > 0 && (
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter cases by name…"
+          className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+        />
+      )}
       {isLoading ? (
         <CasesSkeleton />
       ) : isError ? (
         <ErrorBanner message={errorMessage ?? 'Unknown error'} />
       ) : cases.length === 0 ? (
         <EmptyCases />
+      ) : visible.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+          No cases match{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">
+            {search.trim()}
+          </code>
+          .
+        </div>
       ) : (
         <ul className="flex flex-col gap-2">
-          {cases.map((c, idx) => (
+          {visible.map((c) => (
             <CaseRow
               key={c.id}
               caseItem={c}
-              index={idx + 1}
+              // Index reflects the position in the full list so
+              // operators can correlate filtered rows with their
+              // actual order_index. (We could renumber the
+              // filtered view, but then a hand-written CSV mapping
+              // to order_index would lie.)
+              index={cases.indexOf(c) + 1}
               datasetId={datasetId}
             />
           ))}
