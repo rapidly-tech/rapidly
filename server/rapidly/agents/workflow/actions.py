@@ -43,12 +43,19 @@ async def list_workflows(
     *,
     project_id: UUID | None = None,
     name: str | None = None,
+    has_version: bool | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[Workflow], int]:
     repo = WorkflowRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject)
     if project_id is not None:
         statement = statement.where(Workflow.project_id == project_id)
+    if has_version is True:
+        # Published workflows have a current_version_id pointing
+        # at the active version. Drafts have it null.
+        statement = statement.where(Workflow.current_version_id.is_not(None))
+    elif has_version is False:
+        statement = statement.where(Workflow.current_version_id.is_(None))
     if name is not None and name.strip():
         # Same escape pattern as the projects/labels list endpoints.
         # Without escaping, ``name=%`` matches everything and ``name=foo%``

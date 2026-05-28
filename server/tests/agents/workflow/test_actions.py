@@ -243,3 +243,95 @@ class TestListWorkflows:
         # Whitespace-only name is ignored — same contract as the
         # projects/labels list filter.
         assert statement.where.call_count == 0
+
+    async def test_has_version_true_adds_where(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.workflow.actions.WorkflowRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.workflow.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_workflows(
+                MagicMock(),
+                principal,
+                has_version=True,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # has_version=True adds one .where for the IS NOT NULL
+        # predicate.
+        assert statement.where.call_count == 1
+
+    async def test_has_version_false_adds_where(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.workflow.actions.WorkflowRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.workflow.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_workflows(
+                MagicMock(),
+                principal,
+                has_version=False,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # has_version=False adds one .where for the IS NULL
+        # predicate. The two branches are exclusive — exactly
+        # one of the two should fire, not both.
+        assert statement.where.call_count == 1
+
+    async def test_has_version_none_is_noop(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.workflow.actions.WorkflowRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.workflow.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_workflows(
+                MagicMock(),
+                principal,
+                has_version=None,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 0

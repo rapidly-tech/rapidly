@@ -56,6 +56,7 @@ async function fetchWorkflows(
   params: {
     project_id?: string
     name?: string
+    has_version?: boolean
     page?: number
     limit?: number
   } = {},
@@ -63,6 +64,8 @@ async function fetchWorkflows(
   const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/`)
   if (params.project_id) url.searchParams.set('project_id', params.project_id)
   if (params.name) url.searchParams.set('name', params.name)
+  if (params.has_version !== undefined)
+    url.searchParams.set('has_version', String(params.has_version))
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
 
@@ -85,6 +88,7 @@ export const useWorkflows = (
   params: {
     project_id?: string
     name?: string
+    has_version?: boolean
     page?: number
     limit?: number
   } = {},
