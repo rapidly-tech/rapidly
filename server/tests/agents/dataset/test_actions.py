@@ -163,6 +163,62 @@ class TestListAndGet:
         )
         assert count == 3
 
+    async def test_workspace_id_filter_narrows_to_one_workspace(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        # Caller is a member of two workspaces (own + other).
+        # Without workspace_id they see both; with workspace_id
+        # they see only the picked one.
+        principal = await _member_principal(session, workspace)
+        await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="own"),
+        )
+
+        slug = f"o-{uuid.uuid4().hex[:6]}"
+        other_ws = Workspace(name=slug, slug=slug, customer_invoice_prefix=slug.upper())
+        session.add(other_ws)
+        await session.flush()
+        # Add the principal to other_ws as well so the readable
+        # statement returns rows from both.
+        session.add(
+            WorkspaceMembership(user_id=principal.subject.id, workspace_id=other_ws.id)
+        )
+        await session.flush()
+        await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=other_ws.id, name="other-ws"),
+        )
+
+        # No workspace_id → both rows.
+        _, count_all = await actions.list_datasets(
+            session, principal, pagination=PaginationParams(limit=50, page=1)
+        )
+        assert count_all == 2
+
+        # workspace_id=workspace.id → only own.
+        rows, count_one = await actions.list_datasets(
+            session,
+            principal,
+            workspace_id=workspace.id,
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count_one == 1
+        assert rows[0].name == "own"
+
+        # Bogus workspace_id → empty rather than 403/leak.
+        _, count_bogus = await actions.list_datasets(
+            session,
+            principal,
+            workspace_id=uuid.uuid4(),
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count_bogus == 0
+
 
 @pytest.mark.asyncio
 class TestUpdateDataset:

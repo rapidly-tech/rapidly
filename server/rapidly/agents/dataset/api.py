@@ -44,6 +44,13 @@ router = APIRouter(prefix="/v1/agents/datasets", tags=["datasets", APITag.privat
 async def list_datasets(
     auth_subject: DatasetsRead,
     pagination: PaginationParamsQuery,
+    workspace_id: UUID | None = Query(
+        None,
+        description=(
+            "Narrow to a single workspace. Unknown IDs return an empty "
+            "set rather than 403 so we don't leak membership."
+        ),
+    ),
     name: str | None = Query(
         None,
         description=(
@@ -55,7 +62,11 @@ async def list_datasets(
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[DatasetSchema]:
     results, count = await actions.list_datasets(
-        session, auth_subject, name=name, pagination=pagination
+        session,
+        auth_subject,
+        workspace_id=workspace_id,
+        name=name,
+        pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
 

@@ -406,3 +406,67 @@ class TestListCollections:
 
         # project_id + name → 2 .where predicates.
         assert statement.where.call_count == 2
+
+    async def test_workspace_id_adds_where(self) -> None:
+        principal = _user_principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                workspace_id=uuid4(),
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # workspace_id alone → +1 .where (narrows the readable
+        # statement further).
+        assert statement.where.call_count == 1
+
+    async def test_all_filters_combine_additively(self) -> None:
+        principal = _user_principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                workspace_id=uuid4(),
+                project_id=uuid4(),
+                name="docs",
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # workspace_id + project_id + name → 3 .where predicates
+        # (additive, no short-circuit).
+        assert statement.where.call_count == 3

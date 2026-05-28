@@ -9,28 +9,47 @@ import { useState } from 'react'
 const PAGE_SIZE = 20
 
 export default function DatasetsListPage() {
+  const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
+  const workspaces = workspacesQuery.data?.data ?? []
+  const [pickedWorkspaceId, setPickedWorkspaceId] = useState<string | null>(
+    null,
+  )
+  const activeWorkspaceId = pickedWorkspaceId ?? workspaces[0]?.id ?? null
+
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
   const onSearchChange = (next: string) => {
     setSearch(next)
     setPage(1)
   }
+  const onWorkspaceChange = (next: string | null) => {
+    setPickedWorkspaceId(next)
+    setPage(1)
+  }
 
-  const query = useDatasets({
-    name: search.trim() || undefined,
-    limit: PAGE_SIZE,
-    page,
-  })
+  const query = useDatasets(
+    {
+      workspace_id: activeWorkspaceId ?? undefined,
+      name: search.trim() || undefined,
+      limit: PAGE_SIZE,
+      page,
+    },
+    !!activeWorkspaceId,
+  )
   const datasets: Dataset[] = query.data?.data ?? []
   const meta = query.data?.meta
-  const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
-  const workspaceId = workspacesQuery.data?.data?.[0]?.id ?? null
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-16">
       <Header />
 
-      {workspaceId && <CreateForm workspaceId={workspaceId} />}
+      <WorkspaceSwitcher
+        workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+        activeId={activeWorkspaceId}
+        onChange={onWorkspaceChange}
+      />
+
+      {activeWorkspaceId && <CreateForm workspaceId={activeWorkspaceId} />}
 
       <SearchInput value={search} onChange={onSearchChange} />
 
@@ -133,6 +152,38 @@ function EmptySearch({ query }: { query: string }) {
         {query}
       </code>
       .
+    </div>
+  )
+}
+
+function WorkspaceSwitcher({
+  workspaces,
+  activeId,
+  onChange,
+}: {
+  workspaces: { id: string; name: string }[]
+  activeId: string | null
+  onChange: (id: string) => void
+}) {
+  // Hidden for single-workspace operators (same contract as
+  // the workflows + credentials switchers).
+  if (workspaces.length <= 1) return null
+  return (
+    <div className="flex flex-col gap-2">
+      <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+        Workspace
+      </label>
+      <select
+        value={activeId ?? ''}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+      >
+        {workspaces.map((w) => (
+          <option key={w.id} value={w.id}>
+            {w.name}
+          </option>
+        ))}
+      </select>
     </div>
   )
 }

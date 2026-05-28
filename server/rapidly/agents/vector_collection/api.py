@@ -51,6 +51,13 @@ router = APIRouter(
 async def list_collections(
     auth_subject: VectorCollectionsRead,
     pagination: PaginationParamsQuery,
+    workspace_id: UUID | None = Query(
+        None,
+        description=(
+            "Narrow to a single workspace. Unknown IDs return an empty "
+            "set rather than 403 so we don't leak membership."
+        ),
+    ),
     project_id: UUID | None = Query(None),
     name: str | None = Query(
         None,
@@ -65,6 +72,7 @@ async def list_collections(
     results, count = await actions.list_collections(
         session,
         auth_subject,
+        workspace_id=workspace_id,
         project_id=project_id,
         name=name,
         pagination=pagination,
