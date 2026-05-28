@@ -55,12 +55,16 @@ async def list_collections(
     session: AsyncReadSession,
     auth_subject: AuthPrincipal[User | Workspace],
     *,
+    workspace_id: UUID | None = None,
     project_id: UUID | None = None,
     name: str | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[VectorCollection], int]:
     repo = VectorCollectionRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject)
+    if workspace_id is not None:
+        # Mirrors the workflow/dataset list contract (M5.41, M5.42).
+        statement = statement.where(VectorCollection.workspace_id == workspace_id)
     if project_id is not None:
         statement = statement.where(VectorCollection.project_id == project_id)
     if name is not None and name.strip():

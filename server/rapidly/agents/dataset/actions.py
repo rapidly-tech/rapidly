@@ -55,6 +55,7 @@ async def list_datasets(
     session: AsyncReadSession,
     auth_subject: AuthPrincipal[User | Workspace],
     *,
+    workspace_id: UUID | None = None,
     name: str | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[Dataset], int]:
@@ -62,6 +63,12 @@ async def list_datasets(
     statement = repo.get_readable_statement(auth_subject).order_by(
         Dataset.created_at.desc()
     )
+    if workspace_id is not None:
+        # Mirrors the workflow list contract (M5.41): the readable
+        # statement already filters to workspaces the caller can
+        # read; this narrows to one of them. Unknown IDs return
+        # empty rather than 403.
+        statement = statement.where(Dataset.workspace_id == workspace_id)
     if name is not None and name.strip():
         # Same escape pattern as the projects/labels list endpoints.
         escaped = (

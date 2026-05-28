@@ -663,11 +663,18 @@ const datasetKey = (...parts: (string | object)[]) => [
 ]
 
 async function fetchDatasets(
-  params: { name?: string; page?: number; limit?: number } = {},
+  params: {
+    workspace_id?: string
+    name?: string
+    page?: number
+    limit?: number
+  } = {},
 ): Promise<PaginatedDatasets> {
   const url = new URL(
     `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/`,
   )
+  if (params.workspace_id)
+    url.searchParams.set('workspace_id', params.workspace_id)
   if (params.name) url.searchParams.set('name', params.name)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
@@ -681,7 +688,12 @@ async function fetchDatasets(
 }
 
 export const useDatasets = (
-  params: { name?: string; page?: number; limit?: number } = {},
+  params: {
+    workspace_id?: string
+    name?: string
+    page?: number
+    limit?: number
+  } = {},
   enabled: boolean = true,
 ) =>
   useQuery({
@@ -1379,6 +1391,7 @@ const vectorCollectionKey = (...parts: (string | object)[]) => [
 
 async function fetchVectorCollections(
   params: {
+    workspace_id?: string
     page?: number
     limit?: number
     project_id?: string
@@ -1388,6 +1401,8 @@ async function fetchVectorCollections(
   const url = new URL(
     `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/vector-collections/`,
   )
+  if (params.workspace_id)
+    url.searchParams.set('workspace_id', params.workspace_id)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
   if (params.project_id) url.searchParams.set('project_id', params.project_id)
@@ -1405,6 +1420,7 @@ async function fetchVectorCollections(
 
 export const useVectorCollections = (
   params: {
+    workspace_id?: string
     page?: number
     limit?: number
     project_id?: string
