@@ -797,6 +797,12 @@ export const useCreateDatasetCase = (datasetId: string) => {
   })
 }
 
+// Exposed so the bulk-import flow can call it directly while
+// managing its own per-row progress state. We can't use
+// useMutation for the bulk case because the caller wants
+// in-flight per-row counters, not an opaque "is pending".
+export { createDatasetCase as postDatasetCase }
+
 // ── Dataset rename + delete + case delete ──────────────────────
 
 export interface DatasetUpdatePayload {

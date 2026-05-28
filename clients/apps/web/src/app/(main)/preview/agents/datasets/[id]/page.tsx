@@ -4,8 +4,10 @@ import {
   type AssertionStrategy,
   type Dataset,
   type DatasetCase,
+  type DatasetCaseCreatePayload,
   type EvalRun,
   type EvalRunStatus,
+  postDatasetCase,
   useCreateDatasetCase,
   useDataset,
   useDatasetCases,
@@ -16,6 +18,7 @@ import {
   useUpdateDataset,
   useWorkflows,
 } from '@/hooks/api/agents'
+import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { use, useState } from 'react'
@@ -590,7 +593,10 @@ function CasesSection({
         <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
           Cases
         </h2>
-        <AddCaseForm datasetId={datasetId} nextOrderIndex={nextOrderIndex} />
+        <div className="flex flex-wrap items-center gap-2">
+          <AddCaseForm datasetId={datasetId} nextOrderIndex={nextOrderIndex} />
+          <BulkAddCases datasetId={datasetId} nextOrderIndex={nextOrderIndex} />
+        </div>
       </div>
       {isLoading ? (
         <CasesSkeleton />
@@ -782,6 +788,208 @@ function AddCaseForm({
           className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
         >
           Cancel
+        </button>
+      </div>
+    </form>
+  )
+}
+
+type BulkRowResult =
+  | { kind: 'pending' }
+  | { kind: 'ok' }
+  | { kind: 'error'; message: string }
+
+function BulkAddCases({
+  datasetId,
+  nextOrderIndex,
+}: {
+  datasetId: string
+  nextOrderIndex: number
+}) {
+  const [open, setOpen] = useState(false)
+  const [text, setText] = useState(
+    '[\n  {\n    "name": "case-1",\n    "input_data": { "text": "..." },\n    "expected_output": { "text": "..." }\n  }\n]',
+  )
+  const [parseError, setParseError] = useState<string | null>(null)
+  const [results, setResults] = useState<BulkRowResult[]>([])
+  const [submitting, setSubmitting] = useState(false)
+  const qc = useQueryClient()
+
+  const reset = () => {
+    setParseError(null)
+    setResults([])
+  }
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    reset()
+
+    let parsed: unknown
+    try {
+      parsed = JSON.parse(text)
+    } catch (err) {
+      setParseError(
+        `JSON parse failed: ${err instanceof Error ? err.message : 'unknown'}`,
+      )
+      return
+    }
+    if (!Array.isArray(parsed)) {
+      setParseError('Top-level value must be a JSON array of case objects.')
+      return
+    }
+    if (parsed.length === 0) {
+      setParseError('Array is empty — nothing to import.')
+      return
+    }
+
+    // Validate each row's shape up-front so we don't half-import
+    // and leave the operator with a fail-then-retry scenario.
+    const payloads: DatasetCaseCreatePayload[] = []
+    for (let i = 0; i < parsed.length; i++) {
+      const row = parsed[i]
+      if (typeof row !== 'object' || row === null || Array.isArray(row)) {
+        setParseError(`Row ${i + 1}: must be a JSON object.`)
+        return
+      }
+      const r = row as Record<string, unknown>
+      if (typeof r.name !== 'string' || r.name.trim().length === 0) {
+        setParseError(`Row ${i + 1}: missing or empty "name".`)
+        return
+      }
+      if (
+        typeof r.input_data !== 'object' ||
+        r.input_data === null ||
+        Array.isArray(r.input_data)
+      ) {
+        setParseError(`Row ${i + 1}: "input_data" must be a JSON object.`)
+        return
+      }
+      if (
+        r.expected_output !== undefined &&
+        r.expected_output !== null &&
+        (typeof r.expected_output !== 'object' ||
+          Array.isArray(r.expected_output))
+      ) {
+        setParseError(
+          `Row ${i + 1}: "expected_output" must be a JSON object, null, or omitted.`,
+        )
+        return
+      }
+      payloads.push({
+        name: r.name.trim(),
+        input_data: r.input_data as Record<string, unknown>,
+        expected_output:
+          r.expected_output === undefined
+            ? null
+            : (r.expected_output as Record<string, unknown> | null),
+        order_index: nextOrderIndex + i,
+      })
+    }
+
+    // Sequential POSTs to keep order_index strictly monotonic.
+    // For 50–100 cases this is a couple seconds; if we ever
+    // need bulk perf we'd add a server-side bulk endpoint.
+    setSubmitting(true)
+    setResults(payloads.map(() => ({ kind: 'pending' as const })))
+    for (let i = 0; i < payloads.length; i++) {
+      try {
+        await postDatasetCase({ datasetId, body: payloads[i] })
+        setResults((prev) => {
+          const next = [...prev]
+          next[i] = { kind: 'ok' }
+          return next
+        })
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'unknown error'
+        setResults((prev) => {
+          const next = [...prev]
+          next[i] = { kind: 'error', message }
+          return next
+        })
+        // Stop on first failure — the next-index sequence would
+        // skip if the server already assigned order. Operators
+        // can fix the bad row and re-paste the rest.
+        break
+      }
+    }
+    qc.invalidateQueries({ queryKey: ['agents-datasets', 'cases', datasetId] })
+    setSubmitting(false)
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border border-emerald-500 px-3 py-1 text-xs font-medium text-emerald-600 hover:bg-emerald-50 dark:border-emerald-600 dark:text-emerald-400 dark:hover:bg-emerald-900/20"
+      >
+        + Bulk add
+      </button>
+    )
+  }
+
+  const okCount = results.filter((r) => r.kind === 'ok').length
+  const errored = results.find((r) => r.kind === 'error') as
+    | { kind: 'error'; message: string }
+    | undefined
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex w-full flex-col gap-3 rounded-lg border border-slate-200 bg-white p-4 sm:col-span-full dark:border-slate-800 dark:bg-slate-900"
+    >
+      <div className="flex items-baseline justify-between gap-3">
+        <h3 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Bulk add cases
+        </h3>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          JSON array of{' '}
+          <code className="rounded bg-slate-100 px-1 font-mono dark:bg-slate-800">
+            {'{ name, input_data, expected_output? }'}
+          </code>
+        </span>
+      </div>
+      <textarea
+        rows={14}
+        required
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+      />
+      {parseError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {parseError}
+        </div>
+      )}
+      {results.length > 0 && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs dark:border-slate-700 dark:bg-slate-950">
+          <span className="text-slate-700 dark:text-slate-300">
+            {okCount} / {results.length} created
+          </span>
+          {errored && (
+            <span className="ml-2 text-rose-600 dark:text-rose-400">
+              · stopped on first error: {errored.message}
+            </span>
+          )}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={submitting}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {submitting ? 'Importing…' : 'Import all'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false)
+            reset()
+          }}
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Close
         </button>
       </div>
     </form>
