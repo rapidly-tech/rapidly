@@ -42,6 +42,7 @@ export default function EvalRunDetailPage({
             <RunError message={evalRun.error_message} />
           )}
           <CasesSection
+            evalRunId={evalRun.id}
             cases={cases}
             isLoading={casesQuery.isLoading}
             isError={casesQuery.isError}
@@ -211,11 +212,13 @@ const CASE_FILTERS: { label: string; value: CaseOutcome | null }[] = [
 ]
 
 function CasesSection({
+  evalRunId,
   cases,
   isLoading,
   isError,
   errorMessage,
 }: {
+  evalRunId: string
   cases: EvalRunCase[]
   isLoading: boolean
   isError: boolean
@@ -225,7 +228,7 @@ function CasesSection({
 
   // Tag every case with its outcome once so the chip counts +
   // the visible-row filter use the same classification — no
-  // chance of \"chip says 3 failed, list shows 4\".
+  // chance of "chip says 3 failed, list shows 4".
   const classified = cases.map((c) => ({
     caseItem: c,
     outcome: classifyCase(c),
@@ -245,12 +248,15 @@ function CasesSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
           Cases
         </h2>
         {cases.length > 0 && (
-          <CaseFilter value={outcome} onChange={setOutcome} counts={counts} />
+          <div className="flex flex-wrap items-center gap-2">
+            <CaseFilter value={outcome} onChange={setOutcome} counts={counts} />
+            <ExportCsvButton evalRunId={evalRunId} cases={cases} />
+          </div>
         )}
       </div>
       {isLoading ? (
@@ -316,6 +322,83 @@ function EmptyFiltered({ outcome }: { outcome: CaseOutcome }) {
       No <span className="font-mono">{outcome}</span> cases in this eval run.
     </div>
   )
+}
+
+function ExportCsvButton({
+  evalRunId,
+  cases,
+}: {
+  evalRunId: string
+  cases: EvalRunCase[]
+}) {
+  const onExport = () => {
+    const csv = buildCasesCsv(cases)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // Filename keeps the short eval-run id so a folder of
+    // exports stays addressable. Full id would be unwieldy.
+    a.download = `eval-run-${evalRunId.slice(0, 8)}-cases.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <button
+      type="button"
+      onClick={onExport}
+      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+    >
+      Export CSV
+    </button>
+  )
+}
+
+function buildCasesCsv(cases: EvalRunCase[]): string {
+  // Columns picked for downstream reporting: outcome + score-
+  // relevant fields first, then the raw JSON payloads so an
+  // analyst can drill in if needed. JSON columns are
+  // JSON.stringify'd (one cell each) — most spreadsheet tools
+  // handle the embedded quoting fine after CSV escape.
+  const headers = [
+    'case_name',
+    'outcome',
+    'passed',
+    'duration_ms',
+    'error_message',
+    'judge_reason',
+    'input_data',
+    'expected_output',
+    'actual_output',
+  ]
+  const rows = cases.map((c) => [
+    c.case_name,
+    classifyCase(c),
+    c.passed === null ? '' : c.passed ? 'true' : 'false',
+    c.duration_ms === null ? '' : String(c.duration_ms),
+    c.error_message ?? '',
+    c.judge_reason ?? '',
+    JSON.stringify(c.case_input_data),
+    c.case_expected_output === null
+      ? ''
+      : JSON.stringify(c.case_expected_output),
+    c.actual_output === null ? '' : JSON.stringify(c.actual_output),
+  ])
+  return [headers, ...rows]
+    .map((row) => row.map(csvEscape).join(','))
+    .join('\n')
+}
+
+function csvEscape(value: string): string {
+  // RFC 4180-ish: wrap in double quotes if the cell contains a
+  // comma, double-quote, CR, or LF. Doubled double-quotes
+  // escape an embedded one.
+  if (/[",\r\n]/.test(value)) {
+    return `"${value.replace(/"/g, '""')}"`
+  }
+  return value
 }
 
 function CaseRow({
