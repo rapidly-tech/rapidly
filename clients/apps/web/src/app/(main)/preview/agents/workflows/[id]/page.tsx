@@ -20,6 +20,11 @@ import {
   useWorkflow,
   useWorkflowVersions,
 } from '@/hooks/api/agents'
+import {
+  formatDuration,
+  formatRelative,
+  formatTimestamp,
+} from '@/utils/agents/datetime'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { use, useState } from 'react'
@@ -840,40 +845,6 @@ function EmptyRuns({ message }: { message: string }) {
   )
 }
 
-function formatRelative(iso: string): string {
-  // Coarse relative time — "5m ago", "2h ago", "3d ago" — for
-  // glanceable freshness. Exact timestamps belong on the run
-  // detail page (M5.x), not the list.
-  const now = Date.now()
-  const then = Date.parse(iso)
-  if (Number.isNaN(then)) return iso
-  const seconds = Math.max(0, Math.floor((now - then) / 1000))
-  if (seconds < 60) return `${seconds}s ago`
-  const minutes = Math.floor(seconds / 60)
-  if (minutes < 60) return `${minutes}m ago`
-  const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours}h ago`
-  const days = Math.floor(hours / 24)
-  return `${days}d ago`
-}
-
-function formatDuration(
-  startedIso: string | null,
-  completedIso: string | null,
-): string {
-  if (!startedIso) return '—'
-  if (!completedIso) return 'running'
-  const start = Date.parse(startedIso)
-  const end = Date.parse(completedIso)
-  if (Number.isNaN(start) || Number.isNaN(end)) return '—'
-  const ms = end - start
-  if (ms < 1000) return `${ms}ms`
-  const seconds = Math.floor(ms / 1000)
-  if (seconds < 60) return `${seconds}s`
-  const minutes = Math.floor(seconds / 60)
-  return `${minutes}m ${seconds % 60}s`
-}
-
 function VersionHistorySection({ workflow }: { workflow: Workflow }) {
   const query = useWorkflowVersions(workflow.id, { limit: 25, page: 1 })
   const versions: WorkflowVersion[] = query.data?.data ?? []
@@ -1155,10 +1126,4 @@ function EvalStatusPill({ status }: { status: EvalRunStatus }) {
       {status}
     </span>
   )
-}
-
-function formatTimestamp(iso: string): string {
-  const ms = Date.parse(iso)
-  if (Number.isNaN(ms)) return iso
-  return new Date(ms).toLocaleString()
 }
