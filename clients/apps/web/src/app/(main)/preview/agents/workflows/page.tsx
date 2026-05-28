@@ -1,6 +1,12 @@
 'use client'
 
 import {
+  EmptySearch,
+  Pagination,
+  SearchInput,
+  WorkspaceSwitcher,
+} from '@/components/agents/ListControls'
+import {
   type Workflow,
   useCreateWorkflow,
   useWorkflows,
@@ -71,7 +77,11 @@ export default function WorkflowsListPage() {
 
       {activeWorkspaceId && <CreateForm workspaceId={activeWorkspaceId} />}
 
-      <SearchInput value={search} onChange={onSearchChange} />
+      <SearchInput
+        value={search}
+        onChange={onSearchChange}
+        placeholder="Filter workflows by name…"
+      />
       <PublishFilterChips
         value={publishFilter}
         onChange={onPublishFilterChange}
@@ -83,7 +93,7 @@ export default function WorkflowsListPage() {
         <ErrorBanner message={(query.error as Error).message} />
       ) : workflows.length === 0 ? (
         search.trim() ? (
-          <EmptySearch query={search.trim()} />
+          <EmptySearch query={search.trim()} noun="workflows" />
         ) : publishFilter !== 'all' ? (
           <EmptyFiltered publishFilter={publishFilter} />
         ) : (
@@ -145,115 +155,6 @@ function EmptyFiltered({ publishFilter }: { publishFilter: PublishFilter }) {
   return (
     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
       No <span className="font-mono">{publishFilter}</span> workflows.
-    </div>
-  )
-}
-
-function Pagination({
-  page,
-  pages,
-  total,
-  onPageChange,
-}: {
-  page: number
-  pages: number
-  total: number
-  onPageChange: (next: number) => void
-}) {
-  if (pages <= 1) return null
-  return (
-    <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-      <span>
-        Page <span className="font-mono">{page}</span> of{' '}
-        <span className="font-mono">{pages}</span> ·{' '}
-        <span className="font-mono">{total}</span> total
-      </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          disabled={page <= 1}
-          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          ← Prev
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(Math.min(pages, page + 1))}
-          disabled={page >= pages}
-          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          Next →
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function SearchInput({
-  value,
-  onChange,
-}: {
-  value: string
-  onChange: (next: string) => void
-}) {
-  return (
-    <div className="flex flex-col gap-1">
-      <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
-        Search
-      </label>
-      <input
-        type="search"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder="Filter workflows by name…"
-        className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-      />
-    </div>
-  )
-}
-
-function EmptySearch({ query }: { query: string }) {
-  return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-      No workflows match{' '}
-      <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">
-        {query}
-      </code>
-      .
-    </div>
-  )
-}
-
-function WorkspaceSwitcher({
-  workspaces,
-  activeId,
-  onChange,
-}: {
-  workspaces: { id: string; name: string }[]
-  activeId: string | null
-  onChange: (id: string) => void
-}) {
-  // Only render when the operator can see more than one workspace.
-  // Single-workspace users get no chrome — same contract as the
-  // credentials page switcher.
-  if (workspaces.length <= 1) return null
-  return (
-    <div className="flex flex-col gap-2">
-      <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
-        Workspace
-      </label>
-      <select
-        value={activeId ?? ''}
-        onChange={(e) => onChange(e.target.value)}
-        className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-      >
-        {workspaces.map((w) => (
-          <option key={w.id} value={w.id}>
-            {w.name}
-          </option>
-        ))}
-      </select>
     </div>
   )
 }

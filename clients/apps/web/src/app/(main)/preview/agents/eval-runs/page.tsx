@@ -1,5 +1,6 @@
 'use client'
 
+import { Pagination } from '@/components/agents/ListControls'
 import {
   type EvalRun,
   type EvalRunStatus,
@@ -84,47 +85,6 @@ export default function EvalRunsListPage() {
         </>
       )}
     </main>
-  )
-}
-
-function Pagination({
-  page,
-  pages,
-  total,
-  onPageChange,
-}: {
-  page: number
-  pages: number
-  total: number
-  onPageChange: (next: number) => void
-}) {
-  if (pages <= 1) return null
-  return (
-    <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
-      <span>
-        Page <span className="font-mono">{page}</span> of{' '}
-        <span className="font-mono">{pages}</span> ·{' '}
-        <span className="font-mono">{total}</span> total
-      </span>
-      <div className="flex gap-2">
-        <button
-          type="button"
-          onClick={() => onPageChange(Math.max(1, page - 1))}
-          disabled={page <= 1}
-          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          ← Prev
-        </button>
-        <button
-          type="button"
-          onClick={() => onPageChange(Math.min(pages, page + 1))}
-          disabled={page >= pages}
-          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
-          Next →
-        </button>
-      </div>
-    </div>
   )
 }
 
