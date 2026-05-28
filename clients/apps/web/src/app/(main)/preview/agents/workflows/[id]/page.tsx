@@ -5,6 +5,7 @@ import {
   type EvalRunStatus,
   type Run,
   type RunStatus,
+  type TriggeredByKind,
   type Workflow,
   type WorkflowVersion,
   useDeleteWorkflow,
@@ -35,6 +36,13 @@ export default function WorkflowDetailPage({
   // so it can also drive the empty-state copy below.
   const [statusFilter, setStatusFilter] = useState<RunStatus | null>(null)
 
+  // Triggered-by filter — manual ("user") vs eval vs webhook /
+  // schedule / sub_workflow. Lets operators triaging a flaky
+  // workflow distinguish their own test runs from production
+  // traffic.
+  const [triggeredByFilter, setTriggeredByFilter] =
+    useState<TriggeredByKind | null>(null)
+
   // Version picker. ``null`` defaults to the workflow's
   // current_version_id once it's loaded; operators can flip to
   // any past version to inspect its run history. We don't fall
@@ -48,6 +56,7 @@ export default function WorkflowDetailPage({
     {
       workflow_version_id: activeVersionId ?? undefined,
       status: statusFilter ?? undefined,
+      triggered_by_kind: triggeredByFilter ?? undefined,
       limit: 25,
       page: 1,
     },
@@ -83,6 +92,8 @@ export default function WorkflowDetailPage({
             }
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
+            triggeredByFilter={triggeredByFilter}
+            onTriggeredByFilterChange={setTriggeredByFilter}
             activeVersionId={activeVersionId}
             onVersionFilterChange={setVersionFilter}
           />
@@ -494,6 +505,17 @@ const STATUS_FILTERS: { label: string; value: RunStatus | null }[] = [
   { label: 'Awaiting human', value: 'awaiting_human' },
 ]
 
+const TRIGGERED_BY_FILTERS: {
+  label: string
+  value: TriggeredByKind | null
+}[] = [
+  { label: 'Any source', value: null },
+  { label: 'Manual', value: 'user' },
+  { label: 'Eval', value: 'eval' },
+  { label: 'Webhook', value: 'webhook' },
+  { label: 'Schedule', value: 'schedule' },
+]
+
 function RunsSection({
   workflow,
   runs,
@@ -502,6 +524,8 @@ function RunsSection({
   errorMessage,
   statusFilter,
   onStatusFilterChange,
+  triggeredByFilter,
+  onTriggeredByFilterChange,
   activeVersionId,
   onVersionFilterChange,
 }: {
@@ -512,12 +536,30 @@ function RunsSection({
   errorMessage?: string
   statusFilter: RunStatus | null
   onStatusFilterChange: (status: RunStatus | null) => void
+  triggeredByFilter: TriggeredByKind | null
+  onTriggeredByFilterChange: (kind: TriggeredByKind | null) => void
   activeVersionId: string | null
   onVersionFilterChange: (versionId: string | null) => void
 }) {
-  const filterLabel =
+  const statusLabel =
     STATUS_FILTERS.find((f) => f.value === statusFilter)?.label.toLowerCase() ??
     'matching'
+  const triggeredByLabel =
+    TRIGGERED_BY_FILTERS.find(
+      (f) => f.value === triggeredByFilter,
+    )?.label.toLowerCase() ?? null
+
+  // Empty-state copy adapts to whichever filter is active.
+  // When both fire and produce zero rows, we say both;
+  // when neither, just "no runs".
+  const emptyMessage = (() => {
+    if (statusFilter && triggeredByFilter)
+      return `No ${statusLabel} runs from ${triggeredByLabel} triggers.`
+    if (statusFilter) return `No ${statusLabel} runs for the selected version.`
+    if (triggeredByFilter)
+      return `No runs from ${triggeredByLabel} triggers for the selected version.`
+    return 'No runs for the selected version.'
+  })()
 
   return (
     <section className="flex flex-col gap-3">
@@ -540,6 +582,12 @@ function RunsSection({
           </div>
         )}
       </div>
+      {activeVersionId && (
+        <RunsTriggeredByFilter
+          value={triggeredByFilter}
+          onChange={onTriggeredByFilterChange}
+        />
+      )}
 
       {!activeVersionId ? (
         <EmptyRuns message="This workflow has no published version yet — publish a version to trigger runs." />
@@ -548,17 +596,41 @@ function RunsSection({
       ) : isError ? (
         <ErrorBanner message={errorMessage ?? 'Unknown error'} />
       ) : runs.length === 0 ? (
-        <EmptyRuns
-          message={
-            statusFilter
-              ? `No ${filterLabel} runs for the selected version.`
-              : 'No runs for the selected version.'
-          }
-        />
+        <EmptyRuns message={emptyMessage} />
       ) : (
         <RunsList runs={runs} workflowId={workflow.id} />
       )}
     </section>
+  )
+}
+
+function RunsTriggeredByFilter({
+  value,
+  onChange,
+}: {
+  value: TriggeredByKind | null
+  onChange: (kind: TriggeredByKind | null) => void
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {TRIGGERED_BY_FILTERS.map((filter) => {
+        const active = filter.value === value
+        return (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {filter.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 

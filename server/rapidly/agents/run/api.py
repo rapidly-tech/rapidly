@@ -19,6 +19,7 @@ from rapidly.agents.run.types import RunSchema, RunTriggerRequest
 from rapidly.agents.workflow import actions as workflow_actions
 from rapidly.core.pagination import PaginatedList, PaginationParamsQuery
 from rapidly.models import RunStatus
+from rapidly.models.agent_run import TriggeredByKind
 from rapidly.openapi import APITag
 from rapidly.postgres import (
     AsyncReadSession,
@@ -41,6 +42,14 @@ async def list_runs(
     pagination: PaginationParamsQuery,
     workflow_version_id: UUID | None = Query(None),
     status_filter: RunStatus | None = Query(None, alias="status"),
+    triggered_by_kind: TriggeredByKind | None = Query(
+        None,
+        description=(
+            "Filter by what triggered the run: ``user`` (manual UI), "
+            "``eval`` (eval runner), ``webhook``, ``schedule``, or "
+            "``sub_workflow``. Omit for all."
+        ),
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[RunSchema]:
     results, count = await actions.list_runs(
@@ -48,6 +57,7 @@ async def list_runs(
         auth_subject,
         workflow_version_id=workflow_version_id,
         status=status_filter,
+        triggered_by_kind=triggered_by_kind,
         pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)

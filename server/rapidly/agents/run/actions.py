@@ -16,7 +16,7 @@ from rapidly.core.utils import now_utc
 from rapidly.errors import NotPermitted, ResourceNotFound
 from rapidly.identity.auth.models import AuthPrincipal, User, Workspace
 from rapidly.models import Run, RunStatus
-from rapidly.models.agent_run import TERMINAL_RUN_STATUSES
+from rapidly.models.agent_run import TERMINAL_RUN_STATUSES, TriggeredByKind
 from rapidly.postgres import AsyncReadSession, AsyncSession
 
 
@@ -47,6 +47,7 @@ async def list_runs(
     *,
     workflow_version_id: UUID | None = None,
     status: RunStatus | None = None,
+    triggered_by_kind: TriggeredByKind | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[Run], int]:
     repo = RunRepository.from_session(session)
@@ -55,6 +56,12 @@ async def list_runs(
         statement = statement.where(Run.workflow_version_id == workflow_version_id)
     if status is not None:
         statement = statement.where(Run.status == status)
+    if triggered_by_kind is not None:
+        # Operators triaging want to distinguish their own test
+        # runs ("user") from eval-runner-driven runs ("eval"), and
+        # production webhook/scheduled traffic from either. Chip
+        # filter on the UI side maps to this query param.
+        statement = statement.where(Run.triggered_by_kind == triggered_by_kind)
     return await paginate(session, statement, pagination=pagination)
 
 
