@@ -206,3 +206,89 @@ class TestDelete:
             .all()
         )
         assert rows == []
+
+
+@pytest.mark.asyncio
+class TestListCredentials:
+    """``name`` filter — substring match through the same escape
+    pattern used by workflows + datasets (M5.25). Hits real DB
+    so the ilike escape semantics are exercised end-to-end."""
+
+    async def test_name_filter_substring_match(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        from rapidly.core.pagination import PaginationParams
+
+        principal = await _member_principal(session, workspace)
+        await actions.create(
+            session,
+            principal,
+            IntegrationCredentialCreate(
+                workspace_id=workspace.id,
+                provider="openai",
+                name="openai-prod",
+                secret="sk-prod",
+            ),
+        )
+        await actions.create(
+            session,
+            principal,
+            IntegrationCredentialCreate(
+                workspace_id=workspace.id,
+                provider="openai",
+                name="openai_staging",
+                secret="sk-staging",
+            ),
+        )
+        await actions.create(
+            session,
+            principal,
+            IntegrationCredentialCreate(
+                workspace_id=workspace.id,
+                provider="anthropic",
+                name="anthropic-prod",
+                secret="sk-ant",
+            ),
+        )
+
+        # Case-insensitive substring catches both openai-* rows.
+        _, count = await actions.list_credentials(
+            session,
+            principal,
+            name="OPENAI",
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 2
+
+        # Literal ``_`` in the input must be treated as a literal
+        # char, not a SQL single-char wildcard — so the underscore
+        # row should match alone.
+        rows, count = await actions.list_credentials(
+            session,
+            principal,
+            name="openai_",
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 1
+        assert rows[0].name == "openai_staging"
+
+        # Whitespace-only is treated as "no filter".
+        _, count = await actions.list_credentials(
+            session,
+            principal,
+            name="   ",
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 3
+
+        # provider + name combine additively.
+        _, count = await actions.list_credentials(
+            session,
+            principal,
+            provider="openai",
+            name="prod",
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 1

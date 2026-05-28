@@ -15,16 +15,43 @@ import {
 import { useListWorkspaces } from '@/hooks/api/org'
 import { useMemo, useState } from 'react'
 
+const PAGE_SIZE = 20
+
 export default function CredentialsPage() {
   const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
   const workspaces = workspacesQuery.data?.data ?? []
   const [workspaceId, setWorkspaceId] = useState<string | null>(null)
   const activeWorkspaceId = workspaceId ?? workspaces[0]?.id ?? null
 
-  const credsQuery = useCredentials({ limit: 50, page: 1 }, !!activeWorkspaceId)
+  const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const onSearchChange = (next: string) => {
+    setSearch(next)
+    setPage(1)
+  }
+  // Workspace flip should also reset page state — landing on
+  // page 4 of a workspace that has 2 pages would be confusing.
+  const onWorkspaceChange = (next: string | null) => {
+    setWorkspaceId(next)
+    setPage(1)
+  }
+
+  const credsQuery = useCredentials(
+    {
+      name: search.trim() || undefined,
+      limit: PAGE_SIZE,
+      page,
+    },
+    !!activeWorkspaceId,
+  )
   const budgetsQuery = useCredentialBudgets()
   const alertsQuery = useCredentialAlerts()
 
+  // The list endpoint returns rows across all workspaces the
+  // caller can read; filter to the active one. With the new
+  // page state we can't trust meta.total either — it counts
+  // pre-workspace-filter — so we expose the post-filter length
+  // to the pagination control.
   const credentials: IntegrationCredential[] = useMemo(
     () =>
       (credsQuery.data?.data ?? []).filter(
@@ -32,6 +59,7 @@ export default function CredentialsPage() {
       ),
     [credsQuery.data, activeWorkspaceId],
   )
+  const meta = credsQuery.data?.meta
 
   const budgetsById = useMemo(() => {
     const map = new Map<string, CredentialBudgetRow>()
@@ -56,25 +84,117 @@ export default function CredentialsPage() {
       <WorkspaceSwitcher
         workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
         activeId={activeWorkspaceId}
-        onChange={setWorkspaceId}
+        onChange={onWorkspaceChange}
       />
 
       {activeWorkspaceId && <CreateForm workspaceId={activeWorkspaceId} />}
+
+      <SearchInput value={search} onChange={onSearchChange} />
 
       {credsQuery.isLoading ? (
         <Skeleton />
       ) : credsQuery.isError ? (
         <ErrorBanner message={(credsQuery.error as Error).message} />
       ) : credentials.length === 0 ? (
-        <Empty />
+        search.trim() ? (
+          <EmptySearch query={search.trim()} />
+        ) : (
+          <Empty />
+        )
       ) : (
-        <CredentialList
-          credentials={credentials}
-          budgetsById={budgetsById}
-          alertsById={alertsById}
-        />
+        <>
+          <CredentialList
+            credentials={credentials}
+            budgetsById={budgetsById}
+            alertsById={alertsById}
+          />
+          {meta && (
+            <Pagination
+              page={page}
+              pages={meta.pages}
+              total={meta.total}
+              onPageChange={setPage}
+            />
+          )}
+        </>
       )}
     </main>
+  )
+}
+
+function SearchInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (next: string) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+        Search
+      </label>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Filter credentials by name…"
+        className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+      />
+    </div>
+  )
+}
+
+function EmptySearch({ query }: { query: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No credentials match{' '}
+      <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">
+        {query}
+      </code>
+      .
+    </div>
+  )
+}
+
+function Pagination({
+  page,
+  pages,
+  total,
+  onPageChange,
+}: {
+  page: number
+  pages: number
+  total: number
+  onPageChange: (next: number) => void
+}) {
+  if (pages <= 1) return null
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+      <span>
+        Page <span className="font-mono">{page}</span> of{' '}
+        <span className="font-mono">{pages}</span> ·{' '}
+        <span className="font-mono">{total}</span> total
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+          disabled={page <= 1}
+          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          ← Prev
+        </button>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(pages, page + 1))}
+          disabled={page >= pages}
+          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Next →
+        </button>
+      </div>
+    </div>
   )
 }
 
