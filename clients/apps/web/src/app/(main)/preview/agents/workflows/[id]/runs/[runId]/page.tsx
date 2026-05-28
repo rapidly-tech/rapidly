@@ -136,6 +136,14 @@ function RunError({ message }: { message: string }) {
   )
 }
 
+const NODE_STATUS_FILTERS: { label: string; value: NodeRunStatus | null }[] = [
+  { label: 'All', value: null },
+  { label: 'Failed', value: 'failed' },
+  { label: 'Succeeded', value: 'succeeded' },
+  { label: 'Running', value: 'running' },
+  { label: 'Skipped', value: 'skipped' },
+]
+
 function NodeRunsSection({
   nodes,
   isLoading,
@@ -147,21 +155,97 @@ function NodeRunsSection({
   isError: boolean
   errorMessage?: string
 }) {
+  const [statusFilter, setStatusFilter] = useState<NodeRunStatus | null>(null)
+
+  // Count per status so the chips can show the at-a-glance
+  // distribution — operators triaging a 30-step run want to
+  // know "are there 3 failed nodes here?" without filtering.
+  const counts: Record<NodeRunStatus, number> = {
+    pending: 0,
+    running: 0,
+    succeeded: 0,
+    failed: 0,
+    skipped: 0,
+    awaiting_human: 0,
+  }
+  for (const n of nodes) counts[n.status] += 1
+
+  const visible = statusFilter
+    ? nodes.filter((n) => n.status === statusFilter)
+    : nodes
+
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
-        Steps
-      </h2>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Steps
+        </h2>
+        {nodes.length > 0 && (
+          <NodeStatusFilter
+            value={statusFilter}
+            onChange={setStatusFilter}
+            counts={counts}
+          />
+        )}
+      </div>
       {isLoading ? (
         <RunsSkeleton />
       ) : isError ? (
         <ErrorBanner message={errorMessage ?? 'Unknown error'} />
       ) : nodes.length === 0 ? (
         <EmptyNodes />
+      ) : visible.length === 0 ? (
+        <EmptyFilteredNodes status={statusFilter!} />
       ) : (
-        <NodeRunsList nodes={nodes} />
+        <NodeRunsList nodes={visible} />
       )}
     </section>
+  )
+}
+
+function NodeStatusFilter({
+  value,
+  onChange,
+  counts,
+}: {
+  value: NodeRunStatus | null
+  onChange: (next: NodeRunStatus | null) => void
+  counts: Record<NodeRunStatus, number>
+}) {
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {NODE_STATUS_FILTERS.map((filter) => {
+        const active = filter.value === value
+        const count = filter.value === null ? null : counts[filter.value]
+        return (
+          <button
+            key={filter.label}
+            type="button"
+            onClick={() => onChange(filter.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {filter.label}
+            {count !== null && (
+              <span className="ml-1 font-mono text-[10px] opacity-70">
+                {count}
+              </span>
+            )}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function EmptyFilteredNodes({ status }: { status: NodeRunStatus }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No <span className="font-mono">{status}</span> steps in this run.
+    </div>
   )
 }
 
