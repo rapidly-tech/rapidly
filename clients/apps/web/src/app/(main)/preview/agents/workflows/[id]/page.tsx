@@ -35,17 +35,23 @@ export default function WorkflowDetailPage({
   // so it can also drive the empty-state copy below.
   const [statusFilter, setStatusFilter] = useState<RunStatus | null>(null)
 
-  // Runs are listed per workflow_version. Use the workflow's
-  // current_version_id when available — drafts without a
-  // published version can't have runs.
+  // Version picker. ``null`` defaults to the workflow's
+  // current_version_id once it's loaded; operators can flip to
+  // any past version to inspect its run history. We don't fall
+  // back automatically when the workflow rolls forward — the
+  // operator's last selection sticks.
+  const [versionFilter, setVersionFilter] = useState<string | null>(null)
+  const activeVersionId = versionFilter ?? workflow?.current_version_id ?? null
+
+  // Runs are listed per workflow_version.
   const runsQuery = useRuns(
     {
-      workflow_version_id: workflow?.current_version_id ?? undefined,
+      workflow_version_id: activeVersionId ?? undefined,
       status: statusFilter ?? undefined,
       limit: 25,
       page: 1,
     },
-    !!workflow?.current_version_id,
+    !!activeVersionId,
   )
   const runs: Run[] = runsQuery.data?.data ?? []
 
@@ -77,6 +83,8 @@ export default function WorkflowDetailPage({
             }
             statusFilter={statusFilter}
             onStatusFilterChange={setStatusFilter}
+            activeVersionId={activeVersionId}
+            onVersionFilterChange={setVersionFilter}
           />
           {workflow.current_version_id && (
             <EvalHistorySection
@@ -494,6 +502,8 @@ function RunsSection({
   errorMessage,
   statusFilter,
   onStatusFilterChange,
+  activeVersionId,
+  onVersionFilterChange,
 }: {
   workflow: Workflow
   runs: Run[]
@@ -502,6 +512,8 @@ function RunsSection({
   errorMessage?: string
   statusFilter: RunStatus | null
   onStatusFilterChange: (status: RunStatus | null) => void
+  activeVersionId: string | null
+  onVersionFilterChange: (versionId: string | null) => void
 }) {
   const filterLabel =
     STATUS_FILTERS.find((f) => f.value === statusFilter)?.label.toLowerCase() ??
@@ -509,19 +521,27 @@ function RunsSection({
 
   return (
     <section className="flex flex-col gap-3">
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
           Recent runs
         </h2>
-        {workflow.current_version_id && (
-          <RunsStatusFilter
-            value={statusFilter}
-            onChange={onStatusFilterChange}
-          />
+        {activeVersionId && (
+          <div className="flex flex-wrap items-center gap-2">
+            <RunsVersionPicker
+              workflowId={workflow.id}
+              activeVersionId={activeVersionId}
+              currentVersionId={workflow.current_version_id}
+              onChange={onVersionFilterChange}
+            />
+            <RunsStatusFilter
+              value={statusFilter}
+              onChange={onStatusFilterChange}
+            />
+          </div>
         )}
       </div>
 
-      {!workflow.current_version_id ? (
+      {!activeVersionId ? (
         <EmptyRuns message="This workflow has no published version yet — publish a version to trigger runs." />
       ) : isLoading ? (
         <RunsSkeleton />
@@ -531,14 +551,57 @@ function RunsSection({
         <EmptyRuns
           message={
             statusFilter
-              ? `No ${filterLabel} runs.`
-              : 'No runs yet. Click Trigger run above to fire one.'
+              ? `No ${filterLabel} runs for the selected version.`
+              : 'No runs for the selected version.'
           }
         />
       ) : (
         <RunsList runs={runs} workflowId={workflow.id} />
       )}
     </section>
+  )
+}
+
+function RunsVersionPicker({
+  workflowId,
+  activeVersionId,
+  currentVersionId,
+  onChange,
+}: {
+  workflowId: string
+  activeVersionId: string
+  currentVersionId: string | null
+  onChange: (versionId: string | null) => void
+}) {
+  const versionsQuery = useWorkflowVersions(workflowId, {
+    limit: 50,
+    page: 1,
+  })
+  const versions: WorkflowVersion[] = versionsQuery.data?.data ?? []
+
+  // No picker until we have ≥2 versions — single-version
+  // workflows would just show a noop dropdown.
+  if (versions.length < 2) return null
+
+  return (
+    <select
+      value={activeVersionId}
+      onChange={(e) => {
+        const next = e.target.value
+        // Selecting the current version maps to ``null`` so the
+        // page can keep tracking it automatically if the workflow
+        // rolls forward later.
+        onChange(next === currentVersionId ? null : next)
+      }}
+      className="rounded-md border border-slate-200 bg-white px-3 py-1 text-xs font-medium text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+    >
+      {versions.map((v) => (
+        <option key={v.id} value={v.id}>
+          v{v.version_number}
+          {v.id === currentVersionId ? ' (current)' : ''}
+        </option>
+      ))}
+    </select>
   )
 }
 
