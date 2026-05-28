@@ -117,3 +117,69 @@ class TestList:
                     pagination=MagicMock(),
                 )
         assert fake_paginate.await_count == 1
+
+    async def test_triggered_by_kind_adds_where(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.run.actions.RunRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.run.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_runs(
+                MagicMock(),
+                principal,
+                triggered_by_kind=TriggeredByKind.user,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 1
+
+    async def test_triggered_by_kind_combines_with_status_and_version(
+        self,
+    ) -> None:
+        # All three filters together must add three independent
+        # .where predicates — confirms no short-circuit interaction
+        # between the new triggered_by_kind branch and the existing
+        # workflow_version_id + status predicates.
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.run.actions.RunRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.run.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_runs(
+                MagicMock(),
+                principal,
+                workflow_version_id=uuid4(),
+                status=RunStatus.failed,
+                triggered_by_kind=TriggeredByKind.eval,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 3

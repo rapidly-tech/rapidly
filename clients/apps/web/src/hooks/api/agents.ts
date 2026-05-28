@@ -176,11 +176,18 @@ export type RunStatus =
   | 'cancelled'
   | 'awaiting_human'
 
+export type TriggeredByKind =
+  | 'user'
+  | 'webhook'
+  | 'schedule'
+  | 'sub_workflow'
+  | 'eval'
+
 export interface Run {
   id: string
   workflow_version_id: string
   status: RunStatus
-  triggered_by_kind: string
+  triggered_by_kind: TriggeredByKind
   triggered_by_id: string | null
   started_at: string | null
   completed_at: string | null
@@ -204,6 +211,7 @@ async function fetchRuns(
   params: {
     workflow_version_id?: string
     status?: RunStatus
+    triggered_by_kind?: TriggeredByKind
     page?: number
     limit?: number
   } = {},
@@ -212,6 +220,8 @@ async function fetchRuns(
   if (params.workflow_version_id)
     url.searchParams.set('workflow_version_id', params.workflow_version_id)
   if (params.status) url.searchParams.set('status', params.status)
+  if (params.triggered_by_kind)
+    url.searchParams.set('triggered_by_kind', params.triggered_by_kind)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
 
@@ -229,6 +239,7 @@ export const useRuns = (
   params: {
     workflow_version_id?: string
     status?: RunStatus
+    triggered_by_kind?: TriggeredByKind
     page?: number
     limit?: number
   } = {},
