@@ -12,19 +12,32 @@ import { useState } from 'react'
 
 const PAGE_SIZE = 20
 
+type PublishFilter = 'all' | 'published' | 'draft'
+
 export default function WorkflowsListPage() {
   const [search, setSearch] = useState('')
+  const [publishFilter, setPublishFilter] = useState<PublishFilter>('all')
   const [page, setPage] = useState(1)
-  // Reset to page 1 when the search term changes — keeps the
-  // user from being stranded on page 4 of "foo" if the new
-  // filter has only 2 pages.
+  // Reset to page 1 when any filter changes — keeps the user
+  // from being stranded on page 4 of "foo" if the new filter
+  // has only 2 pages.
   const onSearchChange = (next: string) => {
     setSearch(next)
+    setPage(1)
+  }
+  const onPublishFilterChange = (next: PublishFilter) => {
+    setPublishFilter(next)
     setPage(1)
   }
 
   const query = useWorkflows({
     name: search.trim() || undefined,
+    has_version:
+      publishFilter === 'published'
+        ? true
+        : publishFilter === 'draft'
+          ? false
+          : undefined,
     limit: PAGE_SIZE,
     page,
   })
@@ -40,6 +53,10 @@ export default function WorkflowsListPage() {
       {workspaceId && <CreateForm workspaceId={workspaceId} />}
 
       <SearchInput value={search} onChange={onSearchChange} />
+      <PublishFilterChips
+        value={publishFilter}
+        onChange={onPublishFilterChange}
+      />
 
       {query.isLoading ? (
         <LoadingSkeleton />
@@ -48,6 +65,8 @@ export default function WorkflowsListPage() {
       ) : workflows.length === 0 ? (
         search.trim() ? (
           <EmptySearch query={search.trim()} />
+        ) : publishFilter !== 'all' ? (
+          <EmptyFiltered publishFilter={publishFilter} />
         ) : (
           <EmptyState />
         )
@@ -65,6 +84,49 @@ export default function WorkflowsListPage() {
         </>
       )}
     </main>
+  )
+}
+
+function PublishFilterChips({
+  value,
+  onChange,
+}: {
+  value: PublishFilter
+  onChange: (next: PublishFilter) => void
+}) {
+  const filters: { label: string; value: PublishFilter }[] = [
+    { label: 'All', value: 'all' },
+    { label: 'Published', value: 'published' },
+    { label: 'Draft', value: 'draft' },
+  ]
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {filters.map((f) => {
+        const active = f.value === value
+        return (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => onChange(f.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {f.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function EmptyFiltered({ publishFilter }: { publishFilter: PublishFilter }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No <span className="font-mono">{publishFilter}</span> workflows.
+    </div>
   )
 }
 

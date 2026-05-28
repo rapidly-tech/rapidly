@@ -43,6 +43,14 @@ async def list_workflows(
         ),
         max_length=256,
     ),
+    has_version: bool | None = Query(
+        None,
+        description=(
+            "Filter by whether the workflow has a published version. "
+            "``true`` → only workflows with current_version_id set; "
+            "``false`` → only drafts; omitted → both."
+        ),
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[WorkflowSchema]:
     results, count = await actions.list_workflows(
@@ -50,6 +58,7 @@ async def list_workflows(
         auth_subject,
         project_id=project_id,
         name=name,
+        has_version=has_version,
         pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
