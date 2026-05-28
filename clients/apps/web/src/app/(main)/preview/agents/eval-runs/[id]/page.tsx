@@ -8,6 +8,11 @@ import {
   useEvalRun,
   useEvalRunCases,
 } from '@/hooks/api/agents'
+import {
+  type CaseOutcome,
+  buildCasesCsv,
+  classifyCase,
+} from '@/utils/agents/eval-export'
 import Link from 'next/link'
 import { use, useState } from 'react'
 
@@ -194,15 +199,6 @@ function RunError({ message }: { message: string }) {
   )
 }
 
-type CaseOutcome = 'passed' | 'failed' | 'errored' | 'qualitative'
-
-function classifyCase(caseItem: EvalRunCase): CaseOutcome {
-  if (caseItem.error_message) return 'errored'
-  if (caseItem.passed === true) return 'passed'
-  if (caseItem.passed === false) return 'failed'
-  return 'qualitative'
-}
-
 const CASE_FILTERS: { label: string; value: CaseOutcome | null }[] = [
   { label: 'All', value: null },
   { label: 'Passed', value: 'passed' },
@@ -354,51 +350,6 @@ function ExportCsvButton({
       Export CSV
     </button>
   )
-}
-
-function buildCasesCsv(cases: EvalRunCase[]): string {
-  // Columns picked for downstream reporting: outcome + score-
-  // relevant fields first, then the raw JSON payloads so an
-  // analyst can drill in if needed. JSON columns are
-  // JSON.stringify'd (one cell each) — most spreadsheet tools
-  // handle the embedded quoting fine after CSV escape.
-  const headers = [
-    'case_name',
-    'outcome',
-    'passed',
-    'duration_ms',
-    'error_message',
-    'judge_reason',
-    'input_data',
-    'expected_output',
-    'actual_output',
-  ]
-  const rows = cases.map((c) => [
-    c.case_name,
-    classifyCase(c),
-    c.passed === null ? '' : c.passed ? 'true' : 'false',
-    c.duration_ms === null ? '' : String(c.duration_ms),
-    c.error_message ?? '',
-    c.judge_reason ?? '',
-    JSON.stringify(c.case_input_data),
-    c.case_expected_output === null
-      ? ''
-      : JSON.stringify(c.case_expected_output),
-    c.actual_output === null ? '' : JSON.stringify(c.actual_output),
-  ])
-  return [headers, ...rows]
-    .map((row) => row.map(csvEscape).join(','))
-    .join('\n')
-}
-
-function csvEscape(value: string): string {
-  // RFC 4180-ish: wrap in double quotes if the cell contains a
-  // comma, double-quote, CR, or LF. Doubled double-quotes
-  // escape an embedded one.
-  if (/[",\r\n]/.test(value)) {
-    return `"${value.replace(/"/g, '""')}"`
-  }
-  return value
 }
 
 function CaseRow({
