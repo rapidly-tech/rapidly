@@ -1,5 +1,6 @@
 'use client'
 
+import { CopyId } from '@/components/agents/CopyId'
 import {
   type AssertionStrategy,
   type Dataset,
@@ -178,6 +179,7 @@ function DatasetHeader({
               {dataset.description}
             </p>
           )}
+          <CopyId id={dataset.id} label="dataset ID" />
         </div>
         <button
           type="button"

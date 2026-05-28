@@ -1,5 +1,6 @@
 'use client'
 
+import { CopyId } from '@/components/agents/CopyId'
 import {
   type EvalRun,
   type EvalRunStatus,
@@ -219,6 +220,7 @@ function WorkflowHeader({ workflow }: { workflow: Workflow }) {
               {workflow.description}
             </p>
           )}
+          <CopyId id={workflow.id} label="workflow ID" />
         </div>
         <button
           type="button"
