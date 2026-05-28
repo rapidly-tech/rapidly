@@ -5,6 +5,7 @@ import {
   type AssertionStrategy,
   type EvalRun,
   type EvalRunStatus,
+  useCancelEvalRun,
   useDataset,
   useEvalRuns,
 } from '@/hooks/api/agents'
@@ -275,32 +276,61 @@ function Header() {
   )
 }
 
+const TERMINAL_EVAL_STATUSES: EvalRunStatus[] = [
+  'succeeded',
+  'failed',
+  'cancelled',
+]
+
 function EvalRunList({ runs }: { runs: EvalRun[] }) {
   return (
     <ul className="grid gap-2">
       {runs.map((run) => (
-        <li key={run.id}>
-          <Link
-            href={`/preview/agents/eval-runs/${run.id}`}
-            className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
-          >
-            <StatusPill status={run.status} />
-            <div className="flex min-w-0 flex-col gap-0.5">
-              <span className="truncate font-mono text-xs text-slate-700 dark:text-slate-300">
-                {run.id}
-              </span>
-              <span className="text-xs text-slate-500 dark:text-slate-400">
-                {run.assertion_strategy} ·{' '}
-                {run.started_at
-                  ? formatRelative(run.started_at)
-                  : 'not started'}
-              </span>
-            </div>
-            <PassFailBadge run={run} />
-          </Link>
-        </li>
+        <EvalRunRow key={run.id} run={run} />
       ))}
     </ul>
+  )
+}
+
+function EvalRunRow({ run }: { run: EvalRun }) {
+  const cancel = useCancelEvalRun()
+  const canCancel = !TERMINAL_EVAL_STATUSES.includes(run.status)
+  return (
+    <li className="grid grid-cols-[auto_1fr_auto_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600">
+      <StatusPill status={run.status} />
+      <Link
+        href={`/preview/agents/eval-runs/${run.id}`}
+        className="flex min-w-0 flex-col gap-0.5"
+      >
+        <span className="truncate font-mono text-xs text-slate-700 dark:text-slate-300">
+          {run.id}
+        </span>
+        <span className="text-xs text-slate-500 dark:text-slate-400">
+          {run.assertion_strategy} ·{' '}
+          {run.started_at ? formatRelative(run.started_at) : 'not started'}
+        </span>
+      </Link>
+      <PassFailBadge run={run} />
+      {canCancel ? (
+        <button
+          type="button"
+          onClick={() => {
+            if (confirm(`Cancel eval run ${run.id.slice(0, 8)}?`)) {
+              cancel.mutate(run.id)
+            }
+          }}
+          disabled={cancel.isPending}
+          className="rounded-md border border-rose-200 px-2 py-0.5 text-xs font-medium text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
+        >
+          {cancel.isPending ? '…' : 'Cancel'}
+        </button>
+      ) : (
+        // Empty cell keeps the grid alignment consistent
+        // across rows (same trick as the workflow runs list,
+        // M5.46).
+        <span aria-hidden="true" />
+      )}
+    </li>
   )
 }
 
