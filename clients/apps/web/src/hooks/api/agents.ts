@@ -991,6 +991,7 @@ async function fetchEvalRuns(
     dataset_id?: string
     workflow_version_id?: string
     status?: EvalRunStatus
+    assertion_strategy?: AssertionStrategy
     page?: number
     limit?: number
   } = {},
@@ -1002,6 +1003,8 @@ async function fetchEvalRuns(
   if (params.workflow_version_id)
     url.searchParams.set('workflow_version_id', params.workflow_version_id)
   if (params.status) url.searchParams.set('status', params.status)
+  if (params.assertion_strategy)
+    url.searchParams.set('assertion_strategy', params.assertion_strategy)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
 
@@ -1018,6 +1021,7 @@ export const useEvalRuns = (
     dataset_id?: string
     workflow_version_id?: string
     status?: EvalRunStatus
+    assertion_strategy?: AssertionStrategy
     page?: number
     limit?: number
   } = {},

@@ -22,6 +22,7 @@ from rapidly.models import (
 )
 from rapidly.models.eval_run import (
     TERMINAL_EVAL_RUN_STATUSES,
+    AssertionStrategy,
     EvalRunStatus,
 )
 from rapidly.postgres import AsyncReadSession, AsyncSession
@@ -56,6 +57,7 @@ async def list_eval_runs(
     dataset_id: UUID | None = None,
     workflow_version_id: UUID | None = None,
     status: EvalRunStatus | None = None,
+    assertion_strategy: AssertionStrategy | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[EvalRun], int]:
     repo = EvalRunRepository.from_session(session)
@@ -68,6 +70,11 @@ async def list_eval_runs(
         statement = statement.where(EvalRun.workflow_version_id == workflow_version_id)
     if status is not None:
         statement = statement.where(EvalRun.status == status)
+    if assertion_strategy is not None:
+        # Lets operators compare flakiness across strategies —
+        # "are LLM-judge evals more failure-prone than
+        # exact-match?" — without scrolling the merged list.
+        statement = statement.where(EvalRun.assertion_strategy == assertion_strategy)
     return await paginate(session, statement, pagination=pagination)
 
 

@@ -12,7 +12,7 @@ from rapidly.core.pagination import PaginationParams
 from rapidly.errors import NotPermitted
 from rapidly.identity.auth.models import AuthPrincipal
 from rapidly.models import EvalRun, User
-from rapidly.models.eval_run import EvalRunStatus
+from rapidly.models.eval_run import AssertionStrategy, EvalRunStatus
 
 
 def _principal() -> AuthPrincipal[User]:
@@ -111,6 +111,58 @@ class TestListEvalRuns:
             )
 
         assert statement.where.call_count == 3
+
+    async def test_assertion_strategy_filter_adds_where(self) -> None:
+        principal = _principal()
+        repo, statement = _mock_repo()
+
+        with (
+            patch(
+                "rapidly.agents.eval_run.actions.EvalRunRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.eval_run.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await actions.list_eval_runs(
+                MagicMock(),
+                principal,
+                assertion_strategy=AssertionStrategy.llm_judge,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 1
+
+    async def test_all_four_filters_combine_additively(self) -> None:
+        # All four filters together must add four independent
+        # .where predicates — confirms no short-circuit between
+        # assertion_strategy and the three earlier ones.
+        principal = _principal()
+        repo, statement = _mock_repo()
+
+        with (
+            patch(
+                "rapidly.agents.eval_run.actions.EvalRunRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.eval_run.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await actions.list_eval_runs(
+                MagicMock(),
+                principal,
+                dataset_id=uuid4(),
+                workflow_version_id=uuid4(),
+                status=EvalRunStatus.failed,
+                assertion_strategy=AssertionStrategy.exact_match,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 4
 
 
 @pytest.mark.asyncio
