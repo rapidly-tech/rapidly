@@ -1194,12 +1194,18 @@ const credentialKey = (...parts: (string | object)[]) => [
 ]
 
 async function fetchCredentials(
-  params: { provider?: string; page?: number; limit?: number } = {},
+  params: {
+    provider?: string
+    name?: string
+    page?: number
+    limit?: number
+  } = {},
 ): Promise<PaginatedCredentials> {
   const url = new URL(
     `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/integration-credentials/`,
   )
   if (params.provider) url.searchParams.set('provider', params.provider)
+  if (params.name) url.searchParams.set('name', params.name)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
   const res = await fetch(url.toString(), {
@@ -1211,7 +1217,12 @@ async function fetchCredentials(
 }
 
 export const useCredentials = (
-  params: { provider?: string; page?: number; limit?: number } = {},
+  params: {
+    provider?: string
+    name?: string
+    page?: number
+    limit?: number
+  } = {},
   enabled: boolean = true,
 ) =>
   useQuery({

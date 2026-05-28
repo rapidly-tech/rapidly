@@ -61,12 +61,23 @@ async def list_credentials(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     provider: str | None = None,
+    name: str | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[IntegrationCredential], int]:
     repo = IntegrationCredentialRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject)
     if provider is not None:
         statement = statement.where(IntegrationCredential.provider == provider)
+    if name is not None and name.strip():
+        # Same SQL-wildcard-safe escape as the workflows/datasets
+        # name filter (M5.25). Without it, ``name=%`` matches every
+        # row and ``name=foo%`` behaves as prefix not substring.
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(
+            IntegrationCredential.name.ilike(f"%{escaped}%", escape="\\")
+        )
     return await paginate(session, statement, pagination=pagination)
 
 

@@ -46,10 +46,18 @@ async def list_credentials(
     auth_subject: IntegrationCredentialsRead,
     pagination: PaginationParamsQuery,
     provider: str | None = Query(None),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the credential name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[IntegrationCredentialSchema]:
     results, count = await actions.list_credentials(
-        session, auth_subject, provider=provider, pagination=pagination
+        session, auth_subject, provider=provider, name=name, pagination=pagination
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
 
