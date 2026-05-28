@@ -335,3 +335,69 @@ class TestListWorkflows:
             )
 
         assert statement.where.call_count == 0
+
+    async def test_workspace_id_adds_where(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.workflow.actions.WorkflowRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.workflow.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_workflows(
+                MagicMock(),
+                principal,
+                workspace_id=uuid4(),
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # workspace_id alone → +1 .where. The readable-statement
+        # already filters to readable workspaces; this narrows to
+        # one of them.
+        assert statement.where.call_count == 1
+
+    async def test_workspace_id_combines_with_name_and_has_version(self) -> None:
+        principal = _principal()
+        statement = MagicMock()
+        statement.where.return_value = statement
+
+        repo = MagicMock()
+        repo.get_readable_statement.return_value = statement
+
+        with (
+            patch(
+                "rapidly.agents.workflow.actions.WorkflowRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.workflow.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_workflows(
+                MagicMock(),
+                principal,
+                workspace_id=uuid4(),
+                name="rfi",
+                has_version=True,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        # workspace_id + name + has_version → +3 .where (additive).
+        # Confirms the new predicate doesn't short-circuit the
+        # existing ones.
+        assert statement.where.call_count == 3

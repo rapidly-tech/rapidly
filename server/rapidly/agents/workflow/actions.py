@@ -41,6 +41,7 @@ async def list_workflows(
     session: AsyncReadSession,
     auth_subject: AuthPrincipal[User | Workspace],
     *,
+    workspace_id: UUID | None = None,
     project_id: UUID | None = None,
     name: str | None = None,
     has_version: bool | None = None,
@@ -48,6 +49,12 @@ async def list_workflows(
 ) -> tuple[Sequence[Workflow], int]:
     repo = WorkflowRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject)
+    if workspace_id is not None:
+        # ``get_readable_statement`` already constrains to workspaces
+        # the caller can read; this narrows to exactly one of them.
+        # A bogus workspace_id returns an empty result rather than 403
+        # so we don't leak membership.
+        statement = statement.where(Workflow.workspace_id == workspace_id)
     if project_id is not None:
         statement = statement.where(Workflow.project_id == project_id)
     if has_version is True:

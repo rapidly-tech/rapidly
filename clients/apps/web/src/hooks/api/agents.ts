@@ -54,6 +54,7 @@ export interface PaginatedWorkflows {
 
 async function fetchWorkflows(
   params: {
+    workspace_id?: string
     project_id?: string
     name?: string
     has_version?: boolean
@@ -62,6 +63,8 @@ async function fetchWorkflows(
   } = {},
 ): Promise<PaginatedWorkflows> {
   const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/`)
+  if (params.workspace_id)
+    url.searchParams.set('workspace_id', params.workspace_id)
   if (params.project_id) url.searchParams.set('project_id', params.project_id)
   if (params.name) url.searchParams.set('name', params.name)
   if (params.has_version !== undefined)
@@ -86,6 +89,7 @@ async function fetchWorkflows(
 
 export const useWorkflows = (
   params: {
+    workspace_id?: string
     project_id?: string
     name?: string
     has_version?: boolean
