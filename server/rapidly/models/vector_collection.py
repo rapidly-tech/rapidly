@@ -10,10 +10,11 @@ immutable thereafter. Changing the embedding model means
 re-embedding every chunk, which is a re-index, not an update.
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, Integer, String, Uuid
+from sqlalchemy import DateTime, ForeignKey, Integer, String, Uuid
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from rapidly.core.db.models import BaseEntity
@@ -56,6 +57,16 @@ class VectorCollection(BaseEntity):
     # The pgvector ``Vector(dim)`` column on VectorChunk references
     # this number; mismatched dimensions raise at insert time.
     dimensions: Mapped[int] = mapped_column(Integer, nullable=False)
+
+    # Archive (separate from soft-delete). Mirrors workflows
+    # (M5.65) + datasets (M5.68): operators stash a collection
+    # they're no longer indexing into without losing the chunks
+    # or breaking RAG-search references that pointed at it.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
 
     @declared_attr
     def workspace(cls) -> Mapped["Workspace"]:

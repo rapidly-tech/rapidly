@@ -67,6 +67,15 @@ async def list_collections(
         ),
         max_length=256,
     ),
+    is_archived: bool | None = Query(
+        None,
+        description=(
+            "Filter by archive state. ``false`` → only active collections; "
+            "``true`` → only archived; omitted → both. The frontend "
+            "vector-collections page defaults to ``false`` to keep the "
+            "catalog focused; direct API users get both unless they narrow."
+        ),
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[VectorCollectionSchema]:
     results, count = await actions.list_collections(
@@ -75,6 +84,7 @@ async def list_collections(
         workspace_id=workspace_id,
         project_id=project_id,
         name=name,
+        is_archived=is_archived,
         pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
@@ -137,6 +147,44 @@ async def delete_collection(
 ) -> None:
     collection = await actions.get_or_raise(session, auth_subject, id)
     await actions.delete(session, auth_subject, collection)
+
+
+@router.post(
+    "/{id}/archive",
+    summary="Archive Vector Collection",
+    response_model=VectorCollectionSchema,
+    description=(
+        "Stamp ``archived_at = now()``. Idempotent — archiving an "
+        "already-archived collection returns the row unchanged. The "
+        "collection stays queryable so RAG-search references that "
+        "pointed at it can still resolve, but the list endpoint hides "
+        "it by default."
+    ),
+)
+async def archive_collection(
+    id: UUID,
+    auth_subject: VectorCollectionsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> VectorCollectionSchema:
+    collection = await actions.get_or_raise(session, auth_subject, id)
+    archived = await actions.archive(session, auth_subject, collection)
+    return VectorCollectionSchema.model_validate(archived)
+
+
+@router.post(
+    "/{id}/unarchive",
+    summary="Unarchive Vector Collection",
+    response_model=VectorCollectionSchema,
+    description="Clear ``archived_at``. Idempotent on already-active rows.",
+)
+async def unarchive_collection(
+    id: UUID,
+    auth_subject: VectorCollectionsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> VectorCollectionSchema:
+    collection = await actions.get_or_raise(session, auth_subject, id)
+    unarchived = await actions.unarchive(session, auth_subject, collection)
+    return VectorCollectionSchema.model_validate(unarchived)
 
 
 @router.post(

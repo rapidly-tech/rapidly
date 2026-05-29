@@ -1492,6 +1492,7 @@ export interface VectorCollection {
   name: string
   embedding_model: string
   dimensions: number
+  archived_at: string | null
   created_at: string
   modified_at: string | null
 }
@@ -1526,6 +1527,7 @@ async function fetchVectorCollections(
     limit?: number
     project_id?: string
     name?: string
+    is_archived?: boolean | null
   } = {},
 ): Promise<PaginatedVectorCollections> {
   const url = new URL(
@@ -1537,6 +1539,9 @@ async function fetchVectorCollections(
   if (params.limit) url.searchParams.set('limit', String(params.limit))
   if (params.project_id) url.searchParams.set('project_id', params.project_id)
   if (params.name) url.searchParams.set('name', params.name)
+  if (params.is_archived === true || params.is_archived === false) {
+    url.searchParams.set('is_archived', String(params.is_archived))
+  }
 
   const res = await fetch(url.toString(), {
     credentials: 'include',
@@ -1555,6 +1560,7 @@ export const useVectorCollections = (
     limit?: number
     project_id?: string
     name?: string
+    is_archived?: boolean | null
   } = {},
 ) =>
   useQuery({
@@ -1609,6 +1615,56 @@ export const useDeleteVectorCollection = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: deleteVectorCollection,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vectorCollectionKey() })
+    },
+  })
+}
+
+async function archiveVectorCollection(id: string): Promise<VectorCollection> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/vector-collections/${id}/archive`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `vector collection archive failed: ${res.status}`)
+  }
+  return (await res.json()) as VectorCollection
+}
+
+async function unarchiveVectorCollection(
+  id: string,
+): Promise<VectorCollection> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/vector-collections/${id}/unarchive`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `vector collection unarchive failed: ${res.status}`)
+  }
+  return (await res.json()) as VectorCollection
+}
+
+export const useArchiveVectorCollection = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: archiveVectorCollection,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vectorCollectionKey() })
+    },
+  })
+}
+
+export const useUnarchiveVectorCollection = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: unarchiveVectorCollection,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: vectorCollectionKey() })
     },

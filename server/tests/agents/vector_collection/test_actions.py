@@ -470,3 +470,198 @@ class TestListCollections:
         # workspace_id + project_id + name → 3 .where predicates
         # (additive, no short-circuit).
         assert statement.where.call_count == 3
+
+    async def test_is_archived_filter_modes(self) -> None:
+        # Three modes: True (archived only), False (active only),
+        # None / omitted (both). Mirrors the workflow + dataset
+        # archive filter shape (M5.65 / M5.68). Counted via
+        # .where as the MagicMock pattern documented in
+        # server/CLAUDE.md.
+        principal = _user_principal()
+
+        # is_archived=True → +1 .where for IS NOT NULL.
+        statement_true = MagicMock()
+        statement_true.where.return_value = statement_true
+        repo_true = MagicMock()
+        repo_true.get_readable_statement.return_value = statement_true
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo_true,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                is_archived=True,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+        assert statement_true.where.call_count == 1
+
+        # is_archived=False → +1 .where for IS NULL.
+        statement_false = MagicMock()
+        statement_false.where.return_value = statement_false
+        repo_false = MagicMock()
+        repo_false.get_readable_statement.return_value = statement_false
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo_false,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                is_archived=False,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+        assert statement_false.where.call_count == 1
+
+        # is_archived=None → 0 .where for the archive axis.
+        statement_none = MagicMock()
+        statement_none.where.return_value = statement_none
+        repo_none = MagicMock()
+        repo_none.get_readable_statement.return_value = statement_none
+        with (
+            patch(
+                "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+                return_value=repo_none,
+            ),
+            patch(
+                "rapidly.agents.vector_collection.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            from rapidly.core.pagination import PaginationParams
+
+            await actions.list_collections(
+                MagicMock(),
+                principal,
+                is_archived=None,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+        assert statement_none.where.call_count == 0
+
+
+@pytest.mark.asyncio
+class TestArchive:
+    async def test_active_collection_gets_archived_stamp(self) -> None:
+        from uuid import uuid4
+
+        principal = _user_principal()
+        collection = VectorCollection(
+            id=uuid4(),
+            workspace_id=uuid4(),
+            name="docs",
+            embedding_model="openai:text-embedding-3-small",
+            dimensions=1536,
+            archived_at=None,
+        )
+
+        repo = MagicMock()
+        repo.update = AsyncMock(return_value=collection)
+
+        with patch(
+            "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+            return_value=repo,
+        ):
+            await actions.archive(MagicMock(), principal, collection)
+
+        repo.update.assert_awaited_once()
+        _, kwargs = repo.update.call_args
+        assert "archived_at" in kwargs["update_dict"]
+        assert kwargs["update_dict"]["archived_at"] is not None
+        assert kwargs.get("flush") is True
+
+    async def test_already_archived_is_noop(self) -> None:
+        from datetime import UTC, datetime
+        from uuid import uuid4
+
+        principal = _user_principal()
+        existing = datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC)
+        collection = VectorCollection(
+            id=uuid4(),
+            workspace_id=uuid4(),
+            name="docs",
+            embedding_model="openai:text-embedding-3-small",
+            dimensions=1536,
+            archived_at=existing,
+        )
+
+        repo = MagicMock()
+        repo.update = AsyncMock()
+
+        with patch(
+            "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+            return_value=repo,
+        ):
+            result = await actions.archive(MagicMock(), principal, collection)
+
+        repo.update.assert_not_awaited()
+        assert result.archived_at == existing
+
+
+@pytest.mark.asyncio
+class TestUnarchive:
+    async def test_archived_collection_clears_stamp(self) -> None:
+        from datetime import UTC, datetime
+        from uuid import uuid4
+
+        principal = _user_principal()
+        collection = VectorCollection(
+            id=uuid4(),
+            workspace_id=uuid4(),
+            name="docs",
+            embedding_model="openai:text-embedding-3-small",
+            dimensions=1536,
+            archived_at=datetime(2026, 5, 1, 12, 0, 0, tzinfo=UTC),
+        )
+
+        repo = MagicMock()
+        repo.update = AsyncMock(return_value=collection)
+
+        with patch(
+            "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+            return_value=repo,
+        ):
+            await actions.unarchive(MagicMock(), principal, collection)
+
+        repo.update.assert_awaited_once()
+        _, kwargs = repo.update.call_args
+        assert kwargs["update_dict"] == {"archived_at": None}
+
+    async def test_already_active_is_noop(self) -> None:
+        from uuid import uuid4
+
+        principal = _user_principal()
+        collection = VectorCollection(
+            id=uuid4(),
+            workspace_id=uuid4(),
+            name="docs",
+            embedding_model="openai:text-embedding-3-small",
+            dimensions=1536,
+            archived_at=None,
+        )
+
+        repo = MagicMock()
+        repo.update = AsyncMock()
+
+        with patch(
+            "rapidly.agents.vector_collection.actions.VectorCollectionRepository.from_session",
+            return_value=repo,
+        ):
+            await actions.unarchive(MagicMock(), principal, collection)
+
+        repo.update.assert_not_awaited()

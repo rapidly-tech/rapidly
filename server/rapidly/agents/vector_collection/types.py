@@ -59,6 +59,7 @@ class VectorCollectionSchema(BaseModel):
     name: str
     embedding_model: str
     dimensions: int
+    archived_at: datetime | None
     created_at: datetime
     modified_at: datetime | None
 
