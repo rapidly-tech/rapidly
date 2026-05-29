@@ -59,6 +59,7 @@ async function fetchWorkflows(
     project_id?: string
     name?: string
     has_version?: boolean
+    is_archived?: boolean | null
     page?: number
     limit?: number
   } = {},
@@ -70,6 +71,12 @@ async function fetchWorkflows(
   if (params.name) url.searchParams.set('name', params.name)
   if (params.has_version !== undefined)
     url.searchParams.set('has_version', String(params.has_version))
+  // ``is_archived`` is tri-state. ``undefined`` / ``null`` →
+  // omit the param entirely (server returns both archived and
+  // active). ``true`` / ``false`` → narrow.
+  if (params.is_archived === true || params.is_archived === false) {
+    url.searchParams.set('is_archived', String(params.is_archived))
+  }
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
 
@@ -94,6 +101,7 @@ export const useWorkflows = (
     project_id?: string
     name?: string
     has_version?: boolean
+    is_archived?: boolean | null
     page?: number
     limit?: number
   } = {},

@@ -19,6 +19,7 @@ import { useState } from 'react'
 const PAGE_SIZE = 20
 
 type PublishFilter = 'all' | 'published' | 'draft'
+type ArchiveFilter = 'active' | 'archived' | 'all'
 
 export default function WorkflowsListPage() {
   const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
@@ -30,6 +31,12 @@ export default function WorkflowsListPage() {
 
   const [search, setSearch] = useState('')
   const [publishFilter, setPublishFilter] = useState<PublishFilter>('all')
+  // Defaults to "active" so the catalog stays focused on
+  // workflows operators are actively using. Mirrors the server
+  // route's user-facing default (which defaults to None /
+  // "both" — the frontend opts in to active-only here so the
+  // UX is consistent across new tabs / refreshes).
+  const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>('active')
   const [page, setPage] = useState(1)
   // Reset to page 1 when any filter changes — keeps the user
   // from being stranded on page 4 of "foo" if the new filter
@@ -40,6 +47,10 @@ export default function WorkflowsListPage() {
   }
   const onPublishFilterChange = (next: PublishFilter) => {
     setPublishFilter(next)
+    setPage(1)
+  }
+  const onArchiveFilterChange = (next: ArchiveFilter) => {
+    setArchiveFilter(next)
     setPage(1)
   }
   const onWorkspaceChange = (next: string | null) => {
@@ -55,6 +66,12 @@ export default function WorkflowsListPage() {
         publishFilter === 'published'
           ? true
           : publishFilter === 'draft'
+            ? false
+            : undefined,
+      is_archived:
+        archiveFilter === 'archived'
+          ? true
+          : archiveFilter === 'active'
             ? false
             : undefined,
       limit: PAGE_SIZE,
@@ -86,13 +103,25 @@ export default function WorkflowsListPage() {
         value={publishFilter}
         onChange={onPublishFilterChange}
       />
+      <ArchiveFilterChips
+        value={archiveFilter}
+        onChange={onArchiveFilterChange}
+      />
 
-      {(search.trim() || publishFilter !== 'all') && (
+      {(search.trim() ||
+        publishFilter !== 'all' ||
+        archiveFilter !== 'active') && (
         <button
           type="button"
           onClick={() => {
             setSearch('')
             setPublishFilter('all')
+            // "Clear" returns archive to its UX default
+            // (active-only), not "all" — clearing should land
+            // operators back on the catalog they see when they
+            // open the page fresh, not in a wider view than
+            // they started with.
+            setArchiveFilter('active')
             setPage(1)
           }}
           className="self-start text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
@@ -141,6 +170,41 @@ function PublishFilterChips({
     { label: 'All', value: 'all' },
     { label: 'Published', value: 'published' },
     { label: 'Draft', value: 'draft' },
+  ]
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {filters.map((f) => {
+        const active = f.value === value
+        return (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => onChange(f.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {f.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
+function ArchiveFilterChips({
+  value,
+  onChange,
+}: {
+  value: ArchiveFilter
+  onChange: (next: ArchiveFilter) => void
+}) {
+  const filters: { label: string; value: ArchiveFilter }[] = [
+    { label: 'Active', value: 'active' },
+    { label: 'Archived', value: 'archived' },
+    { label: 'All', value: 'all' },
   ]
   return (
     <div className="flex flex-wrap gap-1.5">

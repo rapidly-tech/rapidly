@@ -60,12 +60,12 @@ async def list_workflows(
         ),
     ),
     is_archived: bool | None = Query(
-        False,
+        None,
         description=(
-            "Filter by archive state. ``false`` (default) hides archived "
-            "rows; ``true`` returns archived-only; ``null`` (omit) returns "
-            "both. Archived workflows still resolve in run history — the "
-            "list endpoint just hides them so the catalog stays focused."
+            "Filter by archive state. ``false`` → only active workflows; "
+            "``true`` → only archived; omitted → both. The frontend "
+            "workflows page defaults to ``false`` to keep the catalog "
+            "focused; direct API users get both unless they narrow."
         ),
     ),
     session: AsyncReadSession = Depends(get_db_read_session),
