@@ -371,15 +371,22 @@ function WorkflowList({ workflows }: { workflows: Workflow[] }) {
               <span className="text-lg font-medium text-slate-900 dark:text-slate-100">
                 {workflow.name}
               </span>
-              {workflow.current_version_id ? (
-                <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
-                  Published
-                </span>
-              ) : (
-                <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-                  Draft
-                </span>
-              )}
+              <span className="flex flex-wrap items-center gap-1">
+                {workflow.current_version_id ? (
+                  <span className="rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+                    Published
+                  </span>
+                ) : (
+                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                    Draft
+                  </span>
+                )}
+                {workflow.archived_at && (
+                  <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                    Archived
+                  </span>
+                )}
+              </span>
             </div>
             {workflow.description && (
               <p className="text-sm text-slate-600 dark:text-slate-400">
