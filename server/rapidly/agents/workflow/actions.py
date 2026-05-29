@@ -10,6 +10,7 @@ from uuid import UUID
 from rapidly.agents.workflow.queries import WorkflowRepository
 from rapidly.agents.workflow.types import WorkflowCreate, WorkflowUpdate
 from rapidly.core.pagination import PaginationParams, paginate
+from rapidly.core.utils import now_utc
 from rapidly.errors import ResourceNotFound
 from rapidly.identity.auth.models import AuthPrincipal, User, Workspace
 from rapidly.models import Workflow
@@ -45,6 +46,7 @@ async def list_workflows(
     project_id: UUID | None = None,
     name: str | None = None,
     has_version: bool | None = None,
+    is_archived: bool | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[Workflow], int]:
     repo = WorkflowRepository.from_session(session)
@@ -63,6 +65,14 @@ async def list_workflows(
         statement = statement.where(Workflow.current_version_id.is_not(None))
     elif has_version is False:
         statement = statement.where(Workflow.current_version_id.is_(None))
+    if is_archived is True:
+        # ``Archived only`` — operators reviewing what they tucked
+        # away. The chamber's list endpoint defaults this to False
+        # so non-archived rows are the assumed default; passing
+        # None explicitly disables the filter entirely.
+        statement = statement.where(Workflow.archived_at.is_not(None))
+    elif is_archived is False:
+        statement = statement.where(Workflow.archived_at.is_(None))
     if name is not None and name.strip():
         # Same escape pattern as the projects/labels list endpoints.
         # Without escaping, ``name=%`` matches everything and ``name=foo%``
@@ -114,3 +124,34 @@ async def delete(
 ) -> None:
     repo = WorkflowRepository.from_session(session)
     await repo.soft_delete(workflow)
+
+
+async def archive(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    workflow: Workflow,
+) -> Workflow:
+    """Stamp ``archived_at = now()`` if not already archived.
+
+    Idempotent — archiving an already-archived workflow is a no-op
+    that returns the row unchanged, so a retry doesn't bump the
+    archive timestamp.
+    """
+    if workflow.archived_at is not None:
+        return workflow
+    repo = WorkflowRepository.from_session(session)
+    return await repo.update(
+        workflow, update_dict={"archived_at": now_utc()}, flush=True
+    )
+
+
+async def unarchive(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    workflow: Workflow,
+) -> Workflow:
+    """Clear ``archived_at``. Idempotent on already-active rows."""
+    if workflow.archived_at is None:
+        return workflow
+    repo = WorkflowRepository.from_session(session)
+    return await repo.update(workflow, update_dict={"archived_at": None}, flush=True)
