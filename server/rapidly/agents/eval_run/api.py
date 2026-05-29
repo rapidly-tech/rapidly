@@ -10,7 +10,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import Depends, Query, status
+from fastapi import Depends, HTTPException, Query, status
 
 from rapidly.agents.eval_run import actions
 from rapidly.agents.eval_run.permissions import EvalRunsRead, EvalRunsWrite
@@ -20,6 +20,7 @@ from rapidly.agents.eval_run.types import (
     EvalRunTrigger,
 )
 from rapidly.core.pagination import PaginatedList, PaginationParamsQuery
+from rapidly.errors import NotPermitted
 from rapidly.models.eval_run import AssertionStrategy, EvalRunStatus
 from rapidly.openapi import APITag
 from rapidly.postgres import (
@@ -116,7 +117,16 @@ async def trigger_eval_run(
     auth_subject: EvalRunsWrite,
     session: AsyncSession = Depends(get_db_session),
 ) -> EvalRunSchema:
-    eval_run = await actions.trigger(session, auth_subject, body)
+    try:
+        eval_run = await actions.trigger(session, auth_subject, body)
+    except NotPermitted as exc:
+        # Archive guard on the dataset/workflow (M5.78) — same
+        # 412 mapping the run-trigger uses: the resource is
+        # gettable but not actionable in its current state.
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail=str(exc),
+        ) from exc
     return EvalRunSchema.model_validate(eval_run)
 
 

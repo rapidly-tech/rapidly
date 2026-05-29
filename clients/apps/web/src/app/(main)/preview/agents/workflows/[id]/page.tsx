@@ -89,7 +89,7 @@ export default function WorkflowDetailPage({
           <WorkflowHeader workflow={workflow} />
           <PublishVersionSection workflow={workflow} />
           <VersionHistorySection workflow={workflow} />
-          {workflow.current_version_id && (
+          {workflow.current_version_id && workflow.archived_at === null && (
             <TriggerRunSection workflow={workflow} />
           )}
           <RunsSection
