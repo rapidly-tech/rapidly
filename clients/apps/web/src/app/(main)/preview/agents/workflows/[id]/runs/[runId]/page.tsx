@@ -160,6 +160,8 @@ function NodeRunsSection({
   errorMessage?: string
 }) {
   const [statusFilter, setStatusFilter] = useState<NodeRunStatus | null>(null)
+  const [search, setSearch] = useState('')
+  const trimmedSearch = search.trim().toLowerCase()
 
   // Sort once here so both the export and the visible list
   // see the same execution order; chip filter applies *after*
@@ -181,9 +183,19 @@ function NodeRunsSection({
   }
   for (const n of nodes) counts[n.status] += 1
 
-  const visible = statusFilter
-    ? sorted.filter((n) => n.status === statusFilter)
-    : sorted
+  // Both filter axes combine. Search matches node_id OR
+  // node_type so operators can grep either the workflow's
+  // node-instance handle (echo1) or its kind (echo).
+  const visible = sorted.filter((n) => {
+    if (statusFilter && n.status !== statusFilter) return false
+    if (
+      trimmedSearch &&
+      !n.node_id.toLowerCase().includes(trimmedSearch) &&
+      !n.node_type.toLowerCase().includes(trimmedSearch)
+    )
+      return false
+    return true
+  })
 
   return (
     <section className="flex flex-col gap-3">
@@ -202,6 +214,15 @@ function NodeRunsSection({
           </div>
         )}
       </div>
+      {nodes.length > 0 && (
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter steps by node_id or node_type…"
+          className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+        />
+      )}
       {isLoading ? (
         <RunsSkeleton />
       ) : isError ? (
@@ -209,7 +230,10 @@ function NodeRunsSection({
       ) : nodes.length === 0 ? (
         <EmptyNodes />
       ) : visible.length === 0 ? (
-        <EmptyFilteredNodes status={statusFilter!} />
+        <EmptyFilteredNodes
+          status={statusFilter}
+          search={trimmedSearch ? search.trim() : null}
+        />
       ) : (
         <NodeRunsList nodes={visible} />
       )}
@@ -281,10 +305,34 @@ function NodeStatusFilter({
   )
 }
 
-function EmptyFilteredNodes({ status }: { status: NodeRunStatus }) {
+function EmptyFilteredNodes({
+  status,
+  search,
+}: {
+  status: NodeRunStatus | null
+  search: string | null
+}) {
+  // Composes per active axis. Status only, search only, or both.
   return (
     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-      No <span className="font-mono">{status}</span> steps in this run.
+      No
+      {status && (
+        <>
+          {' '}
+          <span className="font-mono">{status}</span>
+        </>
+      )}{' '}
+      steps
+      {search && (
+        <>
+          {' '}
+          match{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">
+            {search}
+          </code>
+        </>
+      )}
+      .
     </div>
   )
 }
