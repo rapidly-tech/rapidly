@@ -45,6 +45,7 @@ export default function CredentialsPage() {
   const credsQuery = useCredentials(
     {
       name: search.trim() || undefined,
+      workspace_id: activeWorkspaceId ?? undefined,
       limit: PAGE_SIZE,
       page,
     },
@@ -53,18 +54,10 @@ export default function CredentialsPage() {
   const budgetsQuery = useCredentialBudgets()
   const alertsQuery = useCredentialAlerts()
 
-  // The list endpoint returns rows across all workspaces the
-  // caller can read; filter to the active one. With the new
-  // page state we can't trust meta.total either — it counts
-  // pre-workspace-filter — so we expose the post-filter length
-  // to the pagination control.
-  const credentials: IntegrationCredential[] = useMemo(
-    () =>
-      (credsQuery.data?.data ?? []).filter(
-        (c) => c.workspace_id === activeWorkspaceId,
-      ),
-    [credsQuery.data, activeWorkspaceId],
-  )
+  // List endpoint now scopes server-side via ``workspace_id``
+  // (M5.77), so the page can trust meta.total again — no more
+  // post-fetch filter that broke pagination math.
+  const credentials: IntegrationCredential[] = credsQuery.data?.data ?? []
   const meta = credsQuery.data?.meta
 
   const budgetsById = useMemo(() => {

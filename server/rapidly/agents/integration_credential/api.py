@@ -54,10 +54,23 @@ async def list_credentials(
         ),
         max_length=256,
     ),
+    workspace_id: UUID | None = Query(
+        None,
+        description=(
+            "Filter to a single workspace. The auth subject must "
+            "already be readable for that workspace; otherwise the "
+            "filter is a no-op against an empty visible set."
+        ),
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[IntegrationCredentialSchema]:
     results, count = await actions.list_credentials(
-        session, auth_subject, provider=provider, name=name, pagination=pagination
+        session,
+        auth_subject,
+        provider=provider,
+        name=name,
+        workspace_id=workspace_id,
+        pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
 

@@ -62,10 +62,13 @@ async def list_credentials(
     *,
     provider: str | None = None,
     name: str | None = None,
+    workspace_id: UUID | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[IntegrationCredential], int]:
     repo = IntegrationCredentialRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject)
+    if workspace_id is not None:
+        statement = statement.where(IntegrationCredential.workspace_id == workspace_id)
     if provider is not None:
         statement = statement.where(IntegrationCredential.provider == provider)
     if name is not None and name.strip():
