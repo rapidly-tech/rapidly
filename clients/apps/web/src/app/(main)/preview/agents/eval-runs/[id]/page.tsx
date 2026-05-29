@@ -221,6 +221,8 @@ function CasesSection({
   errorMessage?: string
 }) {
   const [outcome, setOutcome] = useState<CaseOutcome | null>(null)
+  const [search, setSearch] = useState('')
+  const trimmedSearch = search.trim().toLowerCase()
 
   // Tag every case with its outcome once so the chip counts +
   // the visible-row filter use the same classification — no
@@ -237,10 +239,15 @@ function CasesSection({
   }
   for (const { outcome } of classified) counts[outcome] += 1
 
-  const visible =
-    outcome === null
-      ? classified
-      : classified.filter((c) => c.outcome === outcome)
+  const visible = classified.filter((c) => {
+    if (outcome !== null && c.outcome !== outcome) return false
+    if (
+      trimmedSearch &&
+      !c.caseItem.case_name.toLowerCase().includes(trimmedSearch)
+    )
+      return false
+    return true
+  })
 
   return (
     <section className="flex flex-col gap-3">
@@ -255,6 +262,15 @@ function CasesSection({
           </div>
         )}
       </div>
+      {cases.length > 0 && (
+        <input
+          type="search"
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          placeholder="Filter cases by name…"
+          className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+        />
+      )}
       {isLoading ? (
         <CasesSkeleton />
       ) : isError ? (
@@ -262,7 +278,10 @@ function CasesSection({
       ) : cases.length === 0 ? (
         <EmptyCases />
       ) : visible.length === 0 ? (
-        <EmptyFiltered outcome={outcome!} />
+        <EmptyCasesFiltered
+          outcome={outcome}
+          search={trimmedSearch ? search.trim() : null}
+        />
       ) : (
         <ul className="flex flex-col gap-2">
           {visible.map(({ caseItem }, idx) => (
@@ -271,6 +290,33 @@ function CasesSection({
         </ul>
       )}
     </section>
+  )
+}
+
+function EmptyCasesFiltered({
+  outcome,
+  search,
+}: {
+  outcome: CaseOutcome | null
+  search: string | null
+}) {
+  // Both filter axes can fire together. Compose the empty
+  // banner so operators see which filter is hiding rows.
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No
+      {outcome && <> {outcome}</>} cases
+      {search && (
+        <>
+          {' '}
+          match{' '}
+          <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">
+            {search}
+          </code>
+        </>
+      )}
+      .
+    </div>
   )
 }
 
@@ -308,14 +354,6 @@ function CaseFilter({
           </button>
         )
       })}
-    </div>
-  )
-}
-
-function EmptyFiltered({ outcome }: { outcome: CaseOutcome }) {
-  return (
-    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-      No <span className="font-mono">{outcome}</span> cases in this eval run.
     </div>
   )
 }
