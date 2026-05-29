@@ -224,6 +224,11 @@ function WorkflowHeader({ workflow }: { workflow: Workflow }) {
                 Draft
               </span>
             )}
+            {workflow.archived_at && (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                Archived
+              </span>
+            )}
           </div>
           {workflow.description && (
             <p className="max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
