@@ -1,6 +1,7 @@
 'use client'
 
 import { CopyId } from '@/components/agents/CopyId'
+import { JsonPanel } from '@/components/agents/JsonPanel'
 import {
   type EvalRun,
   type EvalRunCase,
@@ -475,33 +476,6 @@ function CaseStatusPill({ caseItem }: { caseItem: EvalRunCase }) {
     <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-500 dark:bg-slate-800 dark:text-slate-400">
       qualitative
     </span>
-  )
-}
-
-function JsonPanel({
-  title,
-  data,
-  placeholder,
-}: {
-  title: string
-  data: Record<string, unknown> | null
-  placeholder?: string
-}) {
-  return (
-    <div className="flex flex-col gap-2">
-      <h3 className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
-        {title}
-      </h3>
-      {data === null ? (
-        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-          {placeholder ?? '—'}
-        </p>
-      ) : (
-        <pre className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300">
-          {JSON.stringify(data, null, 2)}
-        </pre>
-      )}
-    </div>
   )
 }
 
