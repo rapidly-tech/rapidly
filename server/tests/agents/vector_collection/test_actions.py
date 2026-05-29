@@ -234,6 +234,55 @@ class TestTriggerIndex:
             await actions.trigger_index(session, principal, collection, wrong_file.id)
         dispatch.assert_not_called()
 
+    async def test_archived_collection_rejected(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+        mocker: MockerFixture,
+    ) -> None:
+        """M5.79: an archived collection can't accept new indexing.
+        Symmetric with the workflow + dataset trigger guards
+        (M5.78). Without this an automation could keep indexing
+        into a corpus the operator deliberately mothballed."""
+        from datetime import UTC, datetime
+
+        from rapidly.errors import NotPermitted
+
+        collection = VectorCollection(
+            workspace_id=workspace.id,
+            name="archived-docs",
+            embedding_model="test:4",
+            dimensions=4,
+            archived_at=datetime.now(UTC),
+        )
+        session.add(collection)
+
+        file_row = DownloadableFile(
+            workspace_id=workspace.id,
+            name="readme.txt",
+            path=f"workspaces/{workspace.id}/{uuid.uuid4()}",
+            mime_type="text/plain",
+            size=10,
+            service=FileServiceTypes.downloadable,
+            is_uploaded=True,
+            is_enabled=True,
+            scan_status=FileScanStatus.clean,
+        )
+        session.add(file_row)
+        await session.flush()
+
+        dispatch = mocker.patch(
+            "rapidly.agents.vector_collection.actions.dispatch_task"
+        )
+
+        principal = _user_principal()
+        with pytest.raises(NotPermitted, match="archived"):
+            await actions.trigger_index(session, principal, collection, file_row.id)
+        # The actor must NOT be dispatched — otherwise stale data
+        # would still land in the corpus even though the API
+        # returns 412.
+        dispatch.assert_not_called()
+
 
 @pytest.mark.asyncio
 class TestAssertWorkspaceWritable:

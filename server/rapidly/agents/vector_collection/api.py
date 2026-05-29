@@ -13,7 +13,7 @@ from __future__ import annotations
 
 from uuid import UUID
 
-from fastapi import Depends, Query, status
+from fastapi import Depends, HTTPException, Query, status
 
 from rapidly.agents.vector_collection import actions
 from rapidly.agents.vector_collection.permissions import (
@@ -28,6 +28,7 @@ from rapidly.agents.vector_collection.types import (
     VectorCollectionUpdate,
 )
 from rapidly.core.pagination import PaginatedList, PaginationParamsQuery
+from rapidly.errors import NotPermitted
 from rapidly.openapi import APITag
 from rapidly.postgres import (
     AsyncReadSession,
@@ -206,7 +207,16 @@ async def trigger_indexing(
     session: AsyncSession = Depends(get_db_session),
 ) -> IndexResponse:
     collection = await actions.get_or_raise(session, auth_subject, id)
-    await actions.trigger_index(session, auth_subject, collection, body.file_id)
+    try:
+        await actions.trigger_index(session, auth_subject, collection, body.file_id)
+    except NotPermitted as exc:
+        # Archive guard (M5.79) — same 412 mapping the run +
+        # eval-run triggers use: resource is gettable but not
+        # actionable in its current state.
+        raise HTTPException(
+            status_code=status.HTTP_412_PRECONDITION_FAILED,
+            detail=str(exc),
+        ) from exc
     return IndexResponse(
         collection_id=collection.id, file_id=body.file_id, dispatched=True
     )
