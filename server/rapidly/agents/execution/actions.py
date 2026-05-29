@@ -27,6 +27,17 @@ async def start_run(
     as NotPermitted from the API). The actor re-loads the row in
     its own session, so we just need the id persisted.
     """
+    if workflow.archived_at is not None:
+        # Archived workflows are retired by user intent (M5.65).
+        # Triggering a run on one would contradict the user-facing
+        # default ("active only") on the workflows list and let an
+        # automation accidentally restart a workflow the operator
+        # deliberately took out of service. Operators must
+        # unarchive before triggering.
+        raise NotPermitted(
+            "Workflow is archived. Unarchive it before triggering a run."
+        )
+
     if workflow.current_version_id is None:
         # Per the strategic plan: a workflow without a published
         # version can't be run. The trigger endpoint maps this to

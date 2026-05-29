@@ -148,21 +148,40 @@ async def trigger(
 
     dataset = await get_dataset_or_raise(session, auth_subject, data.dataset_id)
 
+    if dataset.archived_at is not None:
+        # Symmetric with the workflow archive guard in
+        # ``execution.actions.start_run``: an archived dataset is
+        # retired by user intent, so triggering an eval against
+        # it would contradict the user-facing "active only"
+        # default on the datasets list.
+        raise NotPermitted(
+            "Dataset is archived. Unarchive it before triggering an eval."
+        )
+
     # Verify caller can read the workflow_version + it's in the
     # same workspace as the dataset. We don't have a
     # workflow_version_actions module yet, so do the join inline.
-    version = (
+    # Also pull the workflow row so we can enforce the archive
+    # guard on it — without this an archived workflow could still
+    # be eval'd via a frozen historical workflow_version_id.
+    row = (
         await session.execute(
-            select(WorkflowVersion)
+            select(WorkflowVersion, Workflow)
             .join(Workflow, Workflow.id == WorkflowVersion.workflow_id)
             .where(
                 WorkflowVersion.id == data.workflow_version_id,
                 Workflow.workspace_id == dataset.workspace_id,
             )
         )
-    ).scalar_one_or_none()
-    if version is None:
+    ).one_or_none()
+    if row is None:
         raise ResourceNotFound("WorkflowVersion not found in this workspace.")
+    version, workflow = row
+
+    if workflow.archived_at is not None:
+        raise NotPermitted(
+            "Workflow is archived. Unarchive it before triggering an eval."
+        )
 
     # llm_judge requires a configured grader model — fail fast
     # at trigger time rather than per-case at run time so the

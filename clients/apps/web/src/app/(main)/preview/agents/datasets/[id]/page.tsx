@@ -52,7 +52,9 @@ export default function DatasetDetailPage({
       ) : dataset ? (
         <>
           <DatasetHeader dataset={dataset} caseCount={cases.length} />
-          <TriggerEvalSection dataset={dataset} />
+          {dataset.archived_at === null && (
+            <TriggerEvalSection dataset={dataset} />
+          )}
           <EvalHistorySection datasetId={dataset.id} />
           <CasesSection
             cases={cases}
