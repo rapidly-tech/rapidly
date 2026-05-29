@@ -605,6 +605,22 @@ function RunsSection({
         />
       )}
 
+      {activeVersionId && (statusFilter || triggeredByFilter) && (
+        <button
+          type="button"
+          onClick={() => {
+            // Clears status + triggered-by chip filters. The
+            // version picker stays put — it's a "what am I
+            // looking at" selector, not a filter.
+            onStatusFilterChange(null)
+            onTriggeredByFilterChange(null)
+          }}
+          className="self-start text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+        >
+          Clear filters
+        </button>
+      )}
+
       {!activeVersionId ? (
         <EmptyRuns message="This workflow has no published version yet — publish a version to trigger runs." />
       ) : isLoading ? (

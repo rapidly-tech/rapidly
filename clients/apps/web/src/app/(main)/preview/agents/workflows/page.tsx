@@ -87,6 +87,20 @@ export default function WorkflowsListPage() {
         onChange={onPublishFilterChange}
       />
 
+      {(search.trim() || publishFilter !== 'all') && (
+        <button
+          type="button"
+          onClick={() => {
+            setSearch('')
+            setPublishFilter('all')
+            setPage(1)
+          }}
+          className="self-start text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+        >
+          Clear filters
+        </button>
+      )}
+
       {query.isLoading ? (
         <LoadingSkeleton />
       ) : query.isError ? (
