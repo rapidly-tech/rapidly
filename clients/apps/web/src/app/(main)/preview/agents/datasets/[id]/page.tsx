@@ -443,7 +443,19 @@ function TriggerEvalSection({ dataset }: { dataset: Dataset }) {
   // version) are listed but disabled with a hint. A paste-
   // UUID fallback is still rendered below for the rare case
   // an operator wants to eval an older version.
-  const workflowsQuery = useWorkflows({ limit: 100, page: 1 })
+  //
+  // Scoped to the dataset's workspace: cross-workspace picks
+  // would fail server-side on the trigger. Archived workflows
+  // are filtered client-side — the picker mirrors the user-
+  // facing "active" default everywhere else.
+  const workflowsQuery = useWorkflows({
+    limit: 100,
+    page: 1,
+    workspace_id: dataset.workspace_id,
+  })
+  const pickableWorkflows = (workflowsQuery.data?.data ?? []).filter(
+    (w) => w.archived_at === null,
+  )
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -486,22 +498,24 @@ function TriggerEvalSection({ dataset }: { dataset: Dataset }) {
       <Field label="Workflow">
         <select
           value={
-            (workflowsQuery.data?.data ?? []).find(
+            pickableWorkflows.find(
               (w) => w.current_version_id === workflowVersionId,
             )?.id ?? ''
           }
           onChange={(e) => {
-            const w = (workflowsQuery.data?.data ?? []).find(
-              (wf) => wf.id === e.target.value,
-            )
+            const w = pickableWorkflows.find((wf) => wf.id === e.target.value)
             setWorkflowVersionId(w?.current_version_id ?? '')
           }}
           className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
         >
           <option value="">
-            {workflowsQuery.isLoading ? 'Loading…' : 'Select a workflow'}
+            {workflowsQuery.isLoading
+              ? 'Loading…'
+              : pickableWorkflows.length === 0
+                ? 'No active workflows in this workspace'
+                : 'Select a workflow'}
           </option>
-          {(workflowsQuery.data?.data ?? []).map((w) => (
+          {pickableWorkflows.map((w) => (
             <option key={w.id} value={w.id} disabled={!w.current_version_id}>
               {w.name}
               {!w.current_version_id ? ' (draft — no version)' : ''}
