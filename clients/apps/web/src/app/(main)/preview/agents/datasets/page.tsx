@@ -14,6 +14,8 @@ import { useState } from 'react'
 
 const PAGE_SIZE = 20
 
+type ArchiveFilter = 'active' | 'archived' | 'all'
+
 export default function DatasetsListPage() {
   const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
   const workspaces = workspacesQuery.data?.data ?? []
@@ -23,9 +25,14 @@ export default function DatasetsListPage() {
   const activeWorkspaceId = pickedWorkspaceId ?? workspaces[0]?.id ?? null
 
   const [search, setSearch] = useState('')
+  const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>('active')
   const [page, setPage] = useState(1)
   const onSearchChange = (next: string) => {
     setSearch(next)
+    setPage(1)
+  }
+  const onArchiveFilterChange = (next: ArchiveFilter) => {
+    setArchiveFilter(next)
     setPage(1)
   }
   const onWorkspaceChange = (next: string | null) => {
@@ -37,6 +44,12 @@ export default function DatasetsListPage() {
     {
       workspace_id: activeWorkspaceId ?? undefined,
       name: search.trim() || undefined,
+      is_archived:
+        archiveFilter === 'archived'
+          ? true
+          : archiveFilter === 'active'
+            ? false
+            : undefined,
       limit: PAGE_SIZE,
       page,
     },
@@ -61,6 +74,10 @@ export default function DatasetsListPage() {
         value={search}
         onChange={onSearchChange}
         placeholder="Filter datasets by name…"
+      />
+      <ArchiveFilterChips
+        value={archiveFilter}
+        onChange={onArchiveFilterChange}
       />
 
       {query.isLoading ? (
@@ -87,6 +104,41 @@ export default function DatasetsListPage() {
         </>
       )}
     </main>
+  )
+}
+
+function ArchiveFilterChips({
+  value,
+  onChange,
+}: {
+  value: ArchiveFilter
+  onChange: (next: ArchiveFilter) => void
+}) {
+  const filters: { label: string; value: ArchiveFilter }[] = [
+    { label: 'Active', value: 'active' },
+    { label: 'Archived', value: 'archived' },
+    { label: 'All', value: 'all' },
+  ]
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {filters.map((f) => {
+        const active = f.value === value
+        return (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => onChange(f.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {f.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -216,9 +268,16 @@ function DatasetList({ datasets }: { datasets: Dataset[] }) {
             href={`/preview/agents/datasets/${d.id}`}
             className="group flex flex-col gap-2 rounded-lg border border-slate-200 bg-white p-5 transition hover:border-emerald-400 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
           >
-            <span className="text-lg font-medium text-slate-900 dark:text-slate-100">
-              {d.name}
-            </span>
+            <div className="flex items-center justify-between gap-3">
+              <span className="text-lg font-medium text-slate-900 dark:text-slate-100">
+                {d.name}
+              </span>
+              {d.archived_at && (
+                <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                  Archived
+                </span>
+              )}
+            </div>
             {d.description && (
               <p className="text-sm text-slate-600 dark:text-slate-400">
                 {d.description}

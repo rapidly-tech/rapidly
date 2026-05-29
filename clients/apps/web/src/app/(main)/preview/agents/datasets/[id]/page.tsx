@@ -10,6 +10,7 @@ import {
   type EvalRun,
   type EvalRunStatus,
   postDatasetCase,
+  useArchiveDataset,
   useCreateDatasetCase,
   useDataset,
   useDatasetCases,
@@ -17,6 +18,7 @@ import {
   useDeleteDatasetCase,
   useEvalRuns,
   useTriggerEval,
+  useUnarchiveDataset,
   useUpdateDataset,
   useWorkflows,
 } from '@/hooks/api/agents'
@@ -67,6 +69,7 @@ export default function DatasetDetailPage({
                 : 0
             }
           />
+          <ArchiveSection dataset={dataset} />
           <DangerZone dataset={dataset} />
         </>
       ) : null}
@@ -175,6 +178,11 @@ function DatasetHeader({
             <span className="rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">
               {caseCount} case{caseCount === 1 ? '' : 's'}
             </span>
+            {dataset.archived_at && (
+              <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                Archived
+              </span>
+            )}
           </div>
           {dataset.description && (
             <p className="max-w-2xl text-base leading-relaxed text-slate-600 dark:text-slate-400">
@@ -198,6 +206,45 @@ function DatasetHeader({
         </button>
       </div>
     </header>
+  )
+}
+
+function ArchiveSection({ dataset }: { dataset: Dataset }) {
+  const archive = useArchiveDataset()
+  const unarchive = useUnarchiveDataset()
+  const isArchived = dataset.archived_at !== null
+  const mutation = isArchived ? unarchive : archive
+
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/40 p-5 dark:border-amber-900/40 dark:bg-amber-900/10">
+      <h2 className="text-sm font-medium text-amber-800 dark:text-amber-300">
+        {isArchived ? 'Archived' : 'Archive'}
+      </h2>
+      <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+        {isArchived
+          ? 'This dataset is archived — it stays queryable so past eval runs resolve their parent, but the datasets list hides it by default. Unarchive to restore it.'
+          : 'Archiving tucks the dataset away from the datasets list without losing it. Past eval runs and cases stay queryable; you can unarchive anytime. Use Delete (below) for the destructive path.'}
+      </p>
+      {mutation.isError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+          {(mutation.error as Error).message}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => mutation.mutate(dataset.id)}
+        disabled={mutation.isPending}
+        className="self-start rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/30"
+      >
+        {mutation.isPending
+          ? isArchived
+            ? 'Unarchiving…'
+            : 'Archiving…'
+          : isArchived
+            ? 'Unarchive'
+            : 'Archive dataset'}
+      </button>
+    </section>
   )
 }
 

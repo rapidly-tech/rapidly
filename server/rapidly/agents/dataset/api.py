@@ -59,6 +59,15 @@ async def list_datasets(
         ),
         max_length=256,
     ),
+    is_archived: bool | None = Query(
+        None,
+        description=(
+            "Filter by archive state. ``false`` → only active datasets; "
+            "``true`` → only archived; omitted → both. The frontend "
+            "datasets page defaults to ``false`` to keep the catalog "
+            "focused; direct API users get both unless they narrow."
+        ),
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[DatasetSchema]:
     results, count = await actions.list_datasets(
@@ -66,6 +75,7 @@ async def list_datasets(
         auth_subject,
         workspace_id=workspace_id,
         name=name,
+        is_archived=is_archived,
         pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
@@ -124,6 +134,43 @@ async def delete_dataset(
 ) -> None:
     dataset = await actions.get_dataset_or_raise(session, auth_subject, id)
     await actions.delete_dataset(session, auth_subject, dataset)
+
+
+@router.post(
+    "/{id}/archive",
+    summary="Archive Dataset",
+    response_model=DatasetSchema,
+    description=(
+        "Stamp ``archived_at = now()``. Idempotent — archiving an "
+        "already-archived dataset returns the row unchanged. The dataset "
+        "stays queryable so past eval-runs can resolve their parent, but "
+        "the list endpoint hides it by default."
+    ),
+)
+async def archive_dataset(
+    id: UUID,
+    auth_subject: DatasetsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> DatasetSchema:
+    dataset = await actions.get_dataset_or_raise(session, auth_subject, id)
+    archived = await actions.archive_dataset(session, auth_subject, dataset)
+    return DatasetSchema.model_validate(archived)
+
+
+@router.post(
+    "/{id}/unarchive",
+    summary="Unarchive Dataset",
+    response_model=DatasetSchema,
+    description="Clear ``archived_at``. Idempotent on already-active rows.",
+)
+async def unarchive_dataset(
+    id: UUID,
+    auth_subject: DatasetsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> DatasetSchema:
+    dataset = await actions.get_dataset_or_raise(session, auth_subject, id)
+    unarchived = await actions.unarchive_dataset(session, auth_subject, dataset)
+    return DatasetSchema.model_validate(unarchived)
 
 
 # ── Cases (nested under datasets) ──────────────────────────

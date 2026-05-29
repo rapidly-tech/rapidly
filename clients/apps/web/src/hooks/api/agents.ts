@@ -700,6 +700,7 @@ export interface Dataset {
   workspace_id: string
   name: string
   description: string | null
+  archived_at: string | null
   created_at: string
   modified_at: string | null
 }
@@ -734,6 +735,7 @@ async function fetchDatasets(
   params: {
     workspace_id?: string
     name?: string
+    is_archived?: boolean | null
     page?: number
     limit?: number
   } = {},
@@ -744,6 +746,9 @@ async function fetchDatasets(
   if (params.workspace_id)
     url.searchParams.set('workspace_id', params.workspace_id)
   if (params.name) url.searchParams.set('name', params.name)
+  if (params.is_archived === true || params.is_archived === false) {
+    url.searchParams.set('is_archived', String(params.is_archived))
+  }
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
 
@@ -759,6 +764,7 @@ export const useDatasets = (
   params: {
     workspace_id?: string
     name?: string
+    is_archived?: boolean | null
     page?: number
     limit?: number
   } = {},
@@ -948,6 +954,54 @@ export const useDeleteDataset = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: deleteDataset,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: datasetKey() })
+    },
+  })
+}
+
+async function archiveDataset(id: string): Promise<Dataset> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${id}/archive`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `dataset archive failed: ${res.status}`)
+  }
+  return (await res.json()) as Dataset
+}
+
+async function unarchiveDataset(id: string): Promise<Dataset> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${id}/unarchive`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `dataset unarchive failed: ${res.status}`)
+  }
+  return (await res.json()) as Dataset
+}
+
+export const useArchiveDataset = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: archiveDataset,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: datasetKey() })
+    },
+  })
+}
+
+export const useUnarchiveDataset = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: unarchiveDataset,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: datasetKey() })
     },
