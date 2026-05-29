@@ -164,6 +164,59 @@ class TestListEvalRuns:
 
         assert statement.where.call_count == 4
 
+    async def test_workspace_id_adds_where(self) -> None:
+        principal = _principal()
+        repo, statement = _mock_repo()
+
+        with (
+            patch(
+                "rapidly.agents.eval_run.actions.EvalRunRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.eval_run.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await actions.list_eval_runs(
+                MagicMock(),
+                principal,
+                workspace_id=uuid4(),
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 1
+
+    async def test_all_five_filters_combine_additively(self) -> None:
+        # All five filters → +5 .where. Confirms the new
+        # workspace_id predicate doesn't short-circuit any of the
+        # four earlier ones.
+        principal = _principal()
+        repo, statement = _mock_repo()
+
+        with (
+            patch(
+                "rapidly.agents.eval_run.actions.EvalRunRepository.from_session",
+                return_value=repo,
+            ),
+            patch(
+                "rapidly.agents.eval_run.actions.paginate",
+                new=AsyncMock(return_value=([], 0)),
+            ),
+        ):
+            await actions.list_eval_runs(
+                MagicMock(),
+                principal,
+                workspace_id=uuid4(),
+                dataset_id=uuid4(),
+                workflow_version_id=uuid4(),
+                status=EvalRunStatus.failed,
+                assertion_strategy=AssertionStrategy.llm_judge,
+                pagination=PaginationParams(page=1, limit=10),
+            )
+
+        assert statement.where.call_count == 5
+
 
 @pytest.mark.asyncio
 class TestCancel:

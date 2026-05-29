@@ -41,6 +41,13 @@ router = APIRouter(prefix="/v1/agents/eval-runs", tags=["eval-runs", APITag.priv
 async def list_eval_runs(
     auth_subject: EvalRunsRead,
     pagination: PaginationParamsQuery,
+    workspace_id: UUID | None = Query(
+        None,
+        description=(
+            "Narrow to a single workspace. Unknown IDs return an empty "
+            "set rather than 403 so we don't leak membership."
+        ),
+    ),
     dataset_id: UUID | None = Query(None),
     workflow_version_id: UUID | None = Query(None),
     status_filter: EvalRunStatus | None = Query(None, alias="status"),
@@ -56,6 +63,7 @@ async def list_eval_runs(
     results, count = await actions.list_eval_runs(
         session,
         auth_subject,
+        workspace_id=workspace_id,
         dataset_id=dataset_id,
         workflow_version_id=workflow_version_id,
         status=status_filter,

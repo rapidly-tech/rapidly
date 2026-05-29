@@ -1,6 +1,6 @@
 'use client'
 
-import { Pagination } from '@/components/agents/ListControls'
+import { Pagination, WorkspaceSwitcher } from '@/components/agents/ListControls'
 import {
   type AssertionStrategy,
   type EvalRun,
@@ -9,6 +9,7 @@ import {
   useDataset,
   useEvalRuns,
 } from '@/hooks/api/agents'
+import { useListWorkspaces } from '@/hooks/api/org'
 import { formatRelative } from '@/utils/agents/datetime'
 import { buildEvalRunsCsv } from '@/utils/agents/eval-runs-export'
 import Link from 'next/link'
@@ -20,6 +21,14 @@ const PAGE_SIZE = 20
 export default function EvalRunsListPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
+
+  const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
+  const workspaces = workspacesQuery.data?.data ?? []
+  const [pickedWorkspaceId, setPickedWorkspaceId] = useState<string | null>(
+    null,
+  )
+  const activeWorkspaceId = pickedWorkspaceId ?? workspaces[0]?.id ?? null
+
   // dataset_id + workflow_version_id arrive via URL from links
   // like the dataset detail's "See all N →" or the workflow
   // detail's eval-history section. Status stays UI-only because
@@ -39,11 +48,18 @@ export default function EvalRunsListPage() {
     setStrategyFilter(next)
     setPage(1)
   }
+  const onWorkspaceChange = (next: string | null) => {
+    setPickedWorkspaceId(next)
+    setPage(1)
+  }
   const clearFilters = () => {
     // Reset all four filter axes at once — both URL-borne
     // (dataset_id, workflow_version_id) and UI-borne (status,
     // strategy chips). Used by the per-badge ✕ buttons and by
-    // the page-level "Clear all" link.
+    // the page-level "Clear all" link. Doesn't reset the
+    // workspace switcher — it's a "what am I looking at"
+    // selector, same pattern as the version picker on the
+    // workflow detail's Recent runs.
     router.push('/preview/agents/eval-runs')
     setStatusFilter(null)
     setStrategyFilter(null)
@@ -56,20 +72,30 @@ export default function EvalRunsListPage() {
     statusFilter !== null ||
     strategyFilter !== null
 
-  const query = useEvalRuns({
-    dataset_id: datasetId ?? undefined,
-    workflow_version_id: workflowVersionId ?? undefined,
-    status: statusFilter ?? undefined,
-    assertion_strategy: strategyFilter ?? undefined,
-    limit: PAGE_SIZE,
-    page,
-  })
+  const query = useEvalRuns(
+    {
+      workspace_id: activeWorkspaceId ?? undefined,
+      dataset_id: datasetId ?? undefined,
+      workflow_version_id: workflowVersionId ?? undefined,
+      status: statusFilter ?? undefined,
+      assertion_strategy: strategyFilter ?? undefined,
+      limit: PAGE_SIZE,
+      page,
+    },
+    !!activeWorkspaceId,
+  )
   const runs: EvalRun[] = query.data?.data ?? []
   const meta = query.data?.meta
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-16">
       <Header />
+
+      <WorkspaceSwitcher
+        workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+        activeId={activeWorkspaceId}
+        onChange={onWorkspaceChange}
+      />
 
       {datasetId && (
         <DatasetFilterBadge datasetId={datasetId} onClear={clearFilters} />

@@ -988,6 +988,7 @@ const evalRunKey = (...parts: (string | object)[]) => [
 
 async function fetchEvalRuns(
   params: {
+    workspace_id?: string
     dataset_id?: string
     workflow_version_id?: string
     status?: EvalRunStatus
@@ -999,6 +1000,8 @@ async function fetchEvalRuns(
   const url = new URL(
     `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/eval-runs/`,
   )
+  if (params.workspace_id)
+    url.searchParams.set('workspace_id', params.workspace_id)
   if (params.dataset_id) url.searchParams.set('dataset_id', params.dataset_id)
   if (params.workflow_version_id)
     url.searchParams.set('workflow_version_id', params.workflow_version_id)
@@ -1018,6 +1021,7 @@ async function fetchEvalRuns(
 
 export const useEvalRuns = (
   params: {
+    workspace_id?: string
     dataset_id?: string
     workflow_version_id?: string
     status?: EvalRunStatus
