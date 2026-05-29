@@ -18,7 +18,7 @@ from rapidly.agents.vector_collection.types import (
 from rapidly.catalog.file.queries import FileRepository
 from rapidly.core.pagination import PaginationParams, paginate
 from rapidly.core.utils import now_utc
-from rapidly.errors import ResourceNotFound
+from rapidly.errors import NotPermitted, ResourceNotFound
 from rapidly.identity.auth.models import (
     AuthPrincipal,
     User,
@@ -170,6 +170,17 @@ async def trigger_index(
     just at the worker) so the API returns 404 immediately rather
     than the actor failing asynchronously after the response.
     """
+    if collection.archived_at is not None:
+        # Symmetric with the workflow + dataset archive guards
+        # (M5.78): an archived collection is retired by user
+        # intent, so indexing into it would contradict the
+        # user-facing "active only" default on the list and
+        # let stale data leak into a corpus the operator
+        # deliberately mothballed. Unarchive before indexing.
+        raise NotPermitted(
+            "Vector collection is archived. Unarchive it before indexing."
+        )
+
     file_repo = FileRepository.from_session(session)
     file_stmt = file_repo.get_base_statement().where(
         file_repo.model.id == file_id,
