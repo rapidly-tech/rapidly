@@ -59,6 +59,15 @@ async def list_workflows(
             "``false`` → only drafts; omitted → both."
         ),
     ),
+    is_archived: bool | None = Query(
+        False,
+        description=(
+            "Filter by archive state. ``false`` (default) hides archived "
+            "rows; ``true`` returns archived-only; ``null`` (omit) returns "
+            "both. Archived workflows still resolve in run history — the "
+            "list endpoint just hides them so the catalog stays focused."
+        ),
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[WorkflowSchema]:
     results, count = await actions.list_workflows(
@@ -68,6 +77,7 @@ async def list_workflows(
         project_id=project_id,
         name=name,
         has_version=has_version,
+        is_archived=is_archived,
         pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
@@ -130,3 +140,40 @@ async def delete_workflow(
 ) -> None:
     workflow = await actions.get_or_raise(session, auth_subject, id)
     await actions.delete(session, auth_subject, workflow)
+
+
+@router.post(
+    "/{id}/archive",
+    summary="Archive Workflow",
+    response_model=WorkflowSchema,
+    description=(
+        "Stamp ``archived_at = now()``. Idempotent — archiving an "
+        "already-archived workflow returns the row unchanged. The "
+        "workflow stays queryable so past runs can resolve their "
+        "parent, but the list endpoint hides it by default."
+    ),
+)
+async def archive_workflow(
+    id: UUID,
+    auth_subject: WorkflowsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> WorkflowSchema:
+    workflow = await actions.get_or_raise(session, auth_subject, id)
+    archived = await actions.archive(session, auth_subject, workflow)
+    return WorkflowSchema.model_validate(archived)
+
+
+@router.post(
+    "/{id}/unarchive",
+    summary="Unarchive Workflow",
+    response_model=WorkflowSchema,
+    description=("Clear ``archived_at``. Idempotent on already-active rows."),
+)
+async def unarchive_workflow(
+    id: UUID,
+    auth_subject: WorkflowsWrite,
+    session: AsyncSession = Depends(get_db_session),
+) -> WorkflowSchema:
+    workflow = await actions.get_or_raise(session, auth_subject, id)
+    unarchived = await actions.unarchive(session, auth_subject, workflow)
+    return WorkflowSchema.model_validate(unarchived)

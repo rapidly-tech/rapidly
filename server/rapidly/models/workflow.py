@@ -17,10 +17,11 @@ Versions, runs, and node-runs ship in follow-up PRs alongside their
 own submodules. M4.1a scaffolds the root entity + its CRUD only.
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, Text, Uuid
+from sqlalchemy import DateTime, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from rapidly.core.db.models import BaseEntity
@@ -72,6 +73,17 @@ class Workflow(BaseEntity):
         # table is defined in a sibling migration; the FK is added
         # then. Leaving it untyped at the SQL level keeps the
         # migrations linearisable.
+        nullable=True,
+        index=True,
+    )
+
+    # Archive (separate from soft-delete). Operators archive a
+    # workflow they want to stash without losing — past runs and
+    # versions stay queryable, but the workflows list hides it
+    # by default. Soft-delete (deleted_at) is the destructive
+    # path; archive is the "keep but tuck away" path.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
         nullable=True,
         index=True,
     )

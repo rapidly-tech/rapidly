@@ -10,6 +10,7 @@ import {
   type TriggeredByKind,
   type Workflow,
   type WorkflowVersion,
+  useArchiveWorkflow,
   useCancelRun,
   useDeleteWorkflow,
   useEvalRuns,
@@ -17,6 +18,7 @@ import {
   useRuns,
   useSetCurrentVersion,
   useTriggerRun,
+  useUnarchiveWorkflow,
   useUpdateWorkflow,
   useWorkflow,
   useWorkflowVersions,
@@ -111,6 +113,7 @@ export default function WorkflowDetailPage({
               workflowVersionId={workflow.current_version_id}
             />
           )}
+          <ArchiveSection workflow={workflow} />
           <DangerZone workflow={workflow} />
         </>
       ) : null}
@@ -244,6 +247,45 @@ function WorkflowHeader({ workflow }: { workflow: Workflow }) {
         </button>
       </div>
     </header>
+  )
+}
+
+function ArchiveSection({ workflow }: { workflow: Workflow }) {
+  const archive = useArchiveWorkflow()
+  const unarchive = useUnarchiveWorkflow()
+  const isArchived = workflow.archived_at !== null
+  const mutation = isArchived ? unarchive : archive
+
+  return (
+    <section className="flex flex-col gap-3 rounded-lg border border-amber-200 bg-amber-50/40 p-5 dark:border-amber-900/40 dark:bg-amber-900/10">
+      <h2 className="text-sm font-medium text-amber-800 dark:text-amber-300">
+        {isArchived ? 'Archived' : 'Archive'}
+      </h2>
+      <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
+        {isArchived
+          ? 'This workflow is archived — it stays queryable so past runs resolve their parent, but the workflows list hides it by default. Unarchive to restore it to the catalog.'
+          : 'Archiving tucks the workflow away from the workflows list without losing it. Past runs and versions stay queryable; you can unarchive anytime. Use Delete (below) for the destructive path.'}
+      </p>
+      {mutation.isError && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 dark:border-amber-900/50 dark:bg-amber-900/20 dark:text-amber-300">
+          {(mutation.error as Error).message}
+        </div>
+      )}
+      <button
+        type="button"
+        onClick={() => mutation.mutate(workflow.id)}
+        disabled={mutation.isPending}
+        className="self-start rounded-lg border border-amber-300 px-4 py-2 text-sm font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50 dark:border-amber-700 dark:text-amber-200 dark:hover:bg-amber-900/30"
+      >
+        {mutation.isPending
+          ? isArchived
+            ? 'Unarchiving…'
+            : 'Archiving…'
+          : isArchived
+            ? 'Unarchive'
+            : 'Archive workflow'}
+      </button>
+    </section>
   )
 }
 

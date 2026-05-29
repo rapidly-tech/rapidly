@@ -36,6 +36,7 @@ export interface Workflow {
   name: string
   description: string | null
   current_version_id: string | null
+  archived_at: string | null
   created_at: string
   updated_at: string
 }
@@ -531,6 +532,54 @@ export const useDeleteWorkflow = () => {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: deleteWorkflow,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: workflowKey() })
+    },
+  })
+}
+
+async function archiveWorkflow(id: string): Promise<Workflow> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${id}/archive`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `workflow archive failed: ${res.status}`)
+  }
+  return (await res.json()) as Workflow
+}
+
+async function unarchiveWorkflow(id: string): Promise<Workflow> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${id}/unarchive`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `workflow unarchive failed: ${res.status}`)
+  }
+  return (await res.json()) as Workflow
+}
+
+export const useArchiveWorkflow = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: archiveWorkflow,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: workflowKey() })
+    },
+  })
+}
+
+export const useUnarchiveWorkflow = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: unarchiveWorkflow,
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: workflowKey() })
     },

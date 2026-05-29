@@ -32,6 +32,7 @@ class WorkflowSchema(BaseModel):
     name: str
     description: str | None
     current_version_id: UUID | None
+    archived_at: datetime | None
     created_at: datetime
     updated_at: datetime
 
