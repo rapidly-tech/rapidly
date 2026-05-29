@@ -16,6 +16,7 @@ from rapidly.agents.dataset.types import (
     DatasetUpdate,
 )
 from rapidly.core.pagination import PaginationParams, paginate
+from rapidly.core.utils import now_utc
 from rapidly.errors import ResourceNotFound
 from rapidly.identity.auth.models import (
     AuthPrincipal,
@@ -57,6 +58,7 @@ async def list_datasets(
     *,
     workspace_id: UUID | None = None,
     name: str | None = None,
+    is_archived: bool | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[Dataset], int]:
     repo = DatasetRepository.from_session(session)
@@ -69,6 +71,11 @@ async def list_datasets(
         # read; this narrows to one of them. Unknown IDs return
         # empty rather than 403.
         statement = statement.where(Dataset.workspace_id == workspace_id)
+    if is_archived is True:
+        # Tri-state archive filter, same shape as workflows (M5.65).
+        statement = statement.where(Dataset.archived_at.is_not(None))
+    elif is_archived is False:
+        statement = statement.where(Dataset.archived_at.is_(None))
     if name is not None and name.strip():
         # Same escape pattern as the projects/labels list endpoints.
         escaped = (
@@ -113,6 +120,35 @@ async def delete_dataset(
 ) -> None:
     repo = DatasetRepository.from_session(session)
     await repo.soft_delete(dataset, flush=True)
+
+
+async def archive_dataset(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    dataset: Dataset,
+) -> Dataset:
+    """Stamp ``archived_at = now()`` if not already archived.
+
+    Idempotent — mirrors the workflow archive action shape (M5.65).
+    """
+    if dataset.archived_at is not None:
+        return dataset
+    repo = DatasetRepository.from_session(session)
+    return await repo.update(
+        dataset, update_dict={"archived_at": now_utc()}, flush=True
+    )
+
+
+async def unarchive_dataset(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    dataset: Dataset,
+) -> Dataset:
+    """Clear ``archived_at``. Idempotent on already-active rows."""
+    if dataset.archived_at is None:
+        return dataset
+    repo = DatasetRepository.from_session(session)
+    return await repo.update(dataset, update_dict={"archived_at": None}, flush=True)
 
 
 # ── DatasetCase CRUD ────────────────────────────────────────

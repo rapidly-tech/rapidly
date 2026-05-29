@@ -18,10 +18,11 @@ Why no workflow_id FK:
     duplicate dataset for every fork or rename.
 """
 
+from datetime import datetime
 from typing import TYPE_CHECKING
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, Text, Uuid
+from sqlalchemy import DateTime, ForeignKey, String, Text, Uuid
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
 from rapidly.core.db.models.base import BaseEntity
@@ -44,6 +45,16 @@ class Dataset(BaseEntity):
 
     name: Mapped[str] = mapped_column(String(256), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
+
+    # Archive (separate from soft-delete). Mirrors the workflow
+    # archive shape (M5.65): operators stash a dataset they're
+    # no longer using without losing it, and past eval-runs still
+    # resolve their parent dataset by id.
+    archived_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True),
+        nullable=True,
+        index=True,
+    )
 
     @declared_attr
     def workspace(cls) -> Mapped["Workspace"]:

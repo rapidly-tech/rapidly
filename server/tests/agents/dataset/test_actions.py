@@ -361,3 +361,136 @@ class TestCaseLifecycle:
 
         with pytest.raises(ResourceNotFound):
             await actions.get_case_or_raise(session, dataset_b, case.id)
+
+
+@pytest.mark.asyncio
+class TestArchive:
+    async def test_active_dataset_gets_archived_stamp(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        principal = await _member_principal(session, workspace)
+        dataset = await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="d"),
+        )
+        assert dataset.archived_at is None
+
+        result = await actions.archive_dataset(session, principal, dataset)
+
+        assert result.archived_at is not None
+        # And the list endpoint hides it under the default
+        # active-only mode.
+        _, count_active = await actions.list_datasets(
+            session,
+            principal,
+            is_archived=False,
+            pagination=PaginationParams(limit=10, page=1),
+        )
+        assert count_active == 0
+
+    async def test_already_archived_is_noop(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        # Idempotent — re-archiving an already-archived dataset
+        # doesn't bump the timestamp.
+        principal = await _member_principal(session, workspace)
+        dataset = await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="d"),
+        )
+        first = await actions.archive_dataset(session, principal, dataset)
+        first_stamp = first.archived_at
+
+        second = await actions.archive_dataset(session, principal, dataset)
+        assert second.archived_at == first_stamp
+
+
+@pytest.mark.asyncio
+class TestUnarchive:
+    async def test_archived_dataset_clears_stamp(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        principal = await _member_principal(session, workspace)
+        dataset = await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="d"),
+        )
+        await actions.archive_dataset(session, principal, dataset)
+        assert dataset.archived_at is not None
+
+        result = await actions.unarchive_dataset(session, principal, dataset)
+        assert result.archived_at is None
+
+    async def test_already_active_is_noop(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        principal = await _member_principal(session, workspace)
+        dataset = await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="d"),
+        )
+        result = await actions.unarchive_dataset(session, principal, dataset)
+        assert result.archived_at is None
+
+
+@pytest.mark.asyncio
+class TestListArchivedFilter:
+    """``is_archived`` tri-state at the action layer; the route
+    layer defaults to None (both). Same shape as the workflow
+    archive filter (M5.65)."""
+
+    async def test_filter_modes(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        principal = await _member_principal(session, workspace)
+        active = await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="active"),
+        )
+        archived = await actions.create_dataset(
+            session,
+            principal,
+            DatasetCreate(workspace_id=workspace.id, name="archived"),
+        )
+        await actions.archive_dataset(session, principal, archived)
+
+        # None → both.
+        _, count_both = await actions.list_datasets(
+            session, principal, pagination=PaginationParams(limit=10, page=1)
+        )
+        assert count_both == 2
+
+        # False → active only.
+        rows, count_active = await actions.list_datasets(
+            session,
+            principal,
+            is_archived=False,
+            pagination=PaginationParams(limit=10, page=1),
+        )
+        assert count_active == 1
+        assert rows[0].id == active.id
+
+        # True → archived only.
+        rows, count_archived = await actions.list_datasets(
+            session,
+            principal,
+            is_archived=True,
+            pagination=PaginationParams(limit=10, page=1),
+        )
+        assert count_archived == 1
+        assert rows[0].id == archived.id
