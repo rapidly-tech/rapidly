@@ -10,6 +10,7 @@ import {
   useEvalRuns,
 } from '@/hooks/api/agents'
 import { formatRelative } from '@/utils/agents/datetime'
+import { buildEvalRunsCsv } from '@/utils/agents/eval-runs-export'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useState } from 'react'
@@ -84,6 +85,9 @@ export default function EvalRunsListPage() {
         )
       ) : (
         <>
+          <div className="flex items-center justify-end">
+            <ExportEvalRunsCsv runs={runs} page={page} />
+          </div>
           <EvalRunList runs={runs} />
           {meta && (
             <Pagination
@@ -282,6 +286,35 @@ const TERMINAL_EVAL_STATUSES: EvalRunStatus[] = [
   'failed',
   'cancelled',
 ]
+
+function ExportEvalRunsCsv({ runs, page }: { runs: EvalRun[]; page: number }) {
+  const onExport = () => {
+    const csv = buildEvalRunsCsv(runs)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // Filename tags the current page so operators can stitch a
+    // multi-page report manually (e.g. eval-runs-page-1.csv,
+    // eval-runs-page-2.csv). A full-history dump would need a
+    // backend export endpoint that walks the paginator — deferred.
+    a.download = `eval-runs-page-${page}.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <button
+      type="button"
+      onClick={onExport}
+      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      title="Exports the eval runs visible on this page. Page through and re-export to capture more."
+    >
+      Export current page
+    </button>
+  )
+}
 
 function EvalRunList({ runs }: { runs: EvalRun[] }) {
   return (
