@@ -11,6 +11,7 @@ import {
   type EvalRunCase,
   type EvalRunStatus,
   useCancelEvalRun,
+  useDataset,
   useEvalRun,
   useEvalRunCases,
 } from '@/hooks/api/agents'
@@ -97,6 +98,7 @@ function Header({ evalRun }: { evalRun: EvalRun }) {
               {evalRun.assertion_strategy}
             </span>
           </div>
+          <ContextLinks evalRun={evalRun} />
           <CopyId id={evalRun.id} label="eval run ID" />
           <CopyEvalAsCurl evalRun={evalRun} />
         </div>
@@ -125,6 +127,45 @@ function Header({ evalRun }: { evalRun: EvalRun }) {
         </div>
       )}
     </header>
+  )
+}
+
+function ContextLinks({ evalRun }: { evalRun: EvalRun }) {
+  // Resolve dataset name via useDataset — same hook the
+  // dataset-filter badge on the eval-runs list uses (M5.31).
+  // Falls back to the short id when the dataset is unknown or
+  // still loading; the short id is enough to copy / paste even
+  // without the name.
+  const datasetQuery = useDataset(evalRun.dataset_id)
+  const datasetLabel =
+    datasetQuery.data?.name ?? `id ${evalRun.dataset_id.slice(0, 8)}`
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+      <span>
+        Dataset:{' '}
+        <Link
+          href={`/preview/agents/datasets/${evalRun.dataset_id}`}
+          className="font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+        >
+          {datasetLabel}
+        </Link>
+      </span>
+      <span>
+        Workflow version:{' '}
+        <Link
+          // No workflow detail route by version-id alone (versions
+          // are nested under their workflow), so the cross-link
+          // lands on the eval-runs list filtered to siblings of the
+          // same version — the operator can see what else has run
+          // against the same pinned graph.
+          href={`/preview/agents/eval-runs?workflow_version_id=${evalRun.workflow_version_id}`}
+          className="font-mono font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+        >
+          id {evalRun.workflow_version_id.slice(0, 8)}
+        </Link>
+      </span>
+    </div>
   )
 }
 
