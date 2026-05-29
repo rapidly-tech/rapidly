@@ -14,6 +14,7 @@ import {
   useCancelRun,
   useNodeRuns,
   useRun,
+  useWorkflow,
 } from '@/hooks/api/agents'
 import { formatDuration, formatTime } from '@/utils/agents/datetime'
 import { buildNodeRunsCsv } from '@/utils/agents/run-export'
@@ -45,7 +46,7 @@ export default function RunDetailPage({
         <ErrorBanner message={(runQuery.error as Error).message} />
       ) : run ? (
         <>
-          <RunHeader run={run} />
+          <RunHeader run={run} workflowId={workflowId} />
           {run.error_message && <RunError message={run.error_message} />}
           <NodeRunsSection
             runId={run.id}
@@ -76,7 +77,13 @@ function BackLink({ workflowId }: { workflowId: string }) {
   )
 }
 
-function RunHeader({ run }: { run: RunDetail }) {
+function RunHeader({
+  run,
+  workflowId,
+}: {
+  run: RunDetail
+  workflowId: string
+}) {
   const cancelMutation = useCancelRun()
   const canCancel = !TERMINAL.includes(run.status)
   return (
@@ -101,6 +108,7 @@ function RunHeader({ run }: { run: RunDetail }) {
           </button>
         )}
       </div>
+      <ContextLinks run={run} workflowId={workflowId} />
       <CopyId id={run.id} label="run ID" />
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
         <Stat label="Triggered by" value={run.triggered_by_kind} />
@@ -118,6 +126,60 @@ function RunHeader({ run }: { run: RunDetail }) {
         />
       </dl>
     </header>
+  )
+}
+
+function ContextLinks({
+  run,
+  workflowId,
+}: {
+  run: RunDetail
+  workflowId: string
+}) {
+  // Resolve the workflow name so the header reads as "Workflow:
+  // rfi-triage" instead of an opaque short-id. Falls back to
+  // "id <first-8>" while loading or if the workflow is unknown.
+  const workflowQuery = useWorkflow(workflowId)
+  const workflowLabel =
+    workflowQuery.data?.name ?? `id ${workflowId.slice(0, 8)}`
+
+  return (
+    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 dark:text-slate-400">
+      <span>
+        Workflow:{' '}
+        <Link
+          href={`/preview/agents/workflows/${workflowId}`}
+          className="font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+        >
+          {workflowLabel}
+        </Link>
+      </span>
+      {run.triggered_by_kind === 'eval' && run.triggered_by_id && (
+        <span>
+          Eval:{' '}
+          <Link
+            href={`/preview/agents/eval-runs/${run.triggered_by_id}`}
+            className="font-mono font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+          >
+            id {run.triggered_by_id.slice(0, 8)}
+          </Link>
+        </span>
+      )}
+      <span>
+        Workflow version:{' '}
+        <Link
+          // Mirrors the eval-run detail context link (M5.73): no
+          // workflow detail route keyed by version-id, so the
+          // cross-link lands on the workflow detail and lets the
+          // existing version picker (M5.35) take over.
+          href={`/preview/agents/workflows/${workflowId}`}
+          className="font-mono font-medium text-emerald-700 hover:text-emerald-800 dark:text-emerald-300 dark:hover:text-emerald-200"
+          title={run.workflow_version_id}
+        >
+          id {run.workflow_version_id.slice(0, 8)}
+        </Link>
+      </span>
+    </div>
   )
 }
 

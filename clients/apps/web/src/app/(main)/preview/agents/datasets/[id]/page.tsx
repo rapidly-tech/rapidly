@@ -22,6 +22,7 @@ import {
   useUpdateDataset,
   useWorkflows,
 } from '@/hooks/api/agents'
+import { useListWorkspaces } from '@/hooks/api/org'
 import { formatRelative } from '@/utils/agents/datetime'
 import { useQueryClient } from '@tanstack/react-query'
 import Link from 'next/link'
@@ -195,6 +196,7 @@ function DatasetHeader({
               <> · Updated {formatRelative(dataset.modified_at)}</>
             )}
           </p>
+          <WorkspaceLine workspaceId={dataset.workspace_id} />
           <CopyId id={dataset.id} label="dataset ID" />
         </div>
         <button
@@ -1181,5 +1183,21 @@ function EmptyCases() {
       </code>
       .
     </div>
+  )
+}
+
+/** Header-line workspace badge. Mirrors the WorkspaceLine on
+ *  the workflow detail page so multi-workspace operators
+ *  landing via deep link have an immediate cue about which
+ *  workspace owns the dataset. */
+function WorkspaceLine({ workspaceId }: { workspaceId: string }) {
+  const query = useListWorkspaces({ limit: 50, page: 1 })
+  const match = query.data?.data.find((w) => w.id === workspaceId)
+  if (query.isLoading) return null
+  const label = match?.name ?? `id ${workspaceId.slice(0, 8)}`
+  return (
+    <p className="text-xs text-slate-500 dark:text-slate-400">
+      Workspace: <span className="font-medium">{label}</span>
+    </p>
   )
 }
