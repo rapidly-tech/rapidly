@@ -1,5 +1,9 @@
 'use client'
 
+import {
+  CopyAsCurlButton,
+  bashSingleQuoteEscape,
+} from '@/components/agents/CopyAsCurlButton'
 import { CopyId } from '@/components/agents/CopyId'
 import { JsonPanel } from '@/components/agents/JsonPanel'
 import {
@@ -14,7 +18,7 @@ import {
 import { formatDuration, formatTime } from '@/utils/agents/datetime'
 import { buildNodeRunsCsv } from '@/utils/agents/run-export'
 import Link from 'next/link'
-import { use, useEffect, useState } from 'react'
+import { use, useState } from 'react'
 
 const TERMINAL: RunStatus[] = ['succeeded', 'failed', 'cancelled']
 
@@ -448,45 +452,21 @@ function CopyAsCurl({
   run: RunDetail
   workflowId: string
 }) {
-  const [copied, setCopied] = useState(false)
-  // Reset the "Copied!" label after a beat so the button doesn't
-  // stay stuck reading "Copied!" forever.
-  useEffect(() => {
-    if (!copied) return
-    const handle = window.setTimeout(() => setCopied(false), 1500)
-    return () => window.clearTimeout(handle)
-  }, [copied])
-
-  const onCopy = async () => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '<base-url>'
-    const body = JSON.stringify({ input_data: run.input_data }, null, 2)
-    // Multi-line for readability — operators paste this into a
-    // terminal where shell line-continuations work out of the box.
-    const cmd = [
-      `curl -X POST '${baseUrl}/api/v1/workflows/${workflowId}/runs' \\`,
-      `  -H 'Content-Type: application/json' \\`,
-      `  --cookie 'sid=<your-session-cookie>' \\`,
-      `  -d '${body.replace(/'/g, `'\\''`)}'`,
-    ].join('\n')
-    try {
-      await navigator.clipboard.writeText(cmd)
-      setCopied(true)
-    } catch {
-      // Insecure-origin / hidden-document — no-op. Operators
-      // can still select the input JSON and re-build the curl
-      // by hand if needed.
-    }
-  }
-
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '<base-url>'
+  const body = JSON.stringify({ input_data: run.input_data }, null, 2)
+  // Multi-line for readability — operators paste this into a
+  // terminal where shell line-continuations work out of the box.
+  const command = [
+    `curl -X POST '${baseUrl}/api/v1/workflows/${workflowId}/runs' \\`,
+    `  -H 'Content-Type: application/json' \\`,
+    `  --cookie 'sid=<your-session-cookie>' \\`,
+    `  -d '${bashSingleQuoteEscape(body)}'`,
+  ].join('\n')
   return (
-    <button
-      type="button"
-      onClick={onCopy}
-      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+    <CopyAsCurlButton
+      command={command}
       title="Copies a curl command that re-triggers a run with this same input. Replace the session cookie value before running."
-    >
-      {copied ? 'Copied!' : 'Copy as curl'}
-    </button>
+    />
   )
 }
 

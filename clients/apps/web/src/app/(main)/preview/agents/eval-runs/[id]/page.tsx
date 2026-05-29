@@ -1,5 +1,9 @@
 'use client'
 
+import {
+  CopyAsCurlButton,
+  bashSingleQuoteEscape,
+} from '@/components/agents/CopyAsCurlButton'
 import { CopyId } from '@/components/agents/CopyId'
 import { JsonPanel } from '@/components/agents/JsonPanel'
 import {
@@ -17,7 +21,7 @@ import {
   classifyCase,
 } from '@/utils/agents/eval-export'
 import Link from 'next/link'
-import { use, useEffect, useState } from 'react'
+import { use, useState } from 'react'
 
 const TERMINAL_EVAL: EvalRunStatus[] = ['succeeded', 'failed', 'cancelled']
 
@@ -125,56 +129,30 @@ function Header({ evalRun }: { evalRun: EvalRun }) {
 }
 
 function CopyEvalAsCurl({ evalRun }: { evalRun: EvalRun }) {
-  const [copied, setCopied] = useState(false)
-  // Match the M5.51 / M5.58 / M5.70 1.5s "Copied!" flash via a
-  // setTimeout cleanup so the label resets cleanly even if the
-  // operator clicks again mid-beat.
-  useEffect(() => {
-    if (!copied) return
-    const handle = window.setTimeout(() => setCopied(false), 1500)
-    return () => window.clearTimeout(handle)
-  }, [copied])
-
-  const onCopy = async () => {
-    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '<base-url>'
-    const payload: Record<string, unknown> = {
-      workflow_version_id: evalRun.workflow_version_id,
-      dataset_id: evalRun.dataset_id,
-      assertion_strategy: evalRun.assertion_strategy,
-    }
-    // judge_model_id is only meaningful (and only required) for
-    // the llm_judge strategy. Omit it elsewhere so a re-run with
-    // exact_match doesn't leak an irrelevant model id.
-    if (evalRun.assertion_strategy === 'llm_judge' && evalRun.judge_model_id) {
-      payload.judge_model_id = evalRun.judge_model_id
-    }
-    const body = JSON.stringify(payload, null, 2)
-    const cmd = [
-      `curl -X POST '${baseUrl}/api/v1/agents/eval-runs/' \\`,
-      `  -H 'Content-Type: application/json' \\`,
-      `  --cookie 'sid=<your-session-cookie>' \\`,
-      `  -d '${body.replace(/'/g, `'\\''`)}'`,
-    ].join('\n')
-    try {
-      await navigator.clipboard.writeText(cmd)
-      setCopied(true)
-    } catch {
-      // navigator.clipboard rejects on insecure origins / hidden
-      // documents. Falling back to a no-op keeps the click from
-      // bubbling an exception — operators can still manually
-      // copy the assembled body from the IDs above.
-    }
+  const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '<base-url>'
+  const payload: Record<string, unknown> = {
+    workflow_version_id: evalRun.workflow_version_id,
+    dataset_id: evalRun.dataset_id,
+    assertion_strategy: evalRun.assertion_strategy,
   }
-
+  // judge_model_id is only meaningful (and only required) for the
+  // llm_judge strategy. Omit it elsewhere so a re-run with
+  // exact_match doesn't leak an irrelevant model id.
+  if (evalRun.assertion_strategy === 'llm_judge' && evalRun.judge_model_id) {
+    payload.judge_model_id = evalRun.judge_model_id
+  }
+  const body = JSON.stringify(payload, null, 2)
+  const command = [
+    `curl -X POST '${baseUrl}/api/v1/agents/eval-runs/' \\`,
+    `  -H 'Content-Type: application/json' \\`,
+    `  --cookie 'sid=<your-session-cookie>' \\`,
+    `  -d '${bashSingleQuoteEscape(body)}'`,
+  ].join('\n')
   return (
-    <button
-      type="button"
-      onClick={onCopy}
-      className="self-start rounded-md border border-slate-200 px-2 py-0.5 text-[10px] font-medium tracking-wide text-slate-600 uppercase hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+    <CopyAsCurlButton
+      command={command}
       title="Copies a curl command that re-triggers this eval with the same dataset + workflow_version + strategy. Replace the session cookie value before running."
-    >
-      {copied ? 'Copied!' : 'Copy as curl'}
-    </button>
+    />
   )
 }
 
