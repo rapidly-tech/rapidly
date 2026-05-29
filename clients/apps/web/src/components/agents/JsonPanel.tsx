@@ -20,6 +20,7 @@ export function JsonPanel({
   title,
   data,
   placeholder,
+  maxHeightClass,
 }: {
   title: string
   data: Record<string, unknown> | null
@@ -27,6 +28,12 @@ export function JsonPanel({
    *  Defaults to an em-dash so the layout doesn't jump on
    *  optional fields. */
   placeholder?: string
+  /** Optional Tailwind ``max-h-*`` class that caps the
+   *  rendered ``<pre>`` height and adds a vertical scroll. Use
+   *  for surfaces (e.g. the workflow-version graph viewer) where
+   *  an unbounded panel would push the rest of the page off-
+   *  screen. */
+  maxHeightClass?: string
 }) {
   const [copied, setCopied] = useState(false)
 
@@ -73,7 +80,13 @@ export function JsonPanel({
           {placeholder ?? '—'}
         </p>
       ) : (
-        <pre className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300">
+        <pre
+          className={`rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300 ${
+            maxHeightClass
+              ? `${maxHeightClass} overflow-auto`
+              : 'overflow-x-auto'
+          }`}
+        >
           {JSON.stringify(data, null, 2)}
         </pre>
       )}

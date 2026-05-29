@@ -1,6 +1,7 @@
 'use client'
 
 import { CopyId } from '@/components/agents/CopyId'
+import { JsonPanel } from '@/components/agents/JsonPanel'
 import {
   type EvalRun,
   type EvalRunStatus,
@@ -980,9 +981,11 @@ function VersionRow({
         </div>
       </div>
       {showGraph && (
-        <pre className="max-h-96 overflow-auto rounded-md bg-slate-50 p-3 font-mono text-xs leading-relaxed text-slate-700 dark:bg-slate-950 dark:text-slate-300">
-          {JSON.stringify(version.graph_json, null, 2)}
-        </pre>
+        <JsonPanel
+          title={`v${version.version_number} graph`}
+          data={version.graph_json}
+          maxHeightClass="max-h-96"
+        />
       )}
     </li>
   )
