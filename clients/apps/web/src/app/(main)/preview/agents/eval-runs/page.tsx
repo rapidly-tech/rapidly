@@ -40,9 +40,21 @@ export default function EvalRunsListPage() {
     setPage(1)
   }
   const clearFilters = () => {
+    // Reset all four filter axes at once — both URL-borne
+    // (dataset_id, workflow_version_id) and UI-borne (status,
+    // strategy chips). Used by the per-badge ✕ buttons and by
+    // the page-level "Clear all" link.
     router.push('/preview/agents/eval-runs')
+    setStatusFilter(null)
+    setStrategyFilter(null)
     setPage(1)
   }
+
+  const anyFilterActive =
+    datasetId !== null ||
+    workflowVersionId !== null ||
+    statusFilter !== null ||
+    strategyFilter !== null
 
   const query = useEvalRuns({
     dataset_id: datasetId ?? undefined,
@@ -72,6 +84,16 @@ export default function EvalRunsListPage() {
 
       <StatusFilter value={statusFilter} onChange={onStatusChange} />
       <StrategyFilter value={strategyFilter} onChange={onStrategyChange} />
+
+      {anyFilterActive && (
+        <button
+          type="button"
+          onClick={clearFilters}
+          className="self-start text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+        >
+          Clear all filters
+        </button>
+      )}
 
       {query.isLoading ? (
         <Skeleton />
