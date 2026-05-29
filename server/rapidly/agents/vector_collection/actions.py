@@ -17,6 +17,7 @@ from rapidly.agents.vector_collection.types import (
 )
 from rapidly.catalog.file.queries import FileRepository
 from rapidly.core.pagination import PaginationParams, paginate
+from rapidly.core.utils import now_utc
 from rapidly.errors import ResourceNotFound
 from rapidly.identity.auth.models import (
     AuthPrincipal,
@@ -58,6 +59,7 @@ async def list_collections(
     workspace_id: UUID | None = None,
     project_id: UUID | None = None,
     name: str | None = None,
+    is_archived: bool | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[VectorCollection], int]:
     repo = VectorCollectionRepository.from_session(session)
@@ -67,6 +69,12 @@ async def list_collections(
         statement = statement.where(VectorCollection.workspace_id == workspace_id)
     if project_id is not None:
         statement = statement.where(VectorCollection.project_id == project_id)
+    if is_archived is True:
+        # Tri-state archive filter, same shape as workflows /
+        # datasets (M5.65 / M5.68).
+        statement = statement.where(VectorCollection.archived_at.is_not(None))
+    elif is_archived is False:
+        statement = statement.where(VectorCollection.archived_at.is_(None))
     if name is not None and name.strip():
         # Same SQL-wildcard-safe escape as the workflows/datasets/
         # credentials name filter (M5.25, M5.39).
@@ -116,6 +124,36 @@ async def delete(
 ) -> None:
     repo = VectorCollectionRepository.from_session(session)
     await repo.soft_delete(collection)
+
+
+async def archive(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    collection: VectorCollection,
+) -> VectorCollection:
+    """Stamp ``archived_at = now()`` if not already archived.
+
+    Idempotent — mirrors the workflow + dataset archive shape
+    (M5.65 / M5.68).
+    """
+    if collection.archived_at is not None:
+        return collection
+    repo = VectorCollectionRepository.from_session(session)
+    return await repo.update(
+        collection, update_dict={"archived_at": now_utc()}, flush=True
+    )
+
+
+async def unarchive(
+    session: AsyncSession,
+    auth_subject: AuthPrincipal[User | Workspace],
+    collection: VectorCollection,
+) -> VectorCollection:
+    """Clear ``archived_at``. Idempotent on already-active rows."""
+    if collection.archived_at is None:
+        return collection
+    repo = VectorCollectionRepository.from_session(session)
+    return await repo.update(collection, update_dict={"archived_at": None}, flush=True)
 
 
 async def trigger_index(

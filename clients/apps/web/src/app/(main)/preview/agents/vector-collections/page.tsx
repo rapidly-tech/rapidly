@@ -9,8 +9,10 @@ import {
 import {
   type VectorCollection,
   type VectorCollectionCreatePayload,
+  useArchiveVectorCollection,
   useCreateVectorCollection,
   useDeleteVectorCollection,
+  useUnarchiveVectorCollection,
   useUpdateVectorCollection,
   useVectorCollections,
 } from '@/hooks/api/agents'
@@ -18,6 +20,8 @@ import { useListWorkspaces } from '@/hooks/api/org'
 import { useState } from 'react'
 
 const PAGE_SIZE = 20
+
+type ArchiveFilter = 'active' | 'archived' | 'all'
 
 export default function VectorCollectionsPage() {
   const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
@@ -28,9 +32,14 @@ export default function VectorCollectionsPage() {
   const activeWorkspaceId = pickedWorkspaceId ?? workspaces[0]?.id ?? null
 
   const [search, setSearch] = useState('')
+  const [archiveFilter, setArchiveFilter] = useState<ArchiveFilter>('active')
   const [page, setPage] = useState(1)
   const onSearchChange = (next: string) => {
     setSearch(next)
+    setPage(1)
+  }
+  const onArchiveFilterChange = (next: ArchiveFilter) => {
+    setArchiveFilter(next)
     setPage(1)
   }
   const onWorkspaceChange = (next: string | null) => {
@@ -41,6 +50,12 @@ export default function VectorCollectionsPage() {
   const query = useVectorCollections({
     workspace_id: activeWorkspaceId ?? undefined,
     name: search.trim() || undefined,
+    is_archived:
+      archiveFilter === 'archived'
+        ? true
+        : archiveFilter === 'active'
+          ? false
+          : undefined,
     limit: PAGE_SIZE,
     page,
   })
@@ -63,6 +78,10 @@ export default function VectorCollectionsPage() {
         value={search}
         onChange={onSearchChange}
         placeholder="Filter collections by name…"
+      />
+      <ArchiveFilterChips
+        value={archiveFilter}
+        onChange={onArchiveFilterChange}
       />
 
       {query.isLoading ? (
@@ -89,6 +108,41 @@ export default function VectorCollectionsPage() {
         </>
       )}
     </main>
+  )
+}
+
+function ArchiveFilterChips({
+  value,
+  onChange,
+}: {
+  value: ArchiveFilter
+  onChange: (next: ArchiveFilter) => void
+}) {
+  const filters: { label: string; value: ArchiveFilter }[] = [
+    { label: 'Active', value: 'active' },
+    { label: 'Archived', value: 'archived' },
+    { label: 'All', value: 'all' },
+  ]
+  return (
+    <div className="flex flex-wrap gap-1.5">
+      {filters.map((f) => {
+        const active = f.value === value
+        return (
+          <button
+            key={f.value}
+            type="button"
+            onClick={() => onChange(f.value)}
+            className={
+              active
+                ? 'rounded-full bg-emerald-600 px-3 py-1 text-xs font-medium text-white'
+                : 'rounded-full border border-slate-200 px-3 py-1 text-xs font-medium text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800'
+            }
+          >
+            {f.label}
+          </button>
+        )
+      })}
+    </div>
   )
 }
 
@@ -262,8 +316,11 @@ function CollectionList({ collections }: { collections: VectorCollection[] }) {
 function CollectionRow({ collection }: { collection: VectorCollection }) {
   const del = useDeleteVectorCollection()
   const update = useUpdateVectorCollection(collection.id)
+  const archive = useArchiveVectorCollection()
+  const unarchive = useUnarchiveVectorCollection()
   const [editing, setEditing] = useState(false)
   const [name, setName] = useState(collection.name)
+  const isArchived = collection.archived_at !== null
 
   const submitRename = (e: React.FormEvent) => {
     e.preventDefault()
@@ -311,8 +368,15 @@ function CollectionRow({ collection }: { collection: VectorCollection }) {
               </button>
             </form>
           ) : (
-            <span className="truncate text-lg font-medium text-slate-900 dark:text-slate-100">
-              {collection.name}
+            <span className="flex items-center gap-2">
+              <span className="truncate text-lg font-medium text-slate-900 dark:text-slate-100">
+                {collection.name}
+              </span>
+              {isArchived && (
+                <span className="rounded-md bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-800 dark:bg-amber-900/30 dark:text-amber-300">
+                  Archived
+                </span>
+              )}
             </span>
           )}
           <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
@@ -343,6 +407,17 @@ function CollectionRow({ collection }: { collection: VectorCollection }) {
               className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
             >
               Rename
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const m = isArchived ? unarchive : archive
+                m.mutate(collection.id)
+              }}
+              disabled={archive.isPending || unarchive.isPending}
+              className="rounded-md border border-amber-300 px-3 py-1 text-xs font-medium text-amber-800 hover:bg-amber-50 disabled:opacity-50 dark:border-amber-700 dark:text-amber-300 dark:hover:bg-amber-900/20"
+            >
+              {isArchived ? 'Unarchive' : 'Archive'}
             </button>
             <button
               type="button"
