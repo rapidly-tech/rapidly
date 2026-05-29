@@ -14,7 +14,7 @@ import {
 import { formatDuration, formatTime } from '@/utils/agents/datetime'
 import { buildNodeRunsCsv } from '@/utils/agents/run-export'
 import Link from 'next/link'
-import { use, useState } from 'react'
+import { use, useEffect, useState } from 'react'
 
 const TERMINAL: RunStatus[] = ['succeeded', 'failed', 'cancelled']
 
@@ -54,7 +54,7 @@ export default function RunDetailPage({
                 : undefined
             }
           />
-          <IOPanels run={run} />
+          <IOPanels run={run} workflowId={workflowId} />
         </>
       ) : null}
     </main>
@@ -424,12 +424,69 @@ function NodeRunRow({ node, index }: { node: NodeRun; index: number }) {
   )
 }
 
-function IOPanels({ run }: { run: RunDetail }) {
+function IOPanels({ run, workflowId }: { run: RunDetail; workflowId: string }) {
   return (
-    <section className="grid gap-4 sm:grid-cols-2">
-      <JsonPanel title="Input" data={run.input_data} />
-      <JsonPanel title="Output" data={run.output_data} />
+    <section className="flex flex-col gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+          Input / Output
+        </h2>
+        <CopyAsCurl run={run} workflowId={workflowId} />
+      </div>
+      <div className="grid gap-4 sm:grid-cols-2">
+        <JsonPanel title="Input" data={run.input_data} />
+        <JsonPanel title="Output" data={run.output_data} />
+      </div>
     </section>
+  )
+}
+
+function CopyAsCurl({
+  run,
+  workflowId,
+}: {
+  run: RunDetail
+  workflowId: string
+}) {
+  const [copied, setCopied] = useState(false)
+  // Reset the "Copied!" label after a beat so the button doesn't
+  // stay stuck reading "Copied!" forever.
+  useEffect(() => {
+    if (!copied) return
+    const handle = window.setTimeout(() => setCopied(false), 1500)
+    return () => window.clearTimeout(handle)
+  }, [copied])
+
+  const onCopy = async () => {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL ?? '<base-url>'
+    const body = JSON.stringify({ input_data: run.input_data }, null, 2)
+    // Multi-line for readability — operators paste this into a
+    // terminal where shell line-continuations work out of the box.
+    const cmd = [
+      `curl -X POST '${baseUrl}/api/v1/workflows/${workflowId}/runs' \\`,
+      `  -H 'Content-Type: application/json' \\`,
+      `  --cookie 'sid=<your-session-cookie>' \\`,
+      `  -d '${body.replace(/'/g, `'\\''`)}'`,
+    ].join('\n')
+    try {
+      await navigator.clipboard.writeText(cmd)
+      setCopied(true)
+    } catch {
+      // Insecure-origin / hidden-document — no-op. Operators
+      // can still select the input JSON and re-build the curl
+      // by hand if needed.
+    }
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onCopy}
+      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      title="Copies a curl command that re-triggers a run with this same input. Replace the session cookie value before running."
+    >
+      {copied ? 'Copied!' : 'Copy as curl'}
+    </button>
   )
 }
 
