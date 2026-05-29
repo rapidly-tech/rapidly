@@ -54,6 +54,7 @@ async def list_eval_runs(
     session: AsyncReadSession,
     auth_subject: AuthPrincipal[User | Workspace],
     *,
+    workspace_id: UUID | None = None,
     dataset_id: UUID | None = None,
     workflow_version_id: UUID | None = None,
     status: EvalRunStatus | None = None,
@@ -64,6 +65,13 @@ async def list_eval_runs(
     statement = repo.get_readable_statement(auth_subject).order_by(
         EvalRun.created_at.desc()
     )
+    if workspace_id is not None:
+        # Mirrors the workflow/dataset/vector-collection list
+        # contract (M5.41 / M5.42). ``get_readable_statement``
+        # already constrains to workspaces the caller can read;
+        # this narrows to one of them. Unknown IDs return empty
+        # rather than 403.
+        statement = statement.where(EvalRun.workspace_id == workspace_id)
     if dataset_id is not None:
         statement = statement.where(EvalRun.dataset_id == dataset_id)
     if workflow_version_id is not None:
