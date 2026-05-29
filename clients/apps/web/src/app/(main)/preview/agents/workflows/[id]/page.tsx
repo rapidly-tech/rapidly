@@ -26,6 +26,7 @@ import {
   formatRelative,
   formatTimestamp,
 } from '@/utils/agents/datetime'
+import { buildRunsCsv } from '@/utils/agents/runs-list-export'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { use, useState } from 'react'
@@ -613,9 +614,47 @@ function RunsSection({
       ) : runs.length === 0 ? (
         <EmptyRuns message={emptyMessage} />
       ) : (
-        <RunsList runs={runs} workflowId={workflow.id} />
+        <>
+          <div className="flex items-center justify-end">
+            <ExportRunsCsv runs={runs} workflowId={workflow.id} />
+          </div>
+          <RunsList runs={runs} workflowId={workflow.id} />
+        </>
       )}
     </section>
+  )
+}
+
+function ExportRunsCsv({
+  runs,
+  workflowId,
+}: {
+  runs: Run[]
+  workflowId: string
+}) {
+  const onExport = () => {
+    const csv = buildRunsCsv(runs)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // Filename tags the workflow's short id so a folder of
+    // exports stays addressable across workflows.
+    a.download = `workflow-${workflowId.slice(0, 8)}-runs.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <button
+      type="button"
+      onClick={onExport}
+      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      title="Exports the runs visible in this section (current filter + version)."
+    >
+      Export CSV
+    </button>
   )
 }
 
