@@ -1343,6 +1343,7 @@ async function fetchCredentials(
   params: {
     provider?: string
     name?: string
+    workspace_id?: string
     page?: number
     limit?: number
   } = {},
@@ -1352,6 +1353,8 @@ async function fetchCredentials(
   )
   if (params.provider) url.searchParams.set('provider', params.provider)
   if (params.name) url.searchParams.set('name', params.name)
+  if (params.workspace_id)
+    url.searchParams.set('workspace_id', params.workspace_id)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
   const res = await fetch(url.toString(), {
@@ -1366,6 +1369,7 @@ export const useCredentials = (
   params: {
     provider?: string
     name?: string
+    workspace_id?: string
     page?: number
     limit?: number
   } = {},

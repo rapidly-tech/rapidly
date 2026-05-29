@@ -292,3 +292,84 @@ class TestListCredentials:
             pagination=PaginationParams(limit=50, page=1),
         )
         assert count == 1
+
+    async def test_workspace_id_filter_scopes_to_one_workspace(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+    ) -> None:
+        """``workspace_id`` filter — the M5.77 fix that lets the
+        credentials page paginate against a single workspace
+        server-side instead of filtering after-the-fact (which
+        had broken ``meta.total``).
+
+        Builds two workspaces, makes one user a member of both,
+        then asserts the filter scopes correctly without
+        double-counting cross-workspace rows."""
+        from rapidly.core.pagination import PaginationParams
+
+        slug = f"other-{uuid.uuid4().hex[:6]}"
+        other = Workspace(
+            name=slug,
+            slug=slug,
+            customer_invoice_prefix=slug.upper(),
+        )
+        session.add(other)
+        await session.flush()
+
+        # The principal is a member of BOTH workspaces, so
+        # without the filter they would see both rows.
+        principal = await _member_principal(session, workspace)
+        session.add(
+            WorkspaceMembership(user_id=principal.subject.id, workspace_id=other.id)
+        )
+        await session.flush()
+
+        await actions.create(
+            session,
+            principal,
+            IntegrationCredentialCreate(
+                workspace_id=workspace.id,
+                provider="openai",
+                name="primary-cred",
+                secret="sk-1",
+            ),
+        )
+        await actions.create(
+            session,
+            principal,
+            IntegrationCredentialCreate(
+                workspace_id=other.id,
+                provider="openai",
+                name="other-cred",
+                secret="sk-2",
+            ),
+        )
+
+        # Baseline (no filter): both readable.
+        _, count = await actions.list_credentials(
+            session,
+            principal,
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 2
+
+        # Scoped to the original workspace.
+        rows, count = await actions.list_credentials(
+            session,
+            principal,
+            workspace_id=workspace.id,
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 1
+        assert rows[0].name == "primary-cred"
+
+        # Scoped to the other workspace.
+        rows, count = await actions.list_credentials(
+            session,
+            principal,
+            workspace_id=other.id,
+            pagination=PaginationParams(limit=50, page=1),
+        )
+        assert count == 1
+        assert rows[0].name == "other-cred"
