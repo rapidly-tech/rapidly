@@ -23,6 +23,7 @@ import {
   useWorkflow,
   useWorkflowVersions,
 } from '@/hooks/api/agents'
+import { useListWorkspaces } from '@/hooks/api/org'
 import {
   formatDuration,
   formatRelative,
@@ -241,6 +242,7 @@ function WorkflowHeader({ workflow }: { workflow: Workflow }) {
               <> · Updated {formatRelative(workflow.updated_at)}</>
             )}
           </p>
+          <WorkspaceLine workspaceId={workflow.workspace_id} />
           <CopyId id={workflow.id} label="workflow ID" />
         </div>
         <button
@@ -945,6 +947,24 @@ function EmptyRuns({ message }: { message: string }) {
     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
       {message}
     </div>
+  )
+}
+
+/** Header-line workspace badge. Renders nothing while the
+ *  workspaces list is loading, then either the workspace name
+ *  (if it matches a readable workspace) or a truncated id
+ *  fallback. Useful for multi-workspace operators landing on
+ *  a workflow via a deep link — they otherwise have no header
+ *  cue about which workspace it belongs to. */
+function WorkspaceLine({ workspaceId }: { workspaceId: string }) {
+  const query = useListWorkspaces({ limit: 50, page: 1 })
+  const match = query.data?.data.find((w) => w.id === workspaceId)
+  if (query.isLoading) return null
+  const label = match?.name ?? `id ${workspaceId.slice(0, 8)}`
+  return (
+    <p className="text-xs text-slate-500 dark:text-slate-400">
+      Workspace: <span className="font-medium">{label}</span>
+    </p>
   )
 }
 
