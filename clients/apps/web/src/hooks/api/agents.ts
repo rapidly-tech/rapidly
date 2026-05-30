@@ -172,8 +172,9 @@ async function createWorkflow(body: WorkflowCreatePayload): Promise<Workflow> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `workflow create failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -377,8 +378,9 @@ async function triggerRun(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `run trigger failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `run trigger failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Run
 }
@@ -426,8 +428,9 @@ async function publishVersion(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `version publish failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `version publish failed: ${res.status}`),
+    )
   }
   return (await res.json()) as WorkflowVersion
 }
@@ -448,8 +451,12 @@ async function setCurrentVersion(args: {
     body: JSON.stringify({ current_version_id: versionId }),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `set-current-version failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `set-current-version failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -558,8 +565,9 @@ async function updateWorkflow(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow update failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `workflow update failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -583,8 +591,9 @@ async function deleteWorkflow(workflowId: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `workflow delete failed: ${res.status}`),
+    )
   }
 }
 
@@ -606,8 +615,9 @@ async function archiveWorkflow(id: string): Promise<Workflow> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow archive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `workflow archive failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -620,8 +630,12 @@ async function unarchiveWorkflow(id: string): Promise<Workflow> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow unarchive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `workflow unarchive failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -871,8 +885,9 @@ async function createDataset(body: DatasetCreatePayload): Promise<Dataset> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset create failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Dataset
 }
@@ -932,8 +947,9 @@ async function createDatasetCase(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `case create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `case create failed: ${res.status}`),
+    )
   }
   return (await res.json()) as DatasetCase
 }
@@ -978,8 +994,9 @@ async function updateDataset(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset update failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset update failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Dataset
 }
@@ -1003,8 +1020,9 @@ async function deleteDataset(datasetId: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset delete failed: ${res.status}`),
+    )
   }
 }
 
@@ -1026,8 +1044,9 @@ async function archiveDataset(id: string): Promise<Dataset> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset archive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset archive failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Dataset
 }
@@ -1040,8 +1059,9 @@ async function unarchiveDataset(id: string): Promise<Dataset> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset unarchive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset unarchive failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Dataset
 }
@@ -1078,8 +1098,9 @@ async function deleteDatasetCase(args: {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `case delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `case delete failed: ${res.status}`),
+    )
   }
 }
 
@@ -1289,8 +1310,9 @@ async function triggerEval(body: TriggerEvalPayload): Promise<EvalRun> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `eval-run trigger failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `eval-run trigger failed: ${res.status}`),
+    )
   }
   return (await res.json()) as EvalRun
 }
@@ -1313,8 +1335,9 @@ async function cancelEvalRun(id: string): Promise<EvalRun> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `eval-run cancel failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `eval-run cancel failed: ${res.status}`),
+    )
   }
   return (await res.json()) as EvalRun
 }
@@ -1660,8 +1683,12 @@ async function createVectorCollection(
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection create failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as VectorCollection
 }
@@ -1714,8 +1741,12 @@ async function archiveVectorCollection(id: string): Promise<VectorCollection> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection archive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection archive failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as VectorCollection
 }
@@ -1730,8 +1761,12 @@ async function unarchiveVectorCollection(
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection unarchive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection unarchive failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as VectorCollection
 }
@@ -1777,8 +1812,12 @@ async function updateVectorCollection(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection update failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection update failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as VectorCollection
 }
@@ -1812,8 +1851,9 @@ async function createCredential(
   if (!res.ok) {
     // Surface the response body when 422 — Pydantic validation
     // errors carry per-field detail the UI can flag inline.
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `credential create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `credential create failed: ${res.status}`),
+    )
   }
   return (await res.json()) as IntegrationCredential
 }
