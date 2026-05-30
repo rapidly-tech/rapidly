@@ -440,6 +440,15 @@ function CollectionRow({ collection }: { collection: VectorCollection }) {
           </div>
         )}
       </div>
+      {(archive.isError || unarchive.isError || del.isError) && (
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {archive.isError
+            ? `Archive failed: ${(archive.error as Error).message}`
+            : unarchive.isError
+              ? `Unarchive failed: ${(unarchive.error as Error).message}`
+              : `Delete failed: ${(del.error as Error).message}`}
+        </div>
+      )}
     </li>
   )
 }
