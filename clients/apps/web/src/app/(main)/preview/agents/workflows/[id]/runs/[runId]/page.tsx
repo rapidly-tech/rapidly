@@ -108,6 +108,11 @@ function RunHeader({
           </button>
         )}
       </div>
+      {cancelMutation.isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          Cancel failed: {(cancelMutation.error as Error).message}
+        </div>
+      )}
       <ContextLinks run={run} workflowId={workflowId} />
       <CopyId id={run.id} label="run ID" />
       <dl className="grid grid-cols-2 gap-x-6 gap-y-2 text-sm sm:grid-cols-4">
