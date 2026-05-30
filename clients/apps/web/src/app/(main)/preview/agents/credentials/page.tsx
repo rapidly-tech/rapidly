@@ -440,6 +440,13 @@ function CredentialRow({
           overBudget={percent !== null && percent > 1}
         />
       )}
+      {(setDefault.isError || deleteCred.isError) && (
+        <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {setDefault.isError
+            ? `Make-default failed: ${(setDefault.error as Error).message}`
+            : `Delete failed: ${(deleteCred.error as Error).message}`}
+        </div>
+      )}
     </li>
   )
 }

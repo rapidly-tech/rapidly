@@ -1163,6 +1163,11 @@ function CaseRow({
               {del.isPending ? 'Deleting…' : 'Delete case'}
             </button>
           </div>
+          {del.isError && (
+            <div className="mt-3 rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+              Delete failed: {(del.error as Error).message}
+            </div>
+          )}
         </div>
       )}
     </li>
