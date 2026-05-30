@@ -137,6 +137,8 @@ export default function WorkflowsListPage() {
       ) : workflows.length === 0 ? (
         search.trim() ? (
           <EmptySearch query={search.trim()} noun="workflows" />
+        ) : archiveFilter === 'archived' ? (
+          <EmptyArchived />
         ) : publishFilter !== 'all' ? (
           <EmptyFiltered publishFilter={publishFilter} />
         ) : (
@@ -233,6 +235,18 @@ function EmptyFiltered({ publishFilter }: { publishFilter: PublishFilter }) {
   return (
     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
       No <span className="font-mono">{publishFilter}</span> workflows.
+    </div>
+  )
+}
+
+/** Empty-state for the Archived chip when no workflows have
+ *  been archived yet. Distinct from EmptyState (no workflows
+ *  at all) so the operator doesn't see a "create your first
+ *  workflow" CTA when they were trying to browse history. */
+function EmptyArchived() {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No archived workflows in this workspace yet.
     </div>
   )
 }

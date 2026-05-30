@@ -87,6 +87,8 @@ export default function DatasetsListPage() {
       ) : datasets.length === 0 ? (
         search.trim() ? (
           <EmptySearch query={search.trim()} noun="datasets" />
+        ) : archiveFilter === 'archived' ? (
+          <EmptyArchived />
         ) : (
           <Empty />
         )
@@ -310,6 +312,14 @@ function ErrorBanner({ message }: { message: string }) {
   return (
     <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
       Failed to load datasets: {message}
+    </div>
+  )
+}
+
+function EmptyArchived() {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No archived datasets in this workspace yet.
     </div>
   )
 }
