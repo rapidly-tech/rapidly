@@ -118,6 +118,49 @@ class TestDaysInStatusFilter:
         assert "is null" in sql
 
 
+class TestSearchEscape:
+    """Pin the LIKE wildcard escape behaviour added in M5.80.
+
+    Without ``escape_like`` + ``escape='\\\\'``, a moderator
+    searching for ``foo%`` would silently degrade to a "starts
+    with foo" prefix query, and ``%`` alone would match every
+    workspace. The escape clause is mandatory — without it
+    Postgres treats the backslash literally and leaves ``%`` /
+    ``_`` acting as wildcards.
+    """
+
+    def test_percent_in_query_is_escaped(self) -> None:
+        repo = AdminWorkspaceRepository(session=MagicMock())
+        # ``%`` from the user should land as ``\%`` in the SQL —
+        # treated as a literal, not as the "match any" wildcard.
+        sql = _compile(repo.build_list_statement(q="foo%bar"))
+        assert "foo\\%bar" in sql
+
+    def test_underscore_in_query_is_escaped(self) -> None:
+        repo = AdminWorkspaceRepository(session=MagicMock())
+        # ``_`` from the user should land as ``\_`` so it matches
+        # the literal underscore character only, not "any single
+        # char".
+        sql = _compile(repo.build_list_statement(q="foo_bar"))
+        assert "foo\\_bar" in sql
+
+    def test_backslash_in_query_is_escaped(self) -> None:
+        repo = AdminWorkspaceRepository(session=MagicMock())
+        # Backslash itself must be escaped first, otherwise the
+        # escape sequences for ``%`` / ``_`` would be ambiguous.
+        sql = _compile(repo.build_list_statement(q="foo\\bar"))
+        # SQL string repr doubles the backslash; both are escaped.
+        assert "foo\\\\bar" in sql
+
+    def test_escape_clause_present(self) -> None:
+        # The escape character must be declared in the LIKE
+        # expression. Without it Postgres treats backslash as a
+        # literal and the escape_like preprocessing is inert.
+        repo = AdminWorkspaceRepository(session=MagicMock())
+        sql = _compile(repo.build_list_statement(q="probe")).lower()
+        assert "escape '\\'" in sql
+
+
 class TestPaginationFetchesLimitPlusOne:
     def test_limit_one_extra_for_has_more_detection(self) -> None:
         # Pin: ``LIMIT N+1`` to detect a next page without an

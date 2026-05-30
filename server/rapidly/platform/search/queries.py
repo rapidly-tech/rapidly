@@ -155,7 +155,13 @@ class SearchRepository:
             stmt = stmt.where(
                 or_(
                     Customer.search_vector.op("@@")(ts_query_simple),
-                    Customer.email.ilike(ilike_term),
+                    # ``ilike_term`` is pre-escaped above (line 62-65)
+                    # but the escape clause has to be re-stated on
+                    # every callsite or Postgres will treat the
+                    # backslash as a literal and leave ``%`` /
+                    # ``_`` acting as wildcards. See
+                    # feedback_escape_like_needs_escape_clause memory.
+                    Customer.email.ilike(ilike_term, escape="\\"),
                 )
             )
 

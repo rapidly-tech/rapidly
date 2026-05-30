@@ -257,14 +257,22 @@ class WebhookDeliveryRepository(
         if succeeded is not None:
             stmt = stmt.where(WebhookDelivery.succeeded == succeeded)
         if query is not None:
+            # escape_like is inert without the paired escape clause
+            # below — Postgres treats the backslash literally and
+            # leaves ``%`` / ``_`` acting as wildcards. See
+            # feedback_escape_like_needs_escape_clause memory.
             escaped = escape_like(query)
             stmt = stmt.where(
                 or_(
-                    sql_cast(WebhookDelivery.id, String).ilike(f"%{escaped}%"),
-                    sql_cast(WebhookDelivery.webhook_event_id, String).ilike(
-                        f"%{escaped}%"
+                    sql_cast(WebhookDelivery.id, String).ilike(
+                        f"%{escaped}%", escape="\\"
                     ),
-                    sql_cast(WebhookDelivery.http_code, String).ilike(f"%{escaped}%"),
+                    sql_cast(WebhookDelivery.webhook_event_id, String).ilike(
+                        f"%{escaped}%", escape="\\"
+                    ),
+                    sql_cast(WebhookDelivery.http_code, String).ilike(
+                        f"%{escaped}%", escape="\\"
+                    ),
                 )
             )
         if http_code_class is not None:
