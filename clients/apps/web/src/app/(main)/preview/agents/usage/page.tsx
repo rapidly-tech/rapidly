@@ -5,6 +5,7 @@ import {
   useCredentials,
   useUsageRollup,
 } from '@/hooks/api/agents'
+import { buildUsageCsv } from '@/utils/agents/usage-export'
 import { useMemo, useState } from 'react'
 
 const WINDOWS: { label: string; hours: number }[] = [
@@ -64,6 +65,13 @@ export default function UsagePage() {
       ) : (
         <>
           <SummaryRow total={total} />
+          <div className="flex items-center justify-end">
+            <ExportUsageCsv
+              rows={rows}
+              credentialNames={credentialNames}
+              windowHours={windowHours}
+            />
+          </div>
           <RollupTable rows={rows} credentialNames={credentialNames} />
         </>
       )}
@@ -113,6 +121,42 @@ function WindowSwitcher({
         </button>
       ))}
     </div>
+  )
+}
+
+function ExportUsageCsv({
+  rows,
+  credentialNames,
+  windowHours,
+}: {
+  rows: UsageRollupRow[]
+  credentialNames: Map<string, string>
+  windowHours: number
+}) {
+  const onExport = () => {
+    const csv = buildUsageCsv(rows, credentialNames)
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    // Filename tags the window so a folder of exports stays
+    // addressable. Hours not date — the rollup is rolling, so
+    // dates would suggest a fixed boundary that doesn't exist.
+    a.download = `llm-usage-${windowHours}h.csv`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <button
+      type="button"
+      onClick={onExport}
+      className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+      title="Exports the rollup rows visible in this window. Numbers are unformatted so they sum cleanly in a spreadsheet."
+    >
+      Export CSV
+    </button>
   )
 }
 
