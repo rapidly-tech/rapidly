@@ -20,6 +20,45 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { baseRetry } from './retry'
 
+/**
+ * Pretty-print a failed Response body for surfacing in the
+ * mutation-error banners. FastAPI's standard error shape is
+ * ``{"detail": "..."}`` — show just the detail rather than the
+ * raw JSON wrapper. Falls back to the input text (and the
+ * provided default) when not parseable.
+ *
+ * Lives at the top of this file so every mutation path can
+ * call it without thinking about extraction logic.
+ */
+export async function extractErrorMessage(
+  res: Response,
+  fallback: string,
+): Promise<string> {
+  const text = await res.text().catch(() => '')
+  if (!text) return fallback
+  try {
+    const parsed = JSON.parse(text)
+    // FastAPI's HTTPException(detail=...) — string or list[dict].
+    if (typeof parsed?.detail === 'string') return parsed.detail
+    // Pydantic 422 returns detail as a list; join the per-field
+    // messages so the banner doesn't dump JSON to the operator.
+    if (Array.isArray(parsed?.detail)) {
+      const parts = parsed.detail
+        .map((d: unknown) => {
+          if (typeof d === 'object' && d !== null && 'msg' in d) {
+            return String((d as { msg: unknown }).msg)
+          }
+          return ''
+        })
+        .filter(Boolean)
+      if (parts.length > 0) return parts.join('; ')
+    }
+  } catch {
+    // Not JSON — fall through to raw text.
+  }
+  return text
+}
+
 // ── Cache key builder ─────────────────────────────────────────
 
 const workflowKey = (...parts: (string | object)[]) => [
@@ -619,8 +658,9 @@ async function cancelRun(id: string): Promise<RunDetail> {
     // response body so the cancel-failed banner (M5.86) shows
     // the actual reason ("Run already in terminal status
     // succeeded.") rather than a generic "run cancel failed: 403".
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `run cancel failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `run cancel failed: ${res.status}`),
+    )
   }
   return (await res.json()) as RunDetail
 }
@@ -1647,8 +1687,12 @@ async function deleteVectorCollection(id: string): Promise<void> {
     // Match the rest of the mutation paths — surface the
     // server body so the per-row delete banner (M5.87) shows
     // the actual reason rather than a generic status code.
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection delete failed: ${res.status}`,
+      ),
+    )
   }
 }
 
@@ -1792,8 +1836,9 @@ async function deleteCredential(id: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok && res.status !== 204) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `credential delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `credential delete failed: ${res.status}`),
+    )
   }
 }
 
@@ -1817,8 +1862,12 @@ async function setDefaultCredential(
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `credential set-default failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `credential set-default failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as IntegrationCredential
 }
