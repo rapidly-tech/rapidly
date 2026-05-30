@@ -486,7 +486,11 @@ function NodeRunRow({ node, index }: { node: NodeRun; index: number }) {
                 ? 'Skipped — no output'
                 : node.status === 'failed'
                   ? 'Failed before producing output'
-                  : '—'
+                  : node.status === 'awaiting_human'
+                    ? 'Awaiting human input — no output yet'
+                    : node.status === 'pending' || node.status === 'running'
+                      ? 'Node is still executing'
+                      : '—'
             }
           />
         </div>
