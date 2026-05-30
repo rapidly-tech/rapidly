@@ -64,9 +64,14 @@ class MemberRepository(
         email = email or (customer.email if customer else None)
         if email is None:
             raise ValueError("email must be provided when customer is not given")
+        # Case-insensitive email match — mirrors
+        # ``UserRepository.get_by_email`` (platform/user/queries.py).
+        # Without this, a member added as ``John@example.com`` couldn't
+        # be looked up by a caller passing the same address lowercased
+        # even though both refer to the same mailbox.
         statement = select(Member).where(
             Member.customer_id == cid,
-            Member.email == email,
+            func.lower(Member.email) == email.lower(),
             Member.deleted_at.is_(None),
         )
         return await self.get_one_or_none(statement)
@@ -82,9 +87,11 @@ class MemberRepository(
         Returns:
             Member if found, None otherwise
         """
+        # Case-insensitive — same reasoning as
+        # ``get_by_customer_and_email`` above.
         statement = select(Member).where(
             Member.customer_id == customer_id,
-            Member.email == email,
+            func.lower(Member.email) == email.lower(),
             Member.deleted_at.is_(None),
         )
         return await self.get_one_or_none(statement)

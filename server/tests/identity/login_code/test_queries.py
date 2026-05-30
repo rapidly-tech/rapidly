@@ -53,7 +53,9 @@ class TestGetValidByHashAndEmail:
 
         sql = _compile(captured["stmt"]).lower()
         assert "login_codes.code_hash = 'hash_abc'" in sql
-        assert "login_codes.email = 'alice@example.com'" in sql
+        # Email compared via ``lower(...)`` on both sides — see
+        # TestEmailCaseInsensitivity below for why.
+        assert "lower(login_codes.email) = 'alice@example.com'" in sql
         assert "login_codes.expires_at >" in sql
         # The frozen now() literal appears in the expiry comparison.
         assert "2026-04-25" in sql
@@ -109,3 +111,38 @@ class TestGetValidByHashAndEmail:
         repo.get_one_or_none = AsyncMock(return_value=target)  # type: ignore[method-assign]
         out = await repo.get_valid_by_hash_and_email("hash_abc", "alice@example.com")
         assert out is target
+
+
+@pytest.mark.asyncio
+class TestEmailCaseInsensitivity:
+    """The lookup folds case on both sides of the email
+    comparison. Without this, a user who typed
+    ``John@Example.com`` on the request form but later
+    submitted ``john@example.com`` (auto-fill /
+    URL-lowercased magic link) would fail to authenticate
+    despite both addresses canonically resolving to the
+    same RFC-5321 mailbox.
+
+    Mirrors the pattern already used by
+    ``UserRepository.get_by_email``.
+    """
+
+    async def test_input_is_lowercased_in_sql(self) -> None:
+        # The bound-param literal in the SQL should be the
+        # lowercased version of the input — proves we
+        # called ``email.lower()`` on the right side.
+        repo = LoginCodeRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _capture(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            return None
+
+        repo.get_one_or_none = AsyncMock(side_effect=_capture)  # type: ignore[method-assign]
+        await repo.get_valid_by_hash_and_email("hash_abc", "John@Example.COM")
+
+        sql = _compile(captured["stmt"])
+        # Right-hand side is the lowercased literal.
+        assert "'john@example.com'" in sql
+        # Left-hand side wraps the column in lower(...).
+        assert "lower(login_codes.email)" in sql
