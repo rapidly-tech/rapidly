@@ -671,13 +671,25 @@ function RunsSection({
       )}
 
       {!activeVersionId ? (
-        <EmptyRuns message="This workflow has no published version yet — publish a version to trigger runs." />
+        <EmptyRuns
+          message={
+            workflow.archived_at !== null
+              ? 'This workflow is archived and has no published version. Unarchive it to publish a version and trigger runs.'
+              : 'This workflow has no published version yet — publish a version to trigger runs.'
+          }
+        />
       ) : isLoading ? (
         <RunsSkeleton />
       ) : isError ? (
         <ErrorBanner message={errorMessage ?? 'Unknown error'} />
       ) : runs.length === 0 ? (
-        <EmptyRuns message={emptyMessage} />
+        <EmptyRuns
+          message={
+            workflow.archived_at !== null && !statusFilter && !triggeredByFilter
+              ? 'No runs yet for this archived workflow. Unarchive it to trigger new runs.'
+              : emptyMessage
+          }
+        />
       ) : (
         <>
           <div className="flex items-center justify-end">
