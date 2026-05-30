@@ -126,8 +126,13 @@ export default function EvalRunsListPage() {
       ) : query.isError ? (
         <ErrorBanner message={(query.error as Error).message} />
       ) : runs.length === 0 ? (
-        statusFilter || strategyFilter ? (
-          <EmptyFiltered status={statusFilter} strategy={strategyFilter} />
+        anyFilterActive ? (
+          <EmptyFiltered
+            status={statusFilter}
+            strategy={strategyFilter}
+            hasDatasetFilter={datasetId !== null}
+            hasVersionFilter={workflowVersionId !== null}
+          />
         ) : (
           <Empty />
         )
@@ -292,21 +297,37 @@ function FilterBadge({
 function EmptyFiltered({
   status,
   strategy,
+  hasDatasetFilter,
+  hasVersionFilter,
 }: {
   status: EvalRunStatus | null
   strategy: AssertionStrategy | null
+  hasDatasetFilter: boolean
+  hasVersionFilter: boolean
 }) {
   // Empty copy adapts to whichever filter combination produced
-  // the empty result. Both → "No <status> <strategy> eval runs.";
-  // single → just that filter; neither shouldn't reach this
+  // the empty result. We name the status / strategy chips when
+  // they're set, and append "for the selected dataset /
+  // workflow version" so URL-state filters (which don't render
+  // their value in the copy) at least tell the operator what
+  // scope they're in. Neither set shouldn't reach this
   // component (caller falls back to <Empty />).
   const parts: string[] = ['No']
   if (status) parts.push(status)
   if (strategy) parts.push(strategy)
-  parts.push('eval runs.')
+  parts.push('eval runs')
+
+  const scopes: string[] = []
+  if (hasDatasetFilter) scopes.push('selected dataset')
+  if (hasVersionFilter) scopes.push('selected workflow version')
+
+  const suffix = scopes.length > 0 ? ` for the ${scopes.join(' + ')}` : ''
   return (
     <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
-      <span className="font-mono">{parts.join(' ')}</span>
+      <span className="font-mono">
+        {parts.join(' ')}
+        {suffix}.
+      </span>
     </div>
   )
 }
