@@ -259,6 +259,19 @@ export const useRuns = (
     queryFn: () => fetchRuns(params),
     retry: baseRetry,
     enabled,
+    // Poll every 2s while any visible run is non-terminal so
+    // the embedded Recent-runs list on the workflow detail
+    // page tracks live status changes. Once every visible row
+    // lands terminal, polling stops. Same shape as useRun
+    // (line 301) but scoped to the page.
+    refetchInterval: (q) => {
+      const data = q.state.data as PaginatedRuns | undefined
+      if (!data) return 2000
+      const hasActive = data.data.some(
+        (r) => !TERMINAL_RUN_STATUSES.includes(r.status),
+      )
+      return hasActive ? 2000 : false
+    },
   })
 
 // ══════════════════════════════════════════════
@@ -1147,6 +1160,21 @@ export const useEvalRuns = (
     queryFn: () => fetchEvalRuns(params),
     retry: baseRetry,
     enabled,
+    // Mirror useRuns (line ~270): poll every 2.5s while any
+    // visible eval-run is non-terminal so the embedded
+    // EvalHistorySection on the workflow + dataset detail
+    // pages ticks the pass/fail counters live. The 2.5s
+    // cadence matches useEvalRun (the detail view) so
+    // batched eval-run-list + eval-run-detail loops don't
+    // hammer the API.
+    refetchInterval: (q) => {
+      const data = q.state.data as PaginatedEvalRuns | undefined
+      if (!data) return 2500
+      const hasActive = data.data.some(
+        (r) => !TERMINAL_EVAL_STATUSES.includes(r.status),
+      )
+      return hasActive ? 2500 : false
+    },
   })
 
 async function fetchEvalRun(id: string): Promise<EvalRun> {
