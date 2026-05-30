@@ -458,6 +458,13 @@ function TriggerEvalSection({ dataset }: { dataset: Dataset }) {
   const pickableWorkflows = (workflowsQuery.data?.data ?? []).filter(
     (w) => w.archived_at === null,
   )
+  // If every active workflow is a draft (no current_version_id),
+  // the picker would render a list of disabled options with no
+  // operator-actionable hint. Detect that here so the
+  // placeholder copy can point at the right next step.
+  const allDrafts =
+    pickableWorkflows.length > 0 &&
+    pickableWorkflows.every((w) => w.current_version_id === null)
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -515,7 +522,9 @@ function TriggerEvalSection({ dataset }: { dataset: Dataset }) {
               ? 'Loading…'
               : pickableWorkflows.length === 0
                 ? 'No active workflows in this workspace'
-                : 'Select a workflow'}
+                : allDrafts
+                  ? 'All workflows are drafts — publish a version first'
+                  : 'Select a workflow'}
           </option>
           {pickableWorkflows.map((w) => (
             <option key={w.id} value={w.id} disabled={!w.current_version_id}>
