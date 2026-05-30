@@ -615,7 +615,12 @@ async function cancelRun(id: string): Promise<RunDetail> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    throw new Error(`run cancel failed: ${res.status}`)
+    // Match cancelEvalRun (line ~1271): surface the server's
+    // response body so the cancel-failed banner (M5.86) shows
+    // the actual reason ("Run already in terminal status
+    // succeeded.") rather than a generic "run cancel failed: 403".
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `run cancel failed: ${res.status}`)
   }
   return (await res.json()) as RunDetail
 }
@@ -1639,7 +1644,11 @@ async function deleteVectorCollection(id: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok && res.status !== 204) {
-    throw new Error(`vector collection delete failed: ${res.status}`)
+    // Match the rest of the mutation paths — surface the
+    // server body so the per-row delete banner (M5.87) shows
+    // the actual reason rather than a generic status code.
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `vector collection delete failed: ${res.status}`)
   }
 }
 
@@ -1783,7 +1792,8 @@ async function deleteCredential(id: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok && res.status !== 204) {
-    throw new Error(`credential delete failed: ${res.status}`)
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `credential delete failed: ${res.status}`)
   }
 }
 
@@ -1807,7 +1817,8 @@ async function setDefaultCredential(
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    throw new Error(`credential set-default failed: ${res.status}`)
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `credential set-default failed: ${res.status}`)
   }
   return (await res.json()) as IntegrationCredential
 }
