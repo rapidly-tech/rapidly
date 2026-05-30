@@ -124,3 +124,35 @@ class WorkspaceAccessTokenRepository(
             )
         )
         return count or 0
+
+    async def soft_delete_expired(self) -> int:
+        """Soft-delete tokens whose expiry has passed.
+
+        Sets ``deleted_at = now_utc()`` so the row stays in the
+        DB for audit (operators may have referenced the token id
+        in logs / integration configs and want to look it up
+        later) but is invisible to the get_readable_statement
+        path. Skips tokens with NULL ``expires_at`` (those are
+        intentionally non-expiring) and rows already soft-
+        deleted.
+
+        Strict ``expires_at < now()`` so a token at the exact
+        boundary stays usable until the lookup's
+        ``expires_at > now()`` flips first — no race between
+        cleanup and a final in-flight request.
+
+        Returns the rowcount so the cron actor can log how many
+        rows it processed.
+        """
+        now = now_utc()
+        statement = (
+            update(WorkspaceAccessToken)
+            .where(
+                WorkspaceAccessToken.expires_at.is_not(None),
+                WorkspaceAccessToken.expires_at < now,
+                WorkspaceAccessToken.deleted_at.is_(None),
+            )
+            .values(deleted_at=now)
+        )
+        result = await self.session.execute(statement)
+        return result.rowcount or 0
