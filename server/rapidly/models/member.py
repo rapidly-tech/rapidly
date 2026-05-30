@@ -10,7 +10,7 @@ from enum import StrEnum
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import ForeignKey, String, UniqueConstraint, Uuid
+from sqlalchemy import Column, ForeignKey, Index, String, UniqueConstraint, Uuid, func
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, declared_attr, mapped_column, relationship
 
@@ -51,6 +51,18 @@ class Member(BaseEntity):
             "external_id",
             name="members_customer_id_external_id_key",
             postgresql_nulls_not_distinct=False,
+        ),
+        # Case-insensitive index on email so
+        # ``get_by_customer_*_email`` (PR #854 case-folded
+        # lookups) can use an index. Non-unique — the
+        # case-sensitive UniqueConstraint above still enforces
+        # row uniqueness; this index is purely a perf serve.
+        # Mirrors the ``ix_users_email_case_insensitive`` index
+        # on User.
+        Index(
+            "ix_members_customer_id_email_lower",
+            Column("customer_id"),
+            func.lower(Column("email")),
         ),
     )
 
