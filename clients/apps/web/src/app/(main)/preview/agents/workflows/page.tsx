@@ -12,6 +12,7 @@ import {
   useWorkflows,
 } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
+import { formatDate } from '@/utils/agents/datetime'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -457,18 +458,4 @@ function EmptyState() {
       </p>
     </div>
   )
-}
-
-function formatDate(iso: string): string {
-  // Render in the operator's locale so the list is glanceable;
-  // exact-second timestamps belong on detail pages, not here.
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  } catch {
-    return iso
-  }
 }

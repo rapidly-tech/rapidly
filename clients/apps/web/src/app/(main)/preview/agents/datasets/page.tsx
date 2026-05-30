@@ -8,6 +8,7 @@ import {
 } from '@/components/agents/ListControls'
 import { type Dataset, useCreateDataset, useDatasets } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
+import { formatDate } from '@/utils/agents/datetime'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -343,16 +344,4 @@ function Empty() {
       </p>
     </div>
   )
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  } catch {
-    return iso
-  }
 }

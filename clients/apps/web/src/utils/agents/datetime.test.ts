@@ -1,6 +1,7 @@
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import {
+  formatDate,
   formatDuration,
   formatRelative,
   formatTime,
@@ -110,5 +111,32 @@ describe('formatTimestamp', () => {
 
   it('returns the input verbatim when unparsable', () => {
     expect(formatTimestamp('not-a-date')).toBe('not-a-date')
+  })
+})
+
+describe('formatDate', () => {
+  it('renders a parseable ISO as a short date', () => {
+    // ``2026-05-28T12:00:00Z`` may render as 2026-05-28 or
+    // 2026-05-27 depending on the test runner's locale and
+    // timezone. Asserting on shape, not exact day-of-month,
+    // keeps the test stable in CI vs local.
+    const out = formatDate('2026-05-28T12:00:00Z')
+    expect(out).toMatch(/2026/)
+    expect(out).toMatch(/May/)
+  })
+
+  it('falls back to the input string when Date.parse fails', () => {
+    // Important: ``toLocaleDateString`` returns "Invalid Date"
+    // on an unparsable date, not throws. The guard must catch
+    // NaN explicitly so operators don't see that string.
+    expect(formatDate('not-a-date')).toBe('not-a-date')
+  })
+
+  it('does not include time-of-day', () => {
+    // The whole point of formatDate vs formatTimestamp is that
+    // list rows stay glanceable; if a future refactor pulls in
+    // a long format with ``HH:mm`` this test will catch it.
+    const out = formatDate('2026-05-28T12:00:00Z')
+    expect(out).not.toMatch(/:\d\d/)
   })
 })

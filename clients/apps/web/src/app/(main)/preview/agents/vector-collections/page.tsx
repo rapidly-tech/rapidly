@@ -17,6 +17,7 @@ import {
   useVectorCollections,
 } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
+import { formatDate } from '@/utils/agents/datetime'
 import { useState } from 'react'
 
 const PAGE_SIZE = 20
@@ -390,6 +391,21 @@ function CollectionRow({ collection }: { collection: VectorCollection }) {
               <span className="text-slate-400 dark:text-slate-500">dim:</span>{' '}
               <span className="font-mono">{collection.dimensions}</span>
             </span>
+            <span>
+              <span className="text-slate-400 dark:text-slate-500">
+                created:
+              </span>{' '}
+              {formatDate(collection.created_at)}
+            </span>
+            {collection.modified_at &&
+              collection.modified_at !== collection.created_at && (
+                <span>
+                  <span className="text-slate-400 dark:text-slate-500">
+                    updated:
+                  </span>{' '}
+                  {formatDate(collection.modified_at)}
+                </span>
+              )}
             <span>
               <span className="text-slate-400 dark:text-slate-500">id:</span>{' '}
               <span className="font-mono">{collection.id}</span>

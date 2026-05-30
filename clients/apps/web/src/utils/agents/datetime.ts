@@ -95,3 +95,19 @@ export function formatTimestamp(iso: string): string {
   if (Number.isNaN(ms)) return iso
   return new Date(ms).toLocaleString()
 }
+
+/**
+ * Date-only locale format — "Jan 5, 2026". Used on list-row
+ * chrome where the time-of-day isn't useful. Falls back to
+ * the input string when parsing fails so we don't render
+ * "Invalid Date" to the operator.
+ */
+export function formatDate(iso: string): string {
+  const ms = Date.parse(iso)
+  if (Number.isNaN(ms)) return iso
+  return new Date(ms).toLocaleDateString(undefined, {
+    year: 'numeric',
+    month: 'short',
+    day: 'numeric',
+  })
+}
