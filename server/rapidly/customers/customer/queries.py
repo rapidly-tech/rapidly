@@ -219,12 +219,18 @@ class CustomerRepository(
         if metadata is not None:
             stmt = apply_metadata_clause(Customer, stmt, metadata)
         if query is not None:
+            # escape_like is inert without the paired escape clause —
+            # Postgres treats the backslash literally and leaves
+            # ``%`` / ``_`` acting as wildcards. See
+            # feedback_escape_like_needs_escape_clause memory (the
+            # M5.80 audit fixed the agents + admin + webhook callsites;
+            # this one was missed in that sweep).
             escaped = escape_like(query)
             stmt = stmt.where(
                 or_(
-                    Customer.email.ilike(f"%{escaped}%"),
-                    Customer.name.ilike(f"%{escaped}%"),
-                    Customer.external_id.ilike(f"{escaped}%"),
+                    Customer.email.ilike(f"%{escaped}%", escape="\\"),
+                    Customer.name.ilike(f"%{escaped}%", escape="\\"),
+                    Customer.external_id.ilike(f"{escaped}%", escape="\\"),
                 )
             )
         for criterion, is_desc in sorting:
