@@ -19,6 +19,7 @@ import {
   useSetDefaultCredential,
 } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
+import { formatDate } from '@/utils/agents/datetime'
 import { useMemo, useState } from 'react'
 
 const PAGE_SIZE = 20
@@ -432,6 +433,13 @@ function CredentialRow({
           {credential.base_url}
         </p>
       )}
+      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+        Added {formatDate(credential.created_at)}
+        {credential.modified_at &&
+          credential.modified_at !== credential.created_at && (
+            <> · Rotated {formatDate(credential.modified_at)}</>
+          )}
+      </p>
       {budget && credential.monthly_budget_tokens !== null && (
         <BudgetBar
           mtd={budget.month_to_date_tokens}
