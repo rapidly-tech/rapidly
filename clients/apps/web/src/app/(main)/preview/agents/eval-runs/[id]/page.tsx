@@ -526,7 +526,18 @@ function CaseRow({
           <JsonPanel
             title="Actual"
             data={caseItem.actual_output}
-            placeholder="—"
+            // Status-aware placeholder mirrors the M5.88k
+            // pattern on the run-detail page. If the case
+            // errored, point operators at the error message
+            // they can see one row up; if it ran but produced
+            // no output, say so explicitly.
+            placeholder={
+              caseItem.error_message
+                ? 'Errored before producing output — see error above'
+                : caseItem.run_id === null
+                  ? 'Run not dispatched — eval was cancelled before this case'
+                  : '—'
+            }
           />
         </div>
       )}
