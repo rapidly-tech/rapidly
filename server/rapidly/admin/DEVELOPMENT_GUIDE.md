@@ -95,10 +95,16 @@ async def list(
     repository = MyEntityRepository.from_session(session)
     statement = repository.get_base_statement()
 
-    # Add search functionality
+    # Add search functionality.
+    # NOTE: escape_like is inert without the paired escape="\\"
+    # clause — Postgres treats the backslash literally otherwise
+    # and ``%`` / ``_`` keep acting as wildcards. Always pair the
+    # two. See feedback_escape_like_needs_escape_clause memory.
     if query:
         from rapidly.core.queries.utils import escape_like
-        statement = statement.where(MyEntity.name.ilike(f"%{escape_like(query)}%"))
+        statement = statement.where(
+            MyEntity.name.ilike(f"%{escape_like(query)}%", escape="\\")
+        )
 
     items, count = await repository.paginate(
         statement, limit=pagination.limit, page=pagination.page
