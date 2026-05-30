@@ -380,7 +380,13 @@ function CredentialRow({
   const deleteCred = useDeleteCredential()
 
   const percent = budget?.percent_used ?? null
-  const percentClamped = percent !== null ? Math.min(100, percent * 100) : null
+  // Bar width clamps at 100% so the visual doesn't overflow;
+  // the displayed number stays unclamped so operators see
+  // "350%" (5x over budget) and panic appropriately rather
+  // than the bar quietly showing "100%" for both 100% and
+  // 350% usage.
+  const percentDisplay = percent !== null ? Math.round(percent * 100) : null
+  const percentBarWidth = percent !== null ? Math.min(100, percent * 100) : null
 
   return (
     <li className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -444,7 +450,8 @@ function CredentialRow({
         <BudgetBar
           mtd={budget.month_to_date_tokens}
           cap={credential.monthly_budget_tokens}
-          percent={percentClamped}
+          percentDisplay={percentDisplay}
+          percentBarWidth={percentBarWidth}
           overBudget={percent !== null && percent > 1}
         />
       )}
@@ -462,12 +469,20 @@ function CredentialRow({
 function BudgetBar({
   mtd,
   cap,
-  percent,
+  percentDisplay,
+  percentBarWidth,
   overBudget,
 }: {
   mtd: number
   cap: number
-  percent: number | null
+  /** Unclamped percentage (e.g., 350 for 3.5x over budget) —
+   *  shown in the right-hand label so operators see actual
+   *  over-budget magnitude. */
+  percentDisplay: number | null
+  /** Bar-width percentage clamped to [0, 100] so the visual
+   *  doesn't overflow its container even when budget is
+   *  blown by 5x. */
+  percentBarWidth: number | null
   overBudget: boolean
 }) {
   return (
@@ -476,12 +491,18 @@ function BudgetBar({
         <span>
           {mtd.toLocaleString()} / {cap.toLocaleString()} tokens this month
         </span>
-        <span>{percent !== null ? `${Math.round(percent)}%` : '—'}</span>
+        <span
+          className={
+            overBudget ? 'font-medium text-rose-600 dark:text-rose-400' : ''
+          }
+        >
+          {percentDisplay !== null ? `${percentDisplay}%` : '—'}
+        </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
         <div
           className={`h-full ${overBudget ? 'bg-rose-500' : 'bg-emerald-500'}`}
-          style={{ width: `${percent ?? 0}%` }}
+          style={{ width: `${percentBarWidth ?? 0}%` }}
         />
       </div>
     </div>
