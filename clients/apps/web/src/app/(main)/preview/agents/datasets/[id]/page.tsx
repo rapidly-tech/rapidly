@@ -608,7 +608,11 @@ function TriggerEvalSection({ dataset }: { dataset: Dataset }) {
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={trigger.isPending}
+          disabled={
+            trigger.isPending ||
+            workflowVersionId.trim().length === 0 ||
+            (strategy === 'llm_judge' && judgeModelId.trim().length === 0)
+          }
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {trigger.isPending ? 'Submitting…' : 'Trigger'}
@@ -706,12 +710,13 @@ function CasesSection({
             <CaseRow
               key={c.id}
               caseItem={c}
-              // Index reflects the position in the full list so
-              // operators can correlate filtered rows with their
-              // actual order_index. (We could renumber the
-              // filtered view, but then a hand-written CSV mapping
-              // to order_index would lie.)
-              index={cases.indexOf(c) + 1}
+              // Show the persisted order_index, not the array
+              // position. After deletes the two diverge — the array
+              // becomes [0,1,5,7] while ``indexOf(c)+1`` would say
+              // 1,2,3,4. CSV exports + the bulk-add nextOrderIndex
+              // math both key off order_index, so the UI should
+              // too. M5.88i fix.
+              index={c.order_index}
               datasetId={datasetId}
             />
           ))}
@@ -875,7 +880,7 @@ function AddCaseForm({
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={create.isPending}
+          disabled={create.isPending || name.trim().length === 0}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {create.isPending ? 'Adding…' : 'Add case'}

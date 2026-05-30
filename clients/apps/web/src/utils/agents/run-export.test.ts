@@ -27,7 +27,7 @@ describe('buildNodeRunsCsv', () => {
       makeNode({ node_id: 'a' }),
       makeNode({ node_id: 'b' }),
     ])
-    const lines = csv.split('\n')
+    const lines = csv.split('\r\n')
     expect(lines).toHaveLength(3)
     expect(lines[0]).toBe(
       'step,node_id,node_type,status,started_at,completed_at,duration_ms,error_message,input_data,output_data',
@@ -44,7 +44,7 @@ describe('buildNodeRunsCsv', () => {
         completed_at: '2026-05-28T10:00:01.500Z',
       }),
     ])
-    const cells = csv.split('\n')[1].split(',')
+    const cells = csv.split('\r\n')[1].split(',')
     // duration_ms is column 6 (zero-indexed).
     expect(cells[6]).toBe('1500')
   })
@@ -56,7 +56,7 @@ describe('buildNodeRunsCsv', () => {
         completed_at: null,
       }),
     ])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     const cells = row.split(',')
     // started_at (4), completed_at (5), duration_ms (6)
     expect(cells[4]).toBe('')
@@ -73,7 +73,7 @@ describe('buildNodeRunsCsv', () => {
         completed_at: '2026-05-28T10:00:00.000Z',
       }),
     ])
-    const cells = csv.split('\n')[1].split(',')
+    const cells = csv.split('\r\n')[1].split(',')
     expect(cells[6]).toBe('0')
   })
 
@@ -85,7 +85,7 @@ describe('buildNodeRunsCsv', () => {
         error_message: 'boom',
       }),
     ])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     const cells = row.split(',')
     // output_data is the last column.
     expect(cells[cells.length - 1]).toBe('')
@@ -93,7 +93,7 @@ describe('buildNodeRunsCsv', () => {
 
   it('CSV-escapes a node_id that contains a comma', () => {
     const csv = buildNodeRunsCsv([makeNode({ node_id: 'a,b' })])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     expect(row).toContain('"a,b"')
   })
 
@@ -104,7 +104,7 @@ describe('buildNodeRunsCsv', () => {
         output_data: { b: 2 },
       }),
     ])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     expect(row).toContain('"{""a"":1}"')
     expect(row).toContain('"{""b"":2}"')
   })
@@ -113,7 +113,7 @@ describe('buildNodeRunsCsv', () => {
     const csv = buildNodeRunsCsv([
       makeNode({ status: 'failed', error_message: 'said "no"' }),
     ])
-    expect(csv.split('\n')[1]).toContain('"said ""no"""')
+    expect(csv.split('\r\n')[1]).toContain('"said ""no"""')
   })
 
   it('returns just the header when given an empty array', () => {
@@ -132,7 +132,7 @@ describe('buildNodeRunsCsv', () => {
       makeNode({ node_id: 'a' }),
       makeNode({ node_id: 'm' }),
     ])
-    const rows = csv.split('\n').slice(1)
+    const rows = csv.split('\r\n').slice(1)
     expect(rows[0].split(',')[1]).toBe('z')
     expect(rows[1].split(',')[1]).toBe('a')
     expect(rows[2].split(',')[1]).toBe('m')

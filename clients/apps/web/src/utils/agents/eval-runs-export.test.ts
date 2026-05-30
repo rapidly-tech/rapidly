@@ -28,7 +28,7 @@ function makeRun(overrides: Partial<EvalRun> = {}): EvalRun {
 describe('buildEvalRunsCsv', () => {
   it('emits a header row followed by one row per eval-run', () => {
     const csv = buildEvalRunsCsv([makeRun({ id: 'a' }), makeRun({ id: 'b' })])
-    const lines = csv.split('\n')
+    const lines = csv.split('\r\n')
     expect(lines).toHaveLength(3)
     expect(lines[0]).toBe(
       'id,status,assertion_strategy,case_count,pass_count,fail_count,error_count,pass_rate_percent,started_at,completed_at,duration_ms,error_message',
@@ -37,7 +37,7 @@ describe('buildEvalRunsCsv', () => {
 
   it('rounds pass_rate to an integer percent', () => {
     const csv = buildEvalRunsCsv([makeRun({ case_count: 3, pass_count: 2 })])
-    const cells = csv.split('\n')[1].split(',')
+    const cells = csv.split('\r\n')[1].split(',')
     // 2/3 → 67% rounded.
     expect(cells[7]).toBe('67')
   })
@@ -47,7 +47,7 @@ describe('buildEvalRunsCsv', () => {
     // would be misleading — empty conveys "rate undefined" so
     // the spreadsheet aggregator can skip it.
     const csv = buildEvalRunsCsv([makeRun({ case_count: 0, pass_count: 0 })])
-    expect(csv.split('\n')[1].split(',')[7]).toBe('')
+    expect(csv.split('\r\n')[1].split(',')[7]).toBe('')
   })
 
   it('computes duration_ms as the integer diff', () => {
@@ -58,7 +58,7 @@ describe('buildEvalRunsCsv', () => {
       }),
     ])
     // duration_ms is column 10 (zero-indexed).
-    expect(csv.split('\n')[1].split(',')[10]).toBe('5000')
+    expect(csv.split('\r\n')[1].split(',')[10]).toBe('5000')
   })
 
   it('clamps negative durations to zero', () => {
@@ -68,14 +68,14 @@ describe('buildEvalRunsCsv', () => {
         completed_at: '2026-05-29T10:00:00.000Z',
       }),
     ])
-    expect(csv.split('\n')[1].split(',')[10]).toBe('0')
+    expect(csv.split('\r\n')[1].split(',')[10]).toBe('0')
   })
 
   it('emits empty cells for null timestamps', () => {
     const csv = buildEvalRunsCsv([
       makeRun({ started_at: null, completed_at: null }),
     ])
-    const cells = csv.split('\n')[1].split(',')
+    const cells = csv.split('\r\n')[1].split(',')
     // started_at (8), completed_at (9), duration_ms (10)
     expect(cells[8]).toBe('')
     expect(cells[9]).toBe('')
@@ -89,14 +89,14 @@ describe('buildEvalRunsCsv', () => {
         error_message: 'engine blew up, retry skipped',
       }),
     ])
-    expect(csv.split('\n')[1]).toContain('"engine blew up, retry skipped"')
+    expect(csv.split('\r\n')[1]).toContain('"engine blew up, retry skipped"')
   })
 
   it('CSV-escapes embedded quotes inside an error_message', () => {
     const csv = buildEvalRunsCsv([
       makeRun({ status: 'failed', error_message: 'said "no"' }),
     ])
-    expect(csv.split('\n')[1]).toContain('"said ""no"""')
+    expect(csv.split('\r\n')[1]).toContain('"said ""no"""')
   })
 
   it('returns just the header when given an empty array', () => {
@@ -113,7 +113,7 @@ describe('buildEvalRunsCsv', () => {
       makeRun({ id: 'newer' }),
       makeRun({ id: 'older' }),
     ])
-    const rows = csv.split('\n').slice(1)
+    const rows = csv.split('\r\n').slice(1)
     expect(rows[0].split(',')[0]).toBe('newer')
     expect(rows[1].split(',')[0]).toBe('older')
   })

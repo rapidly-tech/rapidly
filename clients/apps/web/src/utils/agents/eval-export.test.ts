@@ -77,7 +77,7 @@ describe('buildCasesCsv', () => {
       makeCase({ case_name: 'one' }),
       makeCase({ case_name: 'two' }),
     ])
-    const lines = csv.split('\n')
+    const lines = csv.split('\r\n')
     expect(lines).toHaveLength(3)
     expect(lines[0]).toBe(
       'case_name,outcome,passed,duration_ms,error_message,judge_reason,input_data,expected_output,actual_output',
@@ -94,7 +94,7 @@ describe('buildCasesCsv', () => {
         case_expected_output: null,
       }),
     ])
-    const rows = csv.split('\n').slice(1)
+    const rows = csv.split('\r\n').slice(1)
     // Column index 2 is the "passed" cell.
     expect(rows[0].split(',')[2]).toBe('true')
     expect(rows[1].split(',')[2]).toBe('false')
@@ -110,7 +110,7 @@ describe('buildCasesCsv', () => {
         judge_reason: null,
       }),
     ])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     const cells = row.split(',')
     // duration_ms (idx 3), error_message (4), judge_reason (5)
     expect(cells[3]).toBe('')
@@ -127,7 +127,7 @@ describe('buildCasesCsv', () => {
         actual_output: null,
       }),
     ])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     // The JSON itself contains `"` so the cell gets CSV-wrapped
     // and the embedded quotes get doubled per RFC 4180.
     expect(row).toContain('"{""x"":1}"')
@@ -139,13 +139,13 @@ describe('buildCasesCsv', () => {
 
   it('CSV-escapes a case name that contains a comma', () => {
     const csv = buildCasesCsv([makeCase({ case_name: 'name, with comma' })])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     expect(row.startsWith('"name, with comma"')).toBe(true)
   })
 
   it('CSV-escapes an embedded quote inside an error_message', () => {
     const csv = buildCasesCsv([makeCase({ error_message: 'said "no"' })])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     expect(row).toContain('"said ""no"""')
   })
 
@@ -157,7 +157,7 @@ describe('buildCasesCsv', () => {
         case_input_data: { a: 1, b: 2 },
       }),
     ])
-    const row = csv.split('\n')[1]
+    const row = csv.split('\r\n')[1]
     expect(row).toContain('"{""a"":1,""b"":2}"')
   })
 
@@ -179,7 +179,7 @@ describe('buildCasesCsv', () => {
         actual_output: { k: 'v' },
       }),
     ])
-    const cells = csv.split('\n')[1].split(',')
+    const cells = csv.split('\r\n')[1].split(',')
     expect(cells).toHaveLength(9)
     expect(cells[0]).toBe('plain')
     expect(cells[1]).toBe('passed')

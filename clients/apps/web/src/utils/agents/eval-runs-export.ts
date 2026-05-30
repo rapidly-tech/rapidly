@@ -44,7 +44,7 @@ export function buildEvalRunsCsv(runs: EvalRun[]): string {
   ])
   return [CSV_HEADERS, ...rows]
     .map((row) => row.map(csvEscape).join(','))
-    .join('\n')
+    .join('\r\n')
 }
 
 /** Pass rate as an integer percent, or ``""`` when there are

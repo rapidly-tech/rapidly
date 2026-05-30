@@ -19,6 +19,7 @@ import {
   useSetDefaultCredential,
 } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
+import { formatDate } from '@/utils/agents/datetime'
 import { useMemo, useState } from 'react'
 
 const PAGE_SIZE = 20
@@ -303,7 +304,12 @@ function CreateForm({ workspaceId }: { workspaceId: string }) {
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={createMutation.isPending}
+          disabled={
+            createMutation.isPending ||
+            form.provider.trim().length === 0 ||
+            form.name.trim().length === 0 ||
+            form.secret.length === 0
+          }
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {createMutation.isPending ? 'Saving…' : 'Create'}
@@ -379,7 +385,13 @@ function CredentialRow({
   const deleteCred = useDeleteCredential()
 
   const percent = budget?.percent_used ?? null
-  const percentClamped = percent !== null ? Math.min(100, percent * 100) : null
+  // Bar width clamps at 100% so the visual doesn't overflow;
+  // the displayed number stays unclamped so operators see
+  // "350%" (5x over budget) and panic appropriately rather
+  // than the bar quietly showing "100%" for both 100% and
+  // 350% usage.
+  const percentDisplay = percent !== null ? Math.round(percent * 100) : null
+  const percentBarWidth = percent !== null ? Math.min(100, percent * 100) : null
 
   return (
     <li className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
@@ -432,11 +444,19 @@ function CredentialRow({
           {credential.base_url}
         </p>
       )}
+      <p className="mt-2 text-xs text-slate-400 dark:text-slate-500">
+        Added {formatDate(credential.created_at)}
+        {credential.modified_at &&
+          credential.modified_at !== credential.created_at && (
+            <> · Rotated {formatDate(credential.modified_at)}</>
+          )}
+      </p>
       {budget && credential.monthly_budget_tokens !== null && (
         <BudgetBar
           mtd={budget.month_to_date_tokens}
           cap={credential.monthly_budget_tokens}
-          percent={percentClamped}
+          percentDisplay={percentDisplay}
+          percentBarWidth={percentBarWidth}
           overBudget={percent !== null && percent > 1}
         />
       )}
@@ -454,12 +474,20 @@ function CredentialRow({
 function BudgetBar({
   mtd,
   cap,
-  percent,
+  percentDisplay,
+  percentBarWidth,
   overBudget,
 }: {
   mtd: number
   cap: number
-  percent: number | null
+  /** Unclamped percentage (e.g., 350 for 3.5x over budget) —
+   *  shown in the right-hand label so operators see actual
+   *  over-budget magnitude. */
+  percentDisplay: number | null
+  /** Bar-width percentage clamped to [0, 100] so the visual
+   *  doesn't overflow its container even when budget is
+   *  blown by 5x. */
+  percentBarWidth: number | null
   overBudget: boolean
 }) {
   return (
@@ -468,12 +496,18 @@ function BudgetBar({
         <span>
           {mtd.toLocaleString()} / {cap.toLocaleString()} tokens this month
         </span>
-        <span>{percent !== null ? `${Math.round(percent)}%` : '—'}</span>
+        <span
+          className={
+            overBudget ? 'font-medium text-rose-600 dark:text-rose-400' : ''
+          }
+        >
+          {percentDisplay !== null ? `${percentDisplay}%` : '—'}
+        </span>
       </div>
       <div className="h-1.5 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
         <div
           className={`h-full ${overBudget ? 'bg-rose-500' : 'bg-emerald-500'}`}
-          style={{ width: `${percent ?? 0}%` }}
+          style={{ width: `${percentBarWidth ?? 0}%` }}
         />
       </div>
     </div>

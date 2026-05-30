@@ -17,6 +17,7 @@ import {
   useVectorCollections,
 } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
+import { formatDate } from '@/utils/agents/datetime'
 import { useState } from 'react'
 
 const PAGE_SIZE = 20
@@ -268,7 +269,7 @@ function CreateForm({ workspaceId }: { workspaceId: string }) {
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={create.isPending}
+          disabled={create.isPending || name.trim().length === 0}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {create.isPending ? 'Creating…' : 'Create'}
@@ -353,7 +354,7 @@ function CollectionRow({ collection }: { collection: VectorCollection }) {
               />
               <button
                 type="submit"
-                disabled={update.isPending}
+                disabled={update.isPending || name.trim().length === 0}
                 className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
               >
                 {update.isPending ? 'Saving…' : 'Save'}
@@ -390,6 +391,21 @@ function CollectionRow({ collection }: { collection: VectorCollection }) {
               <span className="text-slate-400 dark:text-slate-500">dim:</span>{' '}
               <span className="font-mono">{collection.dimensions}</span>
             </span>
+            <span>
+              <span className="text-slate-400 dark:text-slate-500">
+                created:
+              </span>{' '}
+              {formatDate(collection.created_at)}
+            </span>
+            {collection.modified_at &&
+              collection.modified_at !== collection.created_at && (
+                <span>
+                  <span className="text-slate-400 dark:text-slate-500">
+                    updated:
+                  </span>{' '}
+                  {formatDate(collection.modified_at)}
+                </span>
+              )}
             <span>
               <span className="text-slate-400 dark:text-slate-500">id:</span>{' '}
               <span className="font-mono">{collection.id}</span>

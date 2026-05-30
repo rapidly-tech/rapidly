@@ -8,6 +8,7 @@ import {
 } from '@/components/agents/ListControls'
 import { type Dataset, useCreateDataset, useDatasets } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
+import { formatDate } from '@/utils/agents/datetime'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -222,7 +223,7 @@ function CreateForm({ workspaceId }: { workspaceId: string }) {
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={create.isPending}
+          disabled={create.isPending || name.trim().length === 0}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {create.isPending ? 'Creating…' : 'Create'}
@@ -287,6 +288,9 @@ function DatasetList({ datasets }: { datasets: Dataset[] }) {
             )}
             <span className="text-xs text-slate-400 dark:text-slate-500">
               Created {formatDate(d.created_at)}
+              {d.modified_at && d.modified_at !== d.created_at && (
+                <> · Updated {formatDate(d.modified_at)}</>
+              )}
             </span>
           </Link>
         </li>
@@ -340,16 +344,4 @@ function Empty() {
       </p>
     </div>
   )
-}
-
-function formatDate(iso: string): string {
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  } catch {
-    return iso
-  }
 }

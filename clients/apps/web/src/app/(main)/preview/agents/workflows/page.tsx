@@ -12,6 +12,7 @@ import {
   useWorkflows,
 } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
+import { formatDate } from '@/utils/agents/datetime'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
@@ -332,7 +333,7 @@ function CreateForm({ workspaceId }: { workspaceId: string }) {
       <div className="flex gap-2">
         <button
           type="submit"
-          disabled={create.isPending}
+          disabled={create.isPending || name.trim().length === 0}
           className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
         >
           {create.isPending ? 'Creating…' : 'Create'}
@@ -409,6 +410,9 @@ function WorkflowList({ workflows }: { workflows: Workflow[] }) {
             )}
             <span className="text-xs text-slate-400 dark:text-slate-500">
               Created {formatDate(workflow.created_at)}
+              {workflow.updated_at !== workflow.created_at && (
+                <> · Updated {formatDate(workflow.updated_at)}</>
+              )}
             </span>
           </Link>
         </li>
@@ -454,18 +458,4 @@ function EmptyState() {
       </p>
     </div>
   )
-}
-
-function formatDate(iso: string): string {
-  // Render in the operator's locale so the list is glanceable;
-  // exact-second timestamps belong on detail pages, not here.
-  try {
-    return new Date(iso).toLocaleDateString(undefined, {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
-  } catch {
-    return iso
-  }
 }

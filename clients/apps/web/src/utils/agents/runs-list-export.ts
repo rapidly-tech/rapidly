@@ -37,7 +37,7 @@ export function buildRunsCsv(runs: Run[]): string {
   ])
   return [CSV_HEADERS, ...rows]
     .map((row) => row.map(csvEscape).join(','))
-    .join('\n')
+    .join('\r\n')
 }
 
 /** Integer ms diff; ``""`` when either endpoint is null or

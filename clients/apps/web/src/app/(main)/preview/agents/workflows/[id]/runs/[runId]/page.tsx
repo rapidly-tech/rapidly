@@ -486,7 +486,11 @@ function NodeRunRow({ node, index }: { node: NodeRun; index: number }) {
                 ? 'Skipped — no output'
                 : node.status === 'failed'
                   ? 'Failed before producing output'
-                  : '—'
+                  : node.status === 'awaiting_human'
+                    ? 'Awaiting human input — no output yet'
+                    : node.status === 'pending' || node.status === 'running'
+                      ? 'Node is still executing'
+                      : '—'
             }
           />
         </div>
@@ -506,7 +510,25 @@ function IOPanels({ run, workflowId }: { run: RunDetail; workflowId: string }) {
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <JsonPanel title="Input" data={run.input_data} />
-        <JsonPanel title="Output" data={run.output_data} />
+        <JsonPanel
+          title="Output"
+          data={run.output_data}
+          // Status-aware placeholder so a null output_data
+          // doesn't read as just "—" when the operator can
+          // tell from the status what's happened. Mirrors the
+          // per-node panel below.
+          placeholder={
+            run.status === 'failed'
+              ? 'Failed before producing output — see the error above'
+              : run.status === 'cancelled'
+                ? 'Cancelled before completion'
+                : run.status === 'awaiting_human'
+                  ? 'Awaiting human input — no output yet'
+                  : run.status === 'pending' || run.status === 'running'
+                    ? 'Run is still in progress'
+                    : '—'
+          }
+        />
       </div>
     </section>
   )

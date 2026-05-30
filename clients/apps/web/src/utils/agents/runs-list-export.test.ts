@@ -22,7 +22,7 @@ function makeRun(overrides: Partial<Run> = {}): Run {
 describe('buildRunsCsv', () => {
   it('emits a header row followed by one row per run', () => {
     const csv = buildRunsCsv([makeRun({ id: 'a' }), makeRun({ id: 'b' })])
-    const lines = csv.split('\n')
+    const lines = csv.split('\r\n')
     expect(lines).toHaveLength(3)
     expect(lines[0]).toBe(
       'id,status,triggered_by_kind,triggered_by_id,started_at,completed_at,duration_ms,error_message',
@@ -37,7 +37,7 @@ describe('buildRunsCsv', () => {
       }),
     ])
     // duration_ms is column 6 (zero-indexed).
-    expect(csv.split('\n')[1].split(',')[6]).toBe('1500')
+    expect(csv.split('\r\n')[1].split(',')[6]).toBe('1500')
   })
 
   it('clamps negative durations to zero', () => {
@@ -47,7 +47,7 @@ describe('buildRunsCsv', () => {
         completed_at: '2026-05-29T10:00:00.000Z',
       }),
     ])
-    expect(csv.split('\n')[1].split(',')[6]).toBe('0')
+    expect(csv.split('\r\n')[1].split(',')[6]).toBe('0')
   })
 
   it('emits empty cells for null timestamps and triggered_by_id', () => {
@@ -59,7 +59,7 @@ describe('buildRunsCsv', () => {
         error_message: null,
       }),
     ])
-    const cells = csv.split('\n')[1].split(',')
+    const cells = csv.split('\r\n')[1].split(',')
     // triggered_by_id (3), started_at (4), completed_at (5),
     // duration_ms (6), error_message (7).
     expect(cells[3]).toBe('')
@@ -76,14 +76,14 @@ describe('buildRunsCsv', () => {
         error_message: 'step echo1 failed, retry skipped',
       }),
     ])
-    expect(csv.split('\n')[1]).toContain('"step echo1 failed, retry skipped"')
+    expect(csv.split('\r\n')[1]).toContain('"step echo1 failed, retry skipped"')
   })
 
   it('CSV-escapes embedded quotes in an error_message', () => {
     const csv = buildRunsCsv([
       makeRun({ status: 'failed', error_message: 'node "echo" failed' }),
     ])
-    expect(csv.split('\n')[1]).toContain('"node ""echo"" failed"')
+    expect(csv.split('\r\n')[1]).toContain('"node ""echo"" failed"')
   })
 
   it('preserves caller-supplied order', () => {
@@ -93,7 +93,7 @@ describe('buildRunsCsv', () => {
       makeRun({ id: 'newer' }),
       makeRun({ id: 'older' }),
     ])
-    const rows = csv.split('\n').slice(1)
+    const rows = csv.split('\r\n').slice(1)
     expect(rows[0].split(',')[0]).toBe('newer')
     expect(rows[1].split(',')[0]).toBe('older')
   })

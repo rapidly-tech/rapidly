@@ -76,5 +76,5 @@ export function buildCasesCsv(cases: EvalRunCase[]): string {
   ])
   return [CSV_HEADERS, ...rows]
     .map((row) => row.map(csvEscape).join(','))
-    .join('\n')
+    .join('\r\n')
 }

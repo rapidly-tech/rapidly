@@ -20,6 +20,45 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { baseRetry } from './retry'
 
+/**
+ * Pretty-print a failed Response body for surfacing in the
+ * mutation-error banners. FastAPI's standard error shape is
+ * ``{"detail": "..."}`` — show just the detail rather than the
+ * raw JSON wrapper. Falls back to the input text (and the
+ * provided default) when not parseable.
+ *
+ * Lives at the top of this file so every mutation path can
+ * call it without thinking about extraction logic.
+ */
+export async function extractErrorMessage(
+  res: Response,
+  fallback: string,
+): Promise<string> {
+  const text = await res.text().catch(() => '')
+  if (!text) return fallback
+  try {
+    const parsed = JSON.parse(text)
+    // FastAPI's HTTPException(detail=...) — string or list[dict].
+    if (typeof parsed?.detail === 'string') return parsed.detail
+    // Pydantic 422 returns detail as a list; join the per-field
+    // messages so the banner doesn't dump JSON to the operator.
+    if (Array.isArray(parsed?.detail)) {
+      const parts = parsed.detail
+        .map((d: unknown) => {
+          if (typeof d === 'object' && d !== null && 'msg' in d) {
+            return String((d as { msg: unknown }).msg)
+          }
+          return ''
+        })
+        .filter(Boolean)
+      if (parts.length > 0) return parts.join('; ')
+    }
+  } catch {
+    // Not JSON — fall through to raw text.
+  }
+  return text
+}
+
 // ── Cache key builder ─────────────────────────────────────────
 
 const workflowKey = (...parts: (string | object)[]) => [
@@ -133,8 +172,9 @@ async function createWorkflow(body: WorkflowCreatePayload): Promise<Workflow> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `workflow create failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -259,6 +299,19 @@ export const useRuns = (
     queryFn: () => fetchRuns(params),
     retry: baseRetry,
     enabled,
+    // Poll every 2s while any visible run is non-terminal so
+    // the embedded Recent-runs list on the workflow detail
+    // page tracks live status changes. Once every visible row
+    // lands terminal, polling stops. Same shape as useRun
+    // (line 301) but scoped to the page.
+    refetchInterval: (q) => {
+      const data = q.state.data as PaginatedRuns | undefined
+      if (!data) return 2000
+      const hasActive = data.data.some(
+        (r) => !TERMINAL_RUN_STATUSES.includes(r.status),
+      )
+      return hasActive ? 2000 : false
+    },
   })
 
 // ══════════════════════════════════════════════
@@ -325,8 +378,9 @@ async function triggerRun(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `run trigger failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `run trigger failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Run
 }
@@ -374,8 +428,9 @@ async function publishVersion(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `version publish failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `version publish failed: ${res.status}`),
+    )
   }
   return (await res.json()) as WorkflowVersion
 }
@@ -396,8 +451,12 @@ async function setCurrentVersion(args: {
     body: JSON.stringify({ current_version_id: versionId }),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `set-current-version failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `set-current-version failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -506,8 +565,9 @@ async function updateWorkflow(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow update failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `workflow update failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -531,8 +591,9 @@ async function deleteWorkflow(workflowId: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `workflow delete failed: ${res.status}`),
+    )
   }
 }
 
@@ -554,8 +615,9 @@ async function archiveWorkflow(id: string): Promise<Workflow> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow archive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `workflow archive failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -568,8 +630,12 @@ async function unarchiveWorkflow(id: string): Promise<Workflow> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `workflow unarchive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `workflow unarchive failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as Workflow
 }
@@ -602,7 +668,13 @@ async function cancelRun(id: string): Promise<RunDetail> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    throw new Error(`run cancel failed: ${res.status}`)
+    // Match cancelEvalRun (line ~1271): surface the server's
+    // response body so the cancel-failed banner (M5.86) shows
+    // the actual reason ("Run already in terminal status
+    // succeeded.") rather than a generic "run cancel failed: 403".
+    throw new Error(
+      await extractErrorMessage(res, `run cancel failed: ${res.status}`),
+    )
   }
   return (await res.json()) as RunDetail
 }
@@ -813,8 +885,9 @@ async function createDataset(body: DatasetCreatePayload): Promise<Dataset> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset create failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Dataset
 }
@@ -874,8 +947,9 @@ async function createDatasetCase(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `case create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `case create failed: ${res.status}`),
+    )
   }
   return (await res.json()) as DatasetCase
 }
@@ -920,8 +994,9 @@ async function updateDataset(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset update failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset update failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Dataset
 }
@@ -945,8 +1020,9 @@ async function deleteDataset(datasetId: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset delete failed: ${res.status}`),
+    )
   }
 }
 
@@ -968,8 +1044,9 @@ async function archiveDataset(id: string): Promise<Dataset> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset archive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset archive failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Dataset
 }
@@ -982,8 +1059,9 @@ async function unarchiveDataset(id: string): Promise<Dataset> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `dataset unarchive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `dataset unarchive failed: ${res.status}`),
+    )
   }
   return (await res.json()) as Dataset
 }
@@ -1020,8 +1098,9 @@ async function deleteDatasetCase(args: {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `case delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `case delete failed: ${res.status}`),
+    )
   }
 }
 
@@ -1147,6 +1226,21 @@ export const useEvalRuns = (
     queryFn: () => fetchEvalRuns(params),
     retry: baseRetry,
     enabled,
+    // Mirror useRuns (line ~270): poll every 2.5s while any
+    // visible eval-run is non-terminal so the embedded
+    // EvalHistorySection on the workflow + dataset detail
+    // pages ticks the pass/fail counters live. The 2.5s
+    // cadence matches useEvalRun (the detail view) so
+    // batched eval-run-list + eval-run-detail loops don't
+    // hammer the API.
+    refetchInterval: (q) => {
+      const data = q.state.data as PaginatedEvalRuns | undefined
+      if (!data) return 2500
+      const hasActive = data.data.some(
+        (r) => !TERMINAL_EVAL_STATUSES.includes(r.status),
+      )
+      return hasActive ? 2500 : false
+    },
   })
 
 async function fetchEvalRun(id: string): Promise<EvalRun> {
@@ -1216,8 +1310,9 @@ async function triggerEval(body: TriggerEvalPayload): Promise<EvalRun> {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `eval-run trigger failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `eval-run trigger failed: ${res.status}`),
+    )
   }
   return (await res.json()) as EvalRun
 }
@@ -1240,8 +1335,9 @@ async function cancelEvalRun(id: string): Promise<EvalRun> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `eval-run cancel failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `eval-run cancel failed: ${res.status}`),
+    )
   }
   return (await res.json()) as EvalRun
 }
@@ -1587,8 +1683,12 @@ async function createVectorCollection(
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection create failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as VectorCollection
 }
@@ -1611,7 +1711,15 @@ async function deleteVectorCollection(id: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok && res.status !== 204) {
-    throw new Error(`vector collection delete failed: ${res.status}`)
+    // Match the rest of the mutation paths — surface the
+    // server body so the per-row delete banner (M5.87) shows
+    // the actual reason rather than a generic status code.
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection delete failed: ${res.status}`,
+      ),
+    )
   }
 }
 
@@ -1633,8 +1741,12 @@ async function archiveVectorCollection(id: string): Promise<VectorCollection> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection archive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection archive failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as VectorCollection
 }
@@ -1649,8 +1761,12 @@ async function unarchiveVectorCollection(
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection unarchive failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection unarchive failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as VectorCollection
 }
@@ -1696,8 +1812,12 @@ async function updateVectorCollection(args: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `vector collection update failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `vector collection update failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as VectorCollection
 }
@@ -1731,8 +1851,9 @@ async function createCredential(
   if (!res.ok) {
     // Surface the response body when 422 — Pydantic validation
     // errors carry per-field detail the UI can flag inline.
-    const text = await res.text().catch(() => '')
-    throw new Error(text || `credential create failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `credential create failed: ${res.status}`),
+    )
   }
   return (await res.json()) as IntegrationCredential
 }
@@ -1755,7 +1876,9 @@ async function deleteCredential(id: string): Promise<void> {
     headers: { Accept: 'application/json' },
   })
   if (!res.ok && res.status !== 204) {
-    throw new Error(`credential delete failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(res, `credential delete failed: ${res.status}`),
+    )
   }
 }
 
@@ -1779,7 +1902,12 @@ async function setDefaultCredential(
     headers: { Accept: 'application/json' },
   })
   if (!res.ok) {
-    throw new Error(`credential set-default failed: ${res.status}`)
+    throw new Error(
+      await extractErrorMessage(
+        res,
+        `credential set-default failed: ${res.status}`,
+      ),
+    )
   }
   return (await res.json()) as IntegrationCredential
 }

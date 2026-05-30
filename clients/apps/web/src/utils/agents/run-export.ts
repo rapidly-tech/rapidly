@@ -45,7 +45,7 @@ export function buildNodeRunsCsv(nodes: NodeRun[]): string {
   ])
   return [CSV_HEADERS, ...rows]
     .map((row) => row.map(csvEscape).join(','))
-    .join('\n')
+    .join('\r\n')
 }
 
 /** Returns ``""`` when either endpoint is null or unparsable;
