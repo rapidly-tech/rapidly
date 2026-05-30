@@ -64,6 +64,16 @@ class Member(BaseEntity):
             Column("customer_id"),
             func.lower(Column("email")),
         ),
+        # Sibling index for ``list_by_email_and_workspace``
+        # (customer-portal email-disambiguation path). Without
+        # this, that query falls back to the plain workspace_id
+        # index + filter-on-lower(email), which is wasteful for
+        # workspaces with many members.
+        Index(
+            "ix_members_workspace_id_email_lower",
+            Column("workspace_id"),
+            func.lower(Column("email")),
+        ),
     )
 
     customer_id: Mapped[UUID] = mapped_column(

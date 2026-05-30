@@ -46,7 +46,19 @@ def upgrade() -> None:
         ["customer_id", sa.text("lower(email)")],
         unique=False,
     )
+    # Second index serves ``MemberRepository.list_by_email_and_
+    # workspace`` (used by the customer-portal email-
+    # disambiguation path). Without it, that query would scan
+    # the workspace_id index then filter on lower(email) — for
+    # workspaces with many members this is wasteful.
+    op.create_index(
+        "ix_members_workspace_id_email_lower",
+        "members",
+        ["workspace_id", sa.text("lower(email)")],
+        unique=False,
+    )
 
 
 def downgrade() -> None:
+    op.drop_index("ix_members_workspace_id_email_lower", table_name="members")
     op.drop_index("ix_members_customer_id_email_lower", table_name="members")
