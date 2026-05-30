@@ -287,6 +287,9 @@ function DatasetList({ datasets }: { datasets: Dataset[] }) {
             )}
             <span className="text-xs text-slate-400 dark:text-slate-500">
               Created {formatDate(d.created_at)}
+              {d.modified_at && d.modified_at !== d.created_at && (
+                <> · Updated {formatDate(d.modified_at)}</>
+              )}
             </span>
           </Link>
         </li>
