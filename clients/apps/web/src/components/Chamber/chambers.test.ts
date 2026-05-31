@@ -12,10 +12,12 @@ import { describe, expect, it } from 'vitest'
 import { CHAMBERS } from './chambers'
 
 describe('chamber registry', () => {
-  it('has exactly 6 chambers', () => {
-    // The product is positioned around six chambers; pin the count at
-    // the test boundary so adds / drops surface in review.
-    expect(CHAMBERS).toHaveLength(6)
+  it('has exactly 5 chambers', () => {
+    // Pinned at the test boundary so adds / drops surface in review.
+    // Files was removed when file_sharing was demoted from a top-level
+    // product chamber to internal transport infrastructure (see
+    // RAPIDLY_ENGINEERING_SUITE_PLAN.md §2.6).
+    expect(CHAMBERS).toHaveLength(5)
   })
 
   it('uses unique ids', () => {
@@ -27,11 +29,17 @@ describe('chamber registry', () => {
     expect(CHAMBERS.map((c) => c.id).sort()).toEqual([
       'call',
       'collab',
-      'files',
       'screen',
       'secret',
       'watch',
     ])
+  })
+
+  it('does not include the files chamber', () => {
+    // file_sharing stays in code as transport but is not a product
+    // chamber. Re-adding it here would surface it in the chamber-strip
+    // nav, which contradicts the engineering-suite framing.
+    expect(CHAMBERS.map((c) => c.id)).not.toContain('files')
   })
 
   it.each(CHAMBERS)(
@@ -69,8 +77,8 @@ describe('chamber registry', () => {
     },
   )
 
-  it('ships all six chambers as live', () => {
-    // Phase E (Collab) landed — the full revolver is now live with no
+  it('ships all five chambers as live', () => {
+    // Phase E (Collab) landed — the full chamber set is now live with no
     // remaining ``soon`` tiles. If a future chamber is added in
     // preview, explicitly update this assertion instead of silently
     // letting it drift.
@@ -78,7 +86,6 @@ describe('chamber registry', () => {
     expect(liveIds.sort()).toEqual([
       'call',
       'collab',
-      'files',
       'screen',
       'secret',
       'watch',
