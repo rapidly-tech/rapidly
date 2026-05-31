@@ -920,3 +920,37 @@ class TestWebhook:
         )
 
         assert send_mock.call_count == 1
+
+
+# ── case-insensitive email dedupe finder ──
+
+
+@pytest.mark.asyncio
+class TestFindCaseInsensitiveEmailDuplicates:
+    """Pin the action-layer pass-through. The action MUST hand off
+    to ``CustomerRepository.find_case_insensitive_email_duplicates``
+    unchanged — no filtering, no transformation, no caching —
+    because operators rely on the raw count to scope merge work.
+    """
+
+    async def test_delegates_to_repository(
+        self,
+        mocker: MockerFixture,
+        session: AsyncSession,
+    ) -> None:
+        import uuid
+
+        expected: list[tuple[uuid.UUID, str, int]] = [
+            (uuid.uuid4(), "alice@example.com", 3),
+            (uuid.uuid4(), "bob@example.com", 2),
+        ]
+        repo_mock = mocker.patch.object(
+            CustomerRepository,
+            "find_case_insensitive_email_duplicates",
+            return_value=expected,
+        )
+
+        result = await customer_service.find_case_insensitive_email_duplicates(session)
+
+        assert result == expected
+        repo_mock.assert_awaited_once_with()
