@@ -1,0 +1,66 @@
+name: no-attribution
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: no-attribution-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Determine diff base
+        id: base
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            echo "ref=origin/${{ github.base_ref }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "ref=HEAD~1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Scan diff for blocked pattern
+        env:
+          PATTERN: ${{ secrets.BLOCKED_PATTERN }}
+          BASE: ${{ steps.base.outputs.ref }}
+        run: |
+          set -euo pipefail
+
+          if [ -z "${PATTERN:-}" ]; then
+            echo "::error::BLOCKED_PATTERN secret is not set."
+            echo "::error::Set it under Settings -> Secrets and variables -> Actions before this gate can pass."
+            exit 1
+          fi
+
+          # Diff = added lines + new file paths.
+          # `git diff` with unified=0 + the `^+` filter strips context
+          # and removals so we only block on what THIS change introduces.
+          # The workflow file itself never contains the pattern (it's
+          # in a secret), so it cannot self-trip.
+          if git diff --unified=0 "$BASE"...HEAD \
+               | grep -E '^\+' \
+               | grep -v '^\+\+\+ ' \
+               | grep -iEw "$PATTERN"; then
+            echo "::error::Forbidden upstream reference detected in this change."
+            echo "::error::See M0_EXECUTION.md and the no-attribution rule."
+            exit 1
+          fi
+
+          # Also block on filenames containing the pattern.
+          if git diff --name-only "$BASE"...HEAD \
+               | grep -iEw "$PATTERN"; then
+            echo "::error::Forbidden upstream reference in a filename."
+            exit 1
+          fi
