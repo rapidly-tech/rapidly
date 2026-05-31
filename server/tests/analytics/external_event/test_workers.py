@@ -22,7 +22,26 @@ from unittest.mock import AsyncMock, MagicMock
 import pytest
 
 from rapidly.analytics.external_event import workers as M
-from rapidly.analytics.external_event.workers import external_event_prune
+from rapidly.analytics.external_event.workers import (
+    _CRON_MIDNIGHT,
+    external_event_prune,
+)
+
+
+class TestCronSchedule:
+    """Pin the schedule that the module-level docstring advertises.
+
+    Without these, ``cron_trigger=CronTrigger(hour=0, minute=0)``
+    could silently drift to e.g. ``hour=12`` during a refactor and
+    nothing would catch it until prod operators noticed pruning had
+    shifted to business hours and started competing with the daily
+    billing reconciliation pass.
+    """
+
+    def test_runs_at_midnight_utc(self) -> None:
+        fields = {f.name: str(f) for f in _CRON_MIDNIGHT.fields}
+        assert fields["hour"] == "0"
+        assert fields["minute"] == "0"
 
 
 @pytest.mark.asyncio
