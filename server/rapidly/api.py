@@ -60,6 +60,20 @@ from rapidly.platform.workspace.api import router as workspace_router
 from rapidly.platform.workspace_access_token.api import (
     router as workspace_access_token_router,
 )
+from rapidly.projects.activity.api import router as work_item_activity_router
+from rapidly.projects.comment.api import router as work_item_comment_router
+from rapidly.projects.cycle.api import router as project_cycle_router
+
+# ── Project management ──
+from rapidly.projects.estimate.api import router as project_estimate_router
+from rapidly.projects.favorite.api import router as user_favorite_router
+from rapidly.projects.label.api import router as project_label_router
+from rapidly.projects.link.api import router as work_item_relation_router
+from rapidly.projects.module.api import router as project_module_router
+from rapidly.projects.page.api import router as project_page_router
+from rapidly.projects.project.api import router as project_router
+from rapidly.projects.state.api import router as project_state_router
+from rapidly.projects.work_item.api import router as work_item_router
 from rapidly.sharing.call.api import router as call_router
 from rapidly.sharing.collab.api import router as collab_router
 from rapidly.sharing.file_sharing.api import router as file_sharing_router
@@ -159,3 +173,30 @@ router.include_router(stream_router)
 router.include_router(event_router)
 # event type management
 router.include_router(event_type_router)
+
+# ── Project management ──
+
+# projects CRUD
+router.include_router(project_router)
+# project workflow states
+router.include_router(project_state_router)
+# project labels
+router.include_router(project_label_router)
+# project estimation scales + points
+router.include_router(project_estimate_router)
+# work items
+router.include_router(work_item_router)
+# work item comments
+router.include_router(work_item_comment_router)
+# work item relations (blocks, relates_to, duplicates)
+router.include_router(work_item_relation_router)
+# project cycles (sprints)
+router.include_router(project_cycle_router)
+# project modules (feature workstreams)
+router.include_router(project_module_router)
+# work-item activity log
+router.include_router(work_item_activity_router)
+# project pages (wiki / docs)
+router.include_router(project_page_router)
+# per-user favorites of project-domain entities
+router.include_router(user_favorite_router)
