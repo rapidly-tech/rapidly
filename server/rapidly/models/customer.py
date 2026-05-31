@@ -129,18 +129,31 @@ class Customer(MetadataMixin, BaseEntity):
 
     __tablename__ = "customers"
     __table_args__ = (
+        # Non-unique cross-workspace email index for admin
+        # search (``admin/customers/queries.py`` filters by
+        # ``func.lower(email) ilike ...``).
         Index(
             "ix_customers_email_case_insensitive",
             func.lower(Column("email")),
             "deleted_at",
             postgresql_nulls_not_distinct=True,
         ),
+        # Per-workspace case-insensitive UNIQUE on active
+        # customers. The original declaration of this index
+        # (revision a3f6d9e21b48's predecessor) had a SHAPE
+        # MISMATCH: the name promised ``workspace_id`` was in
+        # the column list but the columns were only
+        # ``(lower(email), deleted_at)``, which would have
+        # enforced cross-workspace email uniqueness — wrong
+        # for multi-tenant data where two workspaces can
+        # legitimately have customers with the same email.
+        # Fixed in revision b4e7c1d92a85.
         Index(
             "ix_customers_workspace_id_email_case_insensitive",
+            "workspace_id",
             func.lower(Column("email")),
-            "deleted_at",
             unique=True,
-            postgresql_nulls_not_distinct=True,
+            postgresql_where=Column("deleted_at").is_(None),
         ),
         Index(
             "ix_customers_external_id_pattern",
