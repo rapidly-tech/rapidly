@@ -87,6 +87,22 @@ async def get_by_id(
     return await repository.get_by_id(id)
 
 
+async def find_case_insensitive_email_duplicates(
+    session: AsyncReadSession,
+) -> Sequence[tuple[uuid.UUID, str, int]]:
+    """Report active (workspace_id, lower(email)) groups with >1
+    customers — operators dedupe these before the case-insensitive
+    partial unique on ``customers (workspace_id, lower(email))``
+    can safely be promoted to a constraint.
+
+    Returns ``(workspace_id, lower_email, count)`` tuples ordered
+    by count desc. Empty list = no duplicates = constraint
+    promotion is safe to apply.
+    """
+    repository = CustomerRepository.from_session(session)
+    return await repository.find_case_insensitive_email_duplicates()
+
+
 async def stream_for_export(
     session: AsyncReadSession,
     auth_subject: AuthPrincipal[User | Workspace],
