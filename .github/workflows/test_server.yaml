@@ -300,6 +300,28 @@ jobs:
       - name: 🐦 Install Tinybird CLI
         run: curl -sSL https://tinybird.co/install.sh | bash && echo "$HOME/.local/bin" >> $GITHUB_PATH
 
+      # Create the read-only Postgres role.  Several migrations
+      # GRANT SELECT ... TO rapidly_read unconditionally; without
+      # this role the migration step would fail with
+      # UndefinedObjectError.  Local dev runs init-readonly-user.sql
+      # via docker-entrypoint-initdb.d which isn't honoured by the
+      # GitHub Actions services: postgres image.
+      - name: 🔑 Create rapidly_read role
+        env:
+          PGPASSWORD: rapidly
+        run: |
+          psql -h 127.0.0.1 -U rapidly -d rapidly_test -v ON_ERROR_STOP=1 -c "
+            DO \$\$
+            BEGIN
+              IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'rapidly_read') THEN
+                CREATE USER rapidly_read WITH PASSWORD 'rapidly_read';
+              END IF;
+            END
+            \$\$;
+            GRANT CONNECT ON DATABASE rapidly_test TO rapidly_read;
+            GRANT USAGE ON SCHEMA public TO rapidly_read;
+          "
+
       # Apply all pending Alembic migrations to the test database
       - name: ⚗️ alembic migrate
         working-directory: ./server
