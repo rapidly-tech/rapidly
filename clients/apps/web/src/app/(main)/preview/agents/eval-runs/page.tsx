@@ -15,11 +15,12 @@ const PAGE_SIZE = 20
 export default function EvalRunsListPage() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  // dataset_id arrives via URL from links like the dataset detail
-  // "See all N →" — read once and pin it through page state.
-  // Status filter stays UI-only because it changes too fast to
-  // round-trip through the router.
+  // dataset_id + workflow_version_id arrive via URL from links
+  // like the dataset detail's "See all N →" or the workflow
+  // detail's eval-history section. Status stays UI-only because
+  // it changes too fast to round-trip through the router.
   const datasetId = searchParams.get('dataset_id') ?? null
+  const workflowVersionId = searchParams.get('workflow_version_id') ?? null
 
   const [statusFilter, setStatusFilter] = useState<EvalRunStatus | null>(null)
   const [page, setPage] = useState(1)
@@ -27,13 +28,14 @@ export default function EvalRunsListPage() {
     setStatusFilter(next)
     setPage(1)
   }
-  const clearDatasetFilter = () => {
+  const clearFilters = () => {
     router.push('/preview/agents/eval-runs')
     setPage(1)
   }
 
   const query = useEvalRuns({
     dataset_id: datasetId ?? undefined,
+    workflow_version_id: workflowVersionId ?? undefined,
     status: statusFilter ?? undefined,
     limit: PAGE_SIZE,
     page,
@@ -46,9 +48,13 @@ export default function EvalRunsListPage() {
       <Header />
 
       {datasetId && (
-        <DatasetFilterBadge
-          datasetId={datasetId}
-          onClear={clearDatasetFilter}
+        <DatasetFilterBadge datasetId={datasetId} onClear={clearFilters} />
+      )}
+
+      {workflowVersionId && (
+        <WorkflowVersionFilterBadge
+          workflowVersionId={workflowVersionId}
+          onClear={clearFilters}
         />
       )}
 
@@ -172,17 +178,50 @@ function DatasetFilterBadge({
   // id so they can clear the filter.
   const datasetQuery = useDataset(datasetId)
   const label = datasetQuery.data?.name ?? `id ${datasetId.slice(0, 8)}`
+  return <FilterBadge label="Dataset" value={label} onClear={onClear} />
+}
+
+function WorkflowVersionFilterBadge({
+  workflowVersionId,
+  onClear,
+}: {
+  workflowVersionId: string
+  onClear: () => void
+}) {
+  // No useWorkflowVersion(id) hook today — versions are nested
+  // under their workflow and the existing useWorkflowVersions
+  // hook lists per-workflow rather than a single by-id. The id
+  // is opaque to operators anyway; the short-form is enough to
+  // identify which version is being filtered.
+  return (
+    <FilterBadge
+      label="Workflow version"
+      value={`id ${workflowVersionId.slice(0, 8)}`}
+      onClear={onClear}
+    />
+  )
+}
+
+function FilterBadge({
+  label,
+  value,
+  onClear,
+}: {
+  label: string
+  value: string
+  onClear: () => void
+}) {
   return (
     <div className="flex items-center gap-2 rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs dark:border-emerald-900/40 dark:bg-emerald-900/10">
-      <span className="text-slate-500 dark:text-slate-400">Dataset:</span>
+      <span className="text-slate-500 dark:text-slate-400">{label}:</span>
       <span className="font-medium text-emerald-700 dark:text-emerald-300">
-        {label}
+        {value}
       </span>
       <button
         type="button"
         onClick={onClear}
         className="ml-auto rounded-md px-2 py-0.5 text-slate-500 hover:bg-emerald-100 hover:text-slate-700 dark:text-slate-400 dark:hover:bg-emerald-900/30 dark:hover:text-slate-200"
-        aria-label="Clear dataset filter"
+        aria-label={`Clear ${label.toLowerCase()} filter`}
       >
         ✕ Clear
       </button>
