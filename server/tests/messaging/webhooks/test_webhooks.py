@@ -34,6 +34,29 @@ def _force_production_env(mocker: MockerFixture) -> None:
     )
 
 
+@pytest.fixture(autouse=True)
+def _bypass_ssrf_resolver(mocker: MockerFixture) -> None:
+    """Bypass the SSRF resolver so tests don't depend on real DNS.
+
+    The webhook worker calls ``_resolve_safe_addrs(url)`` before
+    every HTTP request to reject private/internal IPs. The probe
+    uses ``loop.getaddrinfo`` which fails in any sandboxed
+    environment without network DNS — and the worker treats
+    resolution failure as "private/internal IP" and short-circuits
+    delivery, so the respx mock never gets hit and tests fail with
+    ``Failed: DID NOT RAISE``.
+
+    Tests in this file all use ``https://example.com/hook`` as a
+    sentinel; patch the resolver to return a synthetic public
+    address so the delivery path actually runs and the respx
+    transport handles the call.
+    """
+    mocker.patch(
+        "rapidly.messaging.webhook.workers._resolve_safe_addrs",
+        return_value=[("8.8.8.8", 443)],
+    )
+
+
 @pytest.fixture
 def enqueue_job_mock(mocker: MockerFixture) -> MagicMock:
     return mocker.patch("rapidly.messaging.webhook.actions.dispatch_task")
