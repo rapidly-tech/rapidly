@@ -353,3 +353,139 @@ class TestSoftDeleteExpired:
 
         n = await repo.soft_delete_expired()
         assert n == 0
+
+
+@pytest.mark.asyncio
+class TestHardDeleteExpirySoftDeletesOlderThan:
+    """Permanent purge of soft-deleted-by-expiry tokens older
+    than the retention window. Four load-bearing pins:
+
+    - DELETE (not UPDATE). The expiry-cleanup path (#860) was
+      soft-delete; THIS path is the actual row removal that
+      gates against forensics retention.
+    - Filters to ``deleted_at IS NOT NULL`` AND ``deleted_at <
+      cutoff`` (the row must already be soft-deleted AND past
+      the retention window).
+    - Filters to ``expires_at < deleted_at`` — proves the row
+      was soft-deleted BECAUSE it expired, not because an
+      operator ran DELETE / revoke_leaked. Drift to drop this
+      filter would silently hard-delete operator-revoked
+      tokens (security incident audit loss).
+    - Returns rowcount (None → 0 for asyncpg's zero-row
+      DELETE quirk).
+    """
+
+    async def test_uses_hard_delete_not_soft_delete(self) -> None:
+        from datetime import timedelta
+
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _exec(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            result = MagicMock()
+            result.rowcount = 0
+            return result
+
+        repo.session.execute = AsyncMock(side_effect=_exec)  # type: ignore[method-assign]
+        await repo.hard_delete_expiry_soft_deletes_older_than(timedelta(days=90))
+
+        from sqlalchemy.dialects import postgresql
+
+        sql = str(
+            captured["stmt"].compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+        assert sql.startswith("delete from workspace_access_tokens")
+
+    async def test_filters_to_aged_expiry_soft_deletes_only(self) -> None:
+        from datetime import timedelta
+
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _exec(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            result = MagicMock()
+            result.rowcount = 0
+            return result
+
+        repo.session.execute = AsyncMock(side_effect=_exec)  # type: ignore[method-assign]
+        await repo.hard_delete_expiry_soft_deletes_older_than(timedelta(days=90))
+
+        from sqlalchemy.dialects import postgresql
+
+        sql = str(
+            captured["stmt"].compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+        # Soft-deleted filter — the row must already be soft-
+        # deleted to qualify.
+        assert "deleted_at is not null" in sql
+        # Retention-window cutoff — strict less-than.
+        assert "deleted_at <" in sql
+        # NULL expires_at excluded (those are operator-deleted
+        # non-expiring tokens — kept for audit).
+        assert "expires_at is not null" in sql
+        # The CARDINAL distinction from operator-revoked tokens:
+        # the soft-delete only counts if the token had already
+        # expired by the time it was soft-deleted. Drift to drop
+        # this would hard-delete every operator-revoked +
+        # leak-revoked token, losing incident-audit data.
+        assert "expires_at < workspace_access_tokens.deleted_at" in sql
+
+    async def test_cutoff_uses_supplied_retention(self) -> None:
+        from datetime import UTC, datetime, timedelta
+
+        from freezegun import freeze_time
+
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _exec(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            result = MagicMock()
+            result.rowcount = 0
+            return result
+
+        repo.session.execute = AsyncMock(side_effect=_exec)  # type: ignore[method-assign]
+
+        with freeze_time(datetime(2026, 6, 1, tzinfo=UTC)):
+            await repo.hard_delete_expiry_soft_deletes_older_than(timedelta(days=30))
+
+        from sqlalchemy.dialects import postgresql
+
+        sql = str(
+            captured["stmt"].compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        )
+        # cutoff = 2026-06-01 - 30d = 2026-05-02
+        assert "2026-05-02" in sql, f"unexpected cutoff in {sql!r}"
+
+    async def test_returns_rowcount(self) -> None:
+        from datetime import timedelta
+
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        result = MagicMock()
+        result.rowcount = 12
+        repo.session.execute = AsyncMock(return_value=result)  # type: ignore[method-assign]
+
+        n = await repo.hard_delete_expiry_soft_deletes_older_than(timedelta(days=90))
+        assert n == 12
+
+    async def test_returns_zero_when_no_rows_affected(self) -> None:
+        from datetime import timedelta
+
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        result = MagicMock()
+        result.rowcount = None
+        repo.session.execute = AsyncMock(return_value=result)  # type: ignore[method-assign]
+
+        n = await repo.hard_delete_expiry_soft_deletes_older_than(timedelta(days=90))
+        assert n == 0
