@@ -10,7 +10,7 @@ import {
   useRun,
 } from '@/hooks/api/agents'
 import Link from 'next/link'
-import { use } from 'react'
+import { use, useState } from 'react'
 
 const TERMINAL: RunStatus[] = ['succeeded', 'failed', 'cancelled']
 
@@ -175,33 +175,67 @@ function NodeRunsList({ nodes }: { nodes: NodeRun[] }) {
   return (
     <ol className="flex flex-col gap-2">
       {sorted.map((node, idx) => (
-        <li
-          key={node.id}
-          className="grid grid-cols-[auto_auto_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
-        >
-          <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
-            {idx + 1}
-          </span>
-          <NodeStatusPill status={node.status} />
-          <div className="flex min-w-0 flex-col gap-0.5">
-            <span className="truncate text-sm text-slate-700 dark:text-slate-300">
-              {node.node_id}{' '}
-              <span className="text-slate-400 dark:text-slate-500">
-                ({node.node_type})
-              </span>
-            </span>
-            {node.error_message && (
-              <span className="truncate text-xs text-rose-600 dark:text-rose-400">
-                {node.error_message}
-              </span>
-            )}
-          </div>
-          <span className="text-xs text-slate-400 dark:text-slate-500">
-            {formatDuration(node.started_at, node.completed_at)}
-          </span>
-        </li>
+        <NodeRunRow key={node.id} node={node} index={idx + 1} />
       ))}
     </ol>
+  )
+}
+
+function NodeRunRow({ node, index }: { node: NodeRun; index: number }) {
+  // Each step row expands inline to show its input/output JSON.
+  // Operators triaging a failing step want the input the node
+  // saw (to repro outside the engine) and the output (to
+  // confirm the failure mode); collapsed-by-default keeps the
+  // overall timeline scannable.
+  const [open, setOpen] = useState(false)
+  return (
+    <li className="rounded-lg border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        className="grid w-full grid-cols-[auto_auto_1fr_auto_auto] items-center gap-3 px-4 py-3 text-left"
+      >
+        <span className="font-mono text-xs text-slate-400 dark:text-slate-500">
+          {index}
+        </span>
+        <NodeStatusPill status={node.status} />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-sm text-slate-700 dark:text-slate-300">
+            {node.node_id}{' '}
+            <span className="text-slate-400 dark:text-slate-500">
+              ({node.node_type})
+            </span>
+          </span>
+          {node.error_message && (
+            <span className="truncate text-xs text-rose-600 dark:text-rose-400">
+              {node.error_message}
+            </span>
+          )}
+        </div>
+        <span className="text-xs text-slate-400 dark:text-slate-500">
+          {formatDuration(node.started_at, node.completed_at)}
+        </span>
+        <span className="text-xs text-slate-400 dark:text-slate-500">
+          {open ? 'Hide' : 'View'}
+        </span>
+      </button>
+      {open && (
+        <div className="grid gap-4 border-t border-slate-100 px-4 py-3 sm:grid-cols-2 dark:border-slate-800">
+          <JsonPanel title="Input" data={node.input_data} />
+          <JsonPanel
+            title="Output"
+            data={node.output_data}
+            placeholder={
+              node.status === 'skipped'
+                ? 'Skipped — no output'
+                : node.status === 'failed'
+                  ? 'Failed before producing output'
+                  : '—'
+            }
+          />
+        </div>
+      )}
+    </li>
   )
 }
 
@@ -217,18 +251,26 @@ function IOPanels({ run }: { run: RunDetail }) {
 function JsonPanel({
   title,
   data,
+  placeholder,
 }: {
   title: string
-  data: Record<string, unknown>
+  data: Record<string, unknown> | null
+  placeholder?: string
 }) {
   return (
     <div className="flex flex-col gap-2">
       <h3 className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
         {title}
       </h3>
-      <pre className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300">
-        {JSON.stringify(data, null, 2)}
-      </pre>
+      {data === null ? (
+        <p className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-3 py-3 text-xs text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+          {placeholder ?? '—'}
+        </p>
+      ) : (
+        <pre className="overflow-x-auto rounded-lg border border-slate-200 bg-slate-50 p-3 text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-300">
+          {JSON.stringify(data, null, 2)}
+        </pre>
+      )}
     </div>
   )
 }
