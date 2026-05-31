@@ -4,11 +4,14 @@ import {
   type AssertionStrategy,
   type Dataset,
   type DatasetCase,
+  type EvalRun,
+  type EvalRunStatus,
   useCreateDatasetCase,
   useDataset,
   useDatasetCases,
   useDeleteDataset,
   useDeleteDatasetCase,
+  useEvalRuns,
   useTriggerEval,
   useUpdateDataset,
   useWorkflows,
@@ -41,6 +44,7 @@ export default function DatasetDetailPage({
         <>
           <DatasetHeader dataset={dataset} caseCount={cases.length} />
           <TriggerEvalSection dataset={dataset} />
+          <EvalHistorySection datasetId={dataset.id} />
           <CasesSection
             cases={cases}
             isLoading={casesQuery.isLoading}
@@ -232,6 +236,144 @@ function DangerZone({ dataset }: { dataset: Dataset }) {
       </button>
     </section>
   )
+}
+
+function EvalHistorySection({ datasetId }: { datasetId: string }) {
+  // Show the 10 most recent eval-runs against this dataset. The
+  // eval-runs list endpoint already accepts dataset_id; this is
+  // pure UI on top.
+  const query = useEvalRuns({ dataset_id: datasetId, limit: 10, page: 1 })
+  const runs: EvalRun[] = query.data?.data ?? []
+
+  if (query.isLoading) {
+    return (
+      <section className="flex flex-col gap-3">
+        <SectionHeader />
+        <div className="h-24 animate-pulse rounded-lg bg-slate-100 dark:bg-slate-800" />
+      </section>
+    )
+  }
+
+  if (query.isError || runs.length === 0) {
+    // Hide entirely on error or empty — the section is "history";
+    // no point taking up space when there's nothing to show.
+    return null
+  }
+
+  return (
+    <section className="flex flex-col gap-3">
+      <SectionHeader total={query.data?.meta.total} />
+      <ul className="flex flex-col gap-2">
+        {runs.map((run) => (
+          <EvalHistoryRow key={run.id} run={run} />
+        ))}
+      </ul>
+    </section>
+  )
+}
+
+function SectionHeader({ total }: { total?: number }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        Eval history
+      </h2>
+      {typeof total === 'number' && total > 10 && (
+        <Link
+          href={`/preview/agents/eval-runs`}
+          className="text-xs text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
+        >
+          See all {total} →
+        </Link>
+      )}
+    </div>
+  )
+}
+
+function EvalHistoryRow({ run }: { run: EvalRun }) {
+  const passRate =
+    run.case_count > 0
+      ? Math.round((run.pass_count / run.case_count) * 100)
+      : null
+  return (
+    <li>
+      <Link
+        href={`/preview/agents/eval-runs/${run.id}`}
+        className="grid grid-cols-[auto_1fr_auto] items-center gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 transition hover:border-emerald-400 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-600"
+      >
+        <EvalStatusPill status={run.status} />
+        <div className="flex min-w-0 flex-col gap-0.5">
+          <span className="truncate text-sm text-slate-700 dark:text-slate-300">
+            {run.assertion_strategy}
+          </span>
+          <span className="text-xs text-slate-500 dark:text-slate-400">
+            {run.started_at ? formatRelative(run.started_at) : 'not started'}
+          </span>
+        </div>
+        <span className="flex items-baseline gap-2 text-sm">
+          {run.case_count > 0 ? (
+            <>
+              <span className="font-semibold text-emerald-600 dark:text-emerald-400">
+                {run.pass_count}
+              </span>
+              <span className="text-xs text-slate-400 dark:text-slate-500">
+                / {run.case_count}
+              </span>
+              {passRate !== null && (
+                <span className="text-xs text-slate-500 dark:text-slate-400">
+                  · {passRate}%
+                </span>
+              )}
+              {run.error_count > 0 && (
+                <span className="text-xs text-rose-600 dark:text-rose-400">
+                  · {run.error_count} err
+                </span>
+              )}
+            </>
+          ) : (
+            <span className="text-xs text-slate-400 dark:text-slate-500">
+              no cases
+            </span>
+          )}
+        </span>
+      </Link>
+    </li>
+  )
+}
+
+const EVAL_STATUS_STYLES: Record<EvalRunStatus, string> = {
+  pending: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+  running:
+    'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
+  succeeded:
+    'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+  failed: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
+  cancelled:
+    'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+}
+
+function EvalStatusPill({ status }: { status: EvalRunStatus }) {
+  return (
+    <span
+      className={`rounded-md px-2 py-0.5 text-xs font-medium ${EVAL_STATUS_STYLES[status]}`}
+    >
+      {status}
+    </span>
+  )
+}
+
+function formatRelative(iso: string): string {
+  const now = Date.now()
+  const then = Date.parse(iso)
+  if (Number.isNaN(then)) return iso
+  const seconds = Math.max(0, Math.floor((now - then) / 1000))
+  if (seconds < 60) return `${seconds}s ago`
+  const minutes = Math.floor(seconds / 60)
+  if (minutes < 60) return `${minutes}m ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours}h ago`
+  const days = Math.floor(hours / 24)
+  return `${days}d ago`
 }
 
 function TriggerEvalSection({ dataset }: { dataset: Dataset }) {
