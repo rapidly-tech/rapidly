@@ -6,14 +6,23 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
+const PAGE_SIZE = 20
+
 export default function DatasetsListPage() {
   const [search, setSearch] = useState('')
+  const [page, setPage] = useState(1)
+  const onSearchChange = (next: string) => {
+    setSearch(next)
+    setPage(1)
+  }
+
   const query = useDatasets({
     name: search.trim() || undefined,
-    limit: 50,
-    page: 1,
+    limit: PAGE_SIZE,
+    page,
   })
   const datasets: Dataset[] = query.data?.data ?? []
+  const meta = query.data?.meta
   const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
   const workspaceId = workspacesQuery.data?.data?.[0]?.id ?? null
 
@@ -23,7 +32,7 @@ export default function DatasetsListPage() {
 
       {workspaceId && <CreateForm workspaceId={workspaceId} />}
 
-      <SearchInput value={search} onChange={setSearch} />
+      <SearchInput value={search} onChange={onSearchChange} />
 
       {query.isLoading ? (
         <Skeleton />
@@ -36,9 +45,60 @@ export default function DatasetsListPage() {
           <Empty />
         )
       ) : (
-        <DatasetList datasets={datasets} />
+        <>
+          <DatasetList datasets={datasets} />
+          {meta && (
+            <Pagination
+              page={page}
+              pages={meta.pages}
+              total={meta.total}
+              onPageChange={setPage}
+            />
+          )}
+        </>
       )}
     </main>
+  )
+}
+
+function Pagination({
+  page,
+  pages,
+  total,
+  onPageChange,
+}: {
+  page: number
+  pages: number
+  total: number
+  onPageChange: (next: number) => void
+}) {
+  if (pages <= 1) return null
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+      <span>
+        Page <span className="font-mono">{page}</span> of{' '}
+        <span className="font-mono">{pages}</span> ·{' '}
+        <span className="font-mono">{total}</span> total
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+          disabled={page <= 1}
+          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          ← Prev
+        </button>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(pages, page + 1))}
+          disabled={page >= pages}
+          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Next →
+        </button>
+      </div>
+    </div>
   )
 }
 

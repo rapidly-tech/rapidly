@@ -8,20 +8,29 @@ import {
 import Link from 'next/link'
 import { useState } from 'react'
 
+const PAGE_SIZE = 20
+
 export default function EvalRunsListPage() {
   const [statusFilter, setStatusFilter] = useState<EvalRunStatus | null>(null)
+  const [page, setPage] = useState(1)
+  const onStatusChange = (next: EvalRunStatus | null) => {
+    setStatusFilter(next)
+    setPage(1)
+  }
+
   const query = useEvalRuns({
     status: statusFilter ?? undefined,
-    limit: 50,
-    page: 1,
+    limit: PAGE_SIZE,
+    page,
   })
   const runs: EvalRun[] = query.data?.data ?? []
+  const meta = query.data?.meta
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-16">
       <Header />
 
-      <StatusFilter value={statusFilter} onChange={setStatusFilter} />
+      <StatusFilter value={statusFilter} onChange={onStatusChange} />
 
       {query.isLoading ? (
         <Skeleton />
@@ -34,9 +43,60 @@ export default function EvalRunsListPage() {
           <Empty />
         )
       ) : (
-        <EvalRunList runs={runs} />
+        <>
+          <EvalRunList runs={runs} />
+          {meta && (
+            <Pagination
+              page={page}
+              pages={meta.pages}
+              total={meta.total}
+              onPageChange={setPage}
+            />
+          )}
+        </>
       )}
     </main>
+  )
+}
+
+function Pagination({
+  page,
+  pages,
+  total,
+  onPageChange,
+}: {
+  page: number
+  pages: number
+  total: number
+  onPageChange: (next: number) => void
+}) {
+  if (pages <= 1) return null
+  return (
+    <div className="flex items-center justify-between gap-3 text-xs text-slate-500 dark:text-slate-400">
+      <span>
+        Page <span className="font-mono">{page}</span> of{' '}
+        <span className="font-mono">{pages}</span> ·{' '}
+        <span className="font-mono">{total}</span> total
+      </span>
+      <div className="flex gap-2">
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.max(1, page - 1))}
+          disabled={page <= 1}
+          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          ← Prev
+        </button>
+        <button
+          type="button"
+          onClick={() => onPageChange(Math.min(pages, page + 1))}
+          disabled={page >= pages}
+          className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-40 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Next →
+        </button>
+      </div>
+    </div>
   )
 }
 
