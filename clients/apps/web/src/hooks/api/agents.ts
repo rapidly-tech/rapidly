@@ -504,6 +504,46 @@ export const useDatasetCases = (datasetId: string | undefined) =>
     enabled: !!datasetId,
   })
 
+export interface DatasetCaseCreatePayload {
+  name: string
+  input_data: Record<string, unknown>
+  expected_output?: Record<string, unknown> | null
+  order_index?: number
+}
+
+async function createDatasetCase(args: {
+  datasetId: string
+  body: DatasetCaseCreatePayload
+}): Promise<DatasetCase> {
+  const { datasetId, body } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${datasetId}/cases`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `case create failed: ${res.status}`)
+  }
+  return (await res.json()) as DatasetCase
+}
+
+export const useCreateDatasetCase = (datasetId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: DatasetCaseCreatePayload) =>
+      createDatasetCase({ datasetId, body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: datasetKey('cases', datasetId) })
+    },
+  })
+}
+
 // ══════════════════════════════════════════════
 //  Eval runs (M4.8b–e)
 // ══════════════════════════════════════════════
@@ -840,6 +880,67 @@ export const useCredentialAlerts = () =>
   useQuery({
     queryKey: credentialKey('alerts'),
     queryFn: fetchCredentialAlerts,
+    retry: baseRetry,
+  })
+
+// ── LLM usage rollup (M4.7f) ─────────────────────────────────
+
+export interface UsageRollupRow {
+  workspace_id: string
+  credential_id: string | null
+  provider: string
+  model: string
+  input_tokens: number
+  output_tokens: number
+  total_tokens: number
+  call_count: number
+}
+
+export interface UsageRollupResponse {
+  window_start: string
+  window_end: string
+  rows: UsageRollupRow[]
+}
+
+async function fetchUsageRollup(
+  params: {
+    window_start?: string
+    window_end?: string
+    credential_id?: string
+    provider?: string
+  } = {},
+): Promise<UsageRollupResponse> {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/llm-usage/rollup`,
+  )
+  if (params.window_start)
+    url.searchParams.set('window_start', params.window_start)
+  if (params.window_end) url.searchParams.set('window_end', params.window_end)
+  if (params.credential_id)
+    url.searchParams.set('credential_id', params.credential_id)
+  if (params.provider) url.searchParams.set('provider', params.provider)
+
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`usage rollup failed: ${res.status}`)
+  return (await res.json()) as UsageRollupResponse
+}
+
+const usageKey = (...parts: (string | object)[]) => ['agents-usage', ...parts]
+
+export const useUsageRollup = (
+  params: {
+    window_start?: string
+    window_end?: string
+    credential_id?: string
+    provider?: string
+  } = {},
+) =>
+  useQuery({
+    queryKey: usageKey('rollup', params),
+    queryFn: () => fetchUsageRollup(params),
     retry: baseRetry,
   })
 
