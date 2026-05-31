@@ -85,3 +85,310 @@ export const useWorkflows = (
     retry: baseRetry,
     enabled,
   })
+
+// ══════════════════════════════════════════════
+//  Workflow detail (single)
+// ══════════════════════════════════════════════
+
+async function fetchWorkflow(id: string): Promise<Workflow> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/${id}`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`workflow fetch failed: ${res.status}`)
+  }
+  return (await res.json()) as Workflow
+}
+
+export const useWorkflow = (id: string | undefined) =>
+  useQuery({
+    queryKey: workflowKey('detail', id ?? ''),
+    queryFn: () => fetchWorkflow(id!),
+    retry: baseRetry,
+    enabled: !!id,
+  })
+
+// ══════════════════════════════════════════════
+//  Runs (per-workflow-version)
+// ══════════════════════════════════════════════
+
+export type RunStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'cancelled'
+  | 'awaiting_human'
+
+export interface Run {
+  id: string
+  workflow_version_id: string
+  status: RunStatus
+  triggered_by_kind: string
+  triggered_by_id: string | null
+  started_at: string | null
+  completed_at: string | null
+  error_message: string | null
+  created_at: string
+}
+
+export interface PaginatedRuns {
+  data: Run[]
+  meta: {
+    total: number
+    page: number
+    per_page: number
+    pages: number
+  }
+}
+
+const runKey = (...parts: (string | object)[]) => ['agents-runs', ...parts]
+
+async function fetchRuns(
+  params: {
+    workflow_version_id?: string
+    status?: RunStatus
+    page?: number
+    limit?: number
+  } = {},
+): Promise<PaginatedRuns> {
+  const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/`)
+  if (params.workflow_version_id)
+    url.searchParams.set('workflow_version_id', params.workflow_version_id)
+  if (params.status) url.searchParams.set('status', params.status)
+  if (params.page) url.searchParams.set('page', String(params.page))
+  if (params.limit) url.searchParams.set('limit', String(params.limit))
+
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`runs list failed: ${res.status}`)
+  }
+  return (await res.json()) as PaginatedRuns
+}
+
+export const useRuns = (
+  params: {
+    workflow_version_id?: string
+    status?: RunStatus
+    page?: number
+    limit?: number
+  } = {},
+  enabled: boolean = true,
+) =>
+  useQuery({
+    queryKey: runKey('list', params),
+    queryFn: () => fetchRuns(params),
+    retry: baseRetry,
+    enabled,
+  })
+
+// ══════════════════════════════════════════════
+//  Run detail + node-runs
+// ══════════════════════════════════════════════
+
+async function fetchRun(id: string): Promise<RunDetail> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/${id}`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`run fetch failed: ${res.status}`)
+  }
+  return (await res.json()) as RunDetail
+}
+
+export interface RunDetail extends Run {
+  // The GET /runs/{id} endpoint returns the same shape as the
+  // list endpoint plus input_data / output_data. Listed here so
+  // the detail page picks up the typed extras.
+  input_data: Record<string, unknown>
+  output_data: Record<string, unknown>
+}
+
+export const useRun = (id: string | undefined) =>
+  useQuery({
+    queryKey: runKey('detail', id ?? ''),
+    queryFn: () => fetchRun(id!),
+    retry: baseRetry,
+    enabled: !!id,
+  })
+
+// ── Node runs (per-step records under a run) ──
+
+export type NodeRunStatus =
+  | 'pending'
+  | 'running'
+  | 'succeeded'
+  | 'failed'
+  | 'skipped'
+  | 'awaiting_human'
+
+export interface NodeRun {
+  id: string
+  run_id: string
+  node_id: string
+  node_type: string
+  status: NodeRunStatus
+  started_at: string | null
+  completed_at: string | null
+  input_data: Record<string, unknown>
+  output_data: Record<string, unknown> | null
+  error_message: string | null
+  created_at: string
+}
+
+export interface PaginatedNodeRuns {
+  data: NodeRun[]
+  meta: {
+    total: number
+    page: number
+    per_page: number
+    pages: number
+  }
+}
+
+const nodeRunKey = (...parts: (string | object)[]) => [
+  'agents-node-runs',
+  ...parts,
+]
+
+async function fetchNodeRuns(runId: string): Promise<PaginatedNodeRuns> {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/${runId}/nodes`,
+  )
+  // The list defaults to 50 items; the engine rarely produces
+  // more steps than that. Bigger graphs can scroll once
+  // pagination lands on the UI side.
+  url.searchParams.set('limit', '100')
+  url.searchParams.set('page', '1')
+
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`node-runs list failed: ${res.status}`)
+  }
+  return (await res.json()) as PaginatedNodeRuns
+}
+
+export const useNodeRuns = (runId: string | undefined) =>
+  useQuery({
+    queryKey: nodeRunKey('list', runId ?? ''),
+    queryFn: () => fetchNodeRuns(runId!),
+    retry: baseRetry,
+    enabled: !!runId,
+  })
+
+// ══════════════════════════════════════════════
+//  Datasets + cases (eval fixtures, M4.8a)
+// ══════════════════════════════════════════════
+
+export interface Dataset {
+  id: string
+  workspace_id: string
+  name: string
+  description: string | null
+  created_at: string
+  modified_at: string | null
+}
+
+export interface PaginatedDatasets {
+  data: Dataset[]
+  meta: {
+    total: number
+    page: number
+    per_page: number
+    pages: number
+  }
+}
+
+export interface DatasetCase {
+  id: string
+  dataset_id: string
+  name: string
+  input_data: Record<string, unknown>
+  expected_output: Record<string, unknown> | null
+  order_index: number
+  created_at: string
+  modified_at: string | null
+}
+
+const datasetKey = (...parts: (string | object)[]) => [
+  'agents-datasets',
+  ...parts,
+]
+
+async function fetchDatasets(
+  params: { page?: number; limit?: number } = {},
+): Promise<PaginatedDatasets> {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/`,
+  )
+  if (params.page) url.searchParams.set('page', String(params.page))
+  if (params.limit) url.searchParams.set('limit', String(params.limit))
+
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`datasets list failed: ${res.status}`)
+  return (await res.json()) as PaginatedDatasets
+}
+
+export const useDatasets = (
+  params: { page?: number; limit?: number } = {},
+  enabled: boolean = true,
+) =>
+  useQuery({
+    queryKey: datasetKey('list', params),
+    queryFn: () => fetchDatasets(params),
+    retry: baseRetry,
+    enabled,
+  })
+
+async function fetchDataset(id: string): Promise<Dataset> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${id}`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`dataset fetch failed: ${res.status}`)
+  return (await res.json()) as Dataset
+}
+
+export const useDataset = (id: string | undefined) =>
+  useQuery({
+    queryKey: datasetKey('detail', id ?? ''),
+    queryFn: () => fetchDataset(id!),
+    retry: baseRetry,
+    enabled: !!id,
+  })
+
+async function fetchDatasetCases(datasetId: string): Promise<DatasetCase[]> {
+  // The cases list endpoint returns a bare array (no pagination
+  // envelope) — see ``server/rapidly/agents/dataset/api.py``;
+  // operators rarely have >>100 cases in a dataset, so the
+  // unpaginated shape was a deliberate v1 simplification.
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/${datasetId}/cases`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`dataset cases failed: ${res.status}`)
+  return (await res.json()) as DatasetCase[]
+}
+
+export const useDatasetCases = (datasetId: string | undefined) =>
+  useQuery({
+    queryKey: datasetKey('cases', datasetId ?? ''),
+    queryFn: () => fetchDatasetCases(datasetId!),
+    retry: baseRetry,
+    enabled: !!datasetId,
+  })
