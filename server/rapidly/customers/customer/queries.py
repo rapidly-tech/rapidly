@@ -243,6 +243,38 @@ class CustomerRepository(
                     stmt = stmt.order_by(clause_fn(Customer.name))
         return stmt
 
+    async def find_case_insensitive_email_duplicates(
+        self,
+    ) -> Sequence[tuple[UUID, str, int]]:
+        """Find (workspace_id, lower(email), count) groups with >1
+        active customer.
+
+        Operators need to dedupe these BEFORE the case-insensitive
+        partial UNIQUE index on ``customers (workspace_id, lower(email))
+        WHERE deleted_at IS NULL`` (shipped in ``b4e7c1d92a85``) can
+        be safely promoted to a constraint — otherwise the
+        constraint-creation will fail on existing data.
+
+        Returns a list of ``(workspace_id, lower_email, count)``
+        tuples for each (workspace_id, lower(email)) pair that has
+        more than one active row. The count tells operators how
+        many duplicates they need to resolve per pair.
+
+        Active-only (``deleted_at IS NULL``) — soft-deleted rows
+        don't violate the partial unique we're working toward.
+        """
+        lower_email = func.lower(Customer.email).label("lower_email")
+        customer_count = func.count().label("customer_count")
+        statement = (
+            select(Customer.workspace_id, lower_email, customer_count)
+            .where(Customer.deleted_at.is_(None))
+            .group_by(Customer.workspace_id, lower_email)
+            .having(customer_count > 1)
+            .order_by(customer_count.desc(), Customer.workspace_id)
+        )
+        result = await self.session.execute(statement)
+        return [(row[0], row[1], row[2]) for row in result.all()]
+
     def get_readable_statement(
         self, auth_subject: AuthPrincipal[User | Workspace]
     ) -> Select[tuple[Customer]]:
