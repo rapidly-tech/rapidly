@@ -27,8 +27,10 @@ from rapidly.core import rate_limit as RL
 from rapidly.core.rate_limit import (
     OTP_VERIFY_LIMIT,
     OTP_VERIFY_WINDOW,
+    _is_trusted_proxy,
     check_otp_rate_limit,
     inmemory_rate_check,
+    resolve_client_ip,
 )
 
 # ── OTP constants ──
@@ -188,3 +190,167 @@ class TestInMemoryRateCheck:
         assert inmemory_rate_check("k", limit=3, window=60) is False
         t[0] = 200.0  # 100s later — past the 60s window
         assert inmemory_rate_check("k", limit=3, window=60) is True
+
+
+# ── Client IP resolution (X-Forwarded-For aware) ──
+
+
+def _make_resolver_request(
+    *, xff: str | None = None, peer: str | None = "8.8.8.8"
+) -> Any:
+    """Build a minimal FastAPI Request-shaped mock for the
+    resolver. Only ``.headers`` and ``.client.host`` are read."""
+    req = MagicMock()
+    req.headers = {"X-Forwarded-For": xff} if xff else {}
+    if peer is None:
+        req.client = None
+    else:
+        req.client = MagicMock()
+        req.client.host = peer
+    return req
+
+
+class TestIsTrustedProxy:
+    """Trust model: RFC 1918 + loopback + link-local + ULA.
+    Anything else (public IPs, malformed strings) is untrusted.
+    """
+
+    def test_rfc1918_ipv4_ranges_trusted(self) -> None:
+        # 10/8, 172.16/12, 192.168/16 — the three classic
+        # private ranges where load balancers / sidecars live.
+        for ip in ("10.0.0.5", "172.16.5.5", "192.168.1.1"):
+            assert _is_trusted_proxy(ip), f"{ip} should be trusted"
+
+    def test_loopback_trusted(self) -> None:
+        # Localhost reverse proxies, k8s pod-local sidecars.
+        assert _is_trusted_proxy("127.0.0.1")
+        assert _is_trusted_proxy("::1")
+
+    def test_link_local_trusted(self) -> None:
+        # 169.254/16 — includes AWS/GCP metadata service IP,
+        # but a proxy chain reaching this address would be
+        # a deployment bug regardless. Trusted as a proxy
+        # for consistency with private-range behaviour.
+        assert _is_trusted_proxy("169.254.10.5")
+
+    def test_ipv6_ula_trusted(self) -> None:
+        # fc00::/7 — IPv6 Unique Local Addresses, the
+        # equivalent of RFC 1918.
+        assert _is_trusted_proxy("fc00::1")
+        assert _is_trusted_proxy("fd12:3456:789a::1")
+
+    def test_public_ipv4_untrusted(self) -> None:
+        # Real internet addresses — could be the actual client
+        # OR a spoofed XFF entry; either way NOT a proxy.
+        for ip in ("8.8.8.8", "1.1.1.1", "9.9.9.9"):
+            assert not _is_trusted_proxy(ip), f"{ip} should be untrusted"
+
+    def test_public_ipv6_untrusted(self) -> None:
+        # Global unicast.
+        # 2606:4700:4700::1111 is Cloudflare DNS; 2001:db8::/32 is
+        # RFC 3849 documentation prefix and Python treats it private.
+        assert not _is_trusted_proxy("2606:4700:4700::1111")
+
+    def test_malformed_string_untrusted(self) -> None:
+        # Defensive: a malformed XFF entry shouldn't crash the
+        # resolver. Return False so we don't accidentally trust
+        # garbage as a proxy.
+        assert not _is_trusted_proxy("not-an-ip")
+        assert not _is_trusted_proxy("")
+        assert not _is_trusted_proxy("999.999.999.999")
+
+
+class TestResolveClientIP:
+    """The resolver walks XFF right-to-left, peeling trusted
+    proxies, returning the first untrusted entry. Falls back to
+    request.client.host if no XFF or all entries trusted.
+
+    Trust model assumption: each proxy in the chain APPENDS its
+    own observation to XFF, so the RIGHTMOST entry is always the
+    nearest trusted hop. We never trust the rightmost as the
+    client; the FIRST untrusted entry walking back is the real
+    client.
+    """
+
+    def test_no_xff_returns_peer_host(self) -> None:
+        # Direct hit: no proxy, use the socket-level peer.
+        req = _make_resolver_request(xff=None, peer="8.8.8.8")
+        assert resolve_client_ip(req) == "8.8.8.8"
+
+    def test_no_xff_no_peer_returns_unknown(self) -> None:
+        # Stable rate-limit key even when both signals are
+        # missing — callers should never have to None-check.
+        req = _make_resolver_request(xff=None, peer=None)
+        assert resolve_client_ip(req) == "unknown"
+
+    def test_single_trusted_proxy_returns_xff_client(self) -> None:
+        # Single LB in front: XFF = "<real client>"; peer is
+        # the LB's private IP. Walk right-to-left, skip nothing
+        # since the only entry is the public client.
+        req = _make_resolver_request(xff="8.8.8.8", peer="10.0.0.5")
+        assert resolve_client_ip(req) == "8.8.8.8"
+
+    def test_chain_of_trusted_proxies_walks_through(self) -> None:
+        # Layered proxies (e.g. CDN → LB → app). Each appends
+        # to XFF. Walking right-to-left peels the proxies until
+        # the original client surfaces.
+        req = _make_resolver_request(
+            xff="8.8.8.8, 10.0.0.5, 172.16.0.10",
+            peer="192.168.1.1",
+        )
+        assert resolve_client_ip(req) == "8.8.8.8"
+
+    def test_spoofed_xff_with_attacker_in_left_position(self) -> None:
+        # CRITICAL SECURITY PIN: an attacker can put anything in
+        # XFF, including making themselves look like a proxy.
+        # The trust model defends because we walk RIGHT-to-LEFT
+        # — the rightmost entry is the trusted proxy's
+        # observation, which is the REAL public client.
+        #
+        # Setup: attacker forges ``"victim, 10.0.0.5"`` thinking
+        # they can pin the rate-limit to "victim". The reverse
+        # proxy APPENDS its observation of the attacker's actual
+        # public IP, making the chain ``"victim, 10.0.0.5,
+        # <attacker_real_ip>"``. We walk right-to-left, skip the
+        # private 10.0.0.5, and return the attacker's real IP —
+        # NOT "victim".
+        req = _make_resolver_request(
+            xff="victim@example.com-spoof, 10.0.0.5, 1.1.1.1",
+            peer="192.168.1.1",
+        )
+        assert resolve_client_ip(req) == "1.1.1.1"
+
+    def test_all_trusted_chain_falls_back_to_peer(self) -> None:
+        # Service-mesh-internal traffic: every chain entry is a
+        # private-range proxy. There's no public client. Fall
+        # back to peer (also private, but at least real).
+        req = _make_resolver_request(xff="10.0.0.1, 10.0.0.2", peer="10.0.0.3")
+        assert resolve_client_ip(req) == "10.0.0.3"
+
+    def test_whitespace_in_xff_trimmed(self) -> None:
+        # XFF spec allows whitespace after commas; the standard
+        # convention is "ip, ip, ip" but real headers may have
+        # "ip,ip" or "ip,  ip". Both must parse.
+        req = _make_resolver_request(
+            xff="  8.8.8.8  ,  10.0.0.5  ", peer="10.0.0.5"
+        )
+        assert resolve_client_ip(req) == "8.8.8.8"
+
+    def test_empty_xff_entries_skipped(self) -> None:
+        # Edge case: trailing/leading commas or double commas
+        # produce empty strings after split. Must skip without
+        # treating them as "untrusted" (which would return "").
+        req = _make_resolver_request(xff=",, 8.8.8.8,, 10.0.0.5,", peer="10.0.0.5")
+        assert resolve_client_ip(req) == "8.8.8.8"
+
+    def test_malformed_xff_entry_skipped(self) -> None:
+        # An XFF entry that isn't a valid IP gets treated as
+        # untrusted (could be a Forwarded= prefix mistake or
+        # header smuggling). Walking right-to-left: skip the
+        # trusted proxy, hit the malformed entry — return it
+        # as the "client" rather than crash. Defensive default.
+        req = _make_resolver_request(
+            xff="not-an-ip, 10.0.0.5",
+            peer="192.168.1.1",
+        )
+        assert resolve_client_ip(req) == "not-an-ip"
