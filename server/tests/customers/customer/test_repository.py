@@ -58,3 +58,25 @@ async def test_create_context(
             raise RuntimeError("Simulated error")
 
     enqueue_job_mock.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_find_case_insensitive_email_duplicates_returns_empty_on_clean_db(
+    repository: CustomerRepository,
+    workspace: Workspace,
+) -> None:
+    """Smoke: on a workspace with no active case-insensitive
+    duplicates, the finder returns the empty list.
+
+    Integration-tested rather than data-tested because the current
+    ``Customer`` model still declares a GLOBAL unique on
+    ``lower(email), deleted_at`` (``postgresql_nulls_not_distinct``)
+    that would reject any fixture creating active duplicates. The
+    smoke test is enough to prove the SQL is valid PostgreSQL and
+    the empty-case return shape. The four load-bearing properties
+    (active-only / case-insensitive / workspace-scoped / count>1)
+    are visible in the 6-line query body in
+    ``CustomerRepository.find_case_insensitive_email_duplicates``.
+    """
+    duplicates = await repository.find_case_insensitive_email_duplicates()
+    assert duplicates == []
