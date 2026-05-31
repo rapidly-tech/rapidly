@@ -1,7 +1,13 @@
 /**
- * Registry of the 6 product chambers (Files / Secret / Screen / Watch
- * / Call / Collab). Used by the chamber-strip nav on the file-sharing
+ * Registry of the 5 public product chambers (Secret / Screen / Watch
+ * / Call / Collab). Used by the chamber-strip nav on the public
  * landing and by per-chamber page metadata.
+ *
+ * The Files chamber is intentionally absent — file_sharing is kept
+ * in code as transport infrastructure (the markup chamber and the
+ * /share/<slug> anonymous-receive URL both rely on it), but it is no
+ * longer surfaced as a top-level product chamber per the engineering-
+ * suite framing decision (see RAPIDLY_ENGINEERING_SUITE_PLAN.md §2.6).
  *
  * "live" chambers link to a working route. "soon" chambers render with a
  * muted treatment and surface a "coming soon" pill so visitors learn what
@@ -27,16 +33,6 @@ export interface Chamber {
 // api.iconify.design, which our production CSP's ``connect-src``
 // doesn't allow — so they render as empty spans in the pill strip.
 export const CHAMBERS: readonly Chamber[] = [
-  {
-    id: 'files',
-    label: 'Files',
-    icon: 'solar:file-linear',
-    // Public share flow at /files. NOT /dashboard — that's
-    // auth-gated and bounces visitors to /login.
-    href: '/files',
-    status: 'live',
-    tagline: 'End-to-end encrypted P2P file transfer.',
-  },
   {
     id: 'secret',
     label: 'Secret',
