@@ -145,3 +145,82 @@ class TestAuthenticate:
         assert user is not None
         assert user.id == existing_user.id
         assert is_signup is False
+
+
+@pytest.mark.asyncio
+class TestRequestPrivacyHygiene:
+    """The ``request`` action MUST NOT reveal whether a user
+    exists. The login form is anonymous-callable — a return
+    code or behaviour that differs between "this email is
+    registered" and "this email is unknown" would let an
+    attacker enumerate the user database one email at a time.
+
+    These tests pin the current privacy property so a future
+    refactor that, say, returns 404 for missing users (or
+    skips the LoginCode row creation) fails loudly.
+    """
+
+    async def test_creates_login_code_for_existing_user(
+        self,
+        save_fixture: SaveFixture,
+        session: AsyncSession,
+    ) -> None:
+        existing_user = await create_user(save_fixture)
+        existing_user.email = "real@example.com"
+        await save_fixture(existing_user)
+
+        record, _ = await login_code_service.request(session, "real@example.com")
+        assert record.email == "real@example.com"
+        # user_id is set so the redemption path can short-circuit
+        # to the existing account.
+        assert record.user_id == existing_user.id
+
+    async def test_creates_login_code_for_unknown_user_too(
+        self,
+        session: AsyncSession,
+    ) -> None:
+        # Critical: the action MUST run end-to-end (create a
+        # LoginCode row, return a tuple) even when the email
+        # is unknown. Otherwise a side-channel (faster response,
+        # different return shape, missing row) leaks existence.
+        record, code = await login_code_service.request(session, "ghost@example.com")
+        assert record.email == "ghost@example.com"
+        # user_id is None on the row — only an existing user
+        # would link. The PRIVATE field difference is fine
+        # because it's invisible to the caller; the public
+        # response is the same shape.
+        assert record.user_id is None
+        # The returned plaintext code is still issued, so the
+        # send-email call later doesn't short-circuit either.
+        assert code
+        assert len(code) > 0
+
+    async def test_response_shape_identical_either_way(
+        self,
+        save_fixture: SaveFixture,
+        session: AsyncSession,
+    ) -> None:
+        # The (LoginCode, code) tuple shape is the same whether
+        # the user exists or not. A future refactor that
+        # returns ``(None, None)`` for unknown emails would
+        # leak existence to the API handler — pin that shape
+        # explicitly here.
+        existing_user = await create_user(save_fixture)
+        existing_user.email = "known@example.com"
+        await save_fixture(existing_user)
+
+        known_record, known_code = await login_code_service.request(
+            session, "known@example.com"
+        )
+        unknown_record, unknown_code = await login_code_service.request(
+            session, "stranger@example.com"
+        )
+
+        # Both return a tuple of (LoginCode, str), never None.
+        assert known_record is not None
+        assert unknown_record is not None
+        assert isinstance(known_code, str)
+        assert isinstance(unknown_code, str)
+        # And the codes are the same length (both pass through
+        # the same _generate_code_hash helper).
+        assert len(known_code) == len(unknown_code)
