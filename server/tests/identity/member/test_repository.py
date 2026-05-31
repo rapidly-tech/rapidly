@@ -384,3 +384,125 @@ class TestFindCaseInsensitiveEmailDuplicates:
         repo = MemberRepository.from_session(session)
         duplicates = await repo.find_case_insensitive_email_duplicates()
         assert duplicates == []
+
+
+@pytest.mark.asyncio
+class TestListDuplicatesForDedupe:
+    """Loader for a single duplicate group, ordered by the
+    auto-dedupe policy: highest role first (owner >
+    billing_manager > member), tie-broken by earliest
+    created_at. Survivor = first row; losers = rest.
+
+    Role is stored as a string but the natural ordering for
+    picking the SURVIVOR is the enum's intent (owner >
+    billing_manager > member). Alphabetically that's
+    billing_manager < member < owner — would pick the WRONG
+    winner. The CASE expression in the query pins the correct
+    enum ordering.
+    """
+
+    async def test_owner_wins_over_lower_roles(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="x@example.com"
+        )
+        # Insert in NON-policy order so the ORDER BY is exercised.
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="alice@example.com",
+                role=MemberRole.member,
+            )
+        )
+        owner = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="ALICE@example.com",
+            role=MemberRole.owner,
+        )
+        await save_fixture(owner)
+
+        repo = MemberRepository.from_session(session)
+        ordered = await repo.list_duplicates_for_dedupe(
+            customer.id, "alice@example.com"
+        )
+
+        assert len(ordered) == 2
+        assert ordered[0].id == owner.id
+        assert ordered[0].role == MemberRole.owner
+
+    async def test_billing_manager_beats_member(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Pin: billing_manager > member by enum, even though
+        # billing_manager < member alphabetically. The CASE
+        # expression's the difference.
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="y@example.com"
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="bob@example.com",
+                role=MemberRole.member,
+            )
+        )
+        billing = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="BOB@example.com",
+            role=MemberRole.billing_manager,
+        )
+        await save_fixture(billing)
+
+        repo = MemberRepository.from_session(session)
+        ordered = await repo.list_duplicates_for_dedupe(customer.id, "bob@example.com")
+
+        assert ordered[0].id == billing.id
+
+    async def test_role_tie_broken_by_earliest_created_at(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Same role → earliest registration wins. Pins the
+        # "original first" semantic.
+        from datetime import timedelta
+
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="z@example.com"
+        )
+        older = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="carol@example.com",
+            role=MemberRole.owner,
+            created_at=now_utc() - timedelta(days=10),
+        )
+        newer = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="CAROL@example.com",
+            role=MemberRole.owner,
+            created_at=now_utc(),
+        )
+        await save_fixture(older)
+        await save_fixture(newer)
+
+        repo = MemberRepository.from_session(session)
+        ordered = await repo.list_duplicates_for_dedupe(
+            customer.id, "carol@example.com"
+        )
+
+        assert ordered[0].id == older.id
+        assert ordered[1].id == newer.id
