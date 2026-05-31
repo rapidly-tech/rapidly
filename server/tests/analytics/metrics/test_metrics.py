@@ -22,6 +22,8 @@ from __future__ import annotations
 from typing import Any
 from unittest.mock import MagicMock
 
+import pytest
+
 from rapidly.analytics.metrics.metrics import (
     MetricType,
     cumulative_last,
@@ -88,3 +90,70 @@ class TestCumulativeLast:
 
     def test_single_period(self) -> None:
         assert cumulative_last([_period(42)], "foo") == 42
+
+
+@pytest.mark.asyncio
+class TestConfigureSessionTimezoneFallback:
+    """Pin the PG-fallback path for tzdata divergence.
+
+    The HTTP layer can't normally reach this branch — pydantic's
+    ``TimeZoneName`` rejects the deprecated aliases (``Asia/Saigon``,
+    ``Asia/Calcutta``) that PG used to choke on. The fallback is
+    still load-bearing for any direct call site and for any future
+    tzdata regression where a name accepted by ``TimeZoneName`` is
+    unknown to PG.
+
+    Two assertions:
+
+    - When ``pg_timezone_names`` does NOT contain the requested
+      zone (scalar returns ``None``), the function returns
+      ``"UTC"`` AND calls ``set_config("TimeZone", "UTC", True)``
+      — NOT the original requested string. Drift to passing the
+      original would re-introduce the original Sentry bug.
+    - When ``pg_timezone_names`` DOES contain the requested zone
+      (scalar returns ``1``), the function returns the requested
+      string unchanged AND passes it to ``set_config``.
+    """
+
+    @staticmethod
+    def _fake_session(*, pg_knows: bool) -> tuple[Any, list[str]]:
+        set_config_binds: list[str] = []
+
+        class _FakeSession:
+            async def scalar(self_, statement: Any, params: Any | None = None) -> Any:
+                return 1 if pg_knows else None
+
+            async def execute(self_, statement: Any) -> Any:
+                stmt_text = str(statement)
+                if "set_config" in stmt_text:
+                    compiled = str(
+                        statement.compile(compile_kwargs={"literal_binds": True})
+                    )
+                    set_config_binds.append(compiled)
+                return MagicMock()
+
+        return _FakeSession(), set_config_binds
+
+    async def test_unknown_timezone_falls_back_to_utc(self) -> None:
+        from rapidly.analytics.metrics.queries import MetricsQueryService
+
+        session, set_config_binds = self._fake_session(pg_knows=False)
+        svc = MetricsQueryService(session)
+        applied = await svc.configure_session_timezone("Made/Up_Zone")
+
+        assert applied == "UTC"
+        # The set_config bind must be 'UTC', NOT the requested
+        # string — otherwise PG would 500 with "invalid value
+        # for parameter TimeZone".
+        assert any("'UTC'" in b for b in set_config_binds)
+        assert not any("'Made/Up_Zone'" in b for b in set_config_binds)
+
+    async def test_known_timezone_passes_through(self) -> None:
+        from rapidly.analytics.metrics.queries import MetricsQueryService
+
+        session, set_config_binds = self._fake_session(pg_knows=True)
+        svc = MetricsQueryService(session)
+        applied = await svc.configure_session_timezone("America/New_York")
+
+        assert applied == "America/New_York"
+        assert any("'America/New_York'" in b for b in set_config_binds)
