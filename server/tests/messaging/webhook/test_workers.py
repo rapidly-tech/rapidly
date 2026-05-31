@@ -229,3 +229,109 @@ class TestResolveSafeAddrs:
         # than crashing on attribute access.
         result = await _resolve_safe_addrs("not-a-url")
         assert result is None
+
+
+@pytest.mark.asyncio
+class TestWebhookEventArchive:
+    """The midnight-UTC cron actor that nulls out webhook
+    event payloads older than ``settings.WEBHOOK_EVENT_RETENTION_
+    PERIOD``. Two load-bearing pins:
+
+    - The actor opens a session and calls
+      ``webhook_service.archive_events(session, older_than=now
+      - retention)``. Drift would silently stop the archival
+      and the webhook_events table would balloon with payloads
+      forever (PII / GDPR concern — webhook payloads contain
+      customer data).
+    - The cutoff is ``now_utc() - retention``, NOT a captured
+      constant. Drift to capture at import time would mean the
+      cutoff stays stuck on the worker's boot date and quickly
+      stops archiving.
+    """
+
+    async def test_delegates_with_retention_cutoff(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from datetime import UTC, datetime, timedelta
+
+        from rapidly.messaging.webhook import workers as M
+        from rapidly.messaging.webhook.workers import webhook_event_archive
+
+        captured: dict[str, Any] = {}
+
+        async def fake_archive_events(session: Any, *, older_than: Any) -> int:
+            captured["session"] = session
+            captured["older_than"] = older_than
+            return 0
+
+        fake_service = AsyncMock()
+        fake_service.archive_events = fake_archive_events
+        monkeypatch.setattr(M, "webhook_service", fake_service)
+
+        session_obj = AsyncMock(name="session")
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=session_obj)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(M, "AsyncSessionMaker", lambda: cm)
+
+        # Freeze now() so the cutoff is deterministic.
+        fixed_now = datetime(2026, 5, 30, 12, 0, 0, tzinfo=UTC)
+        monkeypatch.setattr(M, "now_utc", lambda: fixed_now)
+
+        # Use a known retention period so we can assert on the
+        # exact cutoff.
+        retention = timedelta(days=90)
+        monkeypatch.setattr(
+            M.settings, "WEBHOOK_EVENT_RETENTION_PERIOD", retention, raising=False
+        )
+
+        await webhook_event_archive.__wrapped__()  # type: ignore[attr-defined]
+
+        assert captured["session"] is session_obj
+        assert captured["older_than"] == fixed_now - retention
+
+    async def test_cutoff_is_fresh_per_invocation(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Pin: ``now_utc()`` is called inside the actor body
+        # (NOT captured at import time). A regression to a
+        # captured constant would mean the cutoff stays stuck
+        # on the worker's boot date and the retention window
+        # never advances.
+        from datetime import UTC, datetime, timedelta
+
+        from rapidly.messaging.webhook import workers as M
+        from rapidly.messaging.webhook.workers import webhook_event_archive
+
+        captures: list[Any] = []
+
+        async def fake_archive_events(session: Any, *, older_than: Any) -> int:
+            captures.append(older_than)
+            return 0
+
+        fake_service = AsyncMock()
+        fake_service.archive_events = fake_archive_events
+        monkeypatch.setattr(M, "webhook_service", fake_service)
+
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=AsyncMock())
+        cm.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(M, "AsyncSessionMaker", lambda: cm)
+
+        retention = timedelta(days=30)
+        monkeypatch.setattr(
+            M.settings, "WEBHOOK_EVENT_RETENTION_PERIOD", retention, raising=False
+        )
+
+        first = datetime(2026, 1, 1, tzinfo=UTC)
+        monkeypatch.setattr(M, "now_utc", lambda: first)
+        await webhook_event_archive.__wrapped__()  # type: ignore[attr-defined]
+
+        second = datetime(2026, 6, 1, tzinfo=UTC)
+        monkeypatch.setattr(M, "now_utc", lambda: second)
+        await webhook_event_archive.__wrapped__()  # type: ignore[attr-defined]
+
+        assert len(captures) == 2
+        assert captures[0] == first - retention
+        assert captures[1] == second - retention
+        assert captures[0] != captures[1]
