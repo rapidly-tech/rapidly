@@ -155,4 +155,4 @@ class WorkspaceAccessTokenRepository(
             .values(deleted_at=now)
         )
         result = await self.session.execute(statement)
-        return result.rowcount or 0
+        return result.rowcount or 0  # type: ignore[attr-defined]
