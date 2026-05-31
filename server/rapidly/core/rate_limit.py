@@ -90,6 +90,45 @@ def resolve_client_ip(request: Request) -> str:
     return "unknown"
 
 
+def resolve_client_ip_from_scope(scope: dict) -> str:
+    """ASGI-Scope version of ``resolve_client_ip`` for middleware
+    that runs before FastAPI wraps the scope in a ``Request``.
+
+    The rate-limit ASGI middleware uses this to bucket anonymous
+    requests by real client IP rather than by the proxy's IP
+    (which previously let one attacker behind a shared XFF-only
+    proxy burn the global anonymous bucket for everyone).
+
+    Same trust model as ``resolve_client_ip``: walk
+    ``X-Forwarded-For`` right-to-left, peel trusted proxies,
+    return the first untrusted entry. Falls back to
+    ``scope["client"][0]`` (the socket peer), then ``"unknown"``.
+
+    Returns ``"unknown"`` if scope is malformed so callers can
+    always use the result as a rate-limit key.
+    """
+    # ASGI scope.headers is a list of (bytes, bytes) tuples.
+    xff_bytes: bytes | None = None
+    for name, value in scope.get("headers", []):
+        if name == b"x-forwarded-for":
+            xff_bytes = value
+            break
+    if xff_bytes:
+        try:
+            xff = xff_bytes.decode("ascii")
+        except UnicodeDecodeError:
+            xff = ""
+        if xff:
+            for raw in reversed([p.strip() for p in xff.split(",") if p.strip()]):
+                if not _is_trusted_proxy(raw):
+                    return raw
+
+    client = scope.get("client")
+    if client and len(client) >= 1:
+        return str(client[0])
+    return "unknown"
+
+
 # ── OTP verification rate limiting ──
 
 OTP_VERIFY_LIMIT = 10
