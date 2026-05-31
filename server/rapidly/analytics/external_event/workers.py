@@ -9,11 +9,15 @@ from rapidly.worker import AsyncSessionMaker, TaskPriority, actor
 
 from .queries import ExternalEventRepository
 
+# Schedule constant — exposed so tests can pin the slot. Matches the
+# normalized shape used by customer_session + email_update workers.
+_CRON_MIDNIGHT = CronTrigger(hour=0, minute=0)
+
 
 @actor(
     actor_name="external_event.prune",
     priority=TaskPriority.LOW,
-    cron_trigger=CronTrigger(hour=0, minute=0),
+    cron_trigger=_CRON_MIDNIGHT,
     max_retries=0,
 )
 async def external_event_prune() -> None:
