@@ -282,7 +282,8 @@ class TestWebhookEventArchive:
         # exact cutoff.
         retention = timedelta(days=90)
         monkeypatch.setattr(
-            M.settings, "WEBHOOK_EVENT_RETENTION_PERIOD", retention, raising=False
+            "rapidly.messaging.webhook.workers.settings.WEBHOOK_EVENT_RETENTION_PERIOD",
+            retention,
         )
 
         await webhook_event_archive.__wrapped__()  # type: ignore[attr-defined]
@@ -320,7 +321,8 @@ class TestWebhookEventArchive:
 
         retention = timedelta(days=30)
         monkeypatch.setattr(
-            M.settings, "WEBHOOK_EVENT_RETENTION_PERIOD", retention, raising=False
+            "rapidly.messaging.webhook.workers.settings.WEBHOOK_EVENT_RETENTION_PERIOD",
+            retention,
         )
 
         first = datetime(2026, 1, 1, tzinfo=UTC)
