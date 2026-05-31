@@ -39,7 +39,7 @@ from rapidly.sharing.file_sharing.workers import (
 @pytest.mark.asyncio
 class TestCheckExpiredSessions:
     def _setup(
-        self, monkeypatch: pytest.MonkeyPatch, *, expired_ids: list
+        self, monkeypatch: pytest.MonkeyPatch, *, expired_ids: list[Any]
     ) -> dict[str, Any]:
         """Wire mocks for the repo, session-maker, and dispatch_task.
         Returns a captured dict containing whatever the actor sent
