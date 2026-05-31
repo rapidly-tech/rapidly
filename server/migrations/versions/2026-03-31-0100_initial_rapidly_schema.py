@@ -71,6 +71,8 @@ def upgrade() -> None:
         "work_item_activities",
         # Phase 15 (pages)
         "project_pages",
+        # Phase 16 (favorites) — created in 2026-05-31-1700_add_user_favorites
+        "user_favorites",
     }
     bind = op.get_bind()
     tables_to_create = [
