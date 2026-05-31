@@ -18,6 +18,7 @@
 
 import type { ElementStore } from './element-store'
 import type { SelectionState } from './selection'
+import type { UnitFormatter } from './units'
 import type { Viewport } from './viewport'
 
 export interface DimensionsOverlayOptions {
@@ -27,6 +28,12 @@ export interface DimensionsOverlayOptions {
   /** Toggle the whole overlay off without unwiring it; the host
    *  exposes a command-palette entry that flips this. */
   getEnabled: () => boolean
+  /** Optional formatter for the dimension labels. When omitted, the
+   *  overlay falls back to whole-pixel rendering — the historical
+   *  default. Hosts wire ``makeFormatter(boardScale)`` from
+   *  ``units.ts`` once the board has a calibrated scale (see
+   *  ``calibration.ts``) so labels read in engineering units. */
+  getFormatter?: () => UnitFormatter
 }
 
 export interface DimensionLabel {
@@ -54,6 +61,10 @@ export function dimensionLabels(
   viewport: Viewport,
   /** Vertical pixel gap below the element where the label sits. */
   gapPx = 6,
+  /** Optional unit-aware formatter for each axis. When provided, the
+   *  label text becomes ``"<W formatted> × <H formatted>"``; otherwise
+   *  the historical whole-pixel formatter is used. */
+  formatter?: UnitFormatter,
 ): DimensionLabel[] {
   const out: DimensionLabel[] = []
   for (const el of elements) {
@@ -62,11 +73,14 @@ export function dimensionLabels(
     const screenX = (el.x - viewport.scrollX) * viewport.scale
     const screenBottomY =
       (el.y + el.height - viewport.scrollY) * viewport.scale + gapPx
+    const text = formatter
+      ? `${formatter.format(el.width)} × ${formatter.format(el.height)}`
+      : formatDimensions(el.width, el.height)
     out.push({
       id: el.id,
       screenX,
       screenY: screenBottomY,
-      text: formatDimensions(el.width, el.height),
+      text,
     })
   }
   return out
@@ -111,7 +125,8 @@ export function makeDimensionsOverlay(
         height: el.height,
       })
     }
-    const labels = dimensionLabels(elements, ids, viewport)
+    const formatter = opts.getFormatter?.()
+    const labels = dimensionLabels(elements, ids, viewport, 6, formatter)
 
     // The selection overlay paints in world space (the renderer
     // applies the viewport transform before invoking it). We want
