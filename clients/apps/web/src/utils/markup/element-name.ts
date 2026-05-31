@@ -95,6 +95,8 @@ function typeFallback(el: CollabElement): string {
       return 'Embed'
     case 'pdf-underlay':
       return 'PDF underlay'
+    case 'image-underlay':
+      return 'Image underlay'
   }
 }
 
