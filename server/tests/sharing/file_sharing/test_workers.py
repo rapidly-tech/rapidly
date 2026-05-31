@@ -115,5 +115,3 @@ class TestCheckExpiredSessions:
         captured["repo"].expire_active_sessions.assert_awaited_once()
         # No dispatches fired.
         assert captured["dispatched"] == []
-
-
