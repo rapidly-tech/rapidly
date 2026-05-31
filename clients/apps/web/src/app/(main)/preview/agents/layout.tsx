@@ -48,6 +48,11 @@ const NAV: SidebarItem[] = [
     label: 'Credentials',
     matchPrefixes: ['/preview/agents/credentials'],
   },
+  {
+    href: '/preview/agents/usage',
+    label: 'Usage',
+    matchPrefixes: ['/preview/agents/usage'],
+  },
 ]
 
 export default function AgentsLayout({
