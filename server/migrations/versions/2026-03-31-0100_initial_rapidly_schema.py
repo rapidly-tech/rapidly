@@ -42,9 +42,45 @@ def upgrade() -> None:
     op.create_entity(customers_search_vector_update_function)
     op.create_entity(shares_search_vector_update_function)
 
-    # 4. All tables from SQLAlchemy models
+    # 4. All tables from SQLAlchemy models, minus tables added in later
+    #    migrations.  When new domains land their migration files create
+    #    those tables explicitly; without this filter ``create_all`` would
+    #    pre-create them here and trip the later CREATE TABLE.
+    _ADDED_BY_LATER_MIGRATIONS = {
+        # Phase 1 (projects scaffold)
+        "projects",
+        "project_members",
+        "project_states",
+        "project_labels",
+        "project_estimates",
+        "project_estimate_points",
+        # Phase 2 (work items)
+        "work_items",
+        "work_item_assignees",
+        "work_item_labels",
+        # Phase 3 (comments + relations)
+        "work_item_comments",
+        "work_item_relations",
+        # Phase 8 (cycles)
+        "project_cycles",
+        "project_cycle_work_items",
+        # Phase 10 (modules)
+        "project_modules",
+        "project_module_work_items",
+        # Phase 12 (activity log)
+        "work_item_activities",
+        # Phase 15 (pages)
+        "project_pages",
+        # Phase 16 (favorites) — created in 2026-05-31-1700_add_user_favorites
+        "user_favorites",
+    }
     bind = op.get_bind()
-    Model.metadata.create_all(bind)
+    tables_to_create = [
+        t
+        for t in Model.metadata.tables.values()
+        if t.name not in _ADDED_BY_LATER_MIGRATIONS
+    ]
+    Model.metadata.create_all(bind, tables=tables_to_create)
 
     # 5. Triggers (require tables to exist)
     op.create_entity(customers_search_vector_trigger)
