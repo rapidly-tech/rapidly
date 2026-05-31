@@ -21,7 +21,12 @@ import { pathFor as embedPath, paintEmbed } from './embed'
 import { pathFor as framePath, paintFrame } from './frame'
 import { pathFor as freeDrawPath, paintFreeDraw } from './freedraw'
 import { pathFor as imagePath, paintImage } from './image'
+import {
+  pathFor as imageUnderlayPath,
+  paintImageUnderlay,
+} from './image-underlay'
 import { pathFor as linePath, paintLine } from './line'
+import { paintPdfUnderlay, pathFor as pdfUnderlayPath } from './pdf-underlay'
 import { paintRect, pathFor as rectPath } from './rect'
 import { paintSticky, pathFor as stickyPath } from './sticky'
 import { paintText, pathFor as textPath } from './text'
@@ -95,6 +100,22 @@ const REGISTRY: Partial<Record<ElementType, ShapeAdapter>> = {
     paint: (ctx, el, path) =>
       paintEmbed(ctx, el as Parameters<typeof paintEmbed>[1], path),
   },
+  'pdf-underlay': {
+    pathFor: (el) =>
+      pdfUnderlayPath(el as Parameters<typeof pdfUnderlayPath>[0]),
+    paint: (ctx, el, path) =>
+      paintPdfUnderlay(ctx, el as Parameters<typeof paintPdfUnderlay>[1], path),
+  },
+  'image-underlay': {
+    pathFor: (el) =>
+      imageUnderlayPath(el as Parameters<typeof imageUnderlayPath>[0]),
+    paint: (ctx, el, path) =>
+      paintImageUnderlay(
+        ctx,
+        el as Parameters<typeof paintImageUnderlay>[1],
+        path,
+      ),
+  },
 }
 
 export function adapterFor(el: CollabElement): ShapeAdapter | null {
@@ -109,6 +130,7 @@ export {
   framePath,
   freeDrawPath,
   imagePath,
+  imageUnderlayPath,
   linePath,
   paintArrow,
   paintDiamond,
@@ -117,10 +139,13 @@ export {
   paintFrame,
   paintFreeDraw,
   paintImage,
+  paintImageUnderlay,
   paintLine,
+  paintPdfUnderlay,
   paintRect,
   paintSticky,
   paintText,
+  pdfUnderlayPath,
   rectPath,
   stickyPath,
   textPath,

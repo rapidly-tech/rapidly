@@ -87,4 +87,19 @@ describe('dimensionLabels', () => {
     })
     expect(labels[0].text).toBe('120 × 80')
   })
+
+  it('uses the optional formatter when provided', () => {
+    // Engineering-units integration: when the host wires a formatter
+    // built from a BoardScale, each axis is formatted via the
+    // formatter and the label reads in real-world units.
+    const formatter = { format: (px: number) => `${px * 10} mm` }
+    const labels = dimensionLabels(
+      [el('a', 0, 0, 5, 3)],
+      new Set(['a']),
+      { scale: 1, scrollX: 0, scrollY: 0 },
+      6,
+      formatter,
+    )
+    expect(labels[0].text).toBe('50 mm × 30 mm')
+  })
 })

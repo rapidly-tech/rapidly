@@ -32,6 +32,8 @@ export type ElementType =
   | 'image'
   | 'frame'
   | 'embed'
+  | 'pdf-underlay'
+  | 'image-underlay'
 
 export type FillStyle = 'solid' | 'hatch' | 'cross-hatch' | 'dots' | 'none'
 export type StrokeStyle = 'solid' | 'dashed' | 'dotted'
@@ -209,6 +211,63 @@ export interface EmbedElement extends BaseElement {
   sandbox: string
 }
 
+/** A raster image rendered as a non-interactive underlay beneath the
+ *  markup layer.
+ *
+ *  Distinct from ``ImageElement`` on purpose: ``ImageElement`` is
+ *  *interactive content* (selectable, resizable, croppable, can have
+ *  arrows bound to it); ``ImageUnderlayElement`` is *substrate* —
+ *  locked, sits beneath all annotation, can't be selected by default.
+ *
+ *  Same image bytes can back either, but the interaction semantics
+ *  differ enough that splitting into two types avoids a forest of
+ *  ``if (isUnderlay)`` branches across painters, hit-tests, and the
+ *  properties panel.
+ *
+ *  Creation convention: callers assign ``locked: true`` and a very
+ *  low ``zIndex`` so the existing selection + paint-order logic
+ *  treats it as the substrate it is — no special-casing required in
+ *  those code paths.
+ */
+export interface ImageUnderlayElement extends BaseElement {
+  type: 'image-underlay'
+  /** Content hash of the image bytes in the markup asset store.
+   *  Optional while an upload is in-flight (renders a placeholder). */
+  assetHash?: string
+  mimeType: string
+  naturalWidth: number
+  naturalHeight: number
+}
+
+/** A PDF page rendered as an underlay beneath the markup layer.
+ *
+ *  M2.1 ships the model + the painter. Tool affordances for creating
+ *  these from the toolbar land in a follow-up PR alongside backend
+ *  support for application/pdf in the markup asset store.
+ *
+ *  Storage: the PDF bytes live in the markup asset store, content-
+ *  addressed by ``assetHash``. The painter loads the bytes once via
+ *  ``pdfjs-dist``, renders the selected page to an offscreen canvas,
+ *  caches the canvas by ``(assetHash, page)``, and draws from the
+ *  cache on subsequent paints.
+ *
+ *  Multi-page PDFs become multiple PdfUnderlayElement instances —
+ *  one per page — so each page can be repositioned independently.
+ */
+export interface PdfUnderlayElement extends BaseElement {
+  type: 'pdf-underlay'
+  /** Content hash of the PDF bytes in the markup asset store.
+   *  Optional while an upload is in-flight (renders a placeholder). */
+  assetHash?: string
+  /** 1-indexed page number within the source PDF. */
+  page: number
+  /** Natural page width in CSS pixels at scale 1, captured at upload
+   *  time. Used by the painter for source-to-destination sizing. */
+  pageWidth: number
+  /** Natural page height in CSS pixels at scale 1. */
+  pageHeight: number
+}
+
 export type CollabElement =
   | RectElement
   | EllipseElement
@@ -221,6 +280,8 @@ export type CollabElement =
   | ImageElement
   | FrameElement
   | EmbedElement
+  | ImageUnderlayElement
+  | PdfUnderlayElement
 
 /** The subset of fields that every element type exposes. Useful for the
  *  generic ``move / resize / setStyle`` operations that don't care about
@@ -265,6 +326,8 @@ export function isCollabElement(x: unknown): x is CollabElement {
     'image',
     'frame',
     'embed',
+    'pdf-underlay',
+    'image-underlay',
   ]
   if (!validTypes.includes(type)) return false
   // Numeric fields every element carries
@@ -324,6 +387,12 @@ export function isFrame(el: CollabElement): el is FrameElement {
 }
 export function isEmbed(el: CollabElement): el is EmbedElement {
   return el.type === 'embed'
+}
+export function isPdfUnderlay(el: CollabElement): el is PdfUnderlayElement {
+  return el.type === 'pdf-underlay'
+}
+export function isImageUnderlay(el: CollabElement): el is ImageUnderlayElement {
+  return el.type === 'image-underlay'
 }
 
 // ── Sort order for painting ───────────────────────────────────────────

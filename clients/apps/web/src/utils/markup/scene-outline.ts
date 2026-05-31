@@ -127,6 +127,10 @@ function displayLabel(el: CollabElement): string {
       return 'Drawing'
     case 'image':
       return 'Image'
+    case 'pdf-underlay':
+      return 'PDF underlay'
+    case 'image-underlay':
+      return 'Image underlay'
   }
 }
 
