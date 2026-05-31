@@ -331,9 +331,7 @@ class TestResolveClientIP:
         # XFF spec allows whitespace after commas; the standard
         # convention is "ip, ip, ip" but real headers may have
         # "ip,ip" or "ip,  ip". Both must parse.
-        req = _make_resolver_request(
-            xff="  8.8.8.8  ,  10.0.0.5  ", peer="10.0.0.5"
-        )
+        req = _make_resolver_request(xff="  8.8.8.8  ,  10.0.0.5  ", peer="10.0.0.5")
         assert resolve_client_ip(req) == "8.8.8.8"
 
     def test_empty_xff_entries_skipped(self) -> None:
