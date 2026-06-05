@@ -31,6 +31,7 @@ from rapidly.platform.workspace_access_token.workers import (
     _CLEANUP_MINUTE,
     _record_usage_debounce_key,
     record_usage,
+    workspace_access_token_hard_delete_aged_soft_deletes,
     workspace_access_token_soft_delete_expired,
 )
 
@@ -240,4 +241,86 @@ class TestSoftDeleteExpiredActor:
         fake_log.info.assert_called_once_with(
             "workspace_access_token.expired_cleanup",
             soft_deleted=7,
+        )
+
+
+@pytest.mark.asyncio
+class TestHardDeleteAgedSoftDeletesActor:
+    """Daily cron that permanently deletes tokens soft-deleted
+    by the expiry path more than
+    ``settings.WORKSPACE_ACCESS_TOKEN_HARD_DELETE_AFTER`` ago.
+
+    Pinned: delegation, silent on zero rows, distinct log
+    event name from the soft-delete actor (operators tail
+    different events for different lifecycle phases).
+    """
+
+    async def test_delegates_to_service_hard_delete(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        captured: dict[str, object] = {}
+
+        async def fake_hard_delete(session: object) -> int:
+            captured["session"] = session
+            return 0
+
+        fake_service = MagicMock()
+        fake_service.hard_delete_aged_soft_deletes = fake_hard_delete
+        monkeypatch.setattr(M, "workspace_access_token_service", fake_service)
+
+        session_obj = MagicMock(name="session")
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=session_obj)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(M, "AsyncSessionMaker", lambda: cm)
+
+        await workspace_access_token_hard_delete_aged_soft_deletes.__wrapped__()  # type: ignore[attr-defined]
+        assert captured["session"] is session_obj
+
+    async def test_silent_when_zero_rows_affected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Daily cron must not log-spam when nothing is purged.
+        fake_service = MagicMock()
+        fake_service.hard_delete_aged_soft_deletes = AsyncMock(return_value=0)
+        monkeypatch.setattr(M, "workspace_access_token_service", fake_service)
+
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=MagicMock())
+        cm.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(M, "AsyncSessionMaker", lambda: cm)
+
+        fake_log = MagicMock()
+        monkeypatch.setattr(M, "_log", fake_log)
+
+        await workspace_access_token_hard_delete_aged_soft_deletes.__wrapped__()  # type: ignore[attr-defined]
+
+        fake_log.info.assert_not_called()
+
+    async def test_logs_rowcount_when_rows_affected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Pin the distinct log event name. Operators tailing
+        # for cleanup volume should see "purged" (this cron's
+        # event) distinct from "expired_cleanup" (the soft-
+        # delete cron's event) — they're two phases of the
+        # token lifecycle and conflating them would obscure
+        # the retention-window behaviour.
+        fake_service = MagicMock()
+        fake_service.hard_delete_aged_soft_deletes = AsyncMock(return_value=3)
+        monkeypatch.setattr(M, "workspace_access_token_service", fake_service)
+
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=MagicMock())
+        cm.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(M, "AsyncSessionMaker", lambda: cm)
+
+        fake_log = MagicMock()
+        monkeypatch.setattr(M, "_log", fake_log)
+
+        await workspace_access_token_hard_delete_aged_soft_deletes.__wrapped__()  # type: ignore[attr-defined]
+
+        fake_log.info.assert_called_once_with(
+            "workspace_access_token.aged_soft_deletes_purged",
+            hard_deleted=3,
         )

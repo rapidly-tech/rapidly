@@ -410,6 +410,16 @@ class Settings(BaseSettings):
     WEBHOOK_EVENT_RETENTION_PERIOD: timedelta = timedelta(days=30)
     WEBHOOK_FAILURE_THRESHOLD: int = 10
 
+    # -- Workspace access tokens -----------------------------------------
+    # How long after a token's auto-expiry-soft-delete (PR #860) it
+    # gets hard-deleted from the table. Anchored on forensics needs:
+    # 90 days covers the typical breach-detection window (30-60 days
+    # post-incident) so operators can answer "this leaked token —
+    # when did it expire?". Operator-revoked tokens (`actions.delete`
+    # / `revoke_leaked`) are NOT touched by this cron — they have
+    # incident-response audit value and stay until manually purged.
+    WORKSPACE_ACCESS_TOKEN_HARD_DELETE_AFTER: timedelta = timedelta(days=90)
+
     # -- Observability (Sentry) --------------------------------------------
     SENTRY_DSN: str | None = None
 
