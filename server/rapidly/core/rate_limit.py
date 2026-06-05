@@ -12,6 +12,7 @@ import time
 import structlog
 from fastapi import HTTPException, Request
 from redis.asyncio import Redis
+from starlette.types import Scope
 
 from rapidly.config import settings
 
@@ -90,7 +91,7 @@ def resolve_client_ip(request: Request) -> str:
     return "unknown"
 
 
-def resolve_client_ip_from_scope(scope: dict) -> str:
+def resolve_client_ip_from_scope(scope: Scope) -> str:
     """ASGI-Scope version of ``resolve_client_ip`` for middleware
     that runs before FastAPI wraps the scope in a ``Request``.
 

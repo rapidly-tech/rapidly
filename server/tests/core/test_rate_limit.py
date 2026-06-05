@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 import pytest
 from fakeredis import FakeAsyncRedis
 from fastapi import HTTPException
+from starlette.types import Scope
 
 from rapidly.core import rate_limit as RL
 from rapidly.core.rate_limit import (
@@ -358,8 +359,8 @@ class TestResolveClientIP:
 
 
 def _make_scope(
-    *, xff: str | None = None, peer: tuple | None = ("8.8.8.8", 12345)
-) -> dict:
+    *, xff: str | None = None, peer: tuple[str, int] | None = ("8.8.8.8", 12345)
+) -> Scope:
     """Build a minimal ASGI scope for the scope-level resolver.
     Mirrors what the rate-limit middleware sees on each request."""
     headers: list[tuple[bytes, bytes]] = []
