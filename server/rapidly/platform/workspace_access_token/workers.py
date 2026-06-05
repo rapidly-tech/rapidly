@@ -65,3 +65,31 @@ async def workspace_access_token_soft_delete_expired() -> None:
                 "workspace_access_token.expired_cleanup",
                 soft_deleted=rowcount,
             )
+
+
+@actor(
+    actor_name="workspace_access_token.hard_delete_aged_soft_deletes",
+    cron_trigger=CronTrigger(hour=_CLEANUP_HOUR, minute=_CLEANUP_MINUTE),
+    priority=TaskPriority.LOW,
+    max_retries=0,
+)
+async def workspace_access_token_hard_delete_aged_soft_deletes() -> None:
+    """Permanently delete tokens that have been soft-deleted by
+    the auto-expiry path for longer than
+    ``settings.WORKSPACE_ACCESS_TOKEN_HARD_DELETE_AFTER`` (90d
+    default).
+
+    Operator-revoked + leaked tokens are NOT touched — the
+    repository's predicate (``expires_at < deleted_at``)
+    distinguishes expiry-cleanup soft-deletes from operator-
+    revocations. Those retain forensics value indefinitely.
+    """
+    async with AsyncSessionMaker() as session:
+        rowcount = await workspace_access_token_service.hard_delete_aged_soft_deletes(
+            session
+        )
+        if rowcount:
+            _log.info(
+                "workspace_access_token.aged_soft_deletes_purged",
+                hard_deleted=rowcount,
+            )
