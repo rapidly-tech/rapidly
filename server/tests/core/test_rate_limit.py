@@ -22,6 +22,7 @@ from unittest.mock import MagicMock
 import pytest
 from fakeredis import FakeAsyncRedis
 from fastapi import HTTPException
+from starlette.types import Scope
 
 from rapidly.core import rate_limit as RL
 from rapidly.core.rate_limit import (
@@ -352,3 +353,94 @@ class TestResolveClientIP:
             peer="192.168.1.1",
         )
         assert resolve_client_ip(req) == "not-an-ip"
+
+
+# ── ASGI-Scope client IP resolution ──
+
+
+def _make_scope(
+    *, xff: str | None = None, peer: tuple[str, int] | None = ("8.8.8.8", 12345)
+) -> Scope:
+    """Build a minimal ASGI scope for the scope-level resolver.
+    Mirrors what the rate-limit middleware sees on each request."""
+    headers: list[tuple[bytes, bytes]] = []
+    if xff is not None:
+        headers.append((b"x-forwarded-for", xff.encode("ascii")))
+    return {"headers": headers, "client": peer}
+
+
+class TestResolveClientIPFromScope:
+    """ASGI-Scope variant used by the rate-limit middleware. Same
+    trust model as the Request version (walk right-to-left,
+    peel trusted proxies) but reads from ``scope["headers"]``
+    (list of (bytes, bytes)) instead of ``request.headers``.
+    """
+
+    def test_no_xff_returns_peer(self) -> None:
+        # Direct hit: socket-level peer.
+        from rapidly.core.rate_limit import resolve_client_ip_from_scope
+
+        scope = _make_scope(xff=None, peer=("8.8.8.8", 12345))
+        assert resolve_client_ip_from_scope(scope) == "8.8.8.8"
+
+    def test_no_xff_no_peer_returns_unknown(self) -> None:
+        from rapidly.core.rate_limit import resolve_client_ip_from_scope
+
+        scope = _make_scope(xff=None, peer=None)
+        assert resolve_client_ip_from_scope(scope) == "unknown"
+
+    def test_single_trusted_proxy_returns_xff_client(self) -> None:
+        from rapidly.core.rate_limit import resolve_client_ip_from_scope
+
+        scope = _make_scope(xff="8.8.8.8", peer=("10.0.0.5", 80))
+        assert resolve_client_ip_from_scope(scope) == "8.8.8.8"
+
+    def test_chain_of_trusted_proxies_walks_through(self) -> None:
+        from rapidly.core.rate_limit import resolve_client_ip_from_scope
+
+        scope = _make_scope(
+            xff="8.8.8.8, 10.0.0.5, 172.16.0.10",
+            peer=("192.168.1.1", 443),
+        )
+        assert resolve_client_ip_from_scope(scope) == "8.8.8.8"
+
+    def test_spoofed_xff_with_attacker_in_left_position(self) -> None:
+        # SECURITY CRITICAL — same pin as the Request-version
+        # test. Attacker forges ``victim, 10.0.0.5`` thinking
+        # they'll pin the rate-limit to "victim"; the trusted
+        # proxy appends their REAL public IP to the right; the
+        # resolver returns the real IP, not "victim".
+        from rapidly.core.rate_limit import resolve_client_ip_from_scope
+
+        scope = _make_scope(
+            xff="victim-spoof, 10.0.0.5, 1.1.1.1",
+            peer=("192.168.1.1", 443),
+        )
+        assert resolve_client_ip_from_scope(scope) == "1.1.1.1"
+
+    def test_all_trusted_chain_falls_back_to_peer(self) -> None:
+        from rapidly.core.rate_limit import resolve_client_ip_from_scope
+
+        scope = _make_scope(xff="10.0.0.1, 10.0.0.2", peer=("10.0.0.3", 80))
+        assert resolve_client_ip_from_scope(scope) == "10.0.0.3"
+
+    def test_case_insensitive_header_name(self) -> None:
+        # ASGI normalizes header names to lowercase; the resolver
+        # only checks for ``b"x-forwarded-for"`` in lowercase.
+        # If we ever see uppercase here it's a bug upstream — but
+        # the test pins the case-sensitive contract.
+        from rapidly.core.rate_limit import resolve_client_ip_from_scope
+
+        scope = {
+            "headers": [(b"x-forwarded-for", b"8.8.8.8")],
+            "client": ("10.0.0.5", 80),
+        }
+        assert resolve_client_ip_from_scope(scope) == "8.8.8.8"
+
+    def test_missing_headers_key_returns_unknown(self) -> None:
+        # Defensive: a malformed scope (no headers key) doesn't
+        # crash the rate-limit path — falls all the way through.
+        from rapidly.core.rate_limit import resolve_client_ip_from_scope
+
+        scope = {"client": None}
+        assert resolve_client_ip_from_scope(scope) == "unknown"
