@@ -27,8 +27,11 @@ import pytest
 
 from rapidly.platform.workspace_access_token import workers as M
 from rapidly.platform.workspace_access_token.workers import (
+    _CLEANUP_HOUR,
+    _CLEANUP_MINUTE,
     _record_usage_debounce_key,
     record_usage,
+    workspace_access_token_soft_delete_expired,
 )
 
 
@@ -145,3 +148,96 @@ class TestRecordUsageDelegatesToRepository:
 
         assert captured["token_id"] == token_id
         assert isinstance(captured["dt"], datetime)
+
+
+class TestCleanupSchedule:
+    def test_runs_at_midnight_utc(self) -> None:
+        # Pin the cleanup schedule. A drift to e.g. business
+        # hours would compete with the billing reconciliation
+        # + analytics rollups that all share the midnight UTC
+        # off-peak window (auth, customer_session, login_code,
+        # member_session, customer_session_code, and now this
+        # token cleanup all converge here).
+        assert _CLEANUP_HOUR == 0
+        assert _CLEANUP_MINUTE == 0
+
+
+@pytest.mark.asyncio
+class TestSoftDeleteExpiredActor:
+    async def test_delegates_to_service_soft_delete_expired(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Pin: the actor opens a session and calls
+        # ``workspace_access_token_service.soft_delete_expired
+        # (session)``. Drift would silently stop the cleanup —
+        # expired tokens would re-accumulate on the operator-
+        # visible list forever.
+        captured: dict[str, object] = {}
+
+        async def fake_soft_delete_expired(session: object) -> int:
+            captured["session"] = session
+            return 0
+
+        fake_service = MagicMock()
+        fake_service.soft_delete_expired = fake_soft_delete_expired
+        monkeypatch.setattr(M, "workspace_access_token_service", fake_service)
+
+        session_obj = MagicMock(name="session")
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=session_obj)
+        cm.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(M, "AsyncSessionMaker", lambda: cm)
+
+        await workspace_access_token_soft_delete_expired.__wrapped__()  # type: ignore[attr-defined]
+
+        assert captured["session"] is session_obj
+
+    async def test_silent_when_zero_rows_affected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Pin: the ``if rowcount:`` log gate means a zero-row
+        # tick produces no log line. Drift to log on every tick
+        # would spam the logs daily (every workspace's cron
+        # fires this even when there's nothing to do).
+        fake_service = MagicMock()
+        fake_service.soft_delete_expired = AsyncMock(return_value=0)
+        monkeypatch.setattr(M, "workspace_access_token_service", fake_service)
+
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=MagicMock())
+        cm.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(M, "AsyncSessionMaker", lambda: cm)
+
+        # Capture the structlog log calls so we can assert
+        # no .info() fired for the zero-row case.
+        fake_log = MagicMock()
+        monkeypatch.setattr(M, "_log", fake_log)
+
+        await workspace_access_token_soft_delete_expired.__wrapped__()  # type: ignore[attr-defined]
+
+        fake_log.info.assert_not_called()
+
+    async def test_logs_rowcount_when_rows_affected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Pin: the ``if rowcount:`` log gate fires the count
+        # so operators tailing the worker log can grep for
+        # daily cleanup volume.
+        fake_service = MagicMock()
+        fake_service.soft_delete_expired = AsyncMock(return_value=7)
+        monkeypatch.setattr(M, "workspace_access_token_service", fake_service)
+
+        cm = AsyncMock()
+        cm.__aenter__ = AsyncMock(return_value=MagicMock())
+        cm.__aexit__ = AsyncMock(return_value=False)
+        monkeypatch.setattr(M, "AsyncSessionMaker", lambda: cm)
+
+        fake_log = MagicMock()
+        monkeypatch.setattr(M, "_log", fake_log)
+
+        await workspace_access_token_soft_delete_expired.__wrapped__()  # type: ignore[attr-defined]
+
+        fake_log.info.assert_called_once_with(
+            "workspace_access_token.expired_cleanup",
+            soft_deleted=7,
+        )
