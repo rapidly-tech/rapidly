@@ -140,6 +140,26 @@ export const ParamField = ({
   )
 }
 
+export const Update = ({
+  label,
+  description,
+  children,
+}: PropsWithChildren<{ label: string; description?: string }>) => (
+  <div className="my-6 flex flex-col gap-2 border-b border-slate-100 pb-6 md:flex-row md:gap-8 dark:border-slate-800">
+    <div className="w-32 shrink-0">
+      <span className="inline-block rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+        {label}
+      </span>
+      {description && (
+        <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          {description}
+        </p>
+      )}
+    </div>
+    <div className="min-w-0 grow">{children}</div>
+  </div>
+)
+
 export const Frame = ({
   caption,
   children,
