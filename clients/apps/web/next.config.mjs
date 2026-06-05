@@ -47,21 +47,6 @@ const oauth2CSP = `
   frame-ancestors 'none';
 `
 
-// We rewrite Mintlify docs to rapidly.tech/docs, so we need a specific CSP for them
-// Ref: https://www.mintlify.com/docs/guides/csp-configuration#content-security-policy-csp-configuration
-const docsCSP = `
-  default-src 'self';
-  script-src 'self' 'unsafe-inline' 'unsafe-eval' cdn.jsdelivr.net www.googletagmanager.com cdn.segment.com plausible.io
-  us.posthog.com tag.clearbitscripts.com cdn.heapanalytics.com chat.cdn-plain.com chat-assets.frontapp.com
-  browser.sentry-cdn.com js.sentry-cdn.com;
-  style-src 'self' 'unsafe-inline' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com;
-  font-src 'self' d4tuoctqmanu0.cloudfront.net fonts.googleapis.com;
-  img-src 'self' data: blob: d3gk2c5xim1je2.cloudfront.net mintcdn.com *.mintcdn.com cdn.jsdelivr.net mintlify.s3.us-west-1.amazonaws.com;
-  connect-src 'self' *.mintlify.dev *.mintlify.com d1ctpt7j8wusba.cloudfront.net mintcdn.com *.mintcdn.com
-  api.mintlifytrieve.com www.googletagmanager.com cdn.segment.com plausible.io us.posthog.com browser.sentry-cdn.com;
-  frame-src 'self' *.mintlify.dev https://uploads.rapidly.tech;
-`
-
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: 'standalone',
@@ -170,11 +155,6 @@ const nextConfig = {
         source: '/api/v1/:chamber(screen|watch|call|collab)/:path*',
         destination: `${process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'}/api/v1/:chamber/:path*`,
       },
-      // Mintlify docs rewrite
-      {
-        source: '/docs/:path*',
-        destination: 'https://docs.rapidly.tech/:path*',
-      },
     ]
   },
 
@@ -203,34 +183,37 @@ const nextConfig = {
         ],
         permanent: false,
       },
+
+      // docs.rapidly.tech → rapidly.tech/docs (path-preserving).
+      // The old docs host's paths match the native /docs tree 1:1,
+      // so deep links and search results keep resolving.
+      {
+        source: '/',
+        destination: 'https://rapidly.tech/docs',
+        has: [
+          {
+            type: 'host',
+            value: 'docs.rapidly.tech',
+          },
+        ],
+        permanent: true,
+      },
+      {
+        source: '/:path*',
+        destination: 'https://rapidly.tech/docs/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'docs.rapidly.tech',
+          },
+        ],
+        permanent: true,
+      },
       {
         source: '/careers',
         destination: 'https://rapidly.tech/about',
         permanent: false,
       },
-      {
-        source: '/llms.txt',
-        destination: 'https://rapidly.tech/docs/llms.txt',
-        permanent: true,
-        has: [
-          {
-            type: 'host',
-            value: 'rapidly.tech',
-          },
-        ],
-      },
-      {
-        source: '/llms-full.txt',
-        destination: 'https://rapidly.tech/docs/llms-full.txt',
-        permanent: true,
-        has: [
-          {
-            type: 'host',
-            value: 'rapidly.tech',
-          },
-        ],
-      },
-
       // Logged-in user redirections
       {
         source: '/',
@@ -416,8 +399,8 @@ const nextConfig = {
   async headers() {
     const baseHeaders = [
       // CSP for base routes is set dynamically in middleware (proxy.ts)
-      // with a per-request nonce. Only file-sharing, download, oauth2,
-      // and docs routes use static CSP from this config.
+      // with a per-request nonce. Only file-sharing, download, and
+      // oauth2 routes use static CSP from this config.
       {
         key: 'Strict-Transport-Security',
         value: 'max-age=63072000; includeSubDomains; preload',
@@ -536,8 +519,7 @@ const nextConfig = {
 
     return [
       {
-        source:
-          '/((?!oauth2|docs|download|file-sharing|stream.html).*)',
+        source: '/((?!oauth2|download|file-sharing|stream.html).*)',
         headers: baseHeaders,
       },
       {
@@ -721,49 +703,6 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value: oauth2CSP.replace(/\n/g, ''),
-          },
-          {
-            key: 'Strict-Transport-Security',
-            value: 'max-age=63072000; includeSubDomains; preload',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'Permissions-Policy',
-            value:
-              'payment=(), publickey-credentials-get=(), camera=(), microphone=(), geolocation=(), accelerometer=(), gyroscope=(), magnetometer=(), usb=()',
-          },
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'Cross-Origin-Opener-Policy',
-            value: 'same-origin',
-          },
-          ...(ENVIRONMENT === 'sandbox'
-            ? [
-                {
-                  key: 'X-Robots-Tag',
-                  value:
-                    'noindex, nofollow, noarchive, nosnippet, noimageindex',
-                },
-              ]
-            : []),
-        ],
-      },
-      {
-        source: '/docs/:path*',
-        headers: [
-          {
-            key: 'Content-Security-Policy',
-            value: docsCSP.replace(/\n/g, ''),
           },
           {
             key: 'Strict-Transport-Security',

@@ -142,10 +142,10 @@ class EventRepository(Repository[Event], FindByIdMixin[Event, UUID]):
         return Event.customer_id.in_(
             select(Customer.id).where(
                 or_(
-                    cast(Customer.id, String).ilike(f"%{escaped_query}%"),
-                    Customer.external_id.ilike(f"%{escaped_query}%"),
-                    Customer.name.ilike(f"%{escaped_query}%"),
-                    Customer.email.ilike(f"%{escaped_query}%"),
+                    cast(Customer.id, String).ilike(f"%{escaped_query}%", escape="\\"),
+                    Customer.external_id.ilike(f"%{escaped_query}%", escape="\\"),
+                    Customer.name.ilike(f"%{escaped_query}%", escape="\\"),
+                    Customer.email.ilike(f"%{escaped_query}%", escape="\\"),
                 )
             )
         )

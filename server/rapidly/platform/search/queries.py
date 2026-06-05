@@ -155,7 +155,7 @@ class SearchRepository:
             stmt = stmt.where(
                 or_(
                     Customer.search_vector.op("@@")(ts_query_simple),
-                    Customer.email.ilike(ilike_term),
+                    Customer.email.ilike(ilike_term, escape="\\"),
                 )
             )
 
