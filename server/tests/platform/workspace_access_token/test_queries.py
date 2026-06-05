@@ -247,3 +247,109 @@ class TestCountByWorkspaceId:
 
         count = await repo.count_by_workspace_id(uuid4())
         assert count == 0
+
+
+@pytest.mark.asyncio
+class TestSoftDeleteExpired:
+    """The periodic cleanup actor uses this query path.
+
+    Four load-bearing pins:
+
+    - It is a SOFT-delete (UPDATE ... SET deleted_at), not a
+      hard-delete. Drift to hard-delete would lose audit
+      capability — operators may have referenced the token id
+      in logs / integration configs and want to look it up
+      later.
+    - Filters to tokens where ``expires_at IS NOT NULL`` —
+      drift to drop the NOT-NULL filter would wipe every
+      never-expiring token on every cron tick (mass-revoke
+      footgun, identical-shape to the M5.78 mass-logout risk).
+    - Strict ``expires_at < now()`` so a token at the exact
+      boundary stays usable until the lookup's ``> now()``
+      flips first (no race with an in-flight final request).
+    - Skips already-soft-deleted rows so the cron is
+      idempotent — re-running on the same set doesn't double-
+      stamp deleted_at.
+    """
+
+    async def test_uses_soft_delete_not_hard_delete(self) -> None:
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _exec(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            result = MagicMock()
+            result.rowcount = 0
+            return result
+
+        repo.session.execute = AsyncMock(side_effect=_exec)  # type: ignore[method-assign]
+
+        await repo.soft_delete_expired()
+
+        from sqlalchemy.dialects import postgresql
+
+        sql = str(
+            captured["stmt"].compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+        # UPDATE statement — NOT a DELETE FROM.
+        assert sql.startswith("update workspace_access_tokens")
+        assert "delete from" not in sql
+        # Sets deleted_at — soft-delete shape. (Other columns
+        # may also appear in the SET — modified_at etc. — but
+        # deleted_at is the load-bearing one.)
+        assert "deleted_at=" in sql
+
+    async def test_filters_to_non_null_expired_and_active(self) -> None:
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _exec(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            result = MagicMock()
+            result.rowcount = 0
+            return result
+
+        repo.session.execute = AsyncMock(side_effect=_exec)  # type: ignore[method-assign]
+
+        await repo.soft_delete_expired()
+
+        from sqlalchemy.dialects import postgresql
+
+        sql = str(
+            captured["stmt"].compile(
+                dialect=postgresql.dialect(),
+                compile_kwargs={"literal_binds": True},
+            )
+        ).lower()
+        # NOT-NULL filter — drift to drop would mass-revoke
+        # never-expiring tokens.
+        assert "expires_at is not null" in sql
+        # Strict less-than. NOT ``<=``.
+        assert "expires_at <" in sql
+        assert "expires_at <=" not in sql
+        # Active-only filter — idempotent re-runs.
+        assert "deleted_at is null" in sql
+
+    async def test_returns_rowcount(self) -> None:
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        result = MagicMock()
+        result.rowcount = 7
+        repo.session.execute = AsyncMock(return_value=result)  # type: ignore[method-assign]
+
+        n = await repo.soft_delete_expired()
+        assert n == 7
+
+    async def test_returns_zero_when_no_rows_affected(self) -> None:
+        # asyncpg can return None for rowcount on UPDATEs that
+        # affect zero rows; the helper must coerce to 0 so the
+        # cron actor's logging line stays stable.
+        repo = WorkspaceAccessTokenRepository(session=MagicMock())
+        result = MagicMock()
+        result.rowcount = None
+        repo.session.execute = AsyncMock(return_value=result)  # type: ignore[method-assign]
+
+        n = await repo.soft_delete_expired()
+        assert n == 0

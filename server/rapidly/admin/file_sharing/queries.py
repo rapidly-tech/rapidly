@@ -37,9 +37,9 @@ class AdminFileShareSessionRepository(Repository[FileShareSession]):
             escaped = escape_like(query)
             stmt = stmt.where(
                 or_(
-                    FileShareSession.short_slug.ilike(f"%{escaped}%"),
-                    FileShareSession.long_slug.ilike(f"%{escaped}%"),
-                    FileShareSession.file_name.ilike(f"%{escaped}%"),
+                    FileShareSession.short_slug.ilike(f"%{escaped}%", escape="\\"),
+                    FileShareSession.long_slug.ilike(f"%{escaped}%", escape="\\"),
+                    FileShareSession.file_name.ilike(f"%{escaped}%", escape="\\"),
                 )
             )
 
