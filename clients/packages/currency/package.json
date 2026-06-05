@@ -33,7 +33,7 @@
   "devDependencies": {
     "@rapidly-tech/typescript-config": "workspace:*",
     "tsup": "^8.5.1",
-    "typescript": "latest"
+    "typescript": "5.9.3"
   },
   "publishConfig": {
     "access": "public"
