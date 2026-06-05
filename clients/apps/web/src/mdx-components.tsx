@@ -8,8 +8,9 @@ import {
   ParamField,
   Step,
   Steps,
+  Update,
 } from '@/components/Docs/Blocks'
-import { Info, Note, Tip, Warning } from '@/components/Docs/Callout'
+import { Danger, Info, Note, Tip, Warning } from '@/components/Docs/Callout'
 import ProseWrapper from '@/components/MDX/ProseWrapper'
 import type { MDXComponents } from 'mdx/types'
 // eslint-disable-next-line no-restricted-imports
@@ -57,6 +58,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Card,
     CardGroup,
     CodeGroup,
+    Danger,
     Frame,
     Info,
     Note,
@@ -64,6 +66,7 @@ export function useMDXComponents(components: MDXComponents): MDXComponents {
     Step,
     Steps,
     Tip,
+    Update,
     Warning,
 
     BodyWrapper({ children }) {

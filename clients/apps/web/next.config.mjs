@@ -183,6 +183,32 @@ const nextConfig = {
         ],
         permanent: false,
       },
+
+      // docs.rapidly.tech → rapidly.tech/docs (path-preserving).
+      // The old docs host's paths match the native /docs tree 1:1,
+      // so deep links and search results keep resolving.
+      {
+        source: '/',
+        destination: 'https://rapidly.tech/docs',
+        has: [
+          {
+            type: 'host',
+            value: 'docs.rapidly.tech',
+          },
+        ],
+        permanent: true,
+      },
+      {
+        source: '/:path*',
+        destination: 'https://rapidly.tech/docs/:path*',
+        has: [
+          {
+            type: 'host',
+            value: 'docs.rapidly.tech',
+          },
+        ],
+        permanent: true,
+      },
       {
         source: '/careers',
         destination: 'https://rapidly.tech/about',
