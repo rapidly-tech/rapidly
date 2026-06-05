@@ -134,6 +134,19 @@ async def delete(
     await repository.soft_delete(workspace_access_token)
 
 
+async def soft_delete_expired(session: AsyncSession) -> int:
+    """Soft-delete tokens whose expiry has passed. Returns the
+    rowcount so the cron actor can log how many were touched.
+
+    Conservative — soft-delete (not hard-delete) so the row
+    survives for audit. The lookup path already rejects
+    expired tokens; this just keeps the operator-visible list
+    + count_by_workspace tidy.
+    """
+    repository = WorkspaceAccessTokenRepository.from_session(session)
+    return await repository.soft_delete_expired()
+
+
 # ── Leak detection ──
 
 

@@ -25,15 +25,14 @@ describe('proxy matcher configuration', () => {
     '/settings',
     '/my-org',
     '/my-org/products',
+    // Docs are served natively and get the dynamic base CSP.
+    '/docs',
+    '/docs/features/file-sharing',
   ]
 
   const excludedRoutes = [
     '/api/test',
     '/ingest/test',
-    '/docs/overview',
-    '/docs/integrate/mcp',
-    '/_mintlify/test',
-    '/mintlify-assets/test',
     '/_next/static/chunks/test.js',
     '/_next/image',
     '/favicon.ico',
