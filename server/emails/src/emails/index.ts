@@ -16,17 +16,21 @@ import OrganizationReviewed from './organization_reviewed'
 import { OrganizationUnderReview } from './organization_under_review'
 import { WebhookEndpointDisabled } from './webhook_endpoint_disabled'
 
+// NOTE: keys are the backend EmailTemplate *string values*, which kept
+// the legacy organization_* names when the enum members were renamed
+// (workspace_invite = "organization_invite"). Do not "fix" these to
+// workspace_* without a coordinated backend value migration.
 const TEMPLATES: Record<string, React.FC<any>> = {
   login_code: LoginCode,
   customer_session_code: CustomerSessionCode,
   email_update: EmailUpdate,
   oauth2_leaked_client: OAuth2LeakedClient,
   oauth2_leaked_token: OAuth2LeakedToken,
-  workspace_access_token_leaked: OrganizationAccessTokenLeaked,
-  workspace_account_unlink: OrganizationAccountUnlink,
-  workspace_invite: OrganizationInvite,
-  workspace_under_review: OrganizationUnderReview,
-  workspace_reviewed: OrganizationReviewed,
+  organization_access_token_leaked: OrganizationAccessTokenLeaked,
+  organization_account_unlink: OrganizationAccountUnlink,
+  organization_invite: OrganizationInvite,
+  organization_under_review: OrganizationUnderReview,
+  organization_reviewed: OrganizationReviewed,
   webhook_endpoint_disabled: WebhookEndpointDisabled,
   notification_create_account: NotificationCreateAccount,
   notification_file_share_download_completed:
