@@ -116,7 +116,9 @@ async def list(
         try:
             statement = statement.where(User.id == uuid.UUID(query))
         except ValueError:
-            statement = statement.where(User.email.ilike(f"%{escape_like(query)}%"))
+            statement = statement.where(
+                User.email.ilike(f"%{escape_like(query)}%", escape="\\")
+            )
     if identity_verification_status:
         statement = statement.where(
             User.identity_verification_status == identity_verification_status

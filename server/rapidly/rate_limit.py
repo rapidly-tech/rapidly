@@ -8,12 +8,11 @@ principal (or client IP as fallback) as the throttle key.
 from collections.abc import Sequence
 
 from ratelimit import RateLimitMiddleware, Rule
-from ratelimit.auths import EmptyInformation
-from ratelimit.auths.ip import client_ip
 from ratelimit.backends.redis import RedisBackend
 from ratelimit.types import ASGIApp, Scope
 
 from rapidly.config import Environment, settings
+from rapidly.core.rate_limit import resolve_client_ip_from_scope
 from rapidly.enums import RateLimitGroup
 from rapidly.identity.auth.models import AuthPrincipal, Subject, is_anonymous_principal
 from rapidly.redis import create_redis
@@ -25,11 +24,21 @@ async def _authenticate(scope: Scope) -> tuple[str, RateLimitGroup]:
     auth_subject: AuthPrincipal[Subject] = scope["state"]["auth_subject"]
 
     if is_anonymous_principal(auth_subject):
-        try:
-            ip, _ = await client_ip(scope)
+        # Use our XFF-aware resolver instead of the third-party
+        # ``client_ip`` helper, which only inspects ``x-real-ip``.
+        # Behind a reverse proxy that sets X-Forwarded-For (the
+        # standard) but not X-Real-IP (operator opt-in), the old
+        # helper raised EmptyInformation and we fell back to the
+        # auth-subject's rate-limit key — shared across ALL
+        # anonymous requests, letting one attacker burn the
+        # global bucket. See feedback_client_ip_proxy memory.
+        ip = resolve_client_ip_from_scope(scope)
+        if ip != "unknown":
             return ip, RateLimitGroup.default
-        except EmptyInformation:
-            return auth_subject.rate_limit_key
+        # Truly no client signal (e.g. internal lifecycle calls)
+        # — keep the original auth-subject fallback so the
+        # middleware never crashes on a missing key.
+        return auth_subject.rate_limit_key
 
     return auth_subject.rate_limit_key
 

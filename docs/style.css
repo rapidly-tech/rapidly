@@ -1,8 +1,0 @@
-/* Rapidly docs — custom overrides for the Mintlify documentation theme */
-.dark\:bg-background-dark:is(.dark *) {
-  background-color: #070708;
-}
-
-#content-area {
-  max-width: 48rem;
-}

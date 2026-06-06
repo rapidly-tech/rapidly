@@ -10,6 +10,7 @@ from rapidly.config import settings
 from rapidly.core.db.postgres import AsyncReadSession
 from rapidly.core.geolocation import get_request_geo
 from rapidly.core.pagination import PaginatedList, PaginationParamsQuery
+from rapidly.core.rate_limit import resolve_client_ip
 from rapidly.errors import BadRequest, NotPermitted, ResourceNotFound, Unauthorized
 from rapidly.identity.auth.dependencies import WebUserOrAnonymous
 from rapidly.openapi import APITag
@@ -426,7 +427,7 @@ async def fetch_secret(
         SECRET_FETCH_RATE_WINDOW,
     )
     payment_token = x_payment_token or _read_payment_cookie(http_request, "rapidly_spt")
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     buyer_fingerprint = hash_ip(client_ip)
     result = await file_sharing_service.fetch_secret_or_file(
         redis=redis,
@@ -512,7 +513,7 @@ async def fetch_file_secret(
         SECRET_FETCH_RATE_WINDOW,
     )
     payment_token = x_payment_token or _read_payment_cookie(http_request, "rapidly_spt")
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     buyer_fingerprint = hash_ip(client_ip)
     result = await file_sharing_service.fetch_secret_or_file(
         redis=redis,
@@ -550,7 +551,7 @@ async def create_secret_checkout(
         CHANNEL_ACTION_RATE_LIMIT,
         CHANNEL_ACTION_RATE_WINDOW,
     )
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     buyer_fingerprint = hash_ip(client_ip)
     try:
         result = await file_sharing_service.create_secret_checkout(
@@ -665,7 +666,7 @@ async def create_channel(
     except file_sharing_service.ChannelCreationError as e:
         _raise_creation_error(e)
 
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     creator_ip_hash = hash_ip(client_ip)
     geo = get_request_geo(http_request)
 
@@ -741,7 +742,7 @@ async def fetch_channel(
         http_request, "rapidly_pt"
     )
 
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     result = await file_sharing_service.fetch_channel(
         redis=redis,
         slug=slug,
@@ -784,7 +785,7 @@ async def create_checkout(
         CHANNEL_ACTION_RATE_LIMIT,
         CHANNEL_ACTION_RATE_WINDOW,
     )
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     buyer_fingerprint = hash_ip(client_ip)
     payment_method_id = body.payment_method_id if body else None
 
@@ -1043,7 +1044,7 @@ async def record_download_complete(
         CHANNEL_ACTION_RATE_LIMIT,
         CHANNEL_ACTION_RATE_WINDOW,
     )
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     return await file_sharing_service.record_download_complete(
         redis=redis,
         slug=slug,
@@ -1150,7 +1151,7 @@ async def report_channel(
         CHANNEL_ACTION_RATE_LIMIT,
         CHANNEL_ACTION_RATE_WINDOW,
     )
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     return await file_sharing_service.report_channel(
         redis=redis,
         slug=slug,
