@@ -5,6 +5,7 @@ import {
   type VectorCollectionCreatePayload,
   useCreateVectorCollection,
   useDeleteVectorCollection,
+  useUpdateVectorCollection,
   useVectorCollections,
 } from '@/hooks/api/agents'
 import { useListWorkspaces } from '@/hooks/api/org'
@@ -204,13 +205,60 @@ function CollectionList({ collections }: { collections: VectorCollection[] }) {
 
 function CollectionRow({ collection }: { collection: VectorCollection }) {
   const del = useDeleteVectorCollection()
+  const update = useUpdateVectorCollection(collection.id)
+  const [editing, setEditing] = useState(false)
+  const [name, setName] = useState(collection.name)
+
+  const submitRename = (e: React.FormEvent) => {
+    e.preventDefault()
+    const trimmed = name.trim()
+    if (trimmed.length === 0 || trimmed === collection.name) {
+      setEditing(false)
+      setName(collection.name)
+      return
+    }
+    update.mutate({ name: trimmed }, { onSuccess: () => setEditing(false) })
+  }
+
   return (
     <li className="rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
       <div className="flex items-start justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <span className="truncate text-lg font-medium text-slate-900 dark:text-slate-100">
-            {collection.name}
-          </span>
+          {editing ? (
+            <form onSubmit={submitRename} className="flex items-center gap-2">
+              <input
+                type="text"
+                required
+                minLength={1}
+                maxLength={256}
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                autoFocus
+                className="w-full rounded-md border border-slate-200 bg-white px-2 py-1 text-base font-medium text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
+              />
+              <button
+                type="submit"
+                disabled={update.isPending}
+                className="rounded-md bg-emerald-600 px-3 py-1 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              >
+                {update.isPending ? 'Saving…' : 'Save'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setEditing(false)
+                  setName(collection.name)
+                }}
+                className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+              >
+                Cancel
+              </button>
+            </form>
+          ) : (
+            <span className="truncate text-lg font-medium text-slate-900 dark:text-slate-100">
+              {collection.name}
+            </span>
+          )}
           <div className="flex flex-wrap gap-3 text-xs text-slate-500 dark:text-slate-400">
             <span>
               <span className="text-slate-400 dark:text-slate-500">model:</span>{' '}
@@ -225,23 +273,39 @@ function CollectionRow({ collection }: { collection: VectorCollection }) {
               <span className="font-mono">{collection.id}</span>
             </span>
           </div>
+          {update.isError && (
+            <div className="mt-1 rounded-md border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+              {(update.error as Error).message}
+            </div>
+          )}
         </div>
-        <button
-          type="button"
-          onClick={() => {
-            if (
-              confirm(
-                `Delete collection "${collection.name}"? All chunks within will be cascade-deleted.`,
-              )
-            ) {
-              del.mutate(collection.id)
-            }
-          }}
-          disabled={del.isPending}
-          className="rounded-md border border-rose-200 px-3 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
-        >
-          Delete
-        </button>
+        {!editing && (
+          <div className="flex shrink-0 gap-2">
+            <button
+              type="button"
+              onClick={() => setEditing(true)}
+              className="rounded-md border border-slate-200 px-3 py-1 text-xs font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+            >
+              Rename
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (
+                  confirm(
+                    `Delete collection "${collection.name}"? All chunks within will be cascade-deleted.`,
+                  )
+                ) {
+                  del.mutate(collection.id)
+                }
+              }}
+              disabled={del.isPending}
+              className="rounded-md border border-rose-200 px-3 py-1 text-xs text-rose-600 hover:bg-rose-50 disabled:opacity-50 dark:border-rose-900/50 dark:text-rose-400 dark:hover:bg-rose-900/20"
+            >
+              Delete
+            </button>
+          </div>
+        )}
       </div>
     </li>
   )

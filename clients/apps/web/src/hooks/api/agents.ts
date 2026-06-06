@@ -1433,6 +1433,44 @@ export const useDeleteVectorCollection = () => {
   })
 }
 
+export interface VectorCollectionUpdatePayload {
+  name?: string
+  project_id?: string | null
+}
+
+async function updateVectorCollection(args: {
+  collectionId: string
+  body: VectorCollectionUpdatePayload
+}): Promise<VectorCollection> {
+  const { collectionId, body } = args
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/vector-collections/${collectionId}`
+  const res = await fetch(url, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `vector collection update failed: ${res.status}`)
+  }
+  return (await res.json()) as VectorCollection
+}
+
+export const useUpdateVectorCollection = (collectionId: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: VectorCollectionUpdatePayload) =>
+      updateVectorCollection({ collectionId, body }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: vectorCollectionKey() })
+    },
+  })
+}
+
 // ── Mutations ─────────────────────────────────────────────────
 
 async function createCredential(
