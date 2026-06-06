@@ -25,7 +25,7 @@ export const DocsSidebar = () => {
                 className={twMerge(
                   'rounded-md px-2 py-1 transition-colors',
                   active
-                    ? 'bg-emerald-50 font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+                    ? 'bg-slate-900/5 font-medium text-slate-900 dark:bg-white/10 dark:text-white'
                     : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
                 )}
               >
