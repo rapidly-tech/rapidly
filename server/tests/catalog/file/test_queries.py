@@ -111,6 +111,34 @@ class TestApplyListFiltersIsUploaded:
         sql = _compile(stmt).replace("-", "")
         assert fid.hex in sql
 
+    def test_name_substring_emits_case_insensitive_like(self) -> None:
+        # Pin: ``name`` is a substring match (case-insensitive).
+        # Drift to equals would break filename search; drift to
+        # unescaped wildcards would let ``name=%`` match every file.
+        repo = FileRepository(session=MagicMock())
+        stmt = repo.get_base_statement()
+        stmt = repo.apply_list_filters(stmt, name="invoice")
+        sql = _compile(stmt).lower()
+        assert "lower(files.name) like" in sql
+        assert "%invoice%" in sql
+
+    def test_name_wildcards_escaped(self) -> None:
+        repo = FileRepository(session=MagicMock())
+        stmt = repo.get_base_statement()
+        stmt = repo.apply_list_filters(stmt, name="50%_off")
+        sql = _compile(stmt).lower()
+        # ``%`` and ``_`` escape so they're treated as literals; an
+        # ESCAPE clause is also present.
+        assert "50\\%\\_off" in sql
+        assert " escape " in sql
+
+    def test_name_whitespace_only_skips_filter(self) -> None:
+        repo = FileRepository(session=MagicMock())
+        stmt = repo.get_base_statement()
+        stmt = repo.apply_list_filters(stmt, name="   ")
+        sql = _compile(stmt).lower()
+        assert "files.name) like" not in sql
+
 
 @pytest.mark.asyncio
 class TestGetSelectableShareMediaFile:
