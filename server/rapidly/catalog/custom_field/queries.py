@@ -77,8 +77,8 @@ class CustomFieldRepository(
             escaped = escape_like(query)
             stmt = stmt.where(
                 or_(
-                    CustomField.name.ilike(f"%{escaped}%"),
-                    CustomField.slug.ilike(f"%{escaped}%"),
+                    CustomField.name.ilike(f"%{escaped}%", escape="\\"),
+                    CustomField.slug.ilike(f"%{escaped}%", escape="\\"),
                 )
             )
         if type is not None:

@@ -1030,7 +1030,7 @@ async def validate_with_ai(
             "details": workspace.details,
             "socials": workspace.socials,
         },
-        model_used=workspace_validator.model.model_name,
+        model_used=result.model,
     )
 
     if result.verdict.verdict in ["FAIL", "UNCERTAIN"]:

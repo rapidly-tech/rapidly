@@ -150,7 +150,7 @@ function ConfirmUploadState({
         return
       onStart(usePassword ? password : '')
     },
-    [onStart, title, usePassword, password, usePayment, priceCents],
+    [onStart, usePassword, password, usePayment, priceCents],
   )
 
   const handlePaymentToggle = useCallback(

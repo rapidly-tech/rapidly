@@ -15,8 +15,18 @@ import pytest
 
 from rapidly.messaging.email_update import workers as M
 from rapidly.messaging.email_update.workers import (
+    _CLEANUP_HOUR,
+    _CLEANUP_MINUTE,
     email_update_delete_expired_record,
 )
+
+
+class TestCleanupSchedule:
+    def test_runs_at_midnight_utc(self) -> None:
+        # Pin: same off-peak window as the rest of the
+        # identity / customer cleanup actors.
+        assert _CLEANUP_HOUR == 0
+        assert _CLEANUP_MINUTE == 0
 
 
 @pytest.mark.asyncio

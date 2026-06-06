@@ -46,9 +46,9 @@ class AdminShareRepository(Repository[Share]):
                 escaped = escape_like(query)
                 stmt = stmt.where(
                     or_(
-                        Share.name.ilike(f"%{escaped}%"),
-                        Workspace.slug.ilike(f"%{escaped}%"),
-                        Workspace.name.ilike(f"%{escaped}%"),
+                        Share.name.ilike(f"%{escaped}%", escape="\\"),
+                        Workspace.slug.ilike(f"%{escaped}%", escape="\\"),
+                        Workspace.name.ilike(f"%{escaped}%", escape="\\"),
                     )
                 )
 
