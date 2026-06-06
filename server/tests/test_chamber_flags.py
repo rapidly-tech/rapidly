@@ -13,10 +13,9 @@ import pytest
 
 from rapidly.config import Settings
 
+# Screen / Watch / Call removed in M1.1 (engineering-suite pivot);
+# collab remains (renamed to markup in M1.4).
 CHAMBER_FLAGS: list[str] = [
-    "FILE_SHARING_SCREEN_ENABLED",
-    "FILE_SHARING_WATCH_ENABLED",
-    "FILE_SHARING_CALL_ENABLED",
     "FILE_SHARING_COLLAB_ENABLED",
 ]
 

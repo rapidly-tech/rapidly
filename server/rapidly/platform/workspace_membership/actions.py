@@ -76,9 +76,18 @@ async def get_by_user_and_org(
     session: AsyncSession,
     user_id: UUID,
     workspace_id: UUID,
+    *,
+    include_deleted: bool = False,
 ) -> WorkspaceMembership | None:
+    """Return the active (user, workspace) membership, or None.
+
+    Soft-deleted memberships are excluded by default — see the
+    docstring on :meth:`WorkspaceMembershipRepository.get_by_user_and_org`.
+    """
     repo = WorkspaceMembershipRepository.from_session(session)
-    return await repo.get_by_user_and_org(user_id, workspace_id)
+    return await repo.get_by_user_and_org(
+        user_id, workspace_id, include_deleted=include_deleted
+    )
 
 
 # ── Membership ──
