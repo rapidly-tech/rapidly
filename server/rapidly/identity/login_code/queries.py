@@ -4,7 +4,7 @@
 login code authentication flow.
 """
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import joinedload
 
 from rapidly.core.queries import Repository
@@ -33,3 +33,20 @@ class LoginCodeRepository(Repository[LoginCode]):
             .options(joinedload(LoginCode.user))
         )
         return await self.get_one_or_none(stmt)
+
+    # ── Writes ──
+
+    async def delete_expired(self) -> None:
+        """Remove all login codes whose expiry has passed.
+
+        Lookups already filter on ``expires_at > now()`` so stale
+        rows are inert from an auth-correctness perspective, but
+        they accumulate forever on the table (the success path
+        ``delete``s the matched row on redemption; expired-but-
+        never-redeemed rows linger). This periodic cleanup keeps
+        the table bounded — same pattern as
+        ``UserSessionRepository.delete_expired``.
+        """
+        await self.session.execute(
+            delete(LoginCode).where(LoginCode.expires_at < now_utc())
+        )

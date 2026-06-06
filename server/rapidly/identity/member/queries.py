@@ -193,6 +193,80 @@ class MemberRepository(
         result = await self.session.execute(statement)
         return result.scalars().unique().all()
 
+    async def list_duplicates_for_dedupe(
+        self,
+        customer_id: UUID,
+        lower_email: str,
+    ) -> Sequence[Member]:
+        """Load the active duplicate Member rows for a single
+        ``(customer_id, lower(email))`` group, ordered for the
+        auto-dedupe policy:
+
+          1. Highest role first (owner > billing_manager > member).
+             Preserves the strongest capability across the merge.
+          2. Earliest ``created_at`` second. The "original"
+             registration wins ties on role.
+
+        The first row in the returned sequence is the SURVIVOR;
+        the rest are LOSERS that get soft-deleted.
+
+        ORDER BY for role uses a CASE expression because the
+        column is stored as a string but the natural ordering
+        is the enum's intent (owner > billing_manager > member,
+        NOT alphabetical: billing_manager < member < owner
+        alphabetically — which would pick the WRONG winner).
+        """
+        from sqlalchemy import case
+
+        role_priority = case(
+            (Member.role == MemberRole.owner, 0),
+            (Member.role == MemberRole.billing_manager, 1),
+            (Member.role == MemberRole.member, 2),
+            else_=3,
+        )
+        statement = (
+            select(Member)
+            .where(
+                Member.customer_id == customer_id,
+                func.lower(Member.email) == lower_email,
+                Member.deleted_at.is_(None),
+            )
+            .order_by(role_priority.asc(), Member.created_at.asc())
+        )
+        result = await self.session.execute(statement)
+        return list(result.scalars().all())
+
+    async def find_case_insensitive_email_duplicates(
+        self,
+    ) -> Sequence[tuple[UUID, str, int]]:
+        """Find (customer_id, lower(email), count) groups with >1
+        active member.
+
+        Operators need to dedupe these BEFORE the case-insensitive
+        unique constraint (queued migration) can land — otherwise
+        the constraint-creation will fail on existing data.
+
+        Returns a list of ``(customer_id, lower_email, count)``
+        tuples for each (customer_id, lower(email)) pair that has
+        more than one active row. The count tells operators how
+        many duplicates they need to resolve per pair.
+
+        Active-only (``deleted_at IS NULL``) — soft-deleted rows
+        don't violate the case-insensitive unique we're working
+        toward.
+        """
+        lower_email = func.lower(Member.email).label("lower_email")
+        member_count = func.count().label("member_count")
+        statement = (
+            select(Member.customer_id, lower_email, member_count)
+            .where(Member.deleted_at.is_(None))
+            .group_by(Member.customer_id, lower_email)
+            .having(member_count > 1)
+            .order_by(member_count.desc(), Member.customer_id)
+        )
+        result = await self.session.execute(statement)
+        return [(row[0], row[1], row[2]) for row in result.all()]
+
     async def list_by_customers(
         self,
         session: AsyncReadSession | None = None,

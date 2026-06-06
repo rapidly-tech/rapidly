@@ -36,12 +36,23 @@ router = APIRouter(prefix="/login-code", tags=["login_code", APITag.private])
 
 @router.post("/request", status_code=202)
 async def request_login_code(
+    request: Request,
     login_code_request: LoginCodeRequest,
     session: AsyncSession = Depends(get_db_session),
+    redis: Redis = Depends(get_redis),
 ) -> None:
     """
     Request a login code.
     """
+    # Rate-limit per IP.  Without this an attacker can hammer the
+    # endpoint to mail-bomb arbitrary addresses (and burn through our
+    # email-provider quota).  ``check_otp_rate_limit`` fails closed on
+    # Redis errors, so a degraded cache also throttles us — preferable
+    # to silent unbounded sending.  A separate key_prefix from the
+    # ``/authenticate`` bucket so a benign user verifying their code
+    # doesn't share quota with abuse-driven request floods.
+    await check_otp_rate_limit(redis, request, key_prefix="login_request")
+
     code_model, code = await login_code_service.request(
         session,
         login_code_request.email,
