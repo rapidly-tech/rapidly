@@ -75,6 +75,14 @@ async def list(
     pagination: PaginationParamsQuery,
     sorting: ordering.ListSorting,
     slug: str | None = Query(None, description="Filter by slug."),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the workspace display name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[WorkspaceSchema]:
     """List workspaces."""
@@ -82,6 +90,7 @@ async def list(
         session,
         auth_subject,
         slug=slug,
+        name=name,
         pagination=pagination,
         sorting=sorting,
     )
