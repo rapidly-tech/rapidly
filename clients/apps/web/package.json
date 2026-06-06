@@ -15,24 +15,20 @@
     "test:e2e": "playwright test",
     "typecheck": "tsc --noEmit",
     "audit": "pnpm audit --prod",
-    "analyze": "ANALYZE=true next build"
+    "analyze": "ANALYZE=true next build",
+    "docs:index": "node scripts/generate-docs-index.mjs",
+    "prebuild": "node scripts/generate-docs-index.mjs"
   },
   "engines": {
     "node": "=24"
   },
   "dependencies": {
-    "@ai-sdk/anthropic": "^2.0.56",
-    "@ai-sdk/google": "^2.0.46",
-    "@ai-sdk/mcp": "^0.0.11",
-    "@ai-sdk/react": "^2.0.115",
     "@iconify-json/solar": "^1.2.5",
     "@iconify/react": "^6.0.2",
     "@mdx-js/loader": "^3.1.1",
     "@mdx-js/react": "^3.1.1",
-    "@modelcontextprotocol/sdk": "^1.25.3",
     "@next/mdx": "^16.1.5",
     "@next/third-parties": "^16.1.5",
-    "@posthog/ai": "^7.5.4",
     "@posthog/core": "^1.14.0",
     "@radix-ui/react-dialog": "^1.1.15",
     "@radix-ui/react-dropdown-menu": "^2.1.16",
@@ -52,7 +48,6 @@
     "@tanstack/react-query": "^5.90.20",
     "@tanstack/react-table": "^8.21.3",
     "@vercel/blob": "^0.23.4",
-    "ai": "^5.0.113",
     "class-variance-authority": "^0.7.1",
     "date-fns": "^4.1.0",
     "dom-to-image": "^2.6.0",
@@ -62,7 +57,7 @@
     "isomorphic-dompurify": "^3.7.1",
     "markdown-to-jsx": "^8.0.0",
     "nanoid": "^5.1.6",
-    "next": "^16.2.2",
+    "next": "^16.2.6",
     "next-themes": "^0.4.6",
     "nuqs": "^2.8.6",
     "openpgp": "^6.3.0",
@@ -126,7 +121,7 @@
     "typescript": "5.9.3",
     "unist-util-visit": "^5.1.0",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.0"
   },
   "nextBundleAnalysis": {
     "budget": 358400,

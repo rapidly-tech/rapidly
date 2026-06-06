@@ -53,9 +53,9 @@ class AdminWebhookRepository(Repository[WebhookEndpoint]):
                 escaped = escape_like(query)
                 stmt = stmt.where(
                     or_(
-                        WebhookEndpoint.url.ilike(f"%{escaped}%"),
-                        Workspace.slug.ilike(f"%{escaped}%"),
-                        Workspace.name.ilike(f"%{escaped}%"),
+                        WebhookEndpoint.url.ilike(f"%{escaped}%", escape="\\"),
+                        Workspace.slug.ilike(f"%{escaped}%", escape="\\"),
+                        Workspace.name.ilike(f"%{escaped}%", escape="\\"),
                     )
                 )
 
