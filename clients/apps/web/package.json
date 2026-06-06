@@ -17,7 +17,8 @@
     "audit": "pnpm audit --prod",
     "analyze": "ANALYZE=true next build",
     "docs:index": "node scripts/generate-docs-index.mjs",
-    "prebuild": "node scripts/generate-docs-index.mjs"
+    "prebuild": "node scripts/generate-docs-index.mjs",
+    "docs:api": "node scripts/generate-api-reference.mjs"
   },
   "engines": {
     "node": "=24"
