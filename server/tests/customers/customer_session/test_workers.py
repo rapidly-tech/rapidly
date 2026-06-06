@@ -21,8 +21,18 @@ import pytest
 
 from rapidly.customers.customer_session import workers as M
 from rapidly.customers.customer_session.workers import (
+    _CLEANUP_HOUR,
+    _CLEANUP_MINUTE,
     customer_session_delete_expired,
 )
+
+
+class TestCleanupSchedule:
+    def test_runs_at_midnight_utc(self) -> None:
+        # Pin: same off-peak window as the rest of the identity
+        # / customer cleanup actors so they all converge here.
+        assert _CLEANUP_HOUR == 0
+        assert _CLEANUP_MINUTE == 0
 
 
 @pytest.mark.asyncio
