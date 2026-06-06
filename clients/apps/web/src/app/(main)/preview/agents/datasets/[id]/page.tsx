@@ -7,6 +7,7 @@ import {
   useDataset,
   useDatasetCases,
   useTriggerEval,
+  useWorkflows,
 } from '@/hooks/api/agents'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -97,6 +98,13 @@ function TriggerEvalSection({ dataset }: { dataset: Dataset }) {
   const trigger = useTriggerEval()
   const router = useRouter()
 
+  // Workflows for the picker — operators pick the workflow,
+  // the form auto-uses its current_version_id. Drafts (no
+  // version) are listed but disabled with a hint. A paste-
+  // UUID fallback is still rendered below for the rare case
+  // an operator wants to eval an older version.
+  const workflowsQuery = useWorkflows({ limit: 100, page: 1 })
+
   const submit = (e: React.FormEvent) => {
     e.preventDefault()
     trigger.mutate(
@@ -135,14 +143,40 @@ function TriggerEvalSection({ dataset }: { dataset: Dataset }) {
         Trigger eval run
       </h2>
 
-      <Field label="Workflow version id">
+      <Field label="Workflow">
+        <select
+          value={
+            (workflowsQuery.data?.data ?? []).find(
+              (w) => w.current_version_id === workflowVersionId,
+            )?.id ?? ''
+          }
+          onChange={(e) => {
+            const w = (workflowsQuery.data?.data ?? []).find(
+              (wf) => wf.id === e.target.value,
+            )
+            setWorkflowVersionId(w?.current_version_id ?? '')
+          }}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+        >
+          <option value="">
+            {workflowsQuery.isLoading ? 'Loading…' : 'Select a workflow'}
+          </option>
+          {(workflowsQuery.data?.data ?? []).map((w) => (
+            <option key={w.id} value={w.id} disabled={!w.current_version_id}>
+              {w.name}
+              {!w.current_version_id ? ' (draft — no version)' : ''}
+            </option>
+          ))}
+        </select>
+      </Field>
+
+      <Field label="Or paste a specific workflow_version_id (optional)">
         <input
           type="text"
-          required
           value={workflowVersionId}
           onChange={(e) => setWorkflowVersionId(e.target.value)}
-          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
-          placeholder="paste UUID from /workflows"
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 font-mono text-xs text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          placeholder="uuid — auto-filled by the picker above"
         />
       </Field>
 
