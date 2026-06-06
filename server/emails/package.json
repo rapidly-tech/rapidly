@@ -8,7 +8,7 @@
   "scripts": {
     "dev": "email dev --dir src/emails",
     "clean": "rm -rf dist bin",
-    "types": "uv --directory .. run python -m rapidly.email.schemas | openapi-typescript --output src/types/openapi.ts && prettier src/types/openapi.ts --write",
+    "types": "uv --directory .. run python -m rapidly.messaging.email.types | openapi-typescript --output src/types/openapi.ts && prettier src/types/openapi.ts --write",
     "build": "pnpm run clean && tsup && pkg package.json",
     "typecheck": "tsc --noEmit",
     "lint": "prettier src/** --write"
