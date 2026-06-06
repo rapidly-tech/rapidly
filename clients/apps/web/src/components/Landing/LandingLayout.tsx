@@ -21,8 +21,11 @@ import { NavPopover, NavPopoverSection } from './NavPopover'
 // ── Main Layout ──
 
 export default function Layout({ children }: PropsWithChildren) {
+  // overflow-x-clip (not overflow-hidden) — horizontal clipping for the
+  // hero decorations without creating a scroll container, which would
+  // silently break position:sticky in the docs sidebars.
   return (
-    <div className="rp-page-bg relative flex min-h-dvh flex-col overflow-hidden px-0 md:w-full md:items-center md:px-4">
+    <div className="rp-page-bg relative flex min-h-dvh flex-col overflow-x-clip px-0 md:w-full md:items-center md:px-4">
       <a
         href="#main-content"
         className="focus:rp-text-primary sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-(--surface-inset) focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none"
