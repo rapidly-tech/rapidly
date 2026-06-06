@@ -22,11 +22,17 @@ export const DocsToc = () => {
       ),
     )
     setEntries(
-      headings.map((h) => ({
-        id: h.id,
-        text: h.textContent ?? '',
-        level: h.tagName === 'H2' ? 2 : 3,
-      })),
+      headings.map((h) => {
+        // Read the text without the copy-link anchor that
+        // DocsArticleEnhancer appends to each heading.
+        const clone = h.cloneNode(true) as HTMLElement
+        clone.querySelectorAll('a').forEach((a) => a.remove())
+        return {
+          id: h.id,
+          text: clone.textContent?.trim() ?? '',
+          level: h.tagName === 'H2' ? 2 : 3,
+        }
+      }),
     )
 
     const observer = new IntersectionObserver(
@@ -53,7 +59,7 @@ export const DocsToc = () => {
             'py-0.5 transition-colors',
             entry.level === 3 && 'pl-3',
             activeId === entry.id
-              ? 'text-emerald-600 dark:text-emerald-400'
+              ? 'font-medium text-slate-900 dark:text-white'
               : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
           )}
         >
