@@ -9,22 +9,21 @@ export function OrganizationAccessTokenLeaked({
   email,
   notifier,
   url,
-  organization_access_token,
-}: schemas['OrganizationAccessTokenLeakedProps']) {
+  workspace_access_token,
+}: schemas['WorkspaceAccessTokenLeakedProps']) {
   return (
     <WrapperRapidly>
       <Preview>
-        Important security notice: Your organization access token has been
-        leaked
+        Important security notice: Your workspace access token has been leaked
       </Preview>
       <Section>
         <Text className="text-xl font-bold text-gray-900">
           Important security notice
         </Text>
         <Text>
-          We've been notified that one of your organization access token has
-          been leaked. For your security, we've automatically revoked this
-          access token.{' '}
+          We've been notified that one of your workspace access token has been
+          leaked. For your security, we've automatically revoked this access
+          token.{' '}
           <span className="font-bold">
             You'll need to create a new one and update your existing
             integrations so they continue working.
@@ -39,12 +38,12 @@ export function OrganizationAccessTokenLeaked({
         <ul className="list-disc space-y-1 pl-6">
           <li>Notifier: {notifier}</li>
           <li>URL: {url}</li>
-          <li>Organization Access Token: {organization_access_token}</li>
+          <li>Organization Access Token: {workspace_access_token}</li>
         </ul>
         <Text className="mt-4 mb-0 text-sm text-gray-600">
-          As a reminder, organization access tokens are super sensitive values
-          that shouldn't be shared publicly on the web or in a code repository.
-          Use dedicated features to safely store secrets, like{' '}
+          As a reminder, workspace access tokens are super sensitive values that
+          shouldn't be shared publicly on the web or in a code repository. Use
+          dedicated features to safely store secrets, like{' '}
           <Link
             href="https://docs.github.com/en/actions/security-guides/using-secrets-in-github-actions"
             className="text-blue-600 underline"
@@ -75,7 +74,7 @@ OrganizationAccessTokenLeaked.PreviewProps = {
   email: 'john@example.com',
   notifier: 'GitHub',
   url: 'https://github.com/example/repo',
-  organization_access_token: 'token_abc123',
+  workspace_access_token: 'token_abc123',
 }
 
 export default OrganizationAccessTokenLeaked
