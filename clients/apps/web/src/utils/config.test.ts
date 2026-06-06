@@ -112,8 +112,8 @@ describe('CONFIG — derived URLs', () => {
     )
   })
 
-  it('DOCS_BASE_URL is an https URL', () => {
-    expect(CONFIG.DOCS_BASE_URL.startsWith('https://')).toBe(true)
+  it('DOCS_BASE_URL points at the native /docs route on the frontend', () => {
+    expect(CONFIG.DOCS_BASE_URL).toBe(`${CONFIG.FRONTEND_BASE_URL}/docs`)
   })
 })
 

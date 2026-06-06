@@ -222,9 +222,9 @@ class CustomerRepository(
             escaped = escape_like(query)
             stmt = stmt.where(
                 or_(
-                    Customer.email.ilike(f"%{escaped}%"),
-                    Customer.name.ilike(f"%{escaped}%"),
-                    Customer.external_id.ilike(f"{escaped}%"),
+                    Customer.email.ilike(f"%{escaped}%", escape="\\"),
+                    Customer.name.ilike(f"%{escaped}%", escape="\\"),
+                    Customer.external_id.ilike(f"{escaped}%", escape="\\"),
                 )
             )
         for criterion, is_desc in sorting:

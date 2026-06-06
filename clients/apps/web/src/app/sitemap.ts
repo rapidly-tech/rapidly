@@ -1,3 +1,4 @@
+import { docsNav } from '@/components/Docs/nav'
 import { CONFIG } from '@/utils/config'
 import { MetadataRoute } from 'next'
 
@@ -70,12 +71,15 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.8,
     },
-    {
-      url: `${baseUrl}/docs`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly',
-      priority: 0.7,
-    },
+    // Every docs page from the sidebar nav (includes /docs itself).
+    ...docsNav.flatMap((section) =>
+      section.items.map((item) => ({
+        url: `${baseUrl}${item.href}`,
+        lastModified: new Date(),
+        changeFrequency: 'weekly' as const,
+        priority: 0.7,
+      })),
+    ),
     {
       url: `${baseUrl}/legal/terms`,
       lastModified: new Date(),
