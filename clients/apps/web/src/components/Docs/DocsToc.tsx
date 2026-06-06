@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
 
@@ -12,10 +13,12 @@ interface TocEntry {
 // Builds the "On this page" rail from the rendered article headings.
 // Heading ids come from rehype-slug in the shared MDX pipeline.
 export const DocsToc = () => {
+  const pathname = usePathname()
   const [entries, setEntries] = useState<TocEntry[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
 
   useEffect(() => {
+    setActiveId(null)
     const headings = Array.from(
       document.querySelectorAll<HTMLHeadingElement>(
         'article.docs-article h2[id], article.docs-article h3[id]',
@@ -44,7 +47,7 @@ export const DocsToc = () => {
     )
     headings.forEach((h) => observer.observe(h))
     return () => observer.disconnect()
-  }, [])
+  }, [pathname])
 
   if (entries.length === 0) return null
 

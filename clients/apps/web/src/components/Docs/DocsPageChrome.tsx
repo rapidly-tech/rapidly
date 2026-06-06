@@ -62,7 +62,7 @@ export const DocsPagination = () => {
       {prev && (
         <Link
           href={prev.href}
-          className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-slate-200 p-4 no-underline transition-colors hover:border-emerald-300 dark:border-slate-800 dark:hover:border-emerald-800"
+          className="flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-slate-200 p-4 no-underline transition-colors hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
         >
           <span className="text-xs text-slate-500 dark:text-slate-400">
             ← Previous
@@ -75,7 +75,7 @@ export const DocsPagination = () => {
       {next && (
         <Link
           href={next.href}
-          className="ml-auto flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-slate-200 p-4 text-right no-underline transition-colors hover:border-emerald-300 dark:border-slate-800 dark:hover:border-emerald-800"
+          className="ml-auto flex min-w-0 flex-1 flex-col gap-1 rounded-lg border border-slate-200 p-4 text-right no-underline transition-colors hover:border-slate-400 dark:border-slate-800 dark:hover:border-slate-600"
         >
           <span className="text-xs text-slate-500 dark:text-slate-400">
             Next →
