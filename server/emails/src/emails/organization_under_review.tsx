@@ -9,17 +9,17 @@ import type { schemas } from '../types'
 /** Notification email when an organisation is placed under verification review. */
 export function OrganizationUnderReview({
   email,
-  organization,
-}: schemas['OrganizationUnderReviewProps']) {
+  workspace,
+}: schemas['WorkspaceUnderReviewProps']) {
   return (
     <WrapperRapidly>
       <Preview>
-        Your organization is under review - a standard part of our onboarding
+        Your workspace is under review - a standard part of our onboarding
         process
       </Preview>
       <Intro>
-        Your organization <strong>{organization.name}</strong> is currently
-        under review as part of our standard onboarding process.
+        Your workspace <strong>{workspace.name}</strong> is currently under
+        review as part of our standard onboarding process.
       </Intro>
       <Section>
         <BodyText>
@@ -59,7 +59,7 @@ export function OrganizationUnderReview({
 
 OrganizationUnderReview.PreviewProps = {
   email: 'admin@example.com',
-  organization: {
+  workspace: {
     id: '123e4567-e89b-12d3-a456-426614174000',
     name: 'Acme Inc.',
     slug: 'acme-inc',
