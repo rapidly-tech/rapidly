@@ -58,6 +58,7 @@ async def list(
     *,
     customer_id: UUID | None = None,
     external_customer_id: str | None = None,
+    query: str | None = None,
     pagination: PaginationParams,
     sorting: Sequence[Sorting[MemberSortProperty]] = (
         (MemberSortProperty.created_at, True),
@@ -70,6 +71,7 @@ async def list(
         stmt,
         customer_id=customer_id,
         external_customer_id=external_customer_id,
+        query=query,
         sorting=sorting,
     )
     return await repo.paginate(stmt, limit=pagination.limit, page=pagination.page)

@@ -69,6 +69,15 @@ async def list_members(
     external_customer_id: ExternalCustomerID | None = Query(
         None, description="Filter by customer external ID."
     ),
+    query: str | None = Query(
+        None,
+        description=(
+            "Free-text query matched against member email (substring), "
+            "name (substring), and external_id (prefix).  SQL ``%`` and "
+            "``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[Member]:
     """List members with optional customer ID filter."""
@@ -77,6 +86,7 @@ async def list_members(
         auth_subject,
         customer_id=_parse_customer_id(customer_id),
         external_customer_id=external_customer_id,
+        query=query,
         pagination=pagination,
         sorting=sorting,
     )
