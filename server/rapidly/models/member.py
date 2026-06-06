@@ -42,27 +42,29 @@ class Member(BaseEntity):
     __table_args__ = (
         UniqueConstraint(
             "customer_id",
-            "email",
-            name="members_customer_id_email_key",
-            postgresql_nulls_not_distinct=True,
-        ),
-        UniqueConstraint(
-            "customer_id",
             "external_id",
             name="members_customer_id_external_id_key",
             postgresql_nulls_not_distinct=False,
         ),
-        # Case-insensitive index on email so
-        # ``get_by_customer_*_email`` (PR #854 case-folded
-        # lookups) can use an index. Non-unique — the
-        # case-sensitive UniqueConstraint above still enforces
-        # row uniqueness; this index is purely a perf serve.
+        # Case-insensitive PARTIAL UNIQUE index — replaces the
+        # case-sensitive ``members_customer_id_email_key``
+        # constraint (dropped in revision a3f6d9e21b48). Two
+        # semantics:
+        #   - case-insensitive: ``Alice@x.com`` and
+        #     ``alice@x.com`` for the same customer are the
+        #     same member.
+        #   - partial on ``deleted_at IS NULL``: soft-deleted
+        #     rows don't participate, so an operator can soft-
+        #     delete a member and re-create one with the same
+        #     email (e.g. someone leaves + rejoins).
         # Mirrors the ``ix_users_email_case_insensitive`` index
         # on User.
         Index(
-            "ix_members_customer_id_email_lower",
+            "ix_members_customer_id_email_lower_active",
             Column("customer_id"),
             func.lower(Column("email")),
+            unique=True,
+            postgresql_where=Column("deleted_at").is_(None),
         ),
         # Sibling index for ``list_by_email_and_workspace``
         # (customer-portal email-disambiguation path). Without
