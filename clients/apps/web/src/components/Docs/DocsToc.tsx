@@ -22,11 +22,17 @@ export const DocsToc = () => {
       ),
     )
     setEntries(
-      headings.map((h) => ({
-        id: h.id,
-        text: h.textContent ?? '',
-        level: h.tagName === 'H2' ? 2 : 3,
-      })),
+      headings.map((h) => {
+        // Read the text without the copy-link anchor that
+        // DocsArticleEnhancer appends to each heading.
+        const clone = h.cloneNode(true) as HTMLElement
+        clone.querySelectorAll('a').forEach((a) => a.remove())
+        return {
+          id: h.id,
+          text: clone.textContent?.trim() ?? '',
+          level: h.tagName === 'H2' ? 2 : 3,
+        }
+      }),
     )
 
     const observer = new IntersectionObserver(
