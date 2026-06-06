@@ -16,7 +16,7 @@
  * `server/rapidly/agents/<module>/types.py`.
  */
 
-import { useQuery } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 
 import { baseRetry } from './retry'
 
@@ -540,3 +540,220 @@ export const useEvalRunCases = (id: string | undefined) =>
     // cache won't change so the polling effectively idles.
     refetchInterval: 3000,
   })
+
+// ══════════════════════════════════════════════
+//  IntegrationCredentials (M4.7a-h)
+// ══════════════════════════════════════════════
+
+export interface IntegrationCredential {
+  id: string
+  workspace_id: string
+  provider: string
+  name: string
+  base_url: string | null
+  is_default: boolean
+  monthly_budget_tokens: number | null
+  budget_alert_threshold_percent: number | null
+  budget_alert_triggered_at: string | null
+  created_at: string
+  modified_at: string | null
+}
+
+export interface PaginatedCredentials {
+  data: IntegrationCredential[]
+  meta: {
+    total: number
+    page: number
+    per_page: number
+    pages: number
+  }
+}
+
+export interface CredentialBudgetRow {
+  credential_id: string
+  workspace_id: string
+  provider: string
+  name: string
+  monthly_budget_tokens: number | null
+  month_to_date_tokens: number
+  percent_used: number | null
+}
+
+export interface CredentialAlertRow {
+  credential_id: string
+  workspace_id: string
+  provider: string
+  name: string
+  monthly_budget_tokens: number
+  threshold_percent: number
+  month_to_date_tokens: number
+  percent_used: number
+  triggered_at: string
+}
+
+export interface CredentialCreatePayload {
+  workspace_id: string
+  provider: string
+  name: string
+  secret: string
+  base_url?: string | null
+  is_default?: boolean
+  monthly_budget_tokens?: number | null
+  budget_alert_threshold_percent?: number | null
+}
+
+const credentialKey = (...parts: (string | object)[]) => [
+  'agents-credentials',
+  ...parts,
+]
+
+async function fetchCredentials(
+  params: { provider?: string; page?: number; limit?: number } = {},
+): Promise<PaginatedCredentials> {
+  const url = new URL(
+    `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/integration-credentials/`,
+  )
+  if (params.provider) url.searchParams.set('provider', params.provider)
+  if (params.page) url.searchParams.set('page', String(params.page))
+  if (params.limit) url.searchParams.set('limit', String(params.limit))
+  const res = await fetch(url.toString(), {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`credentials list failed: ${res.status}`)
+  return (await res.json()) as PaginatedCredentials
+}
+
+export const useCredentials = (
+  params: { provider?: string; page?: number; limit?: number } = {},
+  enabled: boolean = true,
+) =>
+  useQuery({
+    queryKey: credentialKey('list', params),
+    queryFn: () => fetchCredentials(params),
+    retry: baseRetry,
+    enabled,
+  })
+
+async function fetchCredentialBudgets(): Promise<{
+  month_start: string
+  rows: CredentialBudgetRow[]
+}> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/llm-usage/budgets`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`budgets fetch failed: ${res.status}`)
+  return (await res.json()) as {
+    month_start: string
+    rows: CredentialBudgetRow[]
+  }
+}
+
+export const useCredentialBudgets = () =>
+  useQuery({
+    queryKey: credentialKey('budgets'),
+    queryFn: fetchCredentialBudgets,
+    retry: baseRetry,
+  })
+
+async function fetchCredentialAlerts(): Promise<{
+  rows: CredentialAlertRow[]
+}> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/llm-usage/alerts`
+  const res = await fetch(url, {
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) throw new Error(`alerts fetch failed: ${res.status}`)
+  return (await res.json()) as { rows: CredentialAlertRow[] }
+}
+
+export const useCredentialAlerts = () =>
+  useQuery({
+    queryKey: credentialKey('alerts'),
+    queryFn: fetchCredentialAlerts,
+    retry: baseRetry,
+  })
+
+// ── Mutations ─────────────────────────────────────────────────
+
+async function createCredential(
+  body: CredentialCreatePayload,
+): Promise<IntegrationCredential> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/integration-credentials/`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    // Surface the response body when 422 — Pydantic validation
+    // errors carry per-field detail the UI can flag inline.
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `credential create failed: ${res.status}`)
+  }
+  return (await res.json()) as IntegrationCredential
+}
+
+export const useCreateCredential = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createCredential,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: credentialKey() })
+    },
+  })
+}
+
+async function deleteCredential(id: string): Promise<void> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/integration-credentials/${id}`
+  const res = await fetch(url, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok && res.status !== 204) {
+    throw new Error(`credential delete failed: ${res.status}`)
+  }
+}
+
+export const useDeleteCredential = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: deleteCredential,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: credentialKey() })
+    },
+  })
+}
+
+async function setDefaultCredential(
+  id: string,
+): Promise<IntegrationCredential> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/integration-credentials/${id}/default`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`credential set-default failed: ${res.status}`)
+  }
+  return (await res.json()) as IntegrationCredential
+}
+
+export const useSetDefaultCredential = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: setDefaultCredential,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: credentialKey() })
+    },
+  })
+}
