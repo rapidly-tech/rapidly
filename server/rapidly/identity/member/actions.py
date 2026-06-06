@@ -227,6 +227,56 @@ async def find_case_insensitive_email_duplicates(
     return await repo.find_case_insensitive_email_duplicates()
 
 
+async def auto_dedupe_case_insensitive_email_duplicates(
+    session: AsyncSession,
+) -> int:
+    """Soft-delete duplicate Member rows that would block the
+    case-insensitive unique constraint migration.
+
+    Policy (per ``(customer_id, lower(email))`` group):
+
+      1. Survivor = the row with the highest role (owner >
+         billing_manager > member). Preserves the strongest
+         capability across the merge.
+      2. Tie-break = earliest ``created_at``. The "original"
+         registration wins.
+      3. Losers = all other rows in the group → soft-deleted.
+
+    DOES NOT touch ``external_id`` / ``oauth_accounts`` on the
+    survivor — those have their own unique constraints and
+    merging could create new conflicts (and operators may want
+    review on identity-merge decisions anyway).
+
+    Returns the total number of LOSER rows soft-deleted. Run
+    ``find_case_insensitive_email_duplicates`` after this to
+    confirm zero remain.
+
+    Idempotent — re-running on a deduped table is a no-op
+    (the finder returns nothing → this returns 0).
+    """
+    repo = MemberRepository.from_session(session)
+    total_deleted = 0
+    duplicates = await repo.find_case_insensitive_email_duplicates()
+    for customer_id, lower_email, _ in duplicates:
+        members = await repo.list_duplicates_for_dedupe(customer_id, lower_email)
+        if len(members) < 2:
+            # Race: another caller already deduped this group.
+            continue
+        survivor = members[0]
+        losers = members[1:]
+        for loser in losers:
+            await repo.soft_delete(loser)
+            total_deleted += 1
+        _log.info(
+            "member.auto_deduped",
+            customer_id=customer_id,
+            lower_email=lower_email,
+            survivor_id=survivor.id,
+            losers=len(losers),
+        )
+    return total_deleted
+
+
 # ── Authenticated creation ───────────────────────────────────────
 
 
