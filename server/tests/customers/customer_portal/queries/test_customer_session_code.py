@@ -117,3 +117,38 @@ class TestGetValidByCodeHash:
 
         sql = _compile(captured["stmt"]).lower()
         assert "specific_hash_xyz" in sql
+
+
+@pytest.mark.asyncio
+class TestDeleteExpired:
+    """The periodic cleanup actor uses this query path.
+
+    Pin: filters on ``expires_at < now()`` (strict less-than)
+    so codes that are exactly at the boundary aren't dropped
+    mid-redemption — the lookup path uses ``> now()`` so the
+    two predicates split the timeline cleanly. Drift to ``<=``
+    would let the cleanup nuke a code that the user is just
+    about to redeem.
+    """
+
+    async def test_uses_strict_less_than(self) -> None:
+        from datetime import UTC, datetime
+
+        repo = CustomerSessionCodeRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _exec(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            return MagicMock()
+
+        repo.session.execute = AsyncMock(side_effect=_exec)  # type: ignore[method-assign]
+        with freeze_time(datetime(2026, 4, 25, 14, 30, tzinfo=UTC)):
+            await repo.delete_expired()
+
+        sql = _compile(captured["stmt"]).lower()
+        assert sql.startswith("delete from customer_session_codes")
+        assert "customer_session_codes.expires_at <" in sql
+        assert "2026-04-25" in sql
+        # Critical: NOT ``<=`` — a code at exact boundary stays
+        # redeemable until the lookup's ``>`` flips first.
+        assert "expires_at <=" not in sql
