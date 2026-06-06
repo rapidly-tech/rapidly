@@ -67,10 +67,6 @@ class Scope(StrEnum):
     webhooks_read = "webhooks:read"
     webhooks_write = "webhooks:write"
 
-    # Customer portal
-    customer_portal_read = "customer_portal:read"
-    customer_portal_write = "customer_portal:write"
-
     # Notifications
     notifications_read = "notifications:read"
     notifications_write = "notifications:write"
@@ -151,8 +147,6 @@ SCOPES_SUPPORTED_DISPLAY_NAMES: dict[Scope, str] = {
     Scope.metrics_read: "Read metrics",
     Scope.webhooks_read: "Read webhooks",
     Scope.webhooks_write: "Create or modify webhooks",
-    Scope.customer_portal_read: "Read your files and access",
-    Scope.customer_portal_write: "Manage your files and access",
     Scope.notifications_read: "Read notifications",
     Scope.notifications_write: "Mark notifications as read",
     Scope.notification_recipients_read: "Read notification recipients",
