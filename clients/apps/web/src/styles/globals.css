@@ -610,3 +610,8 @@ pre.shiki {
     background-color: oklch(0.12 0.02 265 / 0.97) !important;
   }
 }
+
+/* ── Docs: glide to TOC anchors instead of jumping ── */
+html:has(.docs-article) {
+  scroll-behavior: smooth;
+}

@@ -8,21 +8,21 @@ import type { schemas } from '../types'
 /** Invitation email to join an organisation as a team member. */
 export function OrganizationInvite({
   email,
-  organization_name,
+  workspace_name,
   inviter_email,
   invite_url,
-}: schemas['OrganizationInviteProps']) {
+}: schemas['WorkspaceInviteProps']) {
   return (
     <WrapperRapidly>
-      <Preview>You've been added to {organization_name} on Rapidly</Preview>
+      <Preview>You've been added to {workspace_name} on Rapidly</Preview>
       <Intro>
         {inviter_email} has added you to{' '}
-        <span className="font-bold">{organization_name}</span> on Rapidly.
+        <span className="font-bold">{workspace_name}</span> on Rapidly.
       </Intro>
       <Section>
         <Text>
-          As a member of {organization_name} you're now able to manage{' '}
-          {organization_name}'s file shares, customers, and payments on Rapidly.
+          As a member of {workspace_name} you're now able to manage{' '}
+          {workspace_name}'s file shares, customers, and payments on Rapidly.
         </Text>
       </Section>
       <Section className="text-center">
@@ -35,7 +35,7 @@ export function OrganizationInvite({
 
 OrganizationInvite.PreviewProps = {
   email: 'john@example.com',
-  organization_name: 'Acme Inc.',
+  workspace_name: 'Acme Inc.',
   inviter_email: 'admin@acme.com',
   invite_url: 'https://rapidly.tech/dashboard/acme-inc',
 }
