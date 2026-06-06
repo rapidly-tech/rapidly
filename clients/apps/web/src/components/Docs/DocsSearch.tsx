@@ -205,7 +205,7 @@ export const DocsSearchButton = () => {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 transition-colors hover:border-emerald-300 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-emerald-800"
+        className="flex w-full items-center gap-2 rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-500 transition-colors hover:border-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-400 dark:hover:border-slate-600"
       >
         <Icon icon="solar:magnifer-linear" />
         <span className="grow text-left">Search docs…</span>

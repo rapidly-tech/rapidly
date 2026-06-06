@@ -4,7 +4,7 @@ import { twMerge } from 'tailwind-merge'
 
 // Documentation building blocks, content-compatible with the page
 // bodies imported from the previous docs platform. All visuals follow
-// the design system (slate surfaces, emerald accents, lg radii).
+// the design system (monochrome slate surfaces, lg radii).
 
 export const Card = ({
   title,
@@ -29,7 +29,7 @@ export const Card = ({
         href={href}
         className={twMerge(
           className,
-          'transition-colors hover:border-emerald-300 dark:hover:border-emerald-800',
+          'transition-colors hover:border-slate-400 dark:hover:border-slate-600',
         )}
       >
         {body}
@@ -63,7 +63,7 @@ export const Step = ({
 }: PropsWithChildren<{ title?: string; icon?: string }>) => (
   <div className="relative flex gap-4 pb-6 last:pb-0">
     <div className="flex flex-col items-center">
-      <span className="docs-step-marker mt-0.5 size-2 shrink-0 rounded-full bg-emerald-500" />
+      <span className="docs-step-marker mt-0.5 size-2 shrink-0 rounded-full bg-slate-900 dark:bg-white" />
       <span className="w-px grow bg-slate-200 dark:bg-slate-800" />
     </div>
     <div className="min-w-0">
@@ -147,7 +147,7 @@ export const Update = ({
 }: PropsWithChildren<{ label: string; description?: string }>) => (
   <div className="my-6 flex flex-col gap-2 border-b border-slate-100 pb-6 md:flex-row md:gap-8 dark:border-slate-800">
     <div className="w-32 shrink-0">
-      <span className="inline-block rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-medium text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300">
+      <span className="inline-block rounded-md bg-slate-900/5 px-2 py-0.5 text-xs font-medium text-slate-700 dark:bg-white/10 dark:text-slate-300">
         {label}
       </span>
       {description && (
