@@ -138,6 +138,14 @@ async def list_webhook_endpoints(
     workspace_id: MultipleQueryFilter[WorkspaceID] | None = Query(
         None, description="Filter by workspace ID."
     ),
+    url: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the webhook endpoint URL. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=2048,
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[WebhookEndpointSchema]:
     """List webhook endpoints."""
@@ -145,6 +153,7 @@ async def list_webhook_endpoints(
         session,
         auth_subject,
         workspace_id=workspace_id,
+        url=url,
         pagination=pagination,
     )
     return PaginatedList.from_paginated_results(
