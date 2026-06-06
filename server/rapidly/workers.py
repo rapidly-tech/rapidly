@@ -7,6 +7,7 @@ from rapidly.customers.customer import workers as customer
 from rapidly.customers.customer_portal import workers as customer_portal
 from rapidly.customers.customer_session import workers as customer_session
 from rapidly.identity.auth import workers as auth
+from rapidly.identity.member_session import workers as member_session
 from rapidly.integrations.stripe import workers as stripe
 from rapidly.messaging.email import workers as email
 from rapidly.messaging.email_update import workers as email_update
@@ -28,6 +29,7 @@ __all__ = [
     "eventstream",
     "external_event",
     "file_sharing",
+    "member_session",
     "notifications",
     "stripe",
     "user",
