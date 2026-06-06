@@ -527,6 +527,41 @@ async function fetchEvalRunCases(id: string): Promise<EvalRunCase[]> {
   return (await res.json()) as EvalRunCase[]
 }
 
+export interface TriggerEvalPayload {
+  workflow_version_id: string
+  dataset_id: string
+  assertion_strategy: AssertionStrategy
+  judge_model_id?: string | null
+}
+
+async function triggerEval(body: TriggerEvalPayload): Promise<EvalRun> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/eval-runs/`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `eval-run trigger failed: ${res.status}`)
+  }
+  return (await res.json()) as EvalRun
+}
+
+export const useTriggerEval = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: triggerEval,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: evalRunKey() })
+    },
+  })
+}
+
 export const useEvalRunCases = (id: string | undefined) =>
   useQuery({
     queryKey: evalRunKey('cases', id ?? ''),
