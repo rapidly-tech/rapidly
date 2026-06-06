@@ -197,7 +197,8 @@ async def _list_with_stats_from_db(
     if query is not None:
         escaped = escape_like(query)
         statement = statement.where(
-            EventType.name.ilike(f"%{escaped}%") | EventType.label.ilike(f"%{escaped}%")
+            EventType.name.ilike(f"%{escaped}%", escape="\\")
+            | EventType.label.ilike(f"%{escaped}%", escape="\\")
         )
 
     if root_events:
