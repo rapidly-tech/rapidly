@@ -15,8 +15,8 @@ import { PropsWithChildren } from 'react'
 // sidebar, breadcrumbs, "On this page" rail, prev/next pagination.
 export default function DocsLayout({ children }: PropsWithChildren) {
   return (
-    <div className="mx-auto flex w-full max-w-7xl grow gap-10 px-0 py-8 md:px-8 md:pt-28">
-      <aside className="sticky top-28 hidden h-[calc(100dvh-8rem)] w-56 shrink-0 flex-col gap-4 overflow-y-auto md:flex">
+    <div className="mx-auto flex w-full max-w-7xl grow gap-10 px-0 py-8 md:px-8 md:pt-10">
+      <aside className="sticky top-24 hidden h-[calc(100dvh-7rem)] w-56 shrink-0 flex-col gap-4 overflow-y-auto md:flex">
         <DocsSearchButton />
         <DocsSidebar />
       </aside>
@@ -29,7 +29,7 @@ export default function DocsLayout({ children }: PropsWithChildren) {
         <DocsPagination />
         <DocsArticleEnhancer />
       </div>
-      <aside className="sticky top-28 hidden h-[calc(100dvh-8rem)] w-52 shrink-0 overflow-y-auto xl:block">
+      <aside className="sticky top-24 hidden h-[calc(100dvh-7rem)] w-52 shrink-0 overflow-y-auto xl:block">
         <DocsToc />
       </aside>
     </div>

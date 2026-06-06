@@ -1,5 +1,6 @@
 'use client'
 
+import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
 
@@ -12,21 +13,29 @@ interface TocEntry {
 // Builds the "On this page" rail from the rendered article headings.
 // Heading ids come from rehype-slug in the shared MDX pipeline.
 export const DocsToc = () => {
+  const pathname = usePathname()
   const [entries, setEntries] = useState<TocEntry[]>([])
   const [activeId, setActiveId] = useState<string | null>(null)
 
   useEffect(() => {
+    setActiveId(null)
     const headings = Array.from(
       document.querySelectorAll<HTMLHeadingElement>(
         'article.docs-article h2[id], article.docs-article h3[id]',
       ),
     )
     setEntries(
-      headings.map((h) => ({
-        id: h.id,
-        text: h.textContent ?? '',
-        level: h.tagName === 'H2' ? 2 : 3,
-      })),
+      headings.map((h) => {
+        // Read the text without the copy-link anchor that
+        // DocsArticleEnhancer appends to each heading.
+        const clone = h.cloneNode(true) as HTMLElement
+        clone.querySelectorAll('a').forEach((a) => a.remove())
+        return {
+          id: h.id,
+          text: clone.textContent?.trim() ?? '',
+          level: h.tagName === 'H2' ? 2 : 3,
+        }
+      }),
     )
 
     const observer = new IntersectionObserver(
@@ -38,7 +47,7 @@ export const DocsToc = () => {
     )
     headings.forEach((h) => observer.observe(h))
     return () => observer.disconnect()
-  }, [])
+  }, [pathname])
 
   if (entries.length === 0) return null
 
@@ -53,7 +62,7 @@ export const DocsToc = () => {
             'py-0.5 transition-colors',
             entry.level === 3 && 'pl-3',
             activeId === entry.id
-              ? 'text-emerald-600 dark:text-emerald-400'
+              ? 'font-medium text-slate-900 dark:text-white'
               : 'text-slate-500 hover:text-slate-900 dark:text-slate-400 dark:hover:text-white',
           )}
         >
