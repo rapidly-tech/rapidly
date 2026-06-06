@@ -105,22 +105,18 @@ const mobileDocsItems: NavigationItem[] = [
   {
     title: 'Documentation Portal',
     href: CONFIG.DOCS_BASE_URL,
-    target: '_blank',
   },
   {
     title: 'File Sharing',
     href: `${CONFIG.DOCS_BASE_URL}/features/file-sharing`,
-    target: '_blank',
   },
   {
     title: 'Secret Messages',
     href: `${CONFIG.DOCS_BASE_URL}/features/secret-sharing`,
-    target: '_blank',
   },
   {
     title: 'Payments',
     href: `${CONFIG.DOCS_BASE_URL}/features/products`,
-    target: '_blank',
   },
 ]
 
@@ -257,19 +253,16 @@ const LandingPageDesktopNavigation = () => {
         {
           href: CONFIG.DOCS_BASE_URL,
           label: 'Documentation Portal',
-          target: '_blank',
           subtitle: 'Get started with Rapidly',
         },
         {
           href: `${CONFIG.DOCS_BASE_URL}/features/file-sharing`,
           label: 'File Sharing',
-          target: '_blank',
           subtitle: 'Send files securely',
         },
         {
           href: `${CONFIG.DOCS_BASE_URL}/features/secret-sharing`,
           label: 'Secret Messages',
-          target: '_blank',
           subtitle: 'Encrypted text sharing',
         },
       ],
@@ -280,14 +273,12 @@ const LandingPageDesktopNavigation = () => {
         {
           href: `${CONFIG.DOCS_BASE_URL}/features/products`,
           label: 'Payments',
-          target: '_blank',
           subtitle: 'Accept payments for files',
         },
         {
           href: `${CONFIG.DOCS_BASE_URL}/features/finance/payouts`,
           label: 'Finance & Payouts',
           subtitle: 'Detailed financial insights',
-          target: '_blank',
         },
       ],
     },
