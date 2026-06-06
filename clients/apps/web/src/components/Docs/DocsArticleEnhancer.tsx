@@ -55,7 +55,7 @@ export const DocsArticleEnhancer = () => {
       anchor.ariaLabel = 'Link to this section'
       anchor.textContent = '#'
       anchor.className =
-        'ml-2 text-emerald-500 no-underline opacity-0 transition-opacity group-hover:opacity-100'
+        'ml-2 text-slate-400 no-underline opacity-0 transition-opacity group-hover:opacity-100'
       heading.appendChild(anchor)
     })
   }, [pathname])
