@@ -177,17 +177,28 @@ TECHNICAL_ERROR_VERDICT = WorkspaceAIValidationVerdict(
 
 
 class WorkspaceAIValidator:
-    """AI-powered workspace details validator using pydantic-ai."""
+    """AI-powered workspace details validator using pydantic-ai.
+
+    The OpenAI client is built lazily on first use: since pydantic-ai
+    1.x the provider raises at construction when no API key is
+    configured, and this module is imported (via the workspace actions
+    chain) in environments without one — e.g. the test suite.
+    """
 
     def __init__(self) -> None:
-        provider = OpenAIProvider(api_key=settings.OPENAI_API_KEY)
-        self.model = OpenAIChatModel(settings.OPENAI_MODEL, provider=provider)
+        self._agent: Agent[None, WorkspaceAIValidationVerdict] | None = None
 
-        self.agent = Agent(
-            self.model,
-            output_type=WorkspaceAIValidationVerdict,
-            system_prompt=SYSTEM_PROMPT,
-        )
+    @property
+    def agent(self) -> Agent[None, WorkspaceAIValidationVerdict]:
+        if self._agent is None:
+            provider = OpenAIProvider(api_key=settings.OPENAI_API_KEY)
+            model = OpenAIChatModel(settings.OPENAI_MODEL, provider=provider)
+            self._agent = Agent(
+                model,
+                output_type=WorkspaceAIValidationVerdict,
+                system_prompt=SYSTEM_PROMPT,
+            )
+        return self._agent
 
     def _validate_input(self, workspace: Workspace) -> None:
         """Validate workspace input before AI processing."""
@@ -257,7 +268,7 @@ class WorkspaceAIValidator:
                 )
 
             return WorkspaceAIValidationResult(
-                verdict=verdict, timed_out=timed_out, model=self.model.model_name
+                verdict=verdict, timed_out=timed_out, model=settings.OPENAI_MODEL
             )
 
         except Exception as e:
@@ -270,7 +281,7 @@ class WorkspaceAIValidator:
             verdict = TECHNICAL_ERROR_VERDICT
 
             return WorkspaceAIValidationResult(
-                verdict=verdict, timed_out=False, model=self.model.model_name
+                verdict=verdict, timed_out=False, model=settings.OPENAI_MODEL
             )
 
     def _prepare_workspace_context(self, workspace: Workspace) -> str:
