@@ -4,6 +4,7 @@ from rapidly.analytics.event import workers as event
 from rapidly.analytics.eventstream import workers as eventstream
 from rapidly.analytics.external_event import workers as external_event
 from rapidly.customers.customer import workers as customer
+from rapidly.customers.customer_portal import workers as customer_portal
 from rapidly.customers.customer_session import workers as customer_session
 from rapidly.identity.auth import workers as auth
 from rapidly.identity.login_code import workers as login_code
@@ -21,6 +22,7 @@ from rapidly.sharing.file_sharing import workers as file_sharing
 __all__ = [
     "auth",
     "customer",
+    "customer_portal",
     "customer_session",
     "email",
     "email_update",
