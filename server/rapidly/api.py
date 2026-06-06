@@ -56,6 +56,7 @@ from rapidly.platform.workspace.api import router as workspace_router
 from rapidly.platform.workspace_access_token.api import (
     router as workspace_access_token_router,
 )
+
 # ── Project management ──
 from rapidly.projects.activity.api import router as work_item_activity_router
 from rapidly.projects.comment.api import router as work_item_comment_router
@@ -63,8 +64,11 @@ from rapidly.projects.label.api import router as project_label_router
 from rapidly.projects.project.api import router as project_router
 from rapidly.projects.state.api import router as project_state_router
 from rapidly.projects.work_item.api import router as work_item_router
-from rapidly.sharing.markup.api import router as collab_router
 from rapidly.sharing.file_sharing.api import router as file_sharing_router
+from rapidly.sharing.markup.api import router as collab_router
+
+# ── Viewer (3D models) ──
+from rapidly.viewer.federated_model.api import router as federated_models_router
 
 router = APIRouter(prefix="/api")
 
@@ -107,6 +111,11 @@ router.include_router(files_router)
 router.include_router(file_sharing_router)
 # collab sessions (gated by FILE_SHARING_COLLAB_ENABLED)
 router.include_router(collab_router)
+
+# ── Viewer (3D models) ──
+
+# federated 3D models (IFC ingestion + XKT for the viewer)
+router.include_router(federated_models_router)
 
 # ── Customer lifecycle ──
 

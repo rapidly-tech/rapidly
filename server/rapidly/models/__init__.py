@@ -19,6 +19,9 @@ from .event import Event, EventClosure
 from .event_type import EventType
 from .external_event import ExternalEvent
 
+# ── Federated 3D models (Viewer chamber) ──
+from .federated_model import FederatedModel, ModelStatus
+
 # ── File sharing ──
 from .file import File
 from .file_share_download import FileShareDownload
@@ -28,6 +31,7 @@ from .file_share_session import FileShareSession, FileShareSessionStatus
 from .login_code import LoginCode
 from .member import Member, MemberRole
 from .member_session import MemberSession
+from .model_discipline import ModelDiscipline
 
 # ── Notifications ──
 from .notification import Notification
@@ -97,6 +101,7 @@ __all__ = [
     "EventClosure",
     "EventType",
     "ExternalEvent",
+    "FederatedModel",
     "File",
     "FileShareDownload",
     "FileSharePayment",
@@ -110,6 +115,8 @@ __all__ = [
     "MemberRole",
     "MemberSession",
     "Model",
+    "ModelDiscipline",
+    "ModelStatus",
     "Notification",
     "NotificationRecipient",
     "OAuth2AuthorizationCode",
