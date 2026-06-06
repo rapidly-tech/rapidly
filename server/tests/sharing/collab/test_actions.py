@@ -19,35 +19,14 @@ from rapidly.sharing.file_sharing.signaling import _AUTH_VALIDATORS
 async def _make_sibling_channel(redis: Redis, kind: str) -> tuple[ChannelData, str]:
     """Create a channel for a non-Collab chamber using its own service.
 
-    Routing through each chamber's ``create_*`` function (instead of
-    hand-rolling ``ChannelData``) keeps the tests honest: if a sibling
-    chamber changes its constructor shape the helper breaks loudly,
-    and our invariant stays pinned against the chamber as actually
-    shipped.
+    Post-M1.1 only ``"file"`` is left as a sibling kind — the media
+    chambers (screen / watch / call) were removed. The remaining
+    invariant (collab refuses to mint / close non-collab kinds) still
+    matters because file_sharing channels coexist with collab channels
+    in the same Redis namespace.
     """
     if kind == "file":
         return await ChannelRepository(redis).create_channel(ttl=600)
-    if kind == "screen":
-        from rapidly.sharing.screen import actions as screen_service
-
-        return await screen_service.create_screen_session(
-            redis, title=None, max_viewers=2
-        )
-    if kind == "watch":
-        from rapidly.sharing.watch import actions as watch_service
-
-        return await watch_service.create_watch_session(
-            redis,
-            title=None,
-            max_viewers=2,
-            source_url="https://example.com/video.mp4",
-        )
-    if kind == "call":
-        from rapidly.sharing.call import actions as call_service
-
-        return await call_service.create_call_session(
-            redis, title=None, max_participants=2
-        )
     raise ValueError(f"unknown sibling kind {kind!r}")
 
 
@@ -58,8 +37,10 @@ class TestSessionKindExtension:
     def test_validate_session_kind_accepts_collab(self) -> None:
         validate_session_kind("collab")  # must not raise
 
-    def test_existing_kinds_still_supported(self) -> None:
-        assert {"file", "screen", "watch", "call"}.issubset(SESSION_KINDS)
+    def test_file_kind_still_supported(self) -> None:
+        # file_sharing is the only sibling kind left after M1.1; screen
+        # / watch / call were removed when their chambers were deleted.
+        assert "file" in SESSION_KINDS
 
 
 class TestChannelDataCollabRoundtrip:
@@ -164,30 +145,17 @@ class TestInviteTokens:
             is False
         )
 
-    async def test_mint_refuses_call_channel(self, redis: Redis) -> None:
-        """Security: mint for a non-Collab channel kind must return None."""
-        from rapidly.sharing.call import actions as call_service
-
-        channel, secret = await call_service.create_call_session(
-            redis, title=None, max_participants=3
-        )
-        assert (
-            await collab_service.mint_invite_token(redis, channel.short_slug, secret)
-            is None
-        )
-
-    @pytest.mark.parametrize(
-        "sibling_kind",
-        ["file", "screen", "watch", "call"],
-    )
+    @pytest.mark.parametrize("sibling_kind", ["file"])
     async def test_mint_refuses_every_sibling_kind(
         self, redis: Redis, sibling_kind: str
     ) -> None:
-        """Defense-in-depth: mint must refuse every existing chamber kind.
+        """Defense-in-depth: mint must refuse every existing non-collab kind.
 
         Pinning the invariant once per sibling means adding a new
         session_kind in a future PR cannot silently widen the surface
-        area — the test must be updated explicitly.
+        area — the test must be updated explicitly. Post-M1.1 only
+        ``file`` remains as a sibling kind; the per-kind test for
+        ``call`` was removed when the chamber was deleted.
         """
         channel, secret = await _make_sibling_channel(redis, sibling_kind)
         assert (
@@ -210,12 +178,12 @@ class TestGetPublicView:
         assert view["kind"] == "text"
         assert "secret" not in view
 
-    async def test_returns_none_for_watch_session(self, redis: Redis) -> None:
-        from rapidly.sharing.watch import actions as watch_service
-
-        channel, _ = await watch_service.create_watch_session(
-            redis, title=None, max_viewers=3, source_url=None
-        )
+    async def test_returns_none_for_file_session(self, redis: Redis) -> None:
+        # file_sharing channels are the only remaining non-collab kind
+        # after M1.1. The invariant (get_public_view returns None for
+        # non-collab kinds) still holds; the call/watch-flavored tests
+        # were removed with their chambers.
+        channel, _ = await ChannelRepository(redis).create_channel(ttl=600)
         assert await collab_service.get_public_view(redis, channel.short_slug) is None
 
     async def test_returns_none_for_unknown_slug(self, redis: Redis) -> None:
@@ -258,7 +226,7 @@ class TestCloseCollabSession:
 
     @pytest.mark.parametrize(
         "sibling_kind",
-        ["file", "screen", "watch", "call"],
+        ["file"],
     )
     async def test_close_refuses_every_sibling_kind(
         self, redis: Redis, sibling_kind: str
