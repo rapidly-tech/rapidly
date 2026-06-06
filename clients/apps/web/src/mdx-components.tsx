@@ -1,3 +1,16 @@
+import {
+  Accordion,
+  AccordionGroup,
+  Card,
+  CardGroup,
+  CodeGroup,
+  Frame,
+  ParamField,
+  Step,
+  Steps,
+  Update,
+} from '@/components/Docs/Blocks'
+import { Danger, Info, Note, Tip, Warning } from '@/components/Docs/Callout'
 import ProseWrapper from '@/components/MDX/ProseWrapper'
 import type { MDXComponents } from 'mdx/types'
 // eslint-disable-next-line no-restricted-imports
@@ -38,6 +51,23 @@ const resolveImageModeClasses = (
 export function useMDXComponents(components: MDXComponents): MDXComponents {
   return {
     ...components,
+
+    // Documentation building blocks (app/(main)/(website)/docs)
+    Accordion,
+    AccordionGroup,
+    Card,
+    CardGroup,
+    CodeGroup,
+    Danger,
+    Frame,
+    Info,
+    Note,
+    ParamField,
+    Step,
+    Steps,
+    Tip,
+    Update,
+    Warning,
 
     BodyWrapper({ children }) {
       return (
