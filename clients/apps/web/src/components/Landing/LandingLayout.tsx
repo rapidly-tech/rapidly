@@ -14,7 +14,7 @@ import {
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ComponentProps, PropsWithChildren } from 'react'
+import { ComponentProps, PropsWithChildren, useEffect, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { NavPopover, NavPopoverSection } from './NavPopover'
 
@@ -199,8 +199,25 @@ const LandingPageMobileNavigation = () => {
 
 // ── Desktop Navigation ──
 
+// Transparent over the hero at the top of the page; gains the page
+// background + blur once scrolled so the pinned nav stays legible
+// without cutting the hero decorations.
+const useScrolled = () => {
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 16)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  return scrolled
+}
+
 const LandingPageDesktopNavigation = () => {
   const pathname = usePathname()
+  const scrolled = useScrolled()
 
   const featuresSections: NavPopoverSection[] = [
     {
@@ -290,7 +307,10 @@ const LandingPageDesktopNavigation = () => {
   return (
     <nav
       aria-label="Main navigation"
-      className="rp-text-primary sticky top-0 z-40 hidden w-full flex-col items-center gap-12 bg-(--background)/85 px-4 py-4 backdrop-blur-xl md:flex"
+      className={twMerge(
+        'rp-text-primary sticky top-0 z-40 hidden w-full flex-col items-center gap-12 px-4 py-4 transition-colors duration-300 md:flex',
+        scrolled && 'bg-(--background)/85 backdrop-blur-xl',
+      )}
     >
       <div className="relative flex w-full flex-row items-center justify-between lg:max-w-6xl">
         <RapidlyLogotype logoVariant="icon" size={40} href="/" />
