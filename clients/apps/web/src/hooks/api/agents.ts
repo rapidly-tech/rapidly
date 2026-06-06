@@ -211,13 +211,48 @@ export interface RunDetail extends Run {
   output_data: Record<string, unknown>
 }
 
+const TERMINAL_RUN_STATUSES: RunStatus[] = ['succeeded', 'failed', 'cancelled']
+
 export const useRun = (id: string | undefined) =>
   useQuery({
     queryKey: runKey('detail', id ?? ''),
     queryFn: () => fetchRun(id!),
     retry: baseRetry,
     enabled: !!id,
+    // Poll every 2s while the run is non-terminal. Once it
+    // lands in succeeded / failed / cancelled, ``refetchInterval``
+    // returns false and the cache stops moving. This is the
+    // same shape M5.5's eval-cases hook uses; the two together
+    // give a near-live UI without any websocket plumbing.
+    refetchInterval: (q) => {
+      const data = q.state.data as RunDetail | undefined
+      if (!data) return 2000
+      return TERMINAL_RUN_STATUSES.includes(data.status) ? false : 2000
+    },
   })
+
+async function cancelRun(id: string): Promise<RunDetail> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/runs/${id}/cancel`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    throw new Error(`run cancel failed: ${res.status}`)
+  }
+  return (await res.json()) as RunDetail
+}
+
+export const useCancelRun = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: cancelRun,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: runKey() })
+    },
+  })
+}
 
 // ── Node runs (per-step records under a run) ──
 
@@ -278,12 +313,19 @@ async function fetchNodeRuns(runId: string): Promise<PaginatedNodeRuns> {
   return (await res.json()) as PaginatedNodeRuns
 }
 
-export const useNodeRuns = (runId: string | undefined) =>
+export const useNodeRuns = (
+  runId: string | undefined,
+  options: { isRunActive?: boolean } = {},
+) =>
   useQuery({
     queryKey: nodeRunKey('list', runId ?? ''),
     queryFn: () => fetchNodeRuns(runId!),
     retry: baseRetry,
     enabled: !!runId,
+    // Poll only while the parent Run is non-terminal. The
+    // caller passes ``isRunActive`` based on the Run's
+    // status; once it goes false the cache stops moving.
+    refetchInterval: options.isRunActive ? 2000 : false,
   })
 
 // ══════════════════════════════════════════════
@@ -506,12 +548,29 @@ async function fetchEvalRun(id: string): Promise<EvalRun> {
   return (await res.json()) as EvalRun
 }
 
+const TERMINAL_EVAL_STATUSES: EvalRunStatus[] = [
+  'succeeded',
+  'failed',
+  'cancelled',
+]
+
 export const useEvalRun = (id: string | undefined) =>
   useQuery({
     queryKey: evalRunKey('detail', id ?? ''),
     queryFn: () => fetchEvalRun(id!),
     retry: baseRetry,
     enabled: !!id,
+    // Poll while the eval is non-terminal so the header
+    // case_count + pass/fail counters tick live as the
+    // runner increments them. Same shape as useRun (M5.9).
+    // The cases endpoint already polls (M5.5); pairing
+    // the two means the whole eval-run detail page feels
+    // live without a websocket.
+    refetchInterval: (q) => {
+      const data = q.state.data as EvalRun | undefined
+      if (!data) return 2500
+      return TERMINAL_EVAL_STATUSES.includes(data.status) ? false : 2500
+    },
   })
 
 async function fetchEvalRunCases(id: string): Promise<EvalRunCase[]> {
@@ -562,18 +621,21 @@ export const useTriggerEval = () => {
   })
 }
 
-export const useEvalRunCases = (id: string | undefined) =>
+export const useEvalRunCases = (
+  id: string | undefined,
+  options: { isEvalActive?: boolean } = {},
+) =>
   useQuery({
     queryKey: evalRunKey('cases', id ?? ''),
     queryFn: () => fetchEvalRunCases(id!),
     retry: baseRetry,
     enabled: !!id,
-    // Polling: the cases endpoint is the operator's
-    // "is my eval done yet" surface. 3-second refetch while
-    // the parent eval is in-flight is cheap and gives a
-    // near-live UI. Once the eval completes the React Query
-    // cache won't change so the polling effectively idles.
-    refetchInterval: 3000,
+    // Poll only while the parent eval is non-terminal —
+    // mirrors the pattern useNodeRuns uses for run-detail
+    // polling. The page passes ``isEvalActive`` based on
+    // the eval's status; once it goes false the cache stops
+    // moving and the polling effectively idles.
+    refetchInterval: options.isEvalActive ? 3000 : false,
   })
 
 // ══════════════════════════════════════════════

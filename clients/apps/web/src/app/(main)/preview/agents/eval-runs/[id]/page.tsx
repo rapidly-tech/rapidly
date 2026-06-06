@@ -10,6 +10,8 @@ import {
 import Link from 'next/link'
 import { use, useState } from 'react'
 
+const TERMINAL_EVAL: EvalRunStatus[] = ['succeeded', 'failed', 'cancelled']
+
 export default function EvalRunDetailPage({
   params,
 }: {
@@ -17,9 +19,10 @@ export default function EvalRunDetailPage({
 }) {
   const { id } = use(params)
   const evalQuery = useEvalRun(id)
-  const casesQuery = useEvalRunCases(id)
-
   const evalRun = evalQuery.data
+  const isActive = evalRun ? !TERMINAL_EVAL.includes(evalRun.status) : false
+  const casesQuery = useEvalRunCases(id, { isEvalActive: isActive })
+
   const cases: EvalRunCase[] = casesQuery.data ?? []
 
   return (
