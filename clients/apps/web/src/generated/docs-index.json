@@ -1029,6 +1029,522 @@
     }
    ],
    "body": "Support This page outlines Rapidly's support plans, available channels, and policies. To learn how to access support, please refer to the Support channels section. Identify the channels available to you based on your usage and follow the links to navigate to the relevant information. Support channels The support channels you can access differ according to your use of Rapidly. | Support channels | Community support | Billing support | Standard support | | :---------------- | :---------------: | :-------------: | :--------------: | | GitHub | &check; | &cross; | &cross; | | Email | - | &check; | &check; | Email You can reach us at support@rapidly.tech. GitHub - Found a bug? - Have a feature request? - Join the discussion — community Q&A and feature talk lives here. Etiquette Regardless of the method or location through which Rapidly provides Support, communication should be professional and respectful. Any communication that is deemed objectionable by Rapidly staff is not tolerated. This includes but is not limited to any communication that is abusive or contains profane language. Rapidly reserves the right to terminate Support Services in the event of any such objectionable communication. Customer responsibilities To ensure efficient resolution of issues, customers are expected to (1) provide detailed information about the issue, (2) cooperate with the Support team during troubleshooting, and (3) utilize available self-service resources for basic inquiries. Changes to the support policy We reserve the right to modify, amend, or update this Support Policy, including the types of support offered, support hours, response times, and support plans, at any time and at our sole discretion. Any changes to the Support Policy will be effective immediately upon posting a revised version of this Support Policy. Continued use of our services after such modifications will constitute acknowledgment and acceptance of the changes."
+  },
+  {
+   "href": "/docs/api-reference/customers",
+   "title": "Customers API",
+   "description": "REST API reference for Customers",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "list-customers",
+     "text": "List Customers",
+     "level": 2
+    },
+    {
+     "id": "create-customer",
+     "text": "Create Customer",
+     "level": 2
+    },
+    {
+     "id": "export-customers",
+     "text": "Export Customers",
+     "level": 2
+    },
+    {
+     "id": "get-customer",
+     "text": "Get Customer",
+     "level": 2
+    },
+    {
+     "id": "update-customer",
+     "text": "Update Customer",
+     "level": 2
+    },
+    {
+     "id": "delete-customer",
+     "text": "Delete Customer",
+     "level": 2
+    },
+    {
+     "id": "get-customer-by-external-id",
+     "text": "Get Customer by External ID",
+     "level": 2
+    },
+    {
+     "id": "update-customer-by-external-id",
+     "text": "Update Customer by External ID",
+     "level": 2
+    },
+    {
+     "id": "delete-customer-by-external-id",
+     "text": "Delete Customer by External ID",
+     "level": 2
+    },
+    {
+     "id": "get-customer-state",
+     "text": "Get Customer State",
+     "level": 2
+    },
+    {
+     "id": "get-customer-state-by-external-id",
+     "text": "Get Customer State by External ID",
+     "level": 2
+    },
+    {
+     "id": "get-customer",
+     "text": "Get Customer",
+     "level": 2
+    },
+    {
+     "id": "update-customer",
+     "text": "Update Customer",
+     "level": 2
+    }
+   ],
+   "body": "List Customers GET /api/customers/ List customers.\n\n**Scopes**: `customers:read` `customers:write` Create Customer POST /api/customers/ Create a customer.\n\n**Scopes**: `customers:write` Export Customers GET /api/customers/export Export customers as a CSV file.\n\n**Scopes**: `customers:read` `customers:write` Get Customer GET /api/customers/{id} Get a customer by ID.\n\n**Scopes**: `customers:read` `customers:write` Update Customer PATCH /api/customers/{id} Update a customer.\n\n**Scopes**: `customers:write` Delete Customer DELETE /api/customers/{id} Delete a customer.\n\nThis action cannot be undone and will immediately:\n- Soft-delete the customer record\n- Clear any `external_id`\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write` Get Customer by External ID GET /api/customers/external/{external_id} Get a customer by external ID.\n\n**Scopes**: `customers:read` `customers:write` Update Customer by External ID PATCH /api/customers/external/{external_id} Update a customer by external ID.\n\n**Scopes**: `customers:write` Delete Customer by External ID DELETE /api/customers/external/{external_id} Delete a customer by external ID.\n\nSoft-deletes the customer record.\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write` Get Customer State GET /api/customers/{id}/state Get a customer state by ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write` Get Customer State by External ID GET /api/customers/external/{external_id}/state Get a customer state by external ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write` Get Customer GET /api/customer-portal/customers/me Get authenticated customer.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Update Customer PATCH /api/customer-portal/customers/me Update authenticated customer."
+  },
+  {
+   "href": "/docs/api-reference/customer-portal",
+   "title": "Customer Portal API",
+   "description": "REST API reference for Customer Portal",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "get-customer",
+     "text": "Get Customer",
+     "level": 2
+    },
+    {
+     "id": "update-customer",
+     "text": "Update Customer",
+     "level": 2
+    },
+    {
+     "id": "get-authenticated-portal-user",
+     "text": "Get Authenticated Portal User",
+     "level": 2
+    },
+    {
+     "id": "introspect-customer-session",
+     "text": "Introspect Customer Session",
+     "level": 2
+    },
+    {
+     "id": "customer-portalcustomer-sessionrequest",
+     "text": "Customer Portal.Customer Session.Request",
+     "level": 2
+    },
+    {
+     "id": "customer-portalcustomer-sessionauthenticate",
+     "text": "Customer Portal.Customer Session.Authenticate",
+     "level": 2
+    },
+    {
+     "id": "list-file-sharing-sessions",
+     "text": "List File Sharing Sessions",
+     "level": 2
+    },
+    {
+     "id": "get-file-sharing-session",
+     "text": "Get File Sharing Session",
+     "level": 2
+    },
+    {
+     "id": "list-session-downloads",
+     "text": "List Session Downloads",
+     "level": 2
+    },
+    {
+     "id": "list-session-payments",
+     "text": "List Session Payments",
+     "level": 2
+    },
+    {
+     "id": "list-members",
+     "text": "List Members",
+     "level": 2
+    },
+    {
+     "id": "add-member",
+     "text": "Add Member",
+     "level": 2
+    },
+    {
+     "id": "update-member",
+     "text": "Update Member",
+     "level": 2
+    },
+    {
+     "id": "remove-member",
+     "text": "Remove Member",
+     "level": 2
+    },
+    {
+     "id": "customer-portaloauth-accountsauthorize",
+     "text": "Customer Portal.Oauth Accounts.Authorize",
+     "level": 2
+    },
+    {
+     "id": "customer-portaloauth-accountscallback",
+     "text": "Customer Portal.Oauth Accounts.Callback",
+     "level": 2
+    },
+    {
+     "id": "list-payment-methods",
+     "text": "List Payment Methods",
+     "level": 2
+    },
+    {
+     "id": "add-payment-method",
+     "text": "Add Payment Method",
+     "level": 2
+    },
+    {
+     "id": "confirm-payment-method",
+     "text": "Confirm Payment Method",
+     "level": 2
+    },
+    {
+     "id": "delete-payment-method",
+     "text": "Delete Payment Method",
+     "level": 2
+    },
+    {
+     "id": "set-default-payment-method",
+     "text": "Set Default Payment Method",
+     "level": 2
+    },
+    {
+     "id": "get-workspace",
+     "text": "Get Workspace",
+     "level": 2
+    }
+   ],
+   "body": "Get Customer GET /api/customer-portal/customers/me Get authenticated customer.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Update Customer PATCH /api/customer-portal/customers/me Update authenticated customer. Get Authenticated Portal User GET /api/customer-portal/customer-session/user Return info about the currently authenticated portal user.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Introspect Customer Session GET /api/customer-portal/customer-session/introspect Introspect the current session and return its information.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Customer Portal.Customer Session.Request POST /api/customer-portal/customer-session/request  Customer Portal.Customer Session.Authenticate POST /api/customer-portal/customer-session/authenticate  List File Sharing Sessions GET /api/customer-portal/file-sharing/sessions List file sharing sessions for the authenticated member's workspace.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Get File Sharing Session GET /api/customer-portal/file-sharing/sessions/{id} Get a file sharing session by ID.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Session Downloads GET /api/customer-portal/file-sharing/sessions/{id}/downloads List downloads for a file sharing session.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Session Payments GET /api/customer-portal/file-sharing/sessions/{id}/payments List payments for a file sharing session.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Members GET /api/customer-portal/members List all members of the customer's team.\n\nOnly available to owners and billing managers of team customers. Add Member POST /api/customer-portal/members Add a new member to the customer's team.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot add a member with the owner role (there must be exactly one owner)\n- If a member with this email already exists, the existing member is returned Update Member PATCH /api/customer-portal/members/{id} Update a member's role.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot modify your own role (to prevent self-demotion)\n- Customer must have exactly one owner at all times Remove Member DELETE /api/customer-portal/members/{id} Remove a member from the team.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot remove yourself\n- Cannot remove the only owner Customer Portal.Oauth Accounts.Authorize GET /api/customer-portal/oauth-accounts/authorize **Scopes**: `customer_portal:write` Customer Portal.Oauth Accounts.Callback GET /api/customer-portal/oauth-accounts/callback **Scopes**: `customer_portal:write` List Payment Methods GET /api/customer-portal/payment-methods List all saved payment methods for the authenticated customer. Add Payment Method POST /api/customer-portal/payment-methods Add a new payment method via Stripe SetupIntent.\n\nReturns ``succeeded`` with the saved payment method, or\n``requires_action`` with a ``client_secret`` for 3D Secure. Confirm Payment Method POST /api/customer-portal/payment-methods/confirm Complete the add-card flow after 3D Secure verification. Delete Payment Method DELETE /api/customer-portal/payment-methods/{id} Remove a saved payment method. Set Default Payment Method POST /api/customer-portal/payment-methods/{id}/default Set a payment method as the customer's default. Get Workspace GET /api/customer-portal/workspaces/{slug} Get a customer portal's workspace by slug."
+  },
+  {
+   "href": "/docs/api-reference/shares",
+   "title": "Shares API",
+   "description": "REST API reference for Shares",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "list-shares",
+     "text": "List Shares",
+     "level": 2
+    },
+    {
+     "id": "create-share",
+     "text": "Create Share",
+     "level": 2
+    },
+    {
+     "id": "get-share",
+     "text": "Get Share",
+     "level": 2
+    },
+    {
+     "id": "update-share",
+     "text": "Update Share",
+     "level": 2
+    }
+   ],
+   "body": "List Shares GET /api/shares/ List products.\n\n**Scopes**: `shares:read` `shares:write` Create Share POST /api/shares/ Create a share.\n\n**Scopes**: `shares:write` Get Share GET /api/shares/{id} Get a share by ID.\n\n**Scopes**: `shares:read` `shares:write` Update Share PATCH /api/shares/{id} Update a share.\n\n**Scopes**: `shares:write`"
+  },
+  {
+   "href": "/docs/api-reference/files",
+   "title": "Files API",
+   "description": "REST API reference for Files",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "create-file",
+     "text": "Create File",
+     "level": 2
+    },
+    {
+     "id": "list-files",
+     "text": "List Files",
+     "level": 2
+    },
+    {
+     "id": "complete-file-upload",
+     "text": "Complete File Upload",
+     "level": 2
+    },
+    {
+     "id": "update-file",
+     "text": "Update File",
+     "level": 2
+    },
+    {
+     "id": "delete-file",
+     "text": "Delete File",
+     "level": 2
+    }
+   ],
+   "body": "Create File POST /api/files/ Initiate a file upload by requesting pre-signed URLs.\n\n**Scopes**: `files:write` List Files GET /api/files/ List files.\n\n**Scopes**: `files:read` `files:write` Complete File Upload POST /api/files/{id}/uploaded Mark a file upload as completed.\n\n**Scopes**: `files:write` Update File PATCH /api/files/{id} Update a file.\n\n**Scopes**: `files:write` Delete File DELETE /api/files/{id} Delete a file.\n\n**Scopes**: `files:write`"
+  },
+  {
+   "href": "/docs/api-reference/events",
+   "title": "Events API",
+   "description": "REST API reference for Events",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "ingest-events",
+     "text": "Ingest Events",
+     "level": 2
+    },
+    {
+     "id": "get-event",
+     "text": "Get Event",
+     "level": 2
+    },
+    {
+     "id": "list-events",
+     "text": "List Events",
+     "level": 2
+    },
+    {
+     "id": "list-event-names",
+     "text": "List Event Names",
+     "level": 2
+    },
+    {
+     "id": "list-statistics-timeseries",
+     "text": "List statistics timeseries",
+     "level": 2
+    }
+   ],
+   "body": "Ingest Events POST /api/events/ingest Ingest batch of events.\n\n**Scopes**: `events:write` Get Event GET /api/events/{id} Get an event by ID.\n\n**Scopes**: `events:read` `events:write` List Events GET /api/events/ List events.\n\n**Scopes**: `events:read` `events:write` List Event Names GET /api/events/names List event names.\n\n**Scopes**: `events:read` `events:write` List statistics timeseries GET /api/events/statistics/timeseries Get aggregate statistics grouped by root event name over time.\n\nReturns time series data with periods and totals, similar to the metrics endpoint.\nEach period contains stats grouped by event name, and totals show overall stats\nacross all periods.\n\n**Scopes**: `events:read` `events:write`"
+  },
+  {
+   "href": "/docs/api-reference/metrics",
+   "title": "Metrics API",
+   "description": "REST API reference for Metrics",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "get-metrics-limits",
+     "text": "Get Metrics Limits",
+     "level": 2
+    },
+    {
+     "id": "get-metrics",
+     "text": "Get Metrics",
+     "level": 2
+    }
+   ],
+   "body": "Get Metrics Limits GET /api/metrics/limits Return the allowed day-ranges for each time interval.\n\n**Scopes**: `metrics:read` Get Metrics GET /api/metrics/ Get metrics about your file shares and costs.\n\nCurrency values are output in cents.\n\n**Scopes**: `metrics:read`"
+  },
+  {
+   "href": "/docs/api-reference/webhooks",
+   "title": "Webhooks API",
+   "description": "REST API reference for Webhooks",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "redeliver-webhook-event",
+     "text": "Redeliver Webhook Event",
+     "level": 2
+    },
+    {
+     "id": "list-webhook-deliveries",
+     "text": "List Webhook Deliveries",
+     "level": 2
+    },
+    {
+     "id": "list-webhook-endpoints",
+     "text": "List Webhook Endpoints",
+     "level": 2
+    },
+    {
+     "id": "create-webhook-endpoint",
+     "text": "Create Webhook Endpoint",
+     "level": 2
+    },
+    {
+     "id": "get-webhook-endpoint",
+     "text": "Get Webhook Endpoint",
+     "level": 2
+    },
+    {
+     "id": "update-webhook-endpoint",
+     "text": "Update Webhook Endpoint",
+     "level": 2
+    },
+    {
+     "id": "delete-webhook-endpoint",
+     "text": "Delete Webhook Endpoint",
+     "level": 2
+    },
+    {
+     "id": "reset-webhook-endpoint-secret",
+     "text": "Reset Webhook Endpoint Secret",
+     "level": 2
+    }
+   ],
+   "body": "Redeliver Webhook Event POST /api/webhooks/events/{id}/redeliver Schedule the re-delivery of a webhook event.\n\n**Scopes**: `webhooks:write` List Webhook Deliveries GET /api/webhooks/deliveries List webhook deliveries.\n\nDeliveries are all the attempts to deliver a webhook event to an endpoint.\n\n**Scopes**: `webhooks:read` `webhooks:write` List Webhook Endpoints GET /api/webhooks/endpoints List webhook endpoints.\n\n**Scopes**: `webhooks:read` `webhooks:write` Create Webhook Endpoint POST /api/webhooks/endpoints Create a webhook endpoint.\n\n**Scopes**: `webhooks:write` Get Webhook Endpoint GET /api/webhooks/endpoints/{id} Get a webhook endpoint by ID.\n\n**Scopes**: `webhooks:read` `webhooks:write` Update Webhook Endpoint PATCH /api/webhooks/endpoints/{id} Update a webhook endpoint.\n\n**Scopes**: `webhooks:write` Delete Webhook Endpoint DELETE /api/webhooks/endpoints/{id} Delete a webhook endpoint.\n\n**Scopes**: `webhooks:write` Reset Webhook Endpoint Secret PATCH /api/webhooks/endpoints/{id}/secret Regenerate a webhook endpoint secret.\n\n**Scopes**: `webhooks:write`"
+  },
+  {
+   "href": "/docs/api-reference/workspaces",
+   "title": "Workspaces API",
+   "description": "REST API reference for Workspaces",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "list-workspaces",
+     "text": "List Workspaces",
+     "level": 2
+    },
+    {
+     "id": "create-workspace",
+     "text": "Create Workspace",
+     "level": 2
+    },
+    {
+     "id": "get-workspace",
+     "text": "Get Workspace",
+     "level": 2
+    },
+    {
+     "id": "update-workspace",
+     "text": "Update Workspace",
+     "level": 2
+    },
+    {
+     "id": "delete-workspace",
+     "text": "Delete Workspace",
+     "level": 2
+    },
+    {
+     "id": "get-workspace-account",
+     "text": "Get Workspace Account",
+     "level": 2
+    },
+    {
+     "id": "switch-workspace-stripe-account",
+     "text": "Switch Workspace Stripe Account",
+     "level": 2
+    },
+    {
+     "id": "get-workspace-payment-status",
+     "text": "Get Workspace Payment Status",
+     "level": 2
+    },
+    {
+     "id": "members",
+     "text": "Members",
+     "level": 2
+    },
+    {
+     "id": "invite-member",
+     "text": "Invite Member",
+     "level": 2
+    },
+    {
+     "id": "leave-workspace",
+     "text": "Leave Workspace",
+     "level": 2
+    },
+    {
+     "id": "remove-member",
+     "text": "Remove Member",
+     "level": 2
+    },
+    {
+     "id": "validate-workspace-details-with-ai",
+     "text": "Validate Workspace Details with AI",
+     "level": 2
+    },
+    {
+     "id": "submit-appeal-for-workspace-review",
+     "text": "Submit Appeal for Workspace Review",
+     "level": 2
+    },
+    {
+     "id": "mark-ai-onboarding-complete",
+     "text": "Mark AI Onboarding Complete",
+     "level": 2
+    },
+    {
+     "id": "get-workspace-review-status",
+     "text": "Get Workspace Review Status",
+     "level": 2
+    },
+    {
+     "id": "get-workspace",
+     "text": "Get Workspace",
+     "level": 2
+    }
+   ],
+   "body": "List Workspaces GET /api/workspaces/ List workspaces.\n\n**Scopes**: `workspaces:read` `workspaces:write` Create Workspace POST /api/workspaces/ Create an workspace.\n\n**Scopes**: `workspaces:write` Get Workspace GET /api/workspaces/{id} Get an workspace by ID.\n\n**Scopes**: `workspaces:read` `workspaces:write` Update Workspace PATCH /api/workspaces/{id} Update an workspace.\n\n**Scopes**: `workspaces:write` Delete Workspace DELETE /api/workspaces/{id} Request deletion of a workspace.\n\nIf the workspace has no blocking resources, it will be immediately\nsoft-deleted. If it has a Stripe account, that will be deleted first.\n\nIf deletion cannot proceed immediately (e.g. Stripe deletion fails),\na support ticket will be created for manual handling.\n\n**Scopes**: `workspaces:write` Get Workspace Account GET /api/workspaces/{id}/account Get the account for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Switch Workspace Stripe Account POST /api/workspaces/{id}/switch-account Switch the workspace's active Stripe account to an existing one.\n\n**Scopes**: `workspaces:write` Get Workspace Payment Status GET /api/workspaces/{id}/payment-status Get payment status and onboarding steps for an workspace. Members GET /api/workspaces/{id}/members List members in an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Invite Member POST /api/workspaces/{id}/members/invite Invite a user to join an workspace.\n\n**Scopes**: `workspaces:write` Leave Workspace DELETE /api/workspaces/{id}/members/leave Leave an workspace.\n\nUsers can only leave an workspace if they are not the admin\nand there is at least one other member.\n\n**Scopes**: `workspaces:write` Remove Member DELETE /api/workspaces/{id}/members/{user_id} Remove a member from an workspace.\n\nOnly workspace admins can remove members.\nAdmins cannot remove themselves.\n\n**Scopes**: `workspaces:write` Validate Workspace Details with AI POST /api/workspaces/{id}/ai-validation Validate workspace details using AI compliance check.\n\n**Scopes**: `workspaces:write` Submit Appeal for Workspace Review POST /api/workspaces/{id}/appeal Submit an appeal for workspace review after AI validation failure.\n\n**Scopes**: `workspaces:write` Mark AI Onboarding Complete POST /api/workspaces/{id}/ai-onboarding-complete Mark the AI onboarding as completed for this workspace.\n\n**Scopes**: `workspaces:write` Get Workspace Review Status GET /api/workspaces/{id}/review-status Get the current review status and appeal information for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Get Workspace GET /api/customer-portal/workspaces/{slug} Get a customer portal's workspace by slug."
+  },
+  {
+   "href": "/docs/api-reference/oauth2",
+   "title": "OAuth 2.0 API",
+   "description": "REST API reference for OAuth 2.0",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "list-clients",
+     "text": "List Clients",
+     "level": 2
+    },
+    {
+     "id": "create-client",
+     "text": "Create Client",
+     "level": 2
+    },
+    {
+     "id": "get-client",
+     "text": "Get Client",
+     "level": 2
+    },
+    {
+     "id": "update-client",
+     "text": "Update Client",
+     "level": 2
+    },
+    {
+     "id": "delete-client",
+     "text": "Delete Client",
+     "level": 2
+    },
+    {
+     "id": "authorize",
+     "text": "Authorize",
+     "level": 2
+    },
+    {
+     "id": "consent",
+     "text": "Consent",
+     "level": 2
+    },
+    {
+     "id": "request-token",
+     "text": "Request Token",
+     "level": 2
+    },
+    {
+     "id": "revoke-token",
+     "text": "Revoke Token",
+     "level": 2
+    },
+    {
+     "id": "introspect-token",
+     "text": "Introspect Token",
+     "level": 2
+    },
+    {
+     "id": "get-user-info",
+     "text": "Get User Info",
+     "level": 2
+    }
+   ],
+   "body": "List Clients GET /api/oauth2/ List OAuth2 clients belonging to the authenticated user. Create Client POST /api/oauth2/register Register a new OAuth2 client (RFC 7591). Get Client GET /api/oauth2/register/{client_id} Read an OAuth2 client's configuration (RFC 7592). Update Client PUT /api/oauth2/register/{client_id} Update an OAuth2 client's configuration (RFC 7592). Delete Client DELETE /api/oauth2/register/{client_id} Soft-delete an OAuth2 client (RFC 7592). Authorize GET /api/oauth2/authorize Begin the authorization code flow (returns consent metadata or auto-approves). Consent POST /api/oauth2/consent Handle the user's consent decision (allow or deny). Request Token POST /api/oauth2/token Exchange a grant for an access token. Revoke Token POST /api/oauth2/revoke Revoke an access or refresh token. Introspect Token POST /api/oauth2/introspect Return metadata about an active token. Get User Info GET /api/oauth2/userinfo Return OpenID Connect claims for the authenticated subject."
   }
  ]
 }
