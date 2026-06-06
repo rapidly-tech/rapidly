@@ -28,9 +28,7 @@ const Footer = ({ email }: { email: string | null }) => (
           .
         </Text>
       )}
-      <Text className="font-semibold text-gray-900">
-        &copy; 2026 Rapidly
-      </Text>
+      <Text className="font-semibold text-gray-900">&copy; 2026 Rapidly</Text>
     </Section>
   </>
 )
