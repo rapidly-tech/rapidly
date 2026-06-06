@@ -14,3 +14,8 @@ onlyBuiltDependencies:
   - openapi-typescript
 
 minimumReleaseAge: 1440
+# Types-only packages from DefinitelyTyped — no executable supply-chain
+# surface; excluded so routine installs don't trip on fresh releases.
+minimumReleaseAgeExclude:
+  - '@types/*'
+
