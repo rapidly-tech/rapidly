@@ -9,19 +9,19 @@ import type { schemas } from '../types'
 /** Alert email when a webhook endpoint is automatically disabled due to repeated failures. */
 export function WebhookEndpointDisabled({
   email,
-  organization,
+  workspace,
   webhook_endpoint_url,
   dashboard_url,
 }: schemas['WebhookEndpointDisabledProps']) {
   return (
     <WrapperRapidly>
       <Preview>
-        Webhook endpoint disabled for {organization.name} due to continuous
+        Webhook endpoint disabled for {workspace.name} due to continuous
         failures
       </Preview>
       <Intro>
         We've automatically disabled a webhook endpoint for{' '}
-        <span className="font-bold">{organization.name}</span> due to continuous
+        <span className="font-bold">{workspace.name}</span> due to continuous
         delivery failures.
       </Intro>
       <Section>
@@ -57,7 +57,7 @@ export function WebhookEndpointDisabled({
 
 WebhookEndpointDisabled.PreviewProps = {
   email: 'admin@example.com',
-  organization: {
+  workspace: {
     id: '123e4567-e89b-12d3-a456-426614174000',
     name: 'Acme Inc.',
     slug: 'acme-inc',

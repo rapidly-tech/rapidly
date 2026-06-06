@@ -10,6 +10,7 @@ import structlog
 from fastapi import HTTPException, Request, WebSocket
 from redis import RedisError
 
+from rapidly.core.rate_limit import resolve_client_ip
 from rapidly.redis import Redis
 
 from .redis_scripts import ATOMIC_INCR_EXPIRE_LUA
@@ -137,7 +138,7 @@ async def check_rate_limit(
     detail: str = "Too many requests. Try again later.",
 ) -> None:
     """Apply IP-based rate limiting for an endpoint."""
-    client_ip = http_request.client.host if http_request.client else "unknown"
+    client_ip = resolve_client_ip(http_request)
     ip_hash = hash_ip(client_ip)
     rate_key = f"file-sharing:rate:{action}:{ip_hash}"
     try:

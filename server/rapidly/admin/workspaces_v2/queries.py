@@ -62,9 +62,9 @@ class AdminWorkspaceRepository(Repository[Workspace]):
             search_term = f"%{q}%"
             stmt = stmt.where(
                 or_(
-                    Workspace.name.ilike(search_term),
-                    Workspace.slug.ilike(search_term),
-                    Workspace.email.ilike(search_term),
+                    Workspace.name.ilike(search_term, escape="\\"),
+                    Workspace.slug.ilike(search_term, escape="\\"),
+                    Workspace.email.ilike(search_term, escape="\\"),
                 )
             )
 

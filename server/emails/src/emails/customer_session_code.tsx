@@ -3,30 +3,29 @@ import FooterCustomer from '../components/FooterCustomer'
 import Intro from '../components/Intro'
 import OTPCode from '../components/OTPCode'
 import WrapperOrganization from '../components/WrapperOrganization'
-import { organization } from '../preview'
+import { workspace } from '../preview'
 import type { schemas } from '../types'
 
 /** Customer portal login email with a one-time verification code. */
 export function CustomerSessionCode({
   email,
-  organization,
+  workspace,
   code,
   code_lifetime_minutes,
   url,
-  domain,
 }: schemas['CustomerSessionCodeProps']) {
   return (
-    <WrapperOrganization organization={organization}>
-      <Preview>Your verification code for {organization.name}</Preview>
+    <WrapperOrganization workspace={workspace}>
+      <Preview>Your verification code for {workspace.name}</Preview>
       <Intro>
         You can use the following code to access your purchases on the{' '}
         <Link href={url} className="text-blue-500 underline">
-          {organization.name} Customer Portal
+          {workspace.name} Customer Portal
         </Link>
         .
       </Intro>
 
-      <OTPCode code={code} domain={domain} />
+      <OTPCode code={code} domain="rapidly.tech" />
 
       <Text className="mt-2 text-center text-sm text-gray-500">
         This&nbsp;code&nbsp;expires&nbsp;in&nbsp;
@@ -34,18 +33,17 @@ export function CustomerSessionCode({
         &nbsp;minutes.
       </Text>
 
-      <FooterCustomer organization={organization} email={email} />
+      <FooterCustomer workspace={workspace} email={email} />
     </WrapperOrganization>
   )
 }
 
 CustomerSessionCode.PreviewProps = {
   email: 'john@example.com',
-  organization,
+  workspace,
   code: 'ABC123',
   code_lifetime_minutes: 30,
   url: 'https://rapidly.tech/acme-inc/portal/authenticate',
-  domain: 'rapidly.tech',
 }
 
 export default CustomerSessionCode

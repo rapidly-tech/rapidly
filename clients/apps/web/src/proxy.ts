@@ -32,18 +32,6 @@ const getOrCreateDistinctId = (
 }
 
 const isForwardedRoute = (request: NextRequest): boolean => {
-  if (request.nextUrl.pathname.startsWith('/docs/')) {
-    return true
-  }
-
-  if (request.nextUrl.pathname.startsWith('/mintlify-assets/')) {
-    return true
-  }
-
-  if (request.nextUrl.pathname.startsWith('/_mintlify/')) {
-    return true
-  }
-
   if (request.nextUrl.pathname.startsWith('/ingest/')) {
     return true
   }
@@ -141,12 +129,11 @@ export async function proxy(request: NextRequest) {
   const response = NextResponse.next({ headers })
 
   // Set dynamic CSP with nonce for routes that use the base policy.
-  // File-sharing, download, oauth2, and docs routes keep their own
-  // strict static CSPs defined in next.config.mjs.
+  // File-sharing, download, and oauth2 routes keep their own strict
+  // static CSPs defined in next.config.mjs.
   const pathname = request.nextUrl.pathname
   const hasOwnCSP =
     pathname.startsWith('/oauth2') ||
-    pathname.startsWith('/docs') ||
     pathname.startsWith('/download') ||
     pathname.startsWith('/file-sharing') ||
     pathname === '/stream.html'
@@ -200,11 +187,10 @@ export const config = {
      * - api (API routes)
      * - ingest (Posthog)
      * - monitoring (Sentry)
-     * - docs, _mintlify, mintlify-assets (Mintlify)
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico, sitemap.xml, robots.txt (metadata files)
      */
-    '/((?!api|ingest|monitoring|docs|_mintlify|mintlify-assets|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+    '/((?!api|ingest|monitoring|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
   ],
 }

@@ -200,9 +200,14 @@ class TestDeliveryListFiltersHttpCodeClass:
 
     def test_query_uses_escape_like(self) -> None:
         # Pin: drift to drop escape_like would let an admin's
-        # typed `%` flood the audit list.
+        # typed `%` flood the audit list.  Also pin that an ESCAPE
+        # clause is emitted — without it, ``escape_like``'s backslash
+        # prefixes are ignored by Postgres LIKE.
         sql = self._stmt(query="50%off")
         assert r"50\%off" in sql
+        # Three ILIKE clauses (id / event_id / http_code), each with
+        # its own ESCAPE clause.
+        assert sql.lower().count(" escape ") >= 3
 
 
 @pytest.mark.asyncio
