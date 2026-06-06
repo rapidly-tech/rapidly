@@ -1,4 +1,4 @@
-"""Tests for ``rapidly.agents.eval_run.actions`` — list filters."""
+"""Tests for ``rapidly.agents.eval_run.actions`` — list filters + cancel."""
 
 from __future__ import annotations
 
@@ -9,8 +9,9 @@ import pytest
 
 from rapidly.agents.eval_run import actions
 from rapidly.core.pagination import PaginationParams
+from rapidly.errors import NotPermitted
 from rapidly.identity.auth.models import AuthPrincipal
-from rapidly.models import User
+from rapidly.models import EvalRun, User
 from rapidly.models.eval_run import EvalRunStatus
 
 
@@ -110,3 +111,65 @@ class TestListEvalRuns:
             )
 
         assert statement.where.call_count == 3
+
+
+@pytest.mark.asyncio
+class TestCancel:
+    async def test_pending_flips_to_cancelled(self) -> None:
+        principal = _principal()
+        eval_run = EvalRun(
+            id=uuid4(),
+            workspace_id=uuid4(),
+            dataset_id=uuid4(),
+            workflow_version_id=uuid4(),
+            status=EvalRunStatus.pending,
+        )
+        session = MagicMock()
+        session.flush = AsyncMock()
+
+        result = await actions.cancel(session, principal, eval_run)
+
+        assert result.status == EvalRunStatus.cancelled
+        assert result.completed_at is not None
+        session.flush.assert_awaited_once()
+
+    async def test_running_flips_to_cancelled(self) -> None:
+        principal = _principal()
+        eval_run = EvalRun(
+            id=uuid4(),
+            workspace_id=uuid4(),
+            dataset_id=uuid4(),
+            workflow_version_id=uuid4(),
+            status=EvalRunStatus.running,
+        )
+        session = MagicMock()
+        session.flush = AsyncMock()
+
+        result = await actions.cancel(session, principal, eval_run)
+
+        assert result.status == EvalRunStatus.cancelled
+
+    @pytest.mark.parametrize(
+        "terminal",
+        [EvalRunStatus.succeeded, EvalRunStatus.failed, EvalRunStatus.cancelled],
+    )
+    async def test_terminal_status_refuses(self, terminal: EvalRunStatus) -> None:
+        # Cancelling an already-terminal run must raise NotPermitted so
+        # the caller sees a clear 403, not a silent no-op.
+        principal = _principal()
+        eval_run = EvalRun(
+            id=uuid4(),
+            workspace_id=uuid4(),
+            dataset_id=uuid4(),
+            workflow_version_id=uuid4(),
+            status=terminal,
+        )
+        session = MagicMock()
+        session.flush = AsyncMock()
+
+        with pytest.raises(NotPermitted):
+            await actions.cancel(session, principal, eval_run)
+
+        # No flush should have happened — the refusal is before any
+        # state mutation.
+        session.flush.assert_not_awaited()

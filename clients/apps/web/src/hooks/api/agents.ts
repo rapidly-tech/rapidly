@@ -1076,6 +1076,30 @@ export const useTriggerEval = () => {
   })
 }
 
+async function cancelEvalRun(id: string): Promise<EvalRun> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/eval-runs/${id}/cancel`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { Accept: 'application/json' },
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `eval-run cancel failed: ${res.status}`)
+  }
+  return (await res.json()) as EvalRun
+}
+
+export const useCancelEvalRun = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: cancelEvalRun,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: evalRunKey() })
+    },
+  })
+}
+
 export const useEvalRunCases = (
   id: string | undefined,
   options: { isEvalActive?: boolean } = {},

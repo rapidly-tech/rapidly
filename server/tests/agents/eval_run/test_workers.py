@@ -276,6 +276,94 @@ class TestEvalRunner:
         assert eval_run.case_count == 42
         assert eval_run.pass_count == 42
 
+    async def test_cancellation_mid_run_short_circuits_remaining_cases(
+        self,
+        session: AsyncSession,
+        workspace: Workspace,
+        mocker: MockerFixture,
+    ) -> None:
+        # The runner re-reads ``eval_run.status`` before each case
+        # so an API-driven cancel propagates without pubsub. After
+        # the first case runs, we flip the status to ``cancelled``;
+        # the second case must be skipped.
+        version = await _seed_workflow_version(session, workspace)
+        dataset = Dataset(workspace_id=workspace.id, name="cancel-mid")
+        session.add(dataset)
+        await session.flush()
+
+        for i in range(3):
+            session.add(
+                DatasetCase(
+                    dataset_id=dataset.id,
+                    name=f"c-{i}",
+                    input_data={"x": i},
+                    expected_output={"x": i},
+                    order_index=i,
+                )
+            )
+        await session.flush()
+
+        eval_run = EvalRun(
+            workspace_id=workspace.id,
+            dataset_id=dataset.id,
+            workflow_version_id=version.id,
+        )
+        session.add(eval_run)
+        await session.flush()
+
+        # First _execute_case call: real behaviour. Subsequent
+        # ones: flip eval to cancelled the moment a refresh sees it.
+        # We do that by patching _execute_case after the first call.
+        original_execute = eval_workers._execute_case
+        call_count = {"n": 0}
+
+        async def _wrapped(
+            session_: AsyncSession,
+            *,
+            eval_run: EvalRun,
+            case: DatasetCase,
+        ) -> None:
+            call_count["n"] += 1
+            await original_execute(session_, eval_run=eval_run, case=case)
+            if call_count["n"] == 1:
+                # Simulate an API-driven cancel arriving right
+                # after the first case. The real cancel action
+                # flushes the status to the DB; without the
+                # flush, the worker's session.refresh() in the
+                # next iteration would re-read the persisted
+                # (running) value and not see the cancellation.
+                eval_run.status = EvalRunStatus.cancelled
+                await session_.flush()
+
+        mocker.patch.object(eval_workers, "_execute_case", new=_wrapped)
+
+        class _Ctx:
+            async def __aenter__(self) -> AsyncSession:
+                return session
+
+            async def __aexit__(self, *args: object) -> None:
+                return None
+
+        mocker.patch.object(eval_workers, "AsyncSessionMaker", return_value=_Ctx())
+
+        await eval_workers.run_eval(eval_run.id)
+        await session.refresh(eval_run)
+
+        # Status stays cancelled; only the first case ran.
+        assert eval_run.status == EvalRunStatus.cancelled
+        assert call_count["n"] == 1
+
+        rows = (
+            (
+                await session.execute(
+                    select(EvalRunCase).where(EvalRunCase.eval_run_id == eval_run.id)
+                )
+            )
+            .scalars()
+            .all()
+        )
+        assert len(rows) == 1
+
 
 @pytest.mark.asyncio
 class TestJudgeReasonPersistence:

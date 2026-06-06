@@ -106,6 +106,16 @@ async def _run_eval_inner(session: Any, eval_run_id: UUID) -> None:
     await session.flush()
 
     for case in cases:
+        # Re-read the eval run's status before each case so a
+        # POST /{id}/cancel from the API propagates without any
+        # pubsub plumbing. session.refresh hits the DB; the
+        # per-case cost is small compared to the engine walk.
+        await session.refresh(eval_run, attribute_names=("status",))
+        if eval_run.status == EvalRunStatus.cancelled:
+            # Operator cancelled mid-run. Keep the cases already
+            # scored, skip the remainder, leave completed_at as
+            # the cancel-action's timestamp.
+            return
         await _execute_case(session, eval_run=eval_run, case=case)
 
     eval_run.status = EvalRunStatus.succeeded
