@@ -1,5 +1,6 @@
 import { ApiOperation, Operation } from '@/components/Docs/ApiReference'
 import apiReference from '@/generated/api-reference.json'
+import Link from 'next/link'
 import { notFound } from 'next/navigation'
 
 interface ApiGroup {
@@ -45,8 +46,8 @@ export default async function ApiGroupPage({
         {g.operations.length} endpoint{g.operations.length === 1 ? '' : 's'} —
         authenticate with a workspace access token via{' '}
         <code>Authorization: Bearer</code>. See the{' '}
-        <a href="/docs/api-reference/introduction">API introduction</a> for base
-        URLs, pagination, and rate limits.
+        <Link href="/docs/api-reference/introduction">API introduction</Link>{' '}
+        for base URLs, pagination, and rate limits.
       </p>
       {g.operations.map((op) => (
         <Operation key={`${op.method}-${op.path}`} op={op} />
