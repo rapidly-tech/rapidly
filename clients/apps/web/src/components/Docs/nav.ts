@@ -94,6 +94,15 @@ export const docsNav: DocsNavSection[] = [
     title: 'API Reference',
     items: [
       { title: 'Introduction', href: '/docs/api-reference/introduction' },
+      { title: 'Customers', href: '/docs/api-reference/customers' },
+      { title: 'Customer Portal', href: '/docs/api-reference/customer-portal' },
+      { title: 'Shares', href: '/docs/api-reference/shares' },
+      { title: 'Files', href: '/docs/api-reference/files' },
+      { title: 'Events', href: '/docs/api-reference/events' },
+      { title: 'Metrics', href: '/docs/api-reference/metrics' },
+      { title: 'Webhooks', href: '/docs/api-reference/webhooks' },
+      { title: 'Workspaces', href: '/docs/api-reference/workspaces' },
+      { title: 'OAuth 2.0', href: '/docs/api-reference/oauth2' },
     ],
   },
   {
