@@ -92,13 +92,6 @@ export interface components {
       /** Code Lifetime Minutes */
       code_lifetime_minutes: number
     }
-    /** MaintainerCreateAccountNotificationPayload */
-    MaintainerCreateAccountNotificationPayload: {
-      /** Workspace Name */
-      workspace_name: string
-      /** Url */
-      url: string
-    }
     /** NotificationCreateAccountEmail */
     NotificationCreateAccountEmail: {
       /**
@@ -107,7 +100,7 @@ export interface components {
        * @constant
        */
       template: 'notification_create_account'
-      props: components['schemas']['MaintainerCreateAccountNotificationPayload']
+      props: components['schemas']['WorkspaceCreateAccountNotificationPayload']
     }
     /** NotificationFileShareDownloadCompletedEmail */
     NotificationFileShareDownloadCompletedEmail: {
@@ -239,12 +232,12 @@ export interface components {
       id: string
       /**
        * Name
-       * @description Workspace name shown in checkout, customer portal, emails etc.
+       * @description Workspace name shown in storefront, customer portal, emails etc.
        */
       name: string
       /**
        * Slug
-       * @description Unique workspace slug in checkout, customer portal and credit card statements.
+       * @description Unique workspace slug in storefront, customer portal and credit card statements.
        */
       slug: string
       /**
@@ -274,7 +267,7 @@ export interface components {
        * @description When the business details were submitted.
        */
       details_submitted_at: string | null
-      /** @description Default presentment currency. Used as fallback in checkout and customer portal, if the customer's local currency is not available. */
+      /** @description Default presentment currency. Used as fallback in storefront and customer portal, if the customer's local currency is not available. */
       default_presentment_currency: components['schemas']['PresentmentCurrency']
       /** @description Workspace feature settings */
       feature_settings: components['schemas']['WorkspaceFeatureSettings'] | null
@@ -289,10 +282,10 @@ export interface components {
     WorkspaceAccessTokenLeakedEmail: {
       /**
        * Template
-       * @default workspace_access_token_leaked
+       * @default organization_access_token_leaked
        * @constant
        */
-      template: 'workspace_access_token_leaked'
+      template: 'organization_access_token_leaked'
       props: components['schemas']['WorkspaceAccessTokenLeakedProps']
     }
     /** WorkspaceAccessTokenLeakedProps */
@@ -310,10 +303,10 @@ export interface components {
     WorkspaceAccountUnlinkEmail: {
       /**
        * Template
-       * @default workspace_account_unlink
+       * @default organization_account_unlink
        * @constant
        */
-      template: 'workspace_account_unlink'
+      template: 'organization_account_unlink'
       props: components['schemas']['WorkspaceAccountUnlinkProps']
     }
     /** WorkspaceAccountUnlinkProps */
@@ -324,6 +317,13 @@ export interface components {
       workspace_kept_name: string
       /** Workspaces Unlinked */
       workspaces_unlinked: string[]
+    }
+    /** WorkspaceCreateAccountNotificationPayload */
+    WorkspaceCreateAccountNotificationPayload: {
+      /** Workspace Name */
+      workspace_name: string
+      /** Url */
+      url: string
     }
     /**
      * WorkspaceCustomerEmailSettings
@@ -349,6 +349,12 @@ export interface components {
        */
       member_model_enabled: boolean
       /**
+       * Seat Based Pricing Enabled
+       * @description If this workspace has seat-based pricing enabled for member sessions
+       * @default false
+       */
+      seat_based_pricing_enabled: boolean
+      /**
        * Tinybird Read
        * @description If this workspace reads from Tinybird
        * @default false
@@ -365,10 +371,10 @@ export interface components {
     WorkspaceInviteEmail: {
       /**
        * Template
-       * @default workspace_invite
+       * @default organization_invite
        * @constant
        */
-      template: 'workspace_invite'
+      template: 'organization_invite'
       props: components['schemas']['WorkspaceInviteProps']
     }
     /** WorkspaceInviteProps */
@@ -384,7 +390,7 @@ export interface components {
     }
     /**
      * WorkspaceNotificationSettings
-     * @description Which internal notifications the org admin receives.
+     * @description Which internal notifications the workspace admin receives.
      */
     WorkspaceNotificationSettings: {
       /** New Payment */
@@ -394,10 +400,10 @@ export interface components {
     WorkspaceReviewedEmail: {
       /**
        * Template
-       * @default workspace_reviewed
+       * @default organization_reviewed
        * @constant
        */
-      template: 'workspace_reviewed'
+      template: 'organization_reviewed'
       props: components['schemas']['WorkspaceReviewedProps']
     }
     /** WorkspaceReviewedProps */
@@ -447,10 +453,10 @@ export interface components {
     WorkspaceUnderReviewEmail: {
       /**
        * Template
-       * @default workspace_under_review
+       * @default organization_under_review
        * @constant
        */
-      template: 'workspace_under_review'
+      template: 'organization_under_review'
       props: components['schemas']['WorkspaceUnderReviewProps']
     }
     /** WorkspaceUnderReviewProps */
