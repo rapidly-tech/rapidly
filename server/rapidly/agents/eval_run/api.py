@@ -20,6 +20,7 @@ from rapidly.agents.eval_run.types import (
     EvalRunTrigger,
 )
 from rapidly.core.pagination import PaginatedList, PaginationParamsQuery
+from rapidly.models.eval_run import EvalRunStatus
 from rapidly.openapi import APITag
 from rapidly.postgres import (
     AsyncReadSession,
@@ -42,6 +43,7 @@ async def list_eval_runs(
     pagination: PaginationParamsQuery,
     dataset_id: UUID | None = Query(None),
     workflow_version_id: UUID | None = Query(None),
+    status_filter: EvalRunStatus | None = Query(None, alias="status"),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[EvalRunSchema]:
     results, count = await actions.list_eval_runs(
@@ -49,6 +51,7 @@ async def list_eval_runs(
         auth_subject,
         dataset_id=dataset_id,
         workflow_version_id=workflow_version_id,
+        status=status_filter,
         pagination=pagination,
     )
     return PaginatedList.from_paginated_results(results, count, pagination)
