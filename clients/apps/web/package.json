@@ -128,7 +128,7 @@
     "typescript": "5.9.3",
     "unist-util-visit": "^5.1.0",
     "vite-tsconfig-paths": "^5.1.4",
-    "vitest": "^3.2.4"
+    "vitest": "^4.1.0"
   },
   "nextBundleAnalysis": {
     "budget": 358400,
