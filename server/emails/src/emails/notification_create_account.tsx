@@ -10,7 +10,7 @@ import type { schemas } from '../types'
 export function NotificationCreateAccount({
   workspace_name,
   url,
-}: schemas['MaintainerCreateAccountNotificationPayload']) {
+}: schemas['WorkspaceCreateAccountNotificationPayload']) {
   return (
     <WrapperRapidly>
       <Preview>Your Rapidly account is being reviewed</Preview>
