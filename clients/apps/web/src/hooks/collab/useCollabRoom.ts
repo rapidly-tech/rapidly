@@ -18,7 +18,6 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Awareness } from 'y-protocols/awareness'
 import * as Y from 'yjs'
 
-import { createMesh, type Mesh, type PeerLike } from '@/utils/call/mesh'
 import {
   CollabDisabledError,
   closeSession,
@@ -57,6 +56,7 @@ import {
   type CollabTransport,
 } from '@/utils/collab/provider'
 import { FILE_SHARING_SIGNAL_PATH } from '@/utils/file-sharing/constants'
+import { createMesh, type Mesh, type PeerLike } from '@/utils/p2p/mesh'
 import { PeerDataConnection } from '@/utils/p2p/peer-connection'
 import { SignalingClient, type SignalingMessage } from '@/utils/p2p/signaling'
 
