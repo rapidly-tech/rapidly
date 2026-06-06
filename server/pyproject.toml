@@ -30,13 +30,13 @@ dependencies = [
   "python-dateutil>=2.9.0.post0",
   # ── Auth & security ──────────────────────────────────────────
   "pyjwt>=2.12.0",
-  "authlib>=1.6.11",
+  "authlib>=1.6.12",
   "httpx-oauth>=0.16.0",
   "cryptography>=46.0.7",
   "itsdangerous>=2.2.0",
   "safe-redirect-url>=0.1.1",
   # ── Payments ─────────────────────────────────────────────────
-  "stripe>=14,<15",
+  "stripe>=14,<16",
   # ── Object storage ──────────────────────────────────────────
   "boto3>=1.38.30",
   # ── File scanning ───────────────────────────────────────────
@@ -59,7 +59,7 @@ dependencies = [
   "babel>=2.16.0",
   "pycountry>=24.6.1",
   # ── Integrations ─────────────────────────────────────────────
-  "githubkit==0.14.3",
+  "githubkit==0.15.5",
   "standardwebhooks>=1.0.0",
   # ── Utilities ────────────────────────────────────────────────
   "python-slugify>=8.0.1",
