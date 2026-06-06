@@ -1,15 +1,26 @@
 'use client'
 
-import { type Workflow, useWorkflows } from '@/hooks/api/agents'
+import {
+  type Workflow,
+  useCreateWorkflow,
+  useWorkflows,
+} from '@/hooks/api/agents'
+import { useListWorkspaces } from '@/hooks/api/org'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 
 export default function WorkflowsListPage() {
   const query = useWorkflows({ limit: 50, page: 1 })
   const workflows: Workflow[] = query.data?.data ?? []
+  const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
+  const workspaceId = workspacesQuery.data?.data?.[0]?.id ?? null
 
   return (
     <main className="mx-auto flex min-h-screen w-full max-w-4xl flex-col gap-8 px-6 py-16">
       <Header />
+
+      {workspaceId && <CreateForm workspaceId={workspaceId} />}
 
       {query.isLoading ? (
         <LoadingSkeleton />
@@ -21,6 +32,108 @@ export default function WorkflowsListPage() {
         <WorkflowList workflows={workflows} />
       )}
     </main>
+  )
+}
+
+function CreateForm({ workspaceId }: { workspaceId: string }) {
+  const [open, setOpen] = useState(false)
+  const [name, setName] = useState('')
+  const [description, setDescription] = useState('')
+  const create = useCreateWorkflow()
+  const router = useRouter()
+
+  const submit = (e: React.FormEvent) => {
+    e.preventDefault()
+    create.mutate(
+      {
+        workspace_id: workspaceId,
+        name: name.trim(),
+        description: description.trim() || null,
+      },
+      {
+        onSuccess: (workflow) => {
+          // Land operators on the new workflow's detail page so
+          // they can drop straight into publishing a version /
+          // triggering a run.
+          router.push(`/preview/agents/workflows/${workflow.id}`)
+        },
+      },
+    )
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="self-start rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+      >
+        + New workflow
+      </button>
+    )
+  }
+
+  return (
+    <form
+      onSubmit={submit}
+      className="flex flex-col gap-3 rounded-lg border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h2 className="text-sm font-medium text-slate-700 dark:text-slate-300">
+        New workflow
+      </h2>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+          Name
+        </label>
+        <input
+          type="text"
+          required
+          minLength={1}
+          maxLength={256}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          placeholder="rfi-triage"
+        />
+      </div>
+      <div className="flex flex-col gap-1">
+        <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+          Description (optional)
+        </label>
+        <textarea
+          rows={2}
+          value={description}
+          onChange={(e) => setDescription(e.target.value)}
+          className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+          placeholder="What does this workflow do?"
+        />
+      </div>
+      {create.isError && (
+        <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-xs text-red-700 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-300">
+          {(create.error as Error).message}
+        </div>
+      )}
+      <div className="flex gap-2">
+        <button
+          type="submit"
+          disabled={create.isPending}
+          className="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+        >
+          {create.isPending ? 'Creating…' : 'Create'}
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            setOpen(false)
+            setName('')
+            setDescription('')
+          }}
+          className="rounded-lg border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-800 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          Cancel
+        </button>
+      </div>
+    </form>
   )
 }
 

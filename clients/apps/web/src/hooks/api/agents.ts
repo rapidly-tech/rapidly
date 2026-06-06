@@ -86,6 +86,41 @@ export const useWorkflows = (
     enabled,
   })
 
+export interface WorkflowCreatePayload {
+  workspace_id: string
+  name: string
+  description?: string | null
+  project_id?: string | null
+}
+
+async function createWorkflow(body: WorkflowCreatePayload): Promise<Workflow> {
+  const url = `${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/`
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const text = await res.text().catch(() => '')
+    throw new Error(text || `workflow create failed: ${res.status}`)
+  }
+  return (await res.json()) as Workflow
+}
+
+export const useCreateWorkflow = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: createWorkflow,
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: workflowKey() })
+    },
+  })
+}
+
 // ══════════════════════════════════════════════
 //  Workflow detail (single)
 // ══════════════════════════════════════════════
