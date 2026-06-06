@@ -134,6 +134,35 @@ async def delete(
     await repository.soft_delete(workspace_access_token)
 
 
+async def soft_delete_expired(session: AsyncSession) -> int:
+    """Soft-delete tokens whose expiry has passed. Returns the
+    rowcount so the cron actor can log how many were touched.
+
+    Conservative — soft-delete (not hard-delete) so the row
+    survives for audit. The lookup path already rejects
+    expired tokens; this just keeps the operator-visible list
+    + count_by_workspace tidy.
+    """
+    repository = WorkspaceAccessTokenRepository.from_session(session)
+    return await repository.soft_delete_expired()
+
+
+async def hard_delete_aged_soft_deletes(session: AsyncSession) -> int:
+    """Permanently delete tokens that were soft-deleted by the
+    auto-expiry path more than
+    ``settings.WORKSPACE_ACCESS_TOKEN_HARD_DELETE_AFTER`` ago.
+
+    Operator-revoked + leaked tokens are NOT touched — they
+    have incident-response audit value. The repository's
+    predicate (``expires_at < deleted_at``) does the
+    distinguishing.
+    """
+    repository = WorkspaceAccessTokenRepository.from_session(session)
+    return await repository.hard_delete_expiry_soft_deletes_older_than(
+        settings.WORKSPACE_ACCESS_TOKEN_HARD_DELETE_AFTER
+    )
+
+
 # ── Leak detection ──
 
 
