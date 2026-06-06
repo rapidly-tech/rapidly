@@ -193,6 +193,49 @@ class MemberRepository(
         result = await self.session.execute(statement)
         return result.scalars().unique().all()
 
+    async def list_duplicates_for_dedupe(
+        self,
+        customer_id: UUID,
+        lower_email: str,
+    ) -> Sequence[Member]:
+        """Load the active duplicate Member rows for a single
+        ``(customer_id, lower(email))`` group, ordered for the
+        auto-dedupe policy:
+
+          1. Highest role first (owner > billing_manager > member).
+             Preserves the strongest capability across the merge.
+          2. Earliest ``created_at`` second. The "original"
+             registration wins ties on role.
+
+        The first row in the returned sequence is the SURVIVOR;
+        the rest are LOSERS that get soft-deleted.
+
+        ORDER BY for role uses a CASE expression because the
+        column is stored as a string but the natural ordering
+        is the enum's intent (owner > billing_manager > member,
+        NOT alphabetical: billing_manager < member < owner
+        alphabetically — which would pick the WRONG winner).
+        """
+        from sqlalchemy import case
+
+        role_priority = case(
+            (Member.role == MemberRole.owner, 0),
+            (Member.role == MemberRole.billing_manager, 1),
+            (Member.role == MemberRole.member, 2),
+            else_=3,
+        )
+        statement = (
+            select(Member)
+            .where(
+                Member.customer_id == customer_id,
+                func.lower(Member.email) == lower_email,
+                Member.deleted_at.is_(None),
+            )
+            .order_by(role_priority.asc(), Member.created_at.asc())
+        )
+        result = await self.session.execute(statement)
+        return list(result.scalars().all())
+
     async def find_case_insensitive_email_duplicates(
         self,
     ) -> Sequence[tuple[UUID, str, int]]:

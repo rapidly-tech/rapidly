@@ -666,3 +666,99 @@ class TestDelete:
             await member_service.delete(session, owner)
 
         assert "only owner" in str(exc_info.value).lower()
+
+
+@pytest.mark.asyncio
+class TestAutoDedupeCaseInsensitiveEmailDuplicates:
+    """End-to-end auto-dedupe: surfaces duplicates via the
+    finder, applies the soft-delete policy (highest role first,
+    earliest created_at tie-break), returns the loser count.
+
+    Two load-bearing properties pinned at the action layer:
+
+    - Returns the number of LOSER rows soft-deleted (not the
+      survivor count). A re-run on a clean table returns 0.
+    - The survivor is the highest-role row; losers get
+      ``deleted_at`` set (visible via the find-duplicates
+      query returning empty after dedupe).
+    """
+
+    async def test_dedupes_duplicates_keeping_owner(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        from rapidly.core.utils import now_utc
+
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="dedupe@example.com"
+        )
+        # Two members differing only in email case + role.
+        member_role_low = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="DupeUser@example.com",
+            role=MemberRole.member,
+        )
+        owner_role = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="dupeuser@example.com",
+            role=MemberRole.owner,
+        )
+        await save_fixture(member_role_low)
+        await save_fixture(owner_role)
+
+        # Sanity: finder picks up the group.
+        before = await member_service.find_case_insensitive_email_duplicates(session)
+        assert len(before) == 1
+
+        # Run the auto-dedupe.
+        deleted = await member_service.auto_dedupe_case_insensitive_email_duplicates(
+            session
+        )
+        # 1 loser soft-deleted (the lower-role one).
+        assert deleted == 1
+
+        # Owner survives.
+        await session.refresh(owner_role)
+        assert owner_role.deleted_at is None
+        # Lower-role loser is soft-deleted.
+        await session.refresh(member_role_low)
+        assert member_role_low.deleted_at is not None
+
+        # Re-run is a no-op.
+        rerun = await member_service.auto_dedupe_case_insensitive_email_duplicates(
+            session
+        )
+        assert rerun == 0
+
+        # And the finder returns clean.
+        after = await member_service.find_case_insensitive_email_duplicates(session)
+        assert after == []
+        _ = now_utc  # silence unused-import warning
+
+    async def test_no_duplicates_returns_zero(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Idempotent: no duplicates → no soft-deletes → returns 0.
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="solo@example.com"
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="solo@example.com",
+                role=MemberRole.owner,
+            )
+        )
+
+        deleted = await member_service.auto_dedupe_case_insensitive_email_duplicates(
+            session
+        )
+        assert deleted == 0
