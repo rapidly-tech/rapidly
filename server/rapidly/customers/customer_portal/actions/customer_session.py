@@ -326,6 +326,17 @@ class CustomerSessionService:
 
     # ── Cleanup ──
 
+    async def delete_expired_codes(self, session: AsyncSession) -> None:
+        """Purge stale customer session codes whose expiry has passed.
+
+        Invoked by the daily ``customer_session_code.delete_
+        expired`` cron actor. Symmetric with the cleanup actors
+        on UserSession / MemberSession / CustomerSession /
+        LoginCode.
+        """
+        repo = CustomerSessionCodeRepository.from_session(session)
+        await repo.delete_expired()
+
     def _generate_code_hash(self) -> tuple[str, str]:
         code = "".join(
             secrets.choice(string.ascii_uppercase + string.digits)

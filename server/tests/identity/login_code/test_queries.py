@@ -109,3 +109,39 @@ class TestGetValidByHashAndEmail:
         repo.get_one_or_none = AsyncMock(return_value=target)  # type: ignore[method-assign]
         out = await repo.get_valid_by_hash_and_email("hash_abc", "alice@example.com")
         assert out is target
+
+
+@pytest.mark.asyncio
+class TestDeleteExpired:
+    """The periodic cleanup actor uses this query path.
+
+    Pin: filters on ``expires_at < now()`` (strict less-than)
+    so codes that are exactly at the boundary aren't dropped
+    mid-redemption. The lookup path uses ``> now()`` so the
+    two predicates split the timeline cleanly with no overlap.
+    """
+
+    async def test_filter_predicate_is_strictly_less_than(self) -> None:
+        repo = LoginCodeRepository(session=MagicMock())
+        captured: dict[str, Any] = {}
+
+        async def _capture(stmt: object) -> Any:
+            captured["stmt"] = stmt
+            return None
+
+        repo.session = MagicMock()
+        repo.session.execute = AsyncMock(side_effect=_capture)
+        with freeze_time(datetime(2026, 4, 25, 14, 30, tzinfo=UTC)):
+            await repo.delete_expired()
+
+        sql = _compile(captured["stmt"]).lower()
+        # DELETE statement against login_codes.
+        assert "delete from login_codes" in sql
+        # Strict less-than on expires_at, with the frozen now()
+        # literal in the comparison.
+        assert "login_codes.expires_at <" in sql
+        # The frozen now() literal appears in the predicate.
+        assert "2026-04-25" in sql
+        # Critical: NOT ``<=`` — a code at the exact boundary is
+        # still valid to redeem (lookup uses ``> now()``).
+        assert "expires_at <=" not in sql

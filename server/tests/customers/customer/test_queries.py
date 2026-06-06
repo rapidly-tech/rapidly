@@ -109,14 +109,20 @@ class TestApplyListFiltersTextSearch:
         assert "%m_42%" not in sql
 
     def test_escape_like_applied(self) -> None:
-        # Pin: user-supplied ``%`` is escaped (drift would let a
-        # typo'd ``%`` match every customer in the workspace).
+        # Pin: user-supplied ``%`` is escaped AND an ESCAPE clause is
+        # present.  ``escape_like`` alone is not enough — Postgres
+        # ``LIKE`` ignores backslash escapes unless ``ESCAPE`` is set,
+        # so without the clause a typo'd ``%`` would still match every
+        # customer.
         repo = CustomerRepository(session=MagicMock())
         stmt = repo.get_base_statement()
         stmt = repo.apply_list_filters(stmt, query="50%off")
 
         sql = _compile(stmt)
         assert r"50\%off" in sql
+        # Each of the three ILIKE clauses (email / name / external_id)
+        # must carry its own ESCAPE clause.
+        assert sql.lower().count(" escape ") >= 3
 
     def test_email_filter_is_case_insensitive(self) -> None:
         # Pin: ``func.lower(email) == email.lower()``.
