@@ -113,6 +113,14 @@ async def list(
     ids: MultipleQueryFilter[UUID4] | None = Query(
         None, title="FileID Filter", description="Filter by file ID."
     ),
+    name: str | None = Query(
+        None,
+        description=(
+            "Case-insensitive substring match on the file name. "
+            "SQL ``%`` and ``_`` wildcards in the input are escaped."
+        ),
+        max_length=256,
+    ),
     session: AsyncReadSession = Depends(get_db_read_session),
 ) -> PaginatedList[FileRead]:
     """List files."""
@@ -121,6 +129,7 @@ async def list(
         auth_subject,
         workspace_id=workspace_id,
         ids=ids,
+        name=name,
         pagination=pagination,
     )
     return PaginatedList.from_paginated_results(
