@@ -290,7 +290,7 @@ const LandingPageDesktopNavigation = () => {
   return (
     <nav
       aria-label="Main navigation"
-      className="rp-text-primary sticky top-0 z-40 hidden w-full flex-col items-center gap-12 bg-white/70 px-4 py-4 backdrop-blur-xl md:flex dark:bg-slate-950/70"
+      className="rp-text-primary sticky top-0 z-40 hidden w-full flex-col items-center gap-12 bg-(--background)/85 px-4 py-4 backdrop-blur-xl md:flex"
     >
       <div className="relative flex w-full flex-row items-center justify-between lg:max-w-6xl">
         <RapidlyLogotype logoVariant="icon" size={40} href="/" />
