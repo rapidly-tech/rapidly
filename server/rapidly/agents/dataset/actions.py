@@ -55,12 +55,19 @@ async def list_datasets(
     session: AsyncReadSession,
     auth_subject: AuthPrincipal[User | Workspace],
     *,
+    name: str | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[Dataset], int]:
     repo = DatasetRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject).order_by(
         Dataset.created_at.desc()
     )
+    if name is not None and name.strip():
+        # Same escape pattern as the projects/labels list endpoints.
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(Dataset.name.ilike(f"%{escaped}%", escape="\\"))
     return await paginate(session, statement, pagination=pagination)
 
 

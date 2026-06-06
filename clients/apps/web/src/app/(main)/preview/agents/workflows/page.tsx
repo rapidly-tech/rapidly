@@ -11,7 +11,12 @@ import { useRouter } from 'next/navigation'
 import { useState } from 'react'
 
 export default function WorkflowsListPage() {
-  const query = useWorkflows({ limit: 50, page: 1 })
+  const [search, setSearch] = useState('')
+  const query = useWorkflows({
+    name: search.trim() || undefined,
+    limit: 50,
+    page: 1,
+  })
   const workflows: Workflow[] = query.data?.data ?? []
   const workspacesQuery = useListWorkspaces({ limit: 50, page: 1 })
   const workspaceId = workspacesQuery.data?.data?.[0]?.id ?? null
@@ -22,16 +27,57 @@ export default function WorkflowsListPage() {
 
       {workspaceId && <CreateForm workspaceId={workspaceId} />}
 
+      <SearchInput value={search} onChange={setSearch} />
+
       {query.isLoading ? (
         <LoadingSkeleton />
       ) : query.isError ? (
         <ErrorBanner message={(query.error as Error).message} />
       ) : workflows.length === 0 ? (
-        <EmptyState />
+        search.trim() ? (
+          <EmptySearch query={search.trim()} />
+        ) : (
+          <EmptyState />
+        )
       ) : (
         <WorkflowList workflows={workflows} />
       )}
     </main>
+  )
+}
+
+function SearchInput({
+  value,
+  onChange,
+}: {
+  value: string
+  onChange: (next: string) => void
+}) {
+  return (
+    <div className="flex flex-col gap-1">
+      <label className="text-xs tracking-wide text-slate-400 uppercase dark:text-slate-500">
+        Search
+      </label>
+      <input
+        type="search"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder="Filter workflows by name…"
+        className="w-full max-w-md rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-200"
+      />
+    </div>
+  )
+}
+
+function EmptySearch({ query }: { query: string }) {
+  return (
+    <div className="rounded-lg border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-400">
+      No workflows match{' '}
+      <code className="rounded bg-slate-100 px-1.5 py-0.5 font-mono dark:bg-slate-800">
+        {query}
+      </code>
+      .
+    </div>
   )
 }
 

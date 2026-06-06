@@ -42,12 +42,21 @@ async def list_workflows(
     auth_subject: AuthPrincipal[User | Workspace],
     *,
     project_id: UUID | None = None,
+    name: str | None = None,
     pagination: PaginationParams,
 ) -> tuple[Sequence[Workflow], int]:
     repo = WorkflowRepository.from_session(session)
     statement = repo.get_readable_statement(auth_subject)
     if project_id is not None:
         statement = statement.where(Workflow.project_id == project_id)
+    if name is not None and name.strip():
+        # Same escape pattern as the projects/labels list endpoints.
+        # Without escaping, ``name=%`` matches everything and ``name=foo%``
+        # behaves as a prefix query, both breaking the documented contract.
+        escaped = (
+            name.strip().replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        )
+        statement = statement.where(Workflow.name.ilike(f"%{escaped}%", escape="\\"))
     return await paginate(session, statement, pagination=pagination)
 
 

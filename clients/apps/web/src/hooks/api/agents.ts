@@ -53,10 +53,16 @@ export interface PaginatedWorkflows {
 // ── Fetcher ───────────────────────────────────────────────────
 
 async function fetchWorkflows(
-  params: { project_id?: string; page?: number; limit?: number } = {},
+  params: {
+    project_id?: string
+    name?: string
+    page?: number
+    limit?: number
+  } = {},
 ): Promise<PaginatedWorkflows> {
   const url = new URL(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/workflows/`)
   if (params.project_id) url.searchParams.set('project_id', params.project_id)
+  if (params.name) url.searchParams.set('name', params.name)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
 
@@ -76,7 +82,12 @@ async function fetchWorkflows(
 // ── Hooks ─────────────────────────────────────────────────────
 
 export const useWorkflows = (
-  params: { project_id?: string; page?: number; limit?: number } = {},
+  params: {
+    project_id?: string
+    name?: string
+    page?: number
+    limit?: number
+  } = {},
   enabled: boolean = true,
 ) =>
   useQuery({
@@ -644,11 +655,12 @@ const datasetKey = (...parts: (string | object)[]) => [
 ]
 
 async function fetchDatasets(
-  params: { page?: number; limit?: number } = {},
+  params: { name?: string; page?: number; limit?: number } = {},
 ): Promise<PaginatedDatasets> {
   const url = new URL(
     `${process.env.NEXT_PUBLIC_API_URL}/api/v1/agents/datasets/`,
   )
+  if (params.name) url.searchParams.set('name', params.name)
   if (params.page) url.searchParams.set('page', String(params.page))
   if (params.limit) url.searchParams.set('limit', String(params.limit))
 
@@ -661,7 +673,7 @@ async function fetchDatasets(
 }
 
 export const useDatasets = (
-  params: { page?: number; limit?: number } = {},
+  params: { name?: string; page?: number; limit?: number } = {},
   enabled: boolean = true,
 ) =>
   useQuery({
