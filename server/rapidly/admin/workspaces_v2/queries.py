@@ -244,22 +244,33 @@ class AdminWorkspaceRepository(Repository[Workspace]):
     async def get_members(
         self, workspace_id: UUID, *, limit: int = 10
     ) -> Sequence[WorkspaceMembership]:
-        """Fetch workspace memberships with user relationship loaded."""
+        """Fetch active workspace memberships with user relationship loaded."""
         stmt = (
             select(WorkspaceMembership)
             .options(joinedload(WorkspaceMembership.user))
-            .where(WorkspaceMembership.workspace_id == workspace_id)
+            .where(
+                WorkspaceMembership.workspace_id == workspace_id,
+                # Soft-deleted memberships are ex-members; surfacing
+                # them on the admin detail page would mislabel
+                # ex-members as current.
+                WorkspaceMembership.deleted_at.is_(None),
+            )
             .limit(limit)
         )
         result = await self.session.execute(stmt)
         return list(result.scalars().unique().all())
 
     async def get_first_member_verification_status(self, workspace_id: UUID) -> bool:
-        """Check whether the first member of a workspace has a verified identity."""
+        """Check whether the first active member has a verified identity."""
         stmt = (
             select(User.identity_verification_status)
             .join(WorkspaceMembership, User.id == WorkspaceMembership.user_id)
-            .where(WorkspaceMembership.workspace_id == workspace_id)
+            .where(
+                WorkspaceMembership.workspace_id == workspace_id,
+                # Soft-deleted memberships shouldn't satisfy the
+                # "first member" probe — they're ex-members.
+                WorkspaceMembership.deleted_at.is_(None),
+            )
             .limit(1)
         )
         result = await self.session.execute(stmt)
@@ -279,10 +290,16 @@ class AdminWorkspaceRepository(Repository[Workspace]):
     async def get_membership(
         self, user_id: UUID, workspace_id: UUID
     ) -> WorkspaceMembership | None:
-        """Check if a user is a member of a workspace."""
+        """Check if a user is an ACTIVE member of a workspace.
+
+        Used by admin impersonation; a soft-deleted membership means
+        the user has been removed from the workspace and should not
+        be impersonatable as a member.
+        """
         stmt = select(WorkspaceMembership).where(
             WorkspaceMembership.user_id == user_id,
             WorkspaceMembership.workspace_id == workspace_id,
+            WorkspaceMembership.deleted_at.is_(None),
         )
         result = await self.session.execute(stmt)
         return result.scalars().one_or_none()
