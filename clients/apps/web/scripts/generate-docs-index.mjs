@@ -88,6 +88,32 @@ for (const file of mdxFiles) {
   })
 }
 
+// API reference groups (generated pages, not MDX) — index each
+// operation as a heading so search deep-links to the endpoint.
+try {
+  const api = JSON.parse(
+    readFileSync(join(root, 'src/generated/api-reference.json'), 'utf8'),
+  )
+  for (const group of api.groups) {
+    pages.push({
+      href: `/docs/api-reference/${group.slug}`,
+      title: `${group.title} API`,
+      description: `REST API reference for ${group.title}`,
+      section: 'API Reference',
+      headings: group.operations.map((op) => ({
+        id: op.id,
+        text: op.summary,
+        level: 2,
+      })),
+      body: group.operations
+        .map((op) => `${op.summary} ${op.method} ${op.path} ${op.description}`)
+        .join(' '),
+    })
+  }
+} catch {
+  // api-reference.json absent — index MDX pages only
+}
+
 mkdirSync(dirname(outFile), { recursive: true })
 writeFileSync(outFile, JSON.stringify({ pages }, null, 1) + '\n')
 console.log(`docs index: ${pages.length} pages -> ${relative(root, outFile)}`)
