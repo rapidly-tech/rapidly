@@ -4,7 +4,8 @@ import type { schemas } from '../types'
 
 const S3_TO_CDN: Record<string, string> = {
   'rapidly-public-files.s3.amazonaws.com': 'uploads.rapidly.tech',
-  'rapidly-public-sandbox-files.s3.amazonaws.com': 'sandbox-uploads.rapidly.tech',
+  'rapidly-public-sandbox-files.s3.amazonaws.com':
+    'sandbox-uploads.rapidly.tech',
 }
 
 const getResizedAvatarUrl = (url: string): string => {
@@ -18,7 +19,7 @@ const getResizedAvatarUrl = (url: string): string => {
 }
 
 interface HeaderProps {
-  organization: schemas['Organization']
+  workspace: schemas['Workspace']
 }
 
 const LinkWrapper = ({
@@ -34,22 +35,22 @@ const LinkWrapper = ({
   return <Link href={href}>{children}</Link>
 }
 
-const Header = ({ organization }: HeaderProps) => (
-  <LinkWrapper href={organization.website}>
+const Header = ({ workspace }: HeaderProps) => (
+  <LinkWrapper href={workspace.website}>
     <Section className="pt-[10px]">
       <Row>
-        {organization.avatar_url && (
+        {workspace.avatar_url && (
           <Column className="w-10">
             <Img
-              alt={organization.name}
-              src={getResizedAvatarUrl(organization.avatar_url)}
+              alt={workspace.name}
+              src={getResizedAvatarUrl(workspace.avatar_url)}
               className="size-8 overflow-hidden rounded-full object-cover"
             />
           </Column>
         )}
         <Column>
           <Text className="my-0 text-lg font-bold text-gray-900">
-            {organization.name}
+            {workspace.name}
           </Text>
         </Column>
       </Row>

@@ -5,10 +5,11 @@ scope-filtered listing, usage-timestamp recording, and soft-delete.
 """
 
 from collections.abc import Sequence
-from datetime import datetime
+from datetime import datetime, timedelta
+from typing import cast
 from uuid import UUID
 
-from sqlalchemy import Select, asc, desc, or_, select, update
+from sqlalchemy import CursorResult, Select, asc, delete, desc, or_, select, update
 from sqlalchemy.orm import contains_eager
 
 from rapidly.core.queries import (
@@ -124,3 +125,69 @@ class WorkspaceAccessTokenRepository(
             )
         )
         return count or 0
+
+    async def soft_delete_expired(self) -> int:
+        """Soft-delete tokens whose expiry has passed.
+
+        Sets ``deleted_at = now_utc()`` so the row stays in the
+        DB for audit (operators may have referenced the token id
+        in logs / integration configs and want to look it up
+        later) but is invisible to the get_readable_statement
+        path. Skips tokens with NULL ``expires_at`` (those are
+        intentionally non-expiring) and rows already soft-
+        deleted.
+
+        Strict ``expires_at < now()`` so a token at the exact
+        boundary stays usable until the lookup's
+        ``expires_at > now()`` flips first — no race between
+        cleanup and a final in-flight request.
+
+        Returns the rowcount so the cron actor can log how many
+        rows it processed.
+        """
+        now = now_utc()
+        statement = (
+            update(WorkspaceAccessToken)
+            .where(
+                WorkspaceAccessToken.expires_at.is_not(None),
+                WorkspaceAccessToken.expires_at < now,
+                WorkspaceAccessToken.deleted_at.is_(None),
+            )
+            .values(deleted_at=now)
+        )
+        result = await self.session.execute(statement)
+        return result.rowcount or 0  # type: ignore[attr-defined]
+
+    async def hard_delete_expiry_soft_deletes_older_than(
+        self, retention: timedelta
+    ) -> int:
+        """Permanently delete tokens that were soft-deleted by the
+        expiry cleanup (PR #860) more than ``retention`` ago.
+
+        Distinguishes expiry-cleanup soft-deletes from operator-
+        revocations via ``expires_at < deleted_at`` — proves the
+        token was soft-deleted BECAUSE it had already expired,
+        not because an operator hit Delete or because the leak-
+        detection path fired (those have audit-incident value
+        and stay indefinitely).
+
+        Combined predicate:
+          - deleted_at IS NOT NULL                  → soft-deleted
+          - deleted_at < now() - retention          → past grace
+          - expires_at IS NOT NULL                  → not non-expiring
+          - expires_at < deleted_at                 → expiry-driven
+                                                       soft-delete
+
+        Returns the rowcount so the cron actor can log volume.
+        """
+        cutoff = now_utc() - retention
+        statement = delete(WorkspaceAccessToken).where(
+            WorkspaceAccessToken.deleted_at.is_not(None),
+            WorkspaceAccessToken.deleted_at < cutoff,
+            WorkspaceAccessToken.expires_at.is_not(None),
+            WorkspaceAccessToken.expires_at < WorkspaceAccessToken.deleted_at,
+        )
+        result = cast(
+            CursorResult[WorkspaceAccessToken], await self.session.execute(statement)
+        )
+        return result.rowcount or 0

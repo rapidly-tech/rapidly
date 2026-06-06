@@ -136,7 +136,7 @@ class ShareRepository(
         if workspace_id is not None:
             stmt = stmt.where(Share.workspace_id.in_(workspace_id))
         if query is not None:
-            stmt = stmt.where(Share.name.ilike(f"%{escape_like(query)}%"))
+            stmt = stmt.where(Share.name.ilike(f"%{escape_like(query)}%", escape="\\"))
         if is_archived is not None:
             stmt = stmt.where(Share.is_archived.is_(is_archived))
         if visibility is not None:
