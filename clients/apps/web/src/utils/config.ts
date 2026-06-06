@@ -29,7 +29,7 @@ export const CONFIG = {
   OG_IMAGE_URL: `${defaults.FRONTEND_BASE_URL}/assets/brand/rapidly_og.jpg`,
   OG_POSTS_IMAGE_BASE_URL: `${defaults.FRONTEND_BASE_URL}/assets/posts/og`,
   SITEMAP_URL: `${defaults.FRONTEND_BASE_URL}/sitemap.xml`,
-  // Docs are served natively at /docs since the Mintlify retirement —
+  // Docs are served natively at /docs —
   // link internally instead of round-tripping through the old subdomain.
   DOCS_BASE_URL:
     process.env.NEXT_PUBLIC_DOCS_URL || `${defaults.FRONTEND_BASE_URL}/docs`,
