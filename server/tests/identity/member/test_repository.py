@@ -235,3 +235,152 @@ class TestListByEmailAndWorkspace:
         # Access customer without additional query (eager loaded)
         assert members[0].customer.id == customer.id
         assert members[0].customer.name == "Test Customer"
+
+
+@pytest.mark.asyncio
+class TestFindCaseInsensitiveEmailDuplicates:
+    """Pre-flight check for the case-insensitive unique constraint
+    migration (queued). Operators run this to surface
+    (customer_id, lower(email)) groups with >1 active members
+    that would block the constraint creation.
+
+    Four load-bearing properties pinned:
+
+    - Active-only — soft-deleted members don't count toward
+      the unique constraint, so they don't need to surface.
+    - Case-insensitive — that's the whole point; ``Alice@x.com``
+      and ``alice@x.com`` MUST collapse into one group.
+    - Per-(customer_id, email) — two members of DIFFERENT
+      customers with the same email aren't duplicates (members
+      are scoped per customer).
+    - Returns the COUNT so operators know how many duplicates
+      to merge per group.
+    """
+
+    async def test_no_duplicates_returns_empty(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="solo@example.com"
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="solo@example.com",
+                role=MemberRole.owner,
+            )
+        )
+
+        repo = MemberRepository.from_session(session)
+        duplicates = await repo.find_case_insensitive_email_duplicates()
+        assert duplicates == []
+
+    async def test_finds_case_insensitive_duplicates(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="primary@example.com"
+        )
+        # Two members differing only in email case — these would
+        # collide under the case-insensitive unique constraint.
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="John@example.com",
+                role=MemberRole.owner,
+            )
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="john@example.com",
+                role=MemberRole.member,
+            )
+        )
+
+        repo = MemberRepository.from_session(session)
+        duplicates = await repo.find_case_insensitive_email_duplicates()
+
+        assert len(duplicates) == 1
+        cid, lower_email, count = duplicates[0]
+        assert cid == customer.id
+        assert lower_email == "john@example.com"
+        assert count == 2
+
+    async def test_excludes_soft_deleted_members(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Soft-deleted members shouldn't count — they don't
+        # block the unique constraint (the constraint applies
+        # to active rows).
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="x@example.com"
+        )
+        active = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="alice@example.com",
+            role=MemberRole.owner,
+        )
+        deleted = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="ALICE@example.com",
+            role=MemberRole.member,
+            deleted_at=now_utc(),
+        )
+        await save_fixture(active)
+        await save_fixture(deleted)
+
+        repo = MemberRepository.from_session(session)
+        duplicates = await repo.find_case_insensitive_email_duplicates()
+        # Only one active row → no duplicate group.
+        assert duplicates == []
+
+    async def test_distinct_customers_not_grouped(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Members are scoped per customer; two members at
+        # different customers with the same email are NOT
+        # duplicates under the (customer_id, email) unique key.
+        customer_a = await create_customer(
+            save_fixture, workspace=workspace, email="a@example.com"
+        )
+        customer_b = await create_customer(
+            save_fixture, workspace=workspace, email="b@example.com"
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer_a.id,
+                workspace_id=workspace.id,
+                email="shared@example.com",
+                role=MemberRole.owner,
+            )
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer_b.id,
+                workspace_id=workspace.id,
+                email="shared@example.com",
+                role=MemberRole.owner,
+            )
+        )
+
+        repo = MemberRepository.from_session(session)
+        duplicates = await repo.find_case_insensitive_email_duplicates()
+        assert duplicates == []

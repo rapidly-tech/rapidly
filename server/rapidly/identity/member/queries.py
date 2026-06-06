@@ -200,6 +200,37 @@ class MemberRepository(
         result = await self.session.execute(statement)
         return result.scalars().unique().all()
 
+    async def find_case_insensitive_email_duplicates(
+        self,
+    ) -> Sequence[tuple[UUID, str, int]]:
+        """Find (customer_id, lower(email), count) groups with >1
+        active member.
+
+        Operators need to dedupe these BEFORE the case-insensitive
+        unique constraint (queued migration) can land — otherwise
+        the constraint-creation will fail on existing data.
+
+        Returns a list of ``(customer_id, lower_email, count)``
+        tuples for each (customer_id, lower(email)) pair that has
+        more than one active row. The count tells operators how
+        many duplicates they need to resolve per pair.
+
+        Active-only (``deleted_at IS NULL``) — soft-deleted rows
+        don't violate the case-insensitive unique we're working
+        toward.
+        """
+        lower_email = func.lower(Member.email).label("lower_email")
+        member_count = func.count().label("member_count")
+        statement = (
+            select(Member.customer_id, lower_email, member_count)
+            .where(Member.deleted_at.is_(None))
+            .group_by(Member.customer_id, lower_email)
+            .having(member_count > 1)
+            .order_by(member_count.desc(), Member.customer_id)
+        )
+        result = await self.session.execute(statement)
+        return [(row[0], row[1], row[2]) for row in result.all()]
+
     async def list_by_customers(
         self,
         session: AsyncReadSession | None = None,
