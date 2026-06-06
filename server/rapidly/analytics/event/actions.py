@@ -182,8 +182,8 @@ async def _build_filtered_statement(
         escaped = escape_like(query)
         statement = statement.where(
             or_(
-                Event.name.ilike(f"%{escaped}%"),
-                Event.source.ilike(f"%{escaped}%"),
+                Event.name.ilike(f"%{escaped}%", escape="\\"),
+                Event.source.ilike(f"%{escaped}%", escape="\\"),
                 repository.get_customer_text_search_clause(escaped),
                 func.to_tsvector("simple", cast(Event.user_metadata, String)).op("@@")(
                     func.plainto_tsquery(query)
@@ -449,7 +449,9 @@ async def list_names(
         statement = statement.where(Event.source.in_(source))
 
     if query is not None:
-        statement = statement.where(Event.name.ilike(f"%{escape_like(query)}%"))
+        statement = statement.where(
+            Event.name.ilike(f"%{escape_like(query)}%", escape="\\")
+        )
 
     order_by_clauses: list[UnaryExpression[Any]] = []
     for criterion, is_desc in sorting:

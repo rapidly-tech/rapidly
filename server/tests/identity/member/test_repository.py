@@ -235,3 +235,274 @@ class TestListByEmailAndWorkspace:
         # Access customer without additional query (eager loaded)
         assert members[0].customer.id == customer.id
         assert members[0].customer.name == "Test Customer"
+
+
+@pytest.mark.asyncio
+class TestFindCaseInsensitiveEmailDuplicates:
+    """Pre-flight check for the case-insensitive unique constraint
+    migration (queued). Operators run this to surface
+    (customer_id, lower(email)) groups with >1 active members
+    that would block the constraint creation.
+
+    Four load-bearing properties pinned:
+
+    - Active-only — soft-deleted members don't count toward
+      the unique constraint, so they don't need to surface.
+    - Case-insensitive — that's the whole point; ``Alice@x.com``
+      and ``alice@x.com`` MUST collapse into one group.
+    - Per-(customer_id, email) — two members of DIFFERENT
+      customers with the same email aren't duplicates (members
+      are scoped per customer).
+    - Returns the COUNT so operators know how many duplicates
+      to merge per group.
+    """
+
+    async def test_no_duplicates_returns_empty(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="solo@example.com"
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="solo@example.com",
+                role=MemberRole.owner,
+            )
+        )
+
+        repo = MemberRepository.from_session(session)
+        duplicates = await repo.find_case_insensitive_email_duplicates()
+        assert duplicates == []
+
+    async def test_finds_case_insensitive_duplicates(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="primary@example.com"
+        )
+        # Two members differing only in email case — these would
+        # collide under the case-insensitive unique constraint.
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="John@example.com",
+                role=MemberRole.owner,
+            )
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="john@example.com",
+                role=MemberRole.member,
+            )
+        )
+
+        repo = MemberRepository.from_session(session)
+        duplicates = await repo.find_case_insensitive_email_duplicates()
+
+        assert len(duplicates) == 1
+        cid, lower_email, count = duplicates[0]
+        assert cid == customer.id
+        assert lower_email == "john@example.com"
+        assert count == 2
+
+    async def test_excludes_soft_deleted_members(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Soft-deleted members shouldn't count — they don't
+        # block the unique constraint (the constraint applies
+        # to active rows).
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="x@example.com"
+        )
+        active = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="alice@example.com",
+            role=MemberRole.owner,
+        )
+        deleted = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="ALICE@example.com",
+            role=MemberRole.member,
+            deleted_at=now_utc(),
+        )
+        await save_fixture(active)
+        await save_fixture(deleted)
+
+        repo = MemberRepository.from_session(session)
+        duplicates = await repo.find_case_insensitive_email_duplicates()
+        # Only one active row → no duplicate group.
+        assert duplicates == []
+
+    async def test_distinct_customers_not_grouped(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Members are scoped per customer; two members at
+        # different customers with the same email are NOT
+        # duplicates under the (customer_id, email) unique key.
+        customer_a = await create_customer(
+            save_fixture, workspace=workspace, email="a@example.com"
+        )
+        customer_b = await create_customer(
+            save_fixture, workspace=workspace, email="b@example.com"
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer_a.id,
+                workspace_id=workspace.id,
+                email="shared@example.com",
+                role=MemberRole.owner,
+            )
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer_b.id,
+                workspace_id=workspace.id,
+                email="shared@example.com",
+                role=MemberRole.owner,
+            )
+        )
+
+        repo = MemberRepository.from_session(session)
+        duplicates = await repo.find_case_insensitive_email_duplicates()
+        assert duplicates == []
+
+
+@pytest.mark.asyncio
+class TestListDuplicatesForDedupe:
+    """Loader for a single duplicate group, ordered by the
+    auto-dedupe policy: highest role first (owner >
+    billing_manager > member), tie-broken by earliest
+    created_at. Survivor = first row; losers = rest.
+
+    Role is stored as a string but the natural ordering for
+    picking the SURVIVOR is the enum's intent (owner >
+    billing_manager > member). Alphabetically that's
+    billing_manager < member < owner — would pick the WRONG
+    winner. The CASE expression in the query pins the correct
+    enum ordering.
+    """
+
+    async def test_owner_wins_over_lower_roles(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="x@example.com"
+        )
+        # Insert in NON-policy order so the ORDER BY is exercised.
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="alice@example.com",
+                role=MemberRole.member,
+            )
+        )
+        owner = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="ALICE@example.com",
+            role=MemberRole.owner,
+        )
+        await save_fixture(owner)
+
+        repo = MemberRepository.from_session(session)
+        ordered = await repo.list_duplicates_for_dedupe(
+            customer.id, "alice@example.com"
+        )
+
+        assert len(ordered) == 2
+        assert ordered[0].id == owner.id
+        assert ordered[0].role == MemberRole.owner
+
+    async def test_billing_manager_beats_member(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Pin: billing_manager > member by enum, even though
+        # billing_manager < member alphabetically. The CASE
+        # expression's the difference.
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="y@example.com"
+        )
+        await save_fixture(
+            Member(
+                customer_id=customer.id,
+                workspace_id=workspace.id,
+                email="bob@example.com",
+                role=MemberRole.member,
+            )
+        )
+        billing = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="BOB@example.com",
+            role=MemberRole.billing_manager,
+        )
+        await save_fixture(billing)
+
+        repo = MemberRepository.from_session(session)
+        ordered = await repo.list_duplicates_for_dedupe(customer.id, "bob@example.com")
+
+        assert ordered[0].id == billing.id
+
+    async def test_role_tie_broken_by_earliest_created_at(
+        self,
+        session: AsyncSession,
+        save_fixture: SaveFixture,
+        workspace: Workspace,
+    ) -> None:
+        # Same role → earliest registration wins. Pins the
+        # "original first" semantic.
+        from datetime import timedelta
+
+        customer = await create_customer(
+            save_fixture, workspace=workspace, email="z@example.com"
+        )
+        older = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="carol@example.com",
+            role=MemberRole.owner,
+            created_at=now_utc() - timedelta(days=10),
+        )
+        newer = Member(
+            customer_id=customer.id,
+            workspace_id=workspace.id,
+            email="CAROL@example.com",
+            role=MemberRole.owner,
+            created_at=now_utc(),
+        )
+        await save_fixture(older)
+        await save_fixture(newer)
+
+        repo = MemberRepository.from_session(session)
+        ordered = await repo.list_duplicates_for_dedupe(
+            customer.id, "carol@example.com"
+        )
+
+        assert ordered[0].id == older.id
+        assert ordered[1].id == newer.id

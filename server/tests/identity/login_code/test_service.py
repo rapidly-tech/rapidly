@@ -1,10 +1,15 @@
 """Tests for login code generation and verification."""
 
+import datetime
+
 import pytest
 from pytest_mock import MockerFixture
+from sqlalchemy import select
 
+from rapidly.core.utils import now_utc
 from rapidly.identity.login_code import actions as login_code_service
 from rapidly.identity.login_code.actions import LoginCodeInvalidOrExpired
+from rapidly.models import LoginCode
 from rapidly.postgres import AsyncSession
 from tests.fixtures.database import SaveFixture
 from tests.fixtures.random_objects import create_user
@@ -224,3 +229,61 @@ class TestRequestPrivacyHygiene:
         # And the codes are the same length (both pass through
         # the same _generate_code_hash helper).
         assert len(known_code) == len(unknown_code)
+
+
+@pytest.mark.asyncio
+class TestDeleteExpired:
+    """Real-DB integration test for the daily cleanup actor.
+
+    Confirms the action wires the queries.delete_expired call
+    correctly and only removes rows whose ``expires_at`` is in
+    the past — the unredeemed-but-still-valid case must be
+    preserved.
+    """
+
+    async def test_purges_expired_but_keeps_valid(
+        self,
+        session: AsyncSession,
+    ) -> None:
+        now = now_utc()
+
+        # Pre-seed three rows: one freshly-issued (valid), one
+        # already-expired by 1 hour, one expiring 1 hour from
+        # now (valid).
+        valid_recent = LoginCode(
+            code_hash="a" * 64,
+            email="valid-recent@example.com",
+            expires_at=now + datetime.timedelta(minutes=5),
+        )
+        expired = LoginCode(
+            code_hash="b" * 64,
+            email="expired@example.com",
+            expires_at=now - datetime.timedelta(hours=1),
+        )
+        valid_future = LoginCode(
+            code_hash="c" * 64,
+            email="valid-future@example.com",
+            expires_at=now + datetime.timedelta(hours=1),
+        )
+        session.add_all([valid_recent, expired, valid_future])
+        await session.flush()
+
+        await login_code_service.delete_expired(session)
+        await session.flush()
+
+        remaining = (
+            (
+                await session.execute(
+                    select(LoginCode).where(
+                        LoginCode.code_hash.in_(["a" * 64, "b" * 64, "c" * 64])
+                    )
+                )
+            )
+            .scalars()
+            .all()
+        )
+        remaining_hashes = {r.code_hash for r in remaining}
+        # Only the expired row is gone; both valid rows remain.
+        assert "a" * 64 in remaining_hashes
+        assert "b" * 64 not in remaining_hashes
+        assert "c" * 64 in remaining_hashes

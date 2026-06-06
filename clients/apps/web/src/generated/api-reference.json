@@ -1,0 +1,2971 @@
+{
+ "groups": [
+  {
+   "slug": "customers",
+   "title": "Customers",
+   "operations": [
+    {
+     "id": "list-customers",
+     "method": "GET",
+     "path": "/api/customers/",
+     "summary": "List Customers",
+     "description": "List customers.\n\n**Scopes**: `customers:read` `customers:write`",
+     "params": [
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      },
+      {
+       "name": "email",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter by exact email."
+      },
+      {
+       "name": "query",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter by name, email, or external ID."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      },
+      {
+       "name": "sorting",
+       "in": "query",
+       "required": false,
+       "type": "\"email\" | \"-email\" | \"name\" | \"-name\" | \"created_at\" | \"-created_at\"[] | null",
+       "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+      },
+      {
+       "name": "metadata",
+       "in": "query",
+       "required": false,
+       "type": "object | null",
+       "description": "Filter by metadata key-value pairs using ``deepObject`` style, e.g. ``?metadata[key]=value``."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_CustomerWithMembers_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customers/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "create-customer",
+     "method": "POST",
+     "path": "/api/customers/",
+     "summary": "Create Customer",
+     "description": "Create a customer.\n\n**Scopes**: `customers:write`",
+     "params": [],
+     "body": [
+      {
+       "name": "metadata",
+       "type": "object",
+       "required": false,
+       "description": "Custom key-value attributes.\n\nKeys: string, max **40** chars.  Values: string (max **500** chars), integer, float, or boolean.  Limit: **50** pairs."
+      },
+      {
+       "name": "external_id",
+       "type": "string | null",
+       "required": false,
+       "description": "The ID of the customer in your system. This must be unique within the workspace. Once set, it can't be updated."
+      },
+      {
+       "name": "email",
+       "type": "string",
+       "required": true,
+       "description": "The email address of the customer. This must be unique within the workspace."
+      },
+      {
+       "name": "name",
+       "type": "string | null",
+       "required": false,
+       "description": "Name"
+      },
+      {
+       "name": "billing_address",
+       "type": "AddressInput | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "type",
+       "type": "\"individual\" | \"team\" | null",
+       "required": false,
+       "description": "The type of customer. Defaults to 'individual'. Set to 'team' for customers that can have multiple members."
+      },
+      {
+       "name": "workspace_id",
+       "type": "string | null",
+       "required": false,
+       "description": "The ID of the workspace owning the customer. **Required unless you use an workspace token.**"
+      },
+      {
+       "name": "owner",
+       "type": "OwnerCreate | null",
+       "required": false,
+       "description": "Optional owner member to create with the customer. If not provided, an owner member will be automatically created using the customer's email and name."
+      }
+     ],
+     "bodyName": "CustomerCreate",
+     "responseCode": "201",
+     "responseName": "CustomerWithMembers",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/customers/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "export-customers",
+     "method": "GET",
+     "path": "/api/customers/export",
+     "summary": "Export Customers",
+     "description": "Export customers as a CSV file.\n\n**Scopes**: `customers:read` `customers:write`",
+     "params": [
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customers/export \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-customer",
+     "method": "GET",
+     "path": "/api/customers/{id}",
+     "summary": "Get Customer",
+     "description": "Get a customer by ID.\n\n**Scopes**: `customers:read` `customers:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The customer ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerWithMembers",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customers/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "update-customer",
+     "method": "PATCH",
+     "path": "/api/customers/{id}",
+     "summary": "Update Customer",
+     "description": "Update a customer.\n\n**Scopes**: `customers:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The customer ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "metadata",
+       "type": "object",
+       "required": false,
+       "description": "Custom key-value attributes.\n\nKeys: string, max **40** chars.  Values: string (max **500** chars), integer, float, or boolean.  Limit: **50** pairs."
+      },
+      {
+       "name": "email",
+       "type": "string | null",
+       "required": false,
+       "description": "The email address of the customer. This must be unique within the workspace."
+      },
+      {
+       "name": "name",
+       "type": "string | null",
+       "required": false,
+       "description": "Name"
+      },
+      {
+       "name": "billing_address",
+       "type": "AddressInput | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "external_id",
+       "type": "string | null",
+       "required": false,
+       "description": "The ID of the customer in your system. This must be unique within the workspace. Once set, it can't be updated."
+      },
+      {
+       "name": "type",
+       "type": "\"individual\" | \"team\" | null",
+       "required": false,
+       "description": "The customer type. Can only be upgraded from 'individual' to 'team', never downgraded."
+      }
+     ],
+     "bodyName": "CustomerUpdate",
+     "responseCode": "200",
+     "responseName": "CustomerWithMembers",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/customers/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "delete-customer",
+     "method": "DELETE",
+     "path": "/api/customers/{id}",
+     "summary": "Delete Customer",
+     "description": "Delete a customer.\n\nThis action cannot be undone and will immediately:\n- Soft-delete the customer record\n- Clear any `external_id`\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The customer ID."
+      },
+      {
+       "name": "anonymize",
+       "in": "query",
+       "required": false,
+       "type": "boolean",
+       "description": "If true, also anonymize the customer's personal data for GDPR compliance. This replaces email with a hashed version, hashes name and billing name, clears billing address, and removes OAuth account data."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "204",
+     "responseName": "unknown",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/customers/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-customer-by-external-id",
+     "method": "GET",
+     "path": "/api/customers/external/{external_id}",
+     "summary": "Get Customer by External ID",
+     "description": "Get a customer by external ID.\n\n**Scopes**: `customers:read` `customers:write`",
+     "params": [
+      {
+       "name": "external_id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The customer external ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerWithMembers",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customers/external/{external_id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "update-customer-by-external-id",
+     "method": "PATCH",
+     "path": "/api/customers/external/{external_id}",
+     "summary": "Update Customer by External ID",
+     "description": "Update a customer by external ID.\n\n**Scopes**: `customers:write`",
+     "params": [
+      {
+       "name": "external_id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The customer external ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "metadata",
+       "type": "object",
+       "required": false,
+       "description": "Custom key-value attributes.\n\nKeys: string, max **40** chars.  Values: string (max **500** chars), integer, float, or boolean.  Limit: **50** pairs."
+      },
+      {
+       "name": "email",
+       "type": "string | null",
+       "required": false,
+       "description": "The email address of the customer. This must be unique within the workspace."
+      },
+      {
+       "name": "name",
+       "type": "string | null",
+       "required": false,
+       "description": "Name"
+      },
+      {
+       "name": "billing_address",
+       "type": "AddressInput | null",
+       "required": false,
+       "description": ""
+      }
+     ],
+     "bodyName": "CustomerUpdateExternalID",
+     "responseCode": "200",
+     "responseName": "CustomerWithMembers",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/customers/external/{external_id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "delete-customer-by-external-id",
+     "method": "DELETE",
+     "path": "/api/customers/external/{external_id}",
+     "summary": "Delete Customer by External ID",
+     "description": "Delete a customer by external ID.\n\nSoft-deletes the customer record.\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write`",
+     "params": [
+      {
+       "name": "external_id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The customer external ID."
+      },
+      {
+       "name": "anonymize",
+       "in": "query",
+       "required": false,
+       "type": "boolean",
+       "description": "If true, also anonymize the customer's personal data for GDPR compliance."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "204",
+     "responseName": "unknown",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/customers/external/{external_id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-customer-state",
+     "method": "GET",
+     "path": "/api/customers/{id}/state",
+     "summary": "Get Customer State",
+     "description": "Get a customer state by ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The customer ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerState",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customers/{id}/state \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-customer-state-by-external-id",
+     "method": "GET",
+     "path": "/api/customers/external/{external_id}/state",
+     "summary": "Get Customer State by External ID",
+     "description": "Get a customer state by external ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write`",
+     "params": [
+      {
+       "name": "external_id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The customer external ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerState",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customers/external/{external_id}/state \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-customer",
+     "method": "GET",
+     "path": "/api/customer-portal/customers/me",
+     "summary": "Get Customer",
+     "description": "Get authenticated customer.\n\n**Scopes**: `customer_portal:read` `customer_portal:write`",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerPortalCustomer",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/customers/me \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "update-customer",
+     "method": "PATCH",
+     "path": "/api/customer-portal/customers/me",
+     "summary": "Update Customer",
+     "description": "Update authenticated customer.",
+     "params": [],
+     "body": [
+      {
+       "name": "billing_name",
+       "type": "string | null",
+       "required": false,
+       "description": "Billing Name"
+      },
+      {
+       "name": "billing_address",
+       "type": "AddressInput | null",
+       "required": false,
+       "description": ""
+      }
+     ],
+     "bodyName": "CustomerPortalCustomerUpdate",
+     "responseCode": "200",
+     "responseName": "CustomerPortalCustomer",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/customer-portal/customers/me \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    }
+   ]
+  },
+  {
+   "slug": "customer-portal",
+   "title": "Customer Portal",
+   "operations": [
+    {
+     "id": "get-customer",
+     "method": "GET",
+     "path": "/api/customer-portal/customers/me",
+     "summary": "Get Customer",
+     "description": "Get authenticated customer.\n\n**Scopes**: `customer_portal:read` `customer_portal:write`",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerPortalCustomer",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/customers/me \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "update-customer",
+     "method": "PATCH",
+     "path": "/api/customer-portal/customers/me",
+     "summary": "Update Customer",
+     "description": "Update authenticated customer.",
+     "params": [],
+     "body": [
+      {
+       "name": "billing_name",
+       "type": "string | null",
+       "required": false,
+       "description": "Billing Name"
+      },
+      {
+       "name": "billing_address",
+       "type": "AddressInput | null",
+       "required": false,
+       "description": ""
+      }
+     ],
+     "bodyName": "CustomerPortalCustomerUpdate",
+     "responseCode": "200",
+     "responseName": "CustomerPortalCustomer",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/customer-portal/customers/me \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "get-authenticated-portal-user",
+     "method": "GET",
+     "path": "/api/customer-portal/customer-session/user",
+     "summary": "Get Authenticated Portal User",
+     "description": "Return info about the currently authenticated portal user.\n\n**Scopes**: `customer_portal:read` `customer_portal:write`",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PortalAuthenticatedUser",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/customer-session/user \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "introspect-customer-session",
+     "method": "GET",
+     "path": "/api/customer-portal/customer-session/introspect",
+     "summary": "Introspect Customer Session",
+     "description": "Introspect the current session and return its information.\n\n**Scopes**: `customer_portal:read` `customer_portal:write`",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerCustomerSession",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/customer-session/introspect \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "customer-portalcustomer-sessionrequest",
+     "method": "POST",
+     "path": "/api/customer-portal/customer-session/request",
+     "summary": "Customer Portal.Customer Session.Request",
+     "description": "",
+     "params": [],
+     "body": [
+      {
+       "name": "email",
+       "type": "string",
+       "required": true,
+       "description": "Email"
+      },
+      {
+       "name": "workspace_id",
+       "type": "string",
+       "required": true,
+       "description": "Workspace Id"
+      },
+      {
+       "name": "customer_id",
+       "type": "string | null",
+       "required": false,
+       "description": "Optional customer ID for disambiguation when multiple customers share the same email."
+      }
+     ],
+     "bodyName": "CustomerSessionCodeRequest",
+     "responseCode": "202",
+     "responseName": "object",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/customer-portal/customer-session/request \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "customer-portalcustomer-sessionauthenticate",
+     "method": "POST",
+     "path": "/api/customer-portal/customer-session/authenticate",
+     "summary": "Customer Portal.Customer Session.Authenticate",
+     "description": "",
+     "params": [],
+     "body": [
+      {
+       "name": "code",
+       "type": "string",
+       "required": true,
+       "description": "Code"
+      }
+     ],
+     "bodyName": "CustomerSessionCodeAuthenticateRequest",
+     "responseCode": "200",
+     "responseName": "CustomerSessionCodeAuthenticateResponse",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/customer-portal/customer-session/authenticate \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "list-file-sharing-sessions",
+     "method": "GET",
+     "path": "/api/customer-portal/file-sharing/sessions",
+     "summary": "List File Sharing Sessions",
+     "description": "List file sharing sessions for the authenticated member's workspace.\n\n**Scopes**: `customer_portal:read` `customer_portal:write`",
+     "params": [
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      },
+      {
+       "name": "sorting",
+       "in": "query",
+       "required": false,
+       "type": "\"created_at\" | \"-created_at\" | \"status\" | \"-status\" | \"download_count\" | \"-download_count\"[] | null",
+       "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_FileShareSessionSchema_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/file-sharing/sessions \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-file-sharing-session",
+     "method": "GET",
+     "path": "/api/customer-portal/file-sharing/sessions/{id}",
+     "summary": "Get File Sharing Session",
+     "description": "Get a file sharing session by ID.\n\n**Scopes**: `customer_portal:read` `customer_portal:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "FileShareSessionSchema",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/file-sharing/sessions/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-session-downloads",
+     "method": "GET",
+     "path": "/api/customer-portal/file-sharing/sessions/{id}/downloads",
+     "summary": "List Session Downloads",
+     "description": "List downloads for a file sharing session.\n\n**Scopes**: `customer_portal:read` `customer_portal:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "FileShareDownloadSchema[]",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/file-sharing/sessions/{id}/downloads \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-session-payments",
+     "method": "GET",
+     "path": "/api/customer-portal/file-sharing/sessions/{id}/payments",
+     "summary": "List Session Payments",
+     "description": "List payments for a file sharing session.\n\n**Scopes**: `customer_portal:read` `customer_portal:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "FileSharePaymentSchema[]",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/file-sharing/sessions/{id}/payments \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-members",
+     "method": "GET",
+     "path": "/api/customer-portal/members",
+     "summary": "List Members",
+     "description": "List all members of the customer's team.\n\nOnly available to owners and billing managers of team customers.",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerPortalMember[]",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/members \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "add-member",
+     "method": "POST",
+     "path": "/api/customer-portal/members",
+     "summary": "Add Member",
+     "description": "Add a new member to the customer's team.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot add a member with the owner role (there must be exactly one owner)\n- If a member with this email already exists, the existing member is returned",
+     "params": [],
+     "body": [
+      {
+       "name": "email",
+       "type": "string",
+       "required": true,
+       "description": "The email address of the new member."
+      },
+      {
+       "name": "name",
+       "type": "string | null",
+       "required": false,
+       "description": "Display name (optional)."
+      },
+      {
+       "name": "role",
+       "type": "\"owner\" | \"billing_manager\" | \"member\"",
+       "required": false,
+       "description": "Hierarchical role within a customer team."
+      }
+     ],
+     "bodyName": "CustomerPortalMemberCreate",
+     "responseCode": "201",
+     "responseName": "CustomerPortalMember",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/customer-portal/members \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "update-member",
+     "method": "PATCH",
+     "path": "/api/customer-portal/members/{id}",
+     "summary": "Update Member",
+     "description": "Update a member's role.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot modify your own role (to prevent self-demotion)\n- Customer must have exactly one owner at all times",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [
+      {
+       "name": "role",
+       "type": "\"owner\" | \"billing_manager\" | \"member\" | null",
+       "required": false,
+       "description": "The new role for the member."
+      }
+     ],
+     "bodyName": "CustomerPortalMemberUpdate",
+     "responseCode": "200",
+     "responseName": "CustomerPortalMember",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/customer-portal/members/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "remove-member",
+     "method": "DELETE",
+     "path": "/api/customer-portal/members/{id}",
+     "summary": "Remove Member",
+     "description": "Remove a member from the team.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot remove yourself\n- Cannot remove the only owner",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "204",
+     "responseName": "unknown",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/customer-portal/members/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "customer-portaloauth-accountsauthorize",
+     "method": "GET",
+     "path": "/api/customer-portal/oauth-accounts/authorize",
+     "summary": "Customer Portal.Oauth Accounts.Authorize",
+     "description": "**Scopes**: `customer_portal:write`",
+     "params": [
+      {
+       "name": "platform",
+       "in": "query",
+       "required": true,
+       "type": "\"microsoft\" | \"discord\"",
+       "description": "Platforms a customer may link for single sign-on."
+      },
+      {
+       "name": "customer_id",
+       "in": "query",
+       "required": true,
+       "type": "string",
+       "description": ""
+      },
+      {
+       "name": "return_to",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "AuthorizeResponse",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/oauth-accounts/authorize \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "customer-portaloauth-accountscallback",
+     "method": "GET",
+     "path": "/api/customer-portal/oauth-accounts/callback",
+     "summary": "Customer Portal.Oauth Accounts.Callback",
+     "description": "**Scopes**: `customer_portal:write`",
+     "params": [
+      {
+       "name": "state",
+       "in": "query",
+       "required": true,
+       "type": "string",
+       "description": ""
+      },
+      {
+       "name": "code",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": ""
+      },
+      {
+       "name": "error",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/oauth-accounts/callback \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-payment-methods",
+     "method": "GET",
+     "path": "/api/customer-portal/payment-methods",
+     "summary": "List Payment Methods",
+     "description": "List all saved payment methods for the authenticated customer.",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaymentMethodSchema[]",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/payment-methods \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "add-payment-method",
+     "method": "POST",
+     "path": "/api/customer-portal/payment-methods",
+     "summary": "Add Payment Method",
+     "description": "Add a new payment method via Stripe SetupIntent.\n\nReturns ``succeeded`` with the saved payment method, or\n``requires_action`` with a ``client_secret`` for 3D Secure.",
+     "params": [],
+     "body": [
+      {
+       "name": "confirmation_token_id",
+       "type": "string",
+       "required": true,
+       "description": "Stripe.js confirmation token for the new payment method"
+      },
+      {
+       "name": "set_default",
+       "type": "boolean",
+       "required": false,
+       "description": "Whether to set this as the default payment method"
+      },
+      {
+       "name": "return_url",
+       "type": "string",
+       "required": true,
+       "description": "URL to redirect to after 3D Secure verification"
+      }
+     ],
+     "bodyName": "PaymentMethodCreate",
+     "responseCode": "201",
+     "responseName": "PaymentMethodCreateSucceededResponse | PaymentMethodCreateRequiresActionResponse",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/customer-portal/payment-methods \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "confirm-payment-method",
+     "method": "POST",
+     "path": "/api/customer-portal/payment-methods/confirm",
+     "summary": "Confirm Payment Method",
+     "description": "Complete the add-card flow after 3D Secure verification.",
+     "params": [],
+     "body": [
+      {
+       "name": "setup_intent_id",
+       "type": "string",
+       "required": true,
+       "description": "The SetupIntent ID returned from the requires_action step"
+      },
+      {
+       "name": "set_default",
+       "type": "boolean",
+       "required": false,
+       "description": "Whether to set this as the default payment method"
+      }
+     ],
+     "bodyName": "PaymentMethodConfirm",
+     "responseCode": "201",
+     "responseName": "PaymentMethodCreateSucceededResponse | PaymentMethodCreateRequiresActionResponse",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/customer-portal/payment-methods/confirm \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "delete-payment-method",
+     "method": "DELETE",
+     "path": "/api/customer-portal/payment-methods/{id}",
+     "summary": "Delete Payment Method",
+     "description": "Remove a saved payment method.",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "204",
+     "responseName": "unknown",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/customer-portal/payment-methods/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "set-default-payment-method",
+     "method": "POST",
+     "path": "/api/customer-portal/payment-methods/{id}/default",
+     "summary": "Set Default Payment Method",
+     "description": "Set a payment method as the customer's default.",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaymentMethodSchema",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/customer-portal/payment-methods/{id}/default \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-workspace",
+     "method": "GET",
+     "path": "/api/customer-portal/workspaces/{slug}",
+     "summary": "Get Workspace",
+     "description": "Get a customer portal's workspace by slug.",
+     "params": [
+      {
+       "name": "slug",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace slug."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerWorkspaceData",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/workspaces/{slug} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    }
+   ]
+  },
+  {
+   "slug": "shares",
+   "title": "Shares",
+   "operations": [
+    {
+     "id": "list-shares",
+     "method": "GET",
+     "path": "/api/shares/",
+     "summary": "List Shares",
+     "description": "List products.\n\n**Scopes**: `shares:read` `shares:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by share ID."
+      },
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      },
+      {
+       "name": "query",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter by share name."
+      },
+      {
+       "name": "is_archived",
+       "in": "query",
+       "required": false,
+       "type": "boolean | null",
+       "description": "Filter on archived products."
+      },
+      {
+       "name": "visibility",
+       "in": "query",
+       "required": false,
+       "type": "\"draft\" | \"private\" | \"public\"[] | null",
+       "description": "Filter by visibility."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      },
+      {
+       "name": "sorting",
+       "in": "query",
+       "required": false,
+       "type": "\"name\" | \"-name\" | \"created_at\" | \"-created_at\" | \"price_amount\" | \"-price_amount\" | \"price_amount_type\" | \"-price_amount_type\"[] | null",
+       "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+      },
+      {
+       "name": "metadata",
+       "in": "query",
+       "required": false,
+       "type": "object | null",
+       "description": "Filter by metadata key-value pairs using ``deepObject`` style, e.g. ``?metadata[key]=value``."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_Share_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/shares/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "create-share",
+     "method": "POST",
+     "path": "/api/shares/",
+     "summary": "Create Share",
+     "description": "Create a share.\n\n**Scopes**: `shares:write`",
+     "params": [],
+     "body": [
+      {
+       "name": "metadata",
+       "type": "object",
+       "required": false,
+       "description": "Custom key-value attributes.\n\nKeys: string, max **40** chars.  Values: string (max **500** chars), integer, float, or boolean.  Limit: **50** pairs."
+      },
+      {
+       "name": "name",
+       "type": "string",
+       "required": true,
+       "description": "The name of the share."
+      },
+      {
+       "name": "description",
+       "type": "string | null",
+       "required": false,
+       "description": "The description of the share."
+      },
+      {
+       "name": "visibility",
+       "type": "\"draft\" | \"private\" | \"public\"",
+       "required": false,
+       "description": "Publishing lifecycle state for storefront exposure."
+      },
+      {
+       "name": "prices",
+       "type": "object[]",
+       "required": true,
+       "description": "List of available prices for this share. It should contain at most one static price (fixed, custom or free)."
+      },
+      {
+       "name": "medias",
+       "type": "string[] | null",
+       "required": false,
+       "description": "List of file IDs. Each one must be on the same workspace as the share, of type `product_media` and correctly uploaded."
+      },
+      {
+       "name": "attached_custom_fields",
+       "type": "AttachedCustomFieldCreate[]",
+       "required": false,
+       "description": "List of custom fields to attach."
+      },
+      {
+       "name": "workspace_id",
+       "type": "string | null",
+       "required": false,
+       "description": "The ID of the workspace owning the share. **Required unless you use an workspace token.**"
+      }
+     ],
+     "bodyName": "ShareCreate",
+     "responseCode": "201",
+     "responseName": "Share",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/shares/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "get-share",
+     "method": "GET",
+     "path": "/api/shares/{id}",
+     "summary": "Get Share",
+     "description": "Get a share by ID.\n\n**Scopes**: `shares:read` `shares:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The share ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "Share",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/shares/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "update-share",
+     "method": "PATCH",
+     "path": "/api/shares/{id}",
+     "summary": "Update Share",
+     "description": "Update a share.\n\n**Scopes**: `shares:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The share ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "metadata",
+       "type": "object",
+       "required": false,
+       "description": "Custom key-value attributes.\n\nKeys: string, max **40** chars.  Values: string (max **500** chars), integer, float, or boolean.  Limit: **50** pairs."
+      },
+      {
+       "name": "name",
+       "type": "string | null",
+       "required": false,
+       "description": "Name"
+      },
+      {
+       "name": "description",
+       "type": "string | null",
+       "required": false,
+       "description": "The description of the share."
+      },
+      {
+       "name": "is_archived",
+       "type": "boolean | null",
+       "required": false,
+       "description": "Whether the share is archived. If `true`, the share won't be available for purchase anymore."
+      },
+      {
+       "name": "visibility",
+       "type": "\"draft\" | \"private\" | \"public\" | null",
+       "required": false,
+       "description": "The visibility of the share."
+      },
+      {
+       "name": "prices",
+       "type": "ExistingSharePrice | object[] | null",
+       "required": false,
+       "description": "List of available prices for this share. If you want to keep existing prices, include them in the list as an `ExistingSharePrice` object."
+      },
+      {
+       "name": "medias",
+       "type": "string[] | null",
+       "required": false,
+       "description": "List of file IDs. Each one must be on the same workspace as the share, of type `product_media` and correctly uploaded."
+      },
+      {
+       "name": "attached_custom_fields",
+       "type": "AttachedCustomFieldCreate[] | null",
+       "required": false,
+       "description": "Attached Custom Fields"
+      }
+     ],
+     "bodyName": "ShareUpdate",
+     "responseCode": "200",
+     "responseName": "Share",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/shares/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    }
+   ]
+  },
+  {
+   "slug": "files",
+   "title": "Files",
+   "operations": [
+    {
+     "id": "create-file",
+     "method": "POST",
+     "path": "/api/files/",
+     "summary": "Create File",
+     "description": "Initiate a file upload by requesting pre-signed URLs.\n\n**Scopes**: `files:write`",
+     "params": [],
+     "body": [],
+     "bodyName": "FileCreate",
+     "responseCode": "201",
+     "responseName": "FileUpload",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/files/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "list-files",
+     "method": "GET",
+     "path": "/api/files/",
+     "summary": "List Files",
+     "description": "List files.\n\n**Scopes**: `files:read` `files:write`",
+     "params": [
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      },
+      {
+       "name": "ids",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by file ID."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_FileRead_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/files/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "complete-file-upload",
+     "method": "POST",
+     "path": "/api/files/{id}/uploaded",
+     "summary": "Complete File Upload",
+     "description": "Mark a file upload as completed.\n\n**Scopes**: `files:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The file ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "id",
+       "type": "string",
+       "required": true,
+       "description": "Id"
+      },
+      {
+       "name": "path",
+       "type": "string",
+       "required": true,
+       "description": "Path"
+      },
+      {
+       "name": "parts",
+       "type": "S3FileUploadCompletedPart[]",
+       "required": true,
+       "description": "Parts"
+      }
+     ],
+     "bodyName": "FileUploadCompleted",
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/files/{id}/uploaded \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "update-file",
+     "method": "PATCH",
+     "path": "/api/files/{id}",
+     "summary": "Update File",
+     "description": "Update a file.\n\n**Scopes**: `files:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The file ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "name",
+       "type": "string | null",
+       "required": false,
+       "description": "Name"
+      },
+      {
+       "name": "version",
+       "type": "string | null",
+       "required": false,
+       "description": "Version"
+      }
+     ],
+     "bodyName": "FilePatch",
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/files/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "delete-file",
+     "method": "DELETE",
+     "path": "/api/files/{id}",
+     "summary": "Delete File",
+     "description": "Delete a file.\n\n**Scopes**: `files:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "204",
+     "responseName": "unknown",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/files/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    }
+   ]
+  },
+  {
+   "slug": "events",
+   "title": "Events",
+   "operations": [
+    {
+     "id": "ingest-events",
+     "method": "POST",
+     "path": "/api/events/ingest",
+     "summary": "Ingest Events",
+     "description": "Ingest batch of events.\n\n**Scopes**: `events:write`",
+     "params": [],
+     "body": [
+      {
+       "name": "events",
+       "type": "EventCreateCustomer | EventCreateExternalCustomer[]",
+       "required": true,
+       "description": "List of events to ingest."
+      }
+     ],
+     "bodyName": "EventsIngest",
+     "responseCode": "201",
+     "responseName": "EventsIngestResponse",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/events/ingest \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "get-event",
+     "method": "GET",
+     "path": "/api/events/{id}",
+     "summary": "Get Event",
+     "description": "Get an event by ID.\n\n**Scopes**: `events:read` `events:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The event ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "Event",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/events/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-events",
+     "method": "GET",
+     "path": "/api/events/",
+     "summary": "List Events",
+     "description": "List events.\n\n**Scopes**: `events:read` `events:write`",
+     "params": [
+      {
+       "name": "start_timestamp",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter events after this timestamp."
+      },
+      {
+       "name": "end_timestamp",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter events before this timestamp."
+      },
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      },
+      {
+       "name": "customer_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by customer ID."
+      },
+      {
+       "name": "external_customer_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by external customer ID."
+      },
+      {
+       "name": "name",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by event name."
+      },
+      {
+       "name": "source",
+       "in": "query",
+       "required": false,
+       "type": "\"system\" | \"user\" | \"system\" | \"user\"[] | null",
+       "description": "Filter by event source."
+      },
+      {
+       "name": "query",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Query to filter events."
+      },
+      {
+       "name": "parent_id",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "When combined with depth, use this event as the anchor instead of root events."
+      },
+      {
+       "name": "depth",
+       "in": "query",
+       "required": false,
+       "type": "integer | null",
+       "description": "Fetch descendants up to this depth. When set: 0=root events only, 1=roots+children, etc. Max 5. When not set, returns all events."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      },
+      {
+       "name": "sorting",
+       "in": "query",
+       "required": false,
+       "type": "\"timestamp\" | \"-timestamp\"[] | null",
+       "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+      },
+      {
+       "name": "metadata",
+       "in": "query",
+       "required": false,
+       "type": "object | null",
+       "description": "Filter by metadata key-value pairs using ``deepObject`` style, e.g. ``?metadata[key]=value``."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_Event_ | CursorPaginatedList_Event_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/events/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-event-names",
+     "method": "GET",
+     "path": "/api/events/names",
+     "summary": "List Event Names",
+     "description": "List event names.\n\n**Scopes**: `events:read` `events:write`",
+     "params": [
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      },
+      {
+       "name": "customer_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by customer ID."
+      },
+      {
+       "name": "external_customer_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by external customer ID."
+      },
+      {
+       "name": "source",
+       "in": "query",
+       "required": false,
+       "type": "\"system\" | \"user\" | \"system\" | \"user\"[] | null",
+       "description": "Filter by event source."
+      },
+      {
+       "name": "query",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Query to filter event names."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      },
+      {
+       "name": "sorting",
+       "in": "query",
+       "required": false,
+       "type": "\"last_seen\" | \"-last_seen\" | \"first_seen\" | \"-first_seen\" | \"occurrences\" | \"-occurrences\" | \"name\" | \"-name\"[] | null",
+       "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_EventName_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/events/names \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-statistics-timeseries",
+     "method": "GET",
+     "path": "/api/events/statistics/timeseries",
+     "summary": "List statistics timeseries",
+     "description": "Get aggregate statistics grouped by root event name over time.\n\nReturns time series data with periods and totals, similar to the metrics endpoint.\nEach period contains stats grouped by event name, and totals show overall stats\nacross all periods.\n\n**Scopes**: `events:read` `events:write`",
+     "params": [
+      {
+       "name": "start_date",
+       "in": "query",
+       "required": true,
+       "type": "string",
+       "description": "Start date."
+      },
+      {
+       "name": "end_date",
+       "in": "query",
+       "required": true,
+       "type": "string",
+       "description": "End date."
+      },
+      {
+       "name": "timezone",
+       "in": "query",
+       "required": false,
+       "type": "\"Africa/Abidjan\" | \"Africa/Accra\" | \"Africa/Addis_Ababa\" | \"Africa/Algiers\" | \"Africa/Asmara\" | \"Africa/Bamako\" | \"Africa/Bangui\" | \"Africa/Banjul\" | \"Africa/Bissau\" | \"Africa/Blantyre\" | \"Africa/Brazzaville\" | \"Africa/Bujumbura\" | \"Africa/Cairo\" | \"Africa/Casablanca\" | \"Africa/Ceuta\" | \"Africa/Conakry\" | \"Africa/Dakar\" | \"Africa/Dar_es_Salaam\" | \"Africa/Djibouti\" | \"Africa/Douala\" | \"Africa/El_Aaiun\" | \"Africa/Freetown\" | \"Africa/Gaborone\" | \"Africa/Harare\" | \"Africa/Johannesburg\" | \"Africa/Juba\" | \"Africa/Kampala\" | \"Africa/Khartoum\" | \"Africa/Kigali\" | \"Africa/Kinshasa\" | \"Africa/Lagos\" | \"Africa/Libreville\" | \"Africa/Lome\" | \"Africa/Luanda\" | \"Africa/Lubumbashi\" | \"Africa/Lusaka\" | \"Africa/Malabo\" | \"Africa/Maputo\" | \"Africa/Maseru\" | \"Africa/Mbabane\" | \"Africa/Mogadishu\" | \"Africa/Monrovia\" | \"Africa/Nairobi\" | \"Africa/Ndjamena\" | \"Africa/Niamey\" | \"Africa/Nouakchott\" | \"Africa/Ouagadougou\" | \"Africa/Porto-Novo\" | \"Africa/Sao_Tome\" | \"Africa/Timbuktu\" | \"Africa/Tripoli\" | \"Africa/Tunis\" | \"Africa/Windhoek\" | \"America/Adak\" | \"America/Anchorage\" | \"America/Anguilla\" | \"America/Antigua\" | \"America/Araguaina\" | \"America/Argentina/Buenos_Aires\" | \"America/Argentina/Catamarca\" | \"America/Argentina/Cordoba\" | \"America/Argentina/Jujuy\" | \"America/Argentina/La_Rioja\" | \"America/Argentina/Mendoza\" | \"America/Argentina/Rio_Gallegos\" | \"America/Argentina/Salta\" | \"America/Argentina/San_Juan\" | \"America/Argentina/San_Luis\" | \"America/Argentina/Tucuman\" | \"America/Argentina/Ushuaia\" | \"America/Aruba\" | \"America/Asuncion\" | \"America/Atikokan\" | \"America/Atka\" | \"America/Bahia\" | \"America/Bahia_Banderas\" | \"America/Barbados\" | \"America/Belem\" | \"America/Belize\" | \"America/Blanc-Sablon\" | \"America/Boa_Vista\" | \"America/Bogota\" | \"America/Boise\" | \"America/Cambridge_Bay\" | \"America/Campo_Grande\" | \"America/Cancun\" | \"America/Caracas\" | \"America/Cayenne\" | \"America/Cayman\" | \"America/Chicago\" | \"America/Chihuahua\" | \"America/Ciudad_Juarez\" | \"America/Coral_Harbour\" | \"America/Costa_Rica\" | \"America/Coyhaique\" | \"America/Creston\" | \"America/Cuiaba\" | \"America/Curacao\" | \"America/Danmarkshavn\" | \"America/Dawson\" | \"America/Dawson_Creek\" | \"America/Denver\" | \"America/Detroit\" | \"America/Dominica\" | \"America/Edmonton\" | \"America/Eirunepe\" | \"America/El_Salvador\" | \"America/Ensenada\" | \"America/Fort_Nelson\" | \"America/Fortaleza\" | \"America/Glace_Bay\" | \"America/Goose_Bay\" | \"America/Grand_Turk\" | \"America/Grenada\" | \"America/Guadeloupe\" | \"America/Guatemala\" | \"America/Guayaquil\" | \"America/Guyana\" | \"America/Halifax\" | \"America/Havana\" | \"America/Hermosillo\" | \"America/Indiana/Indianapolis\" | \"America/Indiana/Knox\" | \"America/Indiana/Marengo\" | \"America/Indiana/Petersburg\" | \"America/Indiana/Tell_City\" | \"America/Indiana/Vevay\" | \"America/Indiana/Vincennes\" | \"America/Indiana/Winamac\" | \"America/Inuvik\" | \"America/Iqaluit\" | \"America/Jamaica\" | \"America/Juneau\" | \"America/Kentucky/Louisville\" | \"America/Kentucky/Monticello\" | \"America/Kralendijk\" | \"America/La_Paz\" | \"America/Lima\" | \"America/Los_Angeles\" | \"America/Lower_Princes\" | \"America/Maceio\" | \"America/Managua\" | \"America/Manaus\" | \"America/Marigot\" | \"America/Martinique\" | \"America/Matamoros\" | \"America/Mazatlan\" | \"America/Menominee\" | \"America/Merida\" | \"America/Metlakatla\" | \"America/Mexico_City\" | \"America/Miquelon\" | \"America/Moncton\" | \"America/Monterrey\" | \"America/Montevideo\" | \"America/Montreal\" | \"America/Montserrat\" | \"America/Nassau\" | \"America/New_York\" | \"America/Nipigon\" | \"America/Nome\" | \"America/Noronha\" | \"America/North_Dakota/Beulah\" | \"America/North_Dakota/Center\" | \"America/North_Dakota/New_Salem\" | \"America/Nuuk\" | \"America/Ojinaga\" | \"America/Panama\" | \"America/Pangnirtung\" | \"America/Paramaribo\" | \"America/Phoenix\" | \"America/Port-au-Prince\" | \"America/Port_of_Spain\" | \"America/Porto_Acre\" | \"America/Porto_Velho\" | \"America/Puerto_Rico\" | \"America/Punta_Arenas\" | \"America/Rainy_River\" | \"America/Rankin_Inlet\" | \"America/Recife\" | \"America/Regina\" | \"America/Resolute\" | \"America/Rio_Branco\" | \"America/Santa_Isabel\" | \"America/Santarem\" | \"America/Santiago\" | \"America/Santo_Domingo\" | \"America/Sao_Paulo\" | \"America/Scoresbysund\" | \"America/Shiprock\" | \"America/Sitka\" | \"America/St_Barthelemy\" | \"America/St_Johns\" | \"America/St_Kitts\" | \"America/St_Lucia\" | \"America/St_Thomas\" | \"America/St_Vincent\" | \"America/Swift_Current\" | \"America/Tegucigalpa\" | \"America/Thule\" | \"America/Thunder_Bay\" | \"America/Tijuana\" | \"America/Toronto\" | \"America/Tortola\" | \"America/Vancouver\" | \"America/Virgin\" | \"America/Whitehorse\" | \"America/Winnipeg\" | \"America/Yakutat\" | \"America/Yellowknife\" | \"Antarctica/Casey\" | \"Antarctica/Davis\" | \"Antarctica/DumontDUrville\" | \"Antarctica/Macquarie\" | \"Antarctica/Mawson\" | \"Antarctica/McMurdo\" | \"Antarctica/Palmer\" | \"Antarctica/Rothera\" | \"Antarctica/Syowa\" | \"Antarctica/Troll\" | \"Antarctica/Vostok\" | \"Arctic/Longyearbyen\" | \"Asia/Aden\" | \"Asia/Almaty\" | \"Asia/Amman\" | \"Asia/Anadyr\" | \"Asia/Aqtau\" | \"Asia/Aqtobe\" | \"Asia/Ashgabat\" | \"Asia/Atyrau\" | \"Asia/Baghdad\" | \"Asia/Bahrain\" | \"Asia/Baku\" | \"Asia/Bangkok\" | \"Asia/Barnaul\" | \"Asia/Beirut\" | \"Asia/Bishkek\" | \"Asia/Brunei\" | \"Asia/Chita\" | \"Asia/Choibalsan\" | \"Asia/Chongqing\" | \"Asia/Colombo\" | \"Asia/Damascus\" | \"Asia/Dhaka\" | \"Asia/Dili\" | \"Asia/Dubai\" | \"Asia/Dushanbe\" | \"Asia/Famagusta\" | \"Asia/Gaza\" | \"Asia/Harbin\" | \"Asia/Hebron\" | \"Asia/Ho_Chi_Minh\" | \"Asia/Hong_Kong\" | \"Asia/Hovd\" | \"Asia/Irkutsk\" | \"Asia/Istanbul\" | \"Asia/Jakarta\" | \"Asia/Jayapura\" | \"Asia/Jerusalem\" | \"Asia/Kabul\" | \"Asia/Kamchatka\" | \"Asia/Karachi\" | \"Asia/Kashgar\" | \"Asia/Kathmandu\" | \"Asia/Khandyga\" | \"Asia/Kolkata\" | \"Asia/Krasnoyarsk\" | \"Asia/Kuala_Lumpur\" | \"Asia/Kuching\" | \"Asia/Kuwait\" | \"Asia/Macau\" | \"Asia/Magadan\" | \"Asia/Makassar\" | \"Asia/Manila\" | \"Asia/Muscat\" | \"Asia/Nicosia\" | \"Asia/Novokuznetsk\" | \"Asia/Novosibirsk\" | \"Asia/Omsk\" | \"Asia/Oral\" | \"Asia/Phnom_Penh\" | \"Asia/Pontianak\" | \"Asia/Pyongyang\" | \"Asia/Qatar\" | \"Asia/Qostanay\" | \"Asia/Qyzylorda\" | \"Asia/Riyadh\" | \"Asia/Sakhalin\" | \"Asia/Samarkand\" | \"Asia/Seoul\" | \"Asia/Shanghai\" | \"Asia/Singapore\" | \"Asia/Srednekolymsk\" | \"Asia/Taipei\" | \"Asia/Tashkent\" | \"Asia/Tbilisi\" | \"Asia/Tehran\" | \"Asia/Tel_Aviv\" | \"Asia/Thimphu\" | \"Asia/Tokyo\" | \"Asia/Tomsk\" | \"Asia/Ulaanbaatar\" | \"Asia/Urumqi\" | \"Asia/Ust-Nera\" | \"Asia/Vientiane\" | \"Asia/Vladivostok\" | \"Asia/Yakutsk\" | \"Asia/Yangon\" | \"Asia/Yekaterinburg\" | \"Asia/Yerevan\" | \"Atlantic/Azores\" | \"Atlantic/Bermuda\" | \"Atlantic/Canary\" | \"Atlantic/Cape_Verde\" | \"Atlantic/Faroe\" | \"Atlantic/Jan_Mayen\" | \"Atlantic/Madeira\" | \"Atlantic/Reykjavik\" | \"Atlantic/South_Georgia\" | \"Atlantic/St_Helena\" | \"Atlantic/Stanley\" | \"Australia/Adelaide\" | \"Australia/Brisbane\" | \"Australia/Broken_Hill\" | \"Australia/Canberra\" | \"Australia/Currie\" | \"Australia/Darwin\" | \"Australia/Eucla\" | \"Australia/Hobart\" | \"Australia/Lindeman\" | \"Australia/Lord_Howe\" | \"Australia/Melbourne\" | \"Australia/Perth\" | \"Australia/Sydney\" | \"Australia/Yancowinna\" | \"CET\" | \"CST6CDT\" | \"EET\" | \"EST\" | \"EST5EDT\" | \"Etc/GMT\" | \"Etc/GMT+0\" | \"Etc/GMT+1\" | \"Etc/GMT+10\" | \"Etc/GMT+11\" | \"Etc/GMT+12\" | \"Etc/GMT+2\" | \"Etc/GMT+3\" | \"Etc/GMT+4\" | \"Etc/GMT+5\" | \"Etc/GMT+6\" | \"Etc/GMT+7\" | \"Etc/GMT+8\" | \"Etc/GMT+9\" | \"Etc/GMT-0\" | \"Etc/GMT-1\" | \"Etc/GMT-10\" | \"Etc/GMT-11\" | \"Etc/GMT-12\" | \"Etc/GMT-13\" | \"Etc/GMT-14\" | \"Etc/GMT-2\" | \"Etc/GMT-3\" | \"Etc/GMT-4\" | \"Etc/GMT-5\" | \"Etc/GMT-6\" | \"Etc/GMT-7\" | \"Etc/GMT-8\" | \"Etc/GMT-9\" | \"Etc/GMT0\" | \"Etc/Greenwich\" | \"Etc/UCT\" | \"Etc/UTC\" | \"Etc/Universal\" | \"Etc/Zulu\" | \"Europe/Amsterdam\" | \"Europe/Andorra\" | \"Europe/Astrakhan\" | \"Europe/Athens\" | \"Europe/Belfast\" | \"Europe/Belgrade\" | \"Europe/Berlin\" | \"Europe/Bratislava\" | \"Europe/Brussels\" | \"Europe/Bucharest\" | \"Europe/Budapest\" | \"Europe/Busingen\" | \"Europe/Chisinau\" | \"Europe/Copenhagen\" | \"Europe/Dublin\" | \"Europe/Gibraltar\" | \"Europe/Guernsey\" | \"Europe/Helsinki\" | \"Europe/Isle_of_Man\" | \"Europe/Istanbul\" | \"Europe/Jersey\" | \"Europe/Kaliningrad\" | \"Europe/Kirov\" | \"Europe/Kyiv\" | \"Europe/Lisbon\" | \"Europe/Ljubljana\" | \"Europe/London\" | \"Europe/Luxembourg\" | \"Europe/Madrid\" | \"Europe/Malta\" | \"Europe/Mariehamn\" | \"Europe/Minsk\" | \"Europe/Monaco\" | \"Europe/Moscow\" | \"Europe/Nicosia\" | \"Europe/Oslo\" | \"Europe/Paris\" | \"Europe/Podgorica\" | \"Europe/Prague\" | \"Europe/Riga\" | \"Europe/Rome\" | \"Europe/Samara\" | \"Europe/San_Marino\" | \"Europe/Sarajevo\" | \"Europe/Saratov\" | \"Europe/Simferopol\" | \"Europe/Skopje\" | \"Europe/Sofia\" | \"Europe/Stockholm\" | \"Europe/Tallinn\" | \"Europe/Tirane\" | \"Europe/Tiraspol\" | \"Europe/Ulyanovsk\" | \"Europe/Vaduz\" | \"Europe/Vatican\" | \"Europe/Vienna\" | \"Europe/Vilnius\" | \"Europe/Volgograd\" | \"Europe/Warsaw\" | \"Europe/Zagreb\" | \"Europe/Zurich\" | \"Factory\" | \"GMT\" | \"HST\" | \"Indian/Antananarivo\" | \"Indian/Chagos\" | \"Indian/Christmas\" | \"Indian/Cocos\" | \"Indian/Comoro\" | \"Indian/Kerguelen\" | \"Indian/Mahe\" | \"Indian/Maldives\" | \"Indian/Mauritius\" | \"Indian/Mayotte\" | \"Indian/Reunion\" | \"MET\" | \"MST\" | \"MST7MDT\" | \"PST8PDT\" | \"Pacific/Apia\" | \"Pacific/Auckland\" | \"Pacific/Bougainville\" | \"Pacific/Chatham\" | \"Pacific/Chuuk\" | \"Pacific/Easter\" | \"Pacific/Efate\" | \"Pacific/Fakaofo\" | \"Pacific/Fiji\" | \"Pacific/Funafuti\" | \"Pacific/Galapagos\" | \"Pacific/Gambier\" | \"Pacific/Guadalcanal\" | \"Pacific/Guam\" | \"Pacific/Honolulu\" | \"Pacific/Johnston\" | \"Pacific/Kanton\" | \"Pacific/Kiritimati\" | \"Pacific/Kosrae\" | \"Pacific/Kwajalein\" | \"Pacific/Majuro\" | \"Pacific/Marquesas\" | \"Pacific/Midway\" | \"Pacific/Nauru\" | \"Pacific/Niue\" | \"Pacific/Norfolk\" | \"Pacific/Noumea\" | \"Pacific/Pago_Pago\" | \"Pacific/Palau\" | \"Pacific/Pitcairn\" | \"Pacific/Pohnpei\" | \"Pacific/Port_Moresby\" | \"Pacific/Rarotonga\" | \"Pacific/Saipan\" | \"Pacific/Samoa\" | \"Pacific/Tahiti\" | \"Pacific/Tarawa\" | \"Pacific/Tongatapu\" | \"Pacific/Wake\" | \"Pacific/Wallis\" | \"Pacific/Yap\" | \"UTC\" | \"WET\" | \"localtime\"",
+       "description": "Timezone to use for the dates. Default is UTC."
+      },
+      {
+       "name": "interval",
+       "in": "query",
+       "required": true,
+       "type": "\"year\" | \"month\" | \"week\" | \"day\" | \"hour\"",
+       "description": "Supported aggregation granularities, ordered coarsest-first."
+      },
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      },
+      {
+       "name": "customer_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by customer ID."
+      },
+      {
+       "name": "external_customer_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by external customer ID."
+      },
+      {
+       "name": "name",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by event name."
+      },
+      {
+       "name": "source",
+       "in": "query",
+       "required": false,
+       "type": "\"system\" | \"user\" | \"system\" | \"user\"[] | null",
+       "description": "Filter by event source."
+      },
+      {
+       "name": "event_type_id",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter by event type ID."
+      },
+      {
+       "name": "query",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Query to filter events."
+      },
+      {
+       "name": "aggregate_fields",
+       "in": "query",
+       "required": false,
+       "type": "string[]",
+       "description": "Metadata field paths to aggregate (e.g., '_cost.amount', 'duration_ns'). Use dot notation for nested fields."
+      },
+      {
+       "name": "sorting",
+       "in": "query",
+       "required": false,
+       "type": "\"total\" | \"-total\" | \"occurrences\" | \"-occurrences\" | \"average\" | \"-average\" | \"p95\" | \"-p95\" | \"p99\" | \"-p99\" | \"name\" | \"-name\"[] | null",
+       "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+      },
+      {
+       "name": "metadata",
+       "in": "query",
+       "required": false,
+       "type": "object | null",
+       "description": "Filter by metadata key-value pairs using ``deepObject`` style, e.g. ``?metadata[key]=value``."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "ListStatisticsTimeseries",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/events/statistics/timeseries \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    }
+   ]
+  },
+  {
+   "slug": "metrics",
+   "title": "Metrics",
+   "operations": [
+    {
+     "id": "get-metrics-limits",
+     "method": "GET",
+     "path": "/api/metrics/limits",
+     "summary": "Get Metrics Limits",
+     "description": "Return the allowed day-ranges for each time interval.\n\n**Scopes**: `metrics:read`",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "MetricsLimits",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/metrics/limits \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-metrics",
+     "method": "GET",
+     "path": "/api/metrics/",
+     "summary": "Get Metrics",
+     "description": "Get metrics about your file shares and costs.\n\nCurrency values are output in cents.\n\n**Scopes**: `metrics:read`",
+     "params": [
+      {
+       "name": "start_date",
+       "in": "query",
+       "required": true,
+       "type": "string",
+       "description": "Start date."
+      },
+      {
+       "name": "end_date",
+       "in": "query",
+       "required": true,
+       "type": "string",
+       "description": "End date."
+      },
+      {
+       "name": "timezone",
+       "in": "query",
+       "required": false,
+       "type": "\"Africa/Abidjan\" | \"Africa/Accra\" | \"Africa/Addis_Ababa\" | \"Africa/Algiers\" | \"Africa/Asmara\" | \"Africa/Bamako\" | \"Africa/Bangui\" | \"Africa/Banjul\" | \"Africa/Bissau\" | \"Africa/Blantyre\" | \"Africa/Brazzaville\" | \"Africa/Bujumbura\" | \"Africa/Cairo\" | \"Africa/Casablanca\" | \"Africa/Ceuta\" | \"Africa/Conakry\" | \"Africa/Dakar\" | \"Africa/Dar_es_Salaam\" | \"Africa/Djibouti\" | \"Africa/Douala\" | \"Africa/El_Aaiun\" | \"Africa/Freetown\" | \"Africa/Gaborone\" | \"Africa/Harare\" | \"Africa/Johannesburg\" | \"Africa/Juba\" | \"Africa/Kampala\" | \"Africa/Khartoum\" | \"Africa/Kigali\" | \"Africa/Kinshasa\" | \"Africa/Lagos\" | \"Africa/Libreville\" | \"Africa/Lome\" | \"Africa/Luanda\" | \"Africa/Lubumbashi\" | \"Africa/Lusaka\" | \"Africa/Malabo\" | \"Africa/Maputo\" | \"Africa/Maseru\" | \"Africa/Mbabane\" | \"Africa/Mogadishu\" | \"Africa/Monrovia\" | \"Africa/Nairobi\" | \"Africa/Ndjamena\" | \"Africa/Niamey\" | \"Africa/Nouakchott\" | \"Africa/Ouagadougou\" | \"Africa/Porto-Novo\" | \"Africa/Sao_Tome\" | \"Africa/Timbuktu\" | \"Africa/Tripoli\" | \"Africa/Tunis\" | \"Africa/Windhoek\" | \"America/Adak\" | \"America/Anchorage\" | \"America/Anguilla\" | \"America/Antigua\" | \"America/Araguaina\" | \"America/Argentina/Buenos_Aires\" | \"America/Argentina/Catamarca\" | \"America/Argentina/Cordoba\" | \"America/Argentina/Jujuy\" | \"America/Argentina/La_Rioja\" | \"America/Argentina/Mendoza\" | \"America/Argentina/Rio_Gallegos\" | \"America/Argentina/Salta\" | \"America/Argentina/San_Juan\" | \"America/Argentina/San_Luis\" | \"America/Argentina/Tucuman\" | \"America/Argentina/Ushuaia\" | \"America/Aruba\" | \"America/Asuncion\" | \"America/Atikokan\" | \"America/Atka\" | \"America/Bahia\" | \"America/Bahia_Banderas\" | \"America/Barbados\" | \"America/Belem\" | \"America/Belize\" | \"America/Blanc-Sablon\" | \"America/Boa_Vista\" | \"America/Bogota\" | \"America/Boise\" | \"America/Cambridge_Bay\" | \"America/Campo_Grande\" | \"America/Cancun\" | \"America/Caracas\" | \"America/Cayenne\" | \"America/Cayman\" | \"America/Chicago\" | \"America/Chihuahua\" | \"America/Ciudad_Juarez\" | \"America/Coral_Harbour\" | \"America/Costa_Rica\" | \"America/Coyhaique\" | \"America/Creston\" | \"America/Cuiaba\" | \"America/Curacao\" | \"America/Danmarkshavn\" | \"America/Dawson\" | \"America/Dawson_Creek\" | \"America/Denver\" | \"America/Detroit\" | \"America/Dominica\" | \"America/Edmonton\" | \"America/Eirunepe\" | \"America/El_Salvador\" | \"America/Ensenada\" | \"America/Fort_Nelson\" | \"America/Fortaleza\" | \"America/Glace_Bay\" | \"America/Goose_Bay\" | \"America/Grand_Turk\" | \"America/Grenada\" | \"America/Guadeloupe\" | \"America/Guatemala\" | \"America/Guayaquil\" | \"America/Guyana\" | \"America/Halifax\" | \"America/Havana\" | \"America/Hermosillo\" | \"America/Indiana/Indianapolis\" | \"America/Indiana/Knox\" | \"America/Indiana/Marengo\" | \"America/Indiana/Petersburg\" | \"America/Indiana/Tell_City\" | \"America/Indiana/Vevay\" | \"America/Indiana/Vincennes\" | \"America/Indiana/Winamac\" | \"America/Inuvik\" | \"America/Iqaluit\" | \"America/Jamaica\" | \"America/Juneau\" | \"America/Kentucky/Louisville\" | \"America/Kentucky/Monticello\" | \"America/Kralendijk\" | \"America/La_Paz\" | \"America/Lima\" | \"America/Los_Angeles\" | \"America/Lower_Princes\" | \"America/Maceio\" | \"America/Managua\" | \"America/Manaus\" | \"America/Marigot\" | \"America/Martinique\" | \"America/Matamoros\" | \"America/Mazatlan\" | \"America/Menominee\" | \"America/Merida\" | \"America/Metlakatla\" | \"America/Mexico_City\" | \"America/Miquelon\" | \"America/Moncton\" | \"America/Monterrey\" | \"America/Montevideo\" | \"America/Montreal\" | \"America/Montserrat\" | \"America/Nassau\" | \"America/New_York\" | \"America/Nipigon\" | \"America/Nome\" | \"America/Noronha\" | \"America/North_Dakota/Beulah\" | \"America/North_Dakota/Center\" | \"America/North_Dakota/New_Salem\" | \"America/Nuuk\" | \"America/Ojinaga\" | \"America/Panama\" | \"America/Pangnirtung\" | \"America/Paramaribo\" | \"America/Phoenix\" | \"America/Port-au-Prince\" | \"America/Port_of_Spain\" | \"America/Porto_Acre\" | \"America/Porto_Velho\" | \"America/Puerto_Rico\" | \"America/Punta_Arenas\" | \"America/Rainy_River\" | \"America/Rankin_Inlet\" | \"America/Recife\" | \"America/Regina\" | \"America/Resolute\" | \"America/Rio_Branco\" | \"America/Santa_Isabel\" | \"America/Santarem\" | \"America/Santiago\" | \"America/Santo_Domingo\" | \"America/Sao_Paulo\" | \"America/Scoresbysund\" | \"America/Shiprock\" | \"America/Sitka\" | \"America/St_Barthelemy\" | \"America/St_Johns\" | \"America/St_Kitts\" | \"America/St_Lucia\" | \"America/St_Thomas\" | \"America/St_Vincent\" | \"America/Swift_Current\" | \"America/Tegucigalpa\" | \"America/Thule\" | \"America/Thunder_Bay\" | \"America/Tijuana\" | \"America/Toronto\" | \"America/Tortola\" | \"America/Vancouver\" | \"America/Virgin\" | \"America/Whitehorse\" | \"America/Winnipeg\" | \"America/Yakutat\" | \"America/Yellowknife\" | \"Antarctica/Casey\" | \"Antarctica/Davis\" | \"Antarctica/DumontDUrville\" | \"Antarctica/Macquarie\" | \"Antarctica/Mawson\" | \"Antarctica/McMurdo\" | \"Antarctica/Palmer\" | \"Antarctica/Rothera\" | \"Antarctica/Syowa\" | \"Antarctica/Troll\" | \"Antarctica/Vostok\" | \"Arctic/Longyearbyen\" | \"Asia/Aden\" | \"Asia/Almaty\" | \"Asia/Amman\" | \"Asia/Anadyr\" | \"Asia/Aqtau\" | \"Asia/Aqtobe\" | \"Asia/Ashgabat\" | \"Asia/Atyrau\" | \"Asia/Baghdad\" | \"Asia/Bahrain\" | \"Asia/Baku\" | \"Asia/Bangkok\" | \"Asia/Barnaul\" | \"Asia/Beirut\" | \"Asia/Bishkek\" | \"Asia/Brunei\" | \"Asia/Chita\" | \"Asia/Choibalsan\" | \"Asia/Chongqing\" | \"Asia/Colombo\" | \"Asia/Damascus\" | \"Asia/Dhaka\" | \"Asia/Dili\" | \"Asia/Dubai\" | \"Asia/Dushanbe\" | \"Asia/Famagusta\" | \"Asia/Gaza\" | \"Asia/Harbin\" | \"Asia/Hebron\" | \"Asia/Ho_Chi_Minh\" | \"Asia/Hong_Kong\" | \"Asia/Hovd\" | \"Asia/Irkutsk\" | \"Asia/Istanbul\" | \"Asia/Jakarta\" | \"Asia/Jayapura\" | \"Asia/Jerusalem\" | \"Asia/Kabul\" | \"Asia/Kamchatka\" | \"Asia/Karachi\" | \"Asia/Kashgar\" | \"Asia/Kathmandu\" | \"Asia/Khandyga\" | \"Asia/Kolkata\" | \"Asia/Krasnoyarsk\" | \"Asia/Kuala_Lumpur\" | \"Asia/Kuching\" | \"Asia/Kuwait\" | \"Asia/Macau\" | \"Asia/Magadan\" | \"Asia/Makassar\" | \"Asia/Manila\" | \"Asia/Muscat\" | \"Asia/Nicosia\" | \"Asia/Novokuznetsk\" | \"Asia/Novosibirsk\" | \"Asia/Omsk\" | \"Asia/Oral\" | \"Asia/Phnom_Penh\" | \"Asia/Pontianak\" | \"Asia/Pyongyang\" | \"Asia/Qatar\" | \"Asia/Qostanay\" | \"Asia/Qyzylorda\" | \"Asia/Riyadh\" | \"Asia/Sakhalin\" | \"Asia/Samarkand\" | \"Asia/Seoul\" | \"Asia/Shanghai\" | \"Asia/Singapore\" | \"Asia/Srednekolymsk\" | \"Asia/Taipei\" | \"Asia/Tashkent\" | \"Asia/Tbilisi\" | \"Asia/Tehran\" | \"Asia/Tel_Aviv\" | \"Asia/Thimphu\" | \"Asia/Tokyo\" | \"Asia/Tomsk\" | \"Asia/Ulaanbaatar\" | \"Asia/Urumqi\" | \"Asia/Ust-Nera\" | \"Asia/Vientiane\" | \"Asia/Vladivostok\" | \"Asia/Yakutsk\" | \"Asia/Yangon\" | \"Asia/Yekaterinburg\" | \"Asia/Yerevan\" | \"Atlantic/Azores\" | \"Atlantic/Bermuda\" | \"Atlantic/Canary\" | \"Atlantic/Cape_Verde\" | \"Atlantic/Faroe\" | \"Atlantic/Jan_Mayen\" | \"Atlantic/Madeira\" | \"Atlantic/Reykjavik\" | \"Atlantic/South_Georgia\" | \"Atlantic/St_Helena\" | \"Atlantic/Stanley\" | \"Australia/Adelaide\" | \"Australia/Brisbane\" | \"Australia/Broken_Hill\" | \"Australia/Canberra\" | \"Australia/Currie\" | \"Australia/Darwin\" | \"Australia/Eucla\" | \"Australia/Hobart\" | \"Australia/Lindeman\" | \"Australia/Lord_Howe\" | \"Australia/Melbourne\" | \"Australia/Perth\" | \"Australia/Sydney\" | \"Australia/Yancowinna\" | \"CET\" | \"CST6CDT\" | \"EET\" | \"EST\" | \"EST5EDT\" | \"Etc/GMT\" | \"Etc/GMT+0\" | \"Etc/GMT+1\" | \"Etc/GMT+10\" | \"Etc/GMT+11\" | \"Etc/GMT+12\" | \"Etc/GMT+2\" | \"Etc/GMT+3\" | \"Etc/GMT+4\" | \"Etc/GMT+5\" | \"Etc/GMT+6\" | \"Etc/GMT+7\" | \"Etc/GMT+8\" | \"Etc/GMT+9\" | \"Etc/GMT-0\" | \"Etc/GMT-1\" | \"Etc/GMT-10\" | \"Etc/GMT-11\" | \"Etc/GMT-12\" | \"Etc/GMT-13\" | \"Etc/GMT-14\" | \"Etc/GMT-2\" | \"Etc/GMT-3\" | \"Etc/GMT-4\" | \"Etc/GMT-5\" | \"Etc/GMT-6\" | \"Etc/GMT-7\" | \"Etc/GMT-8\" | \"Etc/GMT-9\" | \"Etc/GMT0\" | \"Etc/Greenwich\" | \"Etc/UCT\" | \"Etc/UTC\" | \"Etc/Universal\" | \"Etc/Zulu\" | \"Europe/Amsterdam\" | \"Europe/Andorra\" | \"Europe/Astrakhan\" | \"Europe/Athens\" | \"Europe/Belfast\" | \"Europe/Belgrade\" | \"Europe/Berlin\" | \"Europe/Bratislava\" | \"Europe/Brussels\" | \"Europe/Bucharest\" | \"Europe/Budapest\" | \"Europe/Busingen\" | \"Europe/Chisinau\" | \"Europe/Copenhagen\" | \"Europe/Dublin\" | \"Europe/Gibraltar\" | \"Europe/Guernsey\" | \"Europe/Helsinki\" | \"Europe/Isle_of_Man\" | \"Europe/Istanbul\" | \"Europe/Jersey\" | \"Europe/Kaliningrad\" | \"Europe/Kirov\" | \"Europe/Kyiv\" | \"Europe/Lisbon\" | \"Europe/Ljubljana\" | \"Europe/London\" | \"Europe/Luxembourg\" | \"Europe/Madrid\" | \"Europe/Malta\" | \"Europe/Mariehamn\" | \"Europe/Minsk\" | \"Europe/Monaco\" | \"Europe/Moscow\" | \"Europe/Nicosia\" | \"Europe/Oslo\" | \"Europe/Paris\" | \"Europe/Podgorica\" | \"Europe/Prague\" | \"Europe/Riga\" | \"Europe/Rome\" | \"Europe/Samara\" | \"Europe/San_Marino\" | \"Europe/Sarajevo\" | \"Europe/Saratov\" | \"Europe/Simferopol\" | \"Europe/Skopje\" | \"Europe/Sofia\" | \"Europe/Stockholm\" | \"Europe/Tallinn\" | \"Europe/Tirane\" | \"Europe/Tiraspol\" | \"Europe/Ulyanovsk\" | \"Europe/Vaduz\" | \"Europe/Vatican\" | \"Europe/Vienna\" | \"Europe/Vilnius\" | \"Europe/Volgograd\" | \"Europe/Warsaw\" | \"Europe/Zagreb\" | \"Europe/Zurich\" | \"Factory\" | \"GMT\" | \"HST\" | \"Indian/Antananarivo\" | \"Indian/Chagos\" | \"Indian/Christmas\" | \"Indian/Cocos\" | \"Indian/Comoro\" | \"Indian/Kerguelen\" | \"Indian/Mahe\" | \"Indian/Maldives\" | \"Indian/Mauritius\" | \"Indian/Mayotte\" | \"Indian/Reunion\" | \"MET\" | \"MST\" | \"MST7MDT\" | \"PST8PDT\" | \"Pacific/Apia\" | \"Pacific/Auckland\" | \"Pacific/Bougainville\" | \"Pacific/Chatham\" | \"Pacific/Chuuk\" | \"Pacific/Easter\" | \"Pacific/Efate\" | \"Pacific/Fakaofo\" | \"Pacific/Fiji\" | \"Pacific/Funafuti\" | \"Pacific/Galapagos\" | \"Pacific/Gambier\" | \"Pacific/Guadalcanal\" | \"Pacific/Guam\" | \"Pacific/Honolulu\" | \"Pacific/Johnston\" | \"Pacific/Kanton\" | \"Pacific/Kiritimati\" | \"Pacific/Kosrae\" | \"Pacific/Kwajalein\" | \"Pacific/Majuro\" | \"Pacific/Marquesas\" | \"Pacific/Midway\" | \"Pacific/Nauru\" | \"Pacific/Niue\" | \"Pacific/Norfolk\" | \"Pacific/Noumea\" | \"Pacific/Pago_Pago\" | \"Pacific/Palau\" | \"Pacific/Pitcairn\" | \"Pacific/Pohnpei\" | \"Pacific/Port_Moresby\" | \"Pacific/Rarotonga\" | \"Pacific/Saipan\" | \"Pacific/Samoa\" | \"Pacific/Tahiti\" | \"Pacific/Tarawa\" | \"Pacific/Tongatapu\" | \"Pacific/Wake\" | \"Pacific/Wallis\" | \"Pacific/Yap\" | \"UTC\" | \"WET\" | \"localtime\"",
+       "description": "Timezone to use for the timestamps. Default is UTC."
+      },
+      {
+       "name": "interval",
+       "in": "query",
+       "required": true,
+       "type": "\"year\" | \"month\" | \"week\" | \"day\" | \"hour\"",
+       "description": "Supported aggregation granularities, ordered coarsest-first."
+      },
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      },
+      {
+       "name": "share_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by share ID."
+      },
+      {
+       "name": "customer_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by customer ID."
+      },
+      {
+       "name": "metrics",
+       "in": "query",
+       "required": false,
+       "type": "string[] | null",
+       "description": "List of metric slugs to focus on. When provided, only the queries needed for these metrics will be executed, improving performance. If not provided, all metrics are returned."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "MetricsResponse",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/metrics/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    }
+   ]
+  },
+  {
+   "slug": "webhooks",
+   "title": "Webhooks",
+   "operations": [
+    {
+     "id": "redeliver-webhook-event",
+     "method": "POST",
+     "path": "/api/webhooks/events/{id}/redeliver",
+     "summary": "Redeliver Webhook Event",
+     "description": "Schedule the re-delivery of a webhook event.\n\n**Scopes**: `webhooks:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The webhook event ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "202",
+     "responseName": "object",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/webhooks/events/{id}/redeliver \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-webhook-deliveries",
+     "method": "GET",
+     "path": "/api/webhooks/deliveries",
+     "summary": "List Webhook Deliveries",
+     "description": "List webhook deliveries.\n\nDeliveries are all the attempts to deliver a webhook event to an endpoint.\n\n**Scopes**: `webhooks:read` `webhooks:write`",
+     "params": [
+      {
+       "name": "endpoint_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by webhook endpoint ID."
+      },
+      {
+       "name": "start_timestamp",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter deliveries after this timestamp."
+      },
+      {
+       "name": "end_timestamp",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter deliveries before this timestamp."
+      },
+      {
+       "name": "succeeded",
+       "in": "query",
+       "required": false,
+       "type": "boolean | null",
+       "description": "Filter by delivery success status."
+      },
+      {
+       "name": "query",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Query to filter webhook deliveries."
+      },
+      {
+       "name": "http_code_class",
+       "in": "query",
+       "required": false,
+       "type": "\"2xx\" | \"3xx\" | \"4xx\" | \"5xx\" | null",
+       "description": "Filter by HTTP response code class (2xx, 3xx, 4xx, 5xx)."
+      },
+      {
+       "name": "event_type",
+       "in": "query",
+       "required": false,
+       "type": "\"customer.created\" | \"customer.updated\" | \"customer.deleted\" | \"customer.state_changed\" | \"share.created\" | \"share.updated\" | \"workspace.updated\" | \"file_sharing_session.created\" | \"file_sharing_session.download_completed\" | \"file_sharing_session.expired\" | \"file_sharing_session.payment_received\" | \"customer.created\" | \"customer.updated\" | \"customer.deleted\" | \"customer.state_changed\" | \"share.created\" | \"share.updated\" | \"workspace.updated\" | \"file_sharing_session.created\" | \"file_sharing_session.download_completed\" | \"file_sharing_session.expired\" | \"file_sharing_session.payment_received\"[] | null",
+       "description": "Filter by webhook event type."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_WebhookDelivery_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/webhooks/deliveries \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "list-webhook-endpoints",
+     "method": "GET",
+     "path": "/api/webhooks/endpoints",
+     "summary": "List Webhook Endpoints",
+     "description": "List webhook endpoints.\n\n**Scopes**: `webhooks:read` `webhooks:write`",
+     "params": [
+      {
+       "name": "workspace_id",
+       "in": "query",
+       "required": false,
+       "type": "string | string[] | null",
+       "description": "Filter by workspace ID."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_WebhookEndpoint_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/webhooks/endpoints \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "create-webhook-endpoint",
+     "method": "POST",
+     "path": "/api/webhooks/endpoints",
+     "summary": "Create Webhook Endpoint",
+     "description": "Create a webhook endpoint.\n\n**Scopes**: `webhooks:write`",
+     "params": [],
+     "body": [
+      {
+       "name": "url",
+       "type": "string",
+       "required": true,
+       "description": "The URL where the webhook events will be sent."
+      },
+      {
+       "name": "secret",
+       "type": "string | null",
+       "required": false,
+       "description": "Secret"
+      },
+      {
+       "name": "format",
+       "type": "\"raw\" | \"discord\" | \"slack\"",
+       "required": true,
+       "description": "Serialisation format for outgoing webhook payloads."
+      },
+      {
+       "name": "events",
+       "type": "\"customer.created\" | \"customer.updated\" | \"customer.deleted\" | \"customer.state_changed\" | \"share.created\" | \"share.updated\" | \"workspace.updated\" | \"file_sharing_session.created\" | \"file_sharing_session.download_completed\" | \"file_sharing_session.expired\" | \"file_sharing_session.payment_received\"[]",
+       "required": true,
+       "description": "The events that will trigger the webhook."
+      },
+      {
+       "name": "workspace_id",
+       "type": "string | null",
+       "required": false,
+       "description": "The workspace ID associated with the webhook endpoint. **Required unless you use an workspace token.**"
+      }
+     ],
+     "bodyName": "WebhookEndpointCreate",
+     "responseCode": "201",
+     "responseName": "WebhookEndpoint",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/webhooks/endpoints \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "get-webhook-endpoint",
+     "method": "GET",
+     "path": "/api/webhooks/endpoints/{id}",
+     "summary": "Get Webhook Endpoint",
+     "description": "Get a webhook endpoint by ID.\n\n**Scopes**: `webhooks:read` `webhooks:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The webhook endpoint ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "WebhookEndpoint",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/webhooks/endpoints/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "update-webhook-endpoint",
+     "method": "PATCH",
+     "path": "/api/webhooks/endpoints/{id}",
+     "summary": "Update Webhook Endpoint",
+     "description": "Update a webhook endpoint.\n\n**Scopes**: `webhooks:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The webhook endpoint ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "url",
+       "type": "string | null",
+       "required": false,
+       "description": "Url"
+      },
+      {
+       "name": "secret",
+       "type": "string | null",
+       "required": false,
+       "description": "Secret"
+      },
+      {
+       "name": "format",
+       "type": "\"raw\" | \"discord\" | \"slack\" | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "events",
+       "type": "\"customer.created\" | \"customer.updated\" | \"customer.deleted\" | \"customer.state_changed\" | \"share.created\" | \"share.updated\" | \"workspace.updated\" | \"file_sharing_session.created\" | \"file_sharing_session.download_completed\" | \"file_sharing_session.expired\" | \"file_sharing_session.payment_received\"[] | null",
+       "required": false,
+       "description": "Events"
+      },
+      {
+       "name": "enabled",
+       "type": "boolean | null",
+       "required": false,
+       "description": "Whether the webhook endpoint is enabled."
+      }
+     ],
+     "bodyName": "WebhookEndpointUpdate",
+     "responseCode": "200",
+     "responseName": "WebhookEndpoint",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/webhooks/endpoints/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "delete-webhook-endpoint",
+     "method": "DELETE",
+     "path": "/api/webhooks/endpoints/{id}",
+     "summary": "Delete Webhook Endpoint",
+     "description": "Delete a webhook endpoint.\n\n**Scopes**: `webhooks:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The webhook endpoint ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "204",
+     "responseName": "unknown",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/webhooks/endpoints/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "reset-webhook-endpoint-secret",
+     "method": "PATCH",
+     "path": "/api/webhooks/endpoints/{id}/secret",
+     "summary": "Reset Webhook Endpoint Secret",
+     "description": "Regenerate a webhook endpoint secret.\n\n**Scopes**: `webhooks:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The webhook endpoint ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "WebhookEndpoint",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/webhooks/endpoints/{id}/secret \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    }
+   ]
+  },
+  {
+   "slug": "workspaces",
+   "title": "Workspaces",
+   "operations": [
+    {
+     "id": "list-workspaces",
+     "method": "GET",
+     "path": "/api/workspaces/",
+     "summary": "List Workspaces",
+     "description": "List workspaces.\n\n**Scopes**: `workspaces:read` `workspaces:write`",
+     "params": [
+      {
+       "name": "slug",
+       "in": "query",
+       "required": false,
+       "type": "string | null",
+       "description": "Filter by slug."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      },
+      {
+       "name": "sorting",
+       "in": "query",
+       "required": false,
+       "type": "\"created_at\" | \"-created_at\" | \"slug\" | \"-slug\" | \"name\" | \"-name\" | \"next_review_threshold\" | \"-next_review_threshold\" | \"days_in_status\" | \"-days_in_status\"[] | null",
+       "description": "Sorting criterion. Several criteria can be used simultaneously and will be applied in order. Add a minus sign `-` before the criteria name to sort by descending order."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_Workspace_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/workspaces/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "create-workspace",
+     "method": "POST",
+     "path": "/api/workspaces/",
+     "summary": "Create Workspace",
+     "description": "Create an workspace.\n\n**Scopes**: `workspaces:write`",
+     "params": [],
+     "body": [
+      {
+       "name": "name",
+       "type": "string",
+       "required": true,
+       "description": "Name"
+      },
+      {
+       "name": "slug",
+       "type": "string",
+       "required": true,
+       "description": "Slug"
+      },
+      {
+       "name": "avatar_url",
+       "type": "string | null",
+       "required": false,
+       "description": "Avatar Url"
+      },
+      {
+       "name": "email",
+       "type": "string | null",
+       "required": false,
+       "description": "Public support email."
+      },
+      {
+       "name": "website",
+       "type": "string | null",
+       "required": false,
+       "description": "Official website of the workspace."
+      },
+      {
+       "name": "socials",
+       "type": "WorkspaceSocialLink[] | null",
+       "required": false,
+       "description": "Link to social profiles."
+      },
+      {
+       "name": "details",
+       "type": "WorkspaceDetails | null",
+       "required": false,
+       "description": "Additional, private, business details Rapidly needs about active workspaces for compliance (KYC)."
+      },
+      {
+       "name": "feature_settings",
+       "type": "WorkspaceFeatureSettings | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "notification_settings",
+       "type": "WorkspaceNotificationSettings | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "customer_email_settings",
+       "type": "WorkspaceCustomerEmailSettings | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "customer_portal_settings",
+       "type": "WorkspaceCustomerPortalSettings | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "default_presentment_currency",
+       "type": "\"aud\" | \"brl\" | \"cad\" | \"chf\" | \"eur\" | \"inr\" | \"gbp\" | \"jpy\" | \"sek\" | \"usd\"",
+       "required": false,
+       "description": "PresentmentCurrency"
+      }
+     ],
+     "bodyName": "WorkspaceCreate",
+     "responseCode": "201",
+     "responseName": "Workspace",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/workspaces/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "get-workspace",
+     "method": "GET",
+     "path": "/api/workspaces/{id}",
+     "summary": "Get Workspace",
+     "description": "Get an workspace by ID.\n\n**Scopes**: `workspaces:read` `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "Workspace",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/workspaces/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "update-workspace",
+     "method": "PATCH",
+     "path": "/api/workspaces/{id}",
+     "summary": "Update Workspace",
+     "description": "Update an workspace.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "name",
+       "type": "string | null",
+       "required": false,
+       "description": "Name"
+      },
+      {
+       "name": "avatar_url",
+       "type": "string | null",
+       "required": false,
+       "description": "Avatar Url"
+      },
+      {
+       "name": "email",
+       "type": "string | null",
+       "required": false,
+       "description": "Public support email."
+      },
+      {
+       "name": "website",
+       "type": "string | null",
+       "required": false,
+       "description": "Official website of the workspace."
+      },
+      {
+       "name": "socials",
+       "type": "WorkspaceSocialLink[] | null",
+       "required": false,
+       "description": "Links to social profiles."
+      },
+      {
+       "name": "details",
+       "type": "WorkspaceDetails | null",
+       "required": false,
+       "description": "Additional, private, business details Rapidly needs about active workspaces for compliance (KYC)."
+      },
+      {
+       "name": "default_presentment_currency",
+       "type": "\"aud\" | \"brl\" | \"cad\" | \"chf\" | \"eur\" | \"inr\" | \"gbp\" | \"jpy\" | \"sek\" | \"usd\" | null",
+       "required": false,
+       "description": "Default presentment currency for the workspace"
+      },
+      {
+       "name": "feature_settings",
+       "type": "WorkspaceFeatureSettings | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "notification_settings",
+       "type": "WorkspaceNotificationSettings | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "customer_email_settings",
+       "type": "WorkspaceCustomerEmailSettings | null",
+       "required": false,
+       "description": ""
+      },
+      {
+       "name": "customer_portal_settings",
+       "type": "WorkspaceCustomerPortalSettings | null",
+       "required": false,
+       "description": ""
+      }
+     ],
+     "bodyName": "WorkspaceUpdate",
+     "responseCode": "200",
+     "responseName": "Workspace",
+     "curl": "curl -X PATCH \\\n  https://api.rapidly.tech/api/workspaces/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "delete-workspace",
+     "method": "DELETE",
+     "path": "/api/workspaces/{id}",
+     "summary": "Delete Workspace",
+     "description": "Request deletion of a workspace.\n\nIf the workspace has no blocking resources, it will be immediately\nsoft-deleted. If it has a Stripe account, that will be deleted first.\n\nIf deletion cannot proceed immediately (e.g. Stripe deletion fails),\na support ticket will be created for manual handling.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "WorkspaceDeletionResponse",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/workspaces/{id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-workspace-account",
+     "method": "GET",
+     "path": "/api/workspaces/{id}/account",
+     "summary": "Get Workspace Account",
+     "description": "Get the account for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "Account",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/workspaces/{id}/account \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "switch-workspace-stripe-account",
+     "method": "POST",
+     "path": "/api/workspaces/{id}/switch-account",
+     "summary": "Switch Workspace Stripe Account",
+     "description": "Switch the workspace's active Stripe account to an existing one.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "account_id",
+       "type": "string",
+       "required": true,
+       "description": "Account Id"
+      }
+     ],
+     "bodyName": "Body_workspaces_switch_account",
+     "responseCode": "200",
+     "responseName": "Account",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/workspaces/{id}/switch-account \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "get-workspace-payment-status",
+     "method": "GET",
+     "path": "/api/workspaces/{id}/payment-status",
+     "summary": "Get Workspace Payment Status",
+     "description": "Get payment status and onboarding steps for an workspace.",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      },
+      {
+       "name": "account_verification_only",
+       "in": "query",
+       "required": false,
+       "type": "boolean",
+       "description": "Only perform account verification checks, skip share and integration checks"
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "WorkspacePaymentStatus",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/workspaces/{id}/payment-status \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "members",
+     "method": "GET",
+     "path": "/api/workspaces/{id}/members",
+     "summary": "Members",
+     "description": "List members in an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      },
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_WorkspaceMember_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/workspaces/{id}/members \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "invite-member",
+     "method": "POST",
+     "path": "/api/workspaces/{id}/members/invite",
+     "summary": "Invite Member",
+     "description": "Invite a user to join an workspace.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "email",
+       "type": "string",
+       "required": true,
+       "description": "Email address of the user to invite"
+      }
+     ],
+     "bodyName": "WorkspaceMemberInvite",
+     "responseCode": "201",
+     "responseName": "WorkspaceMember",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/workspaces/{id}/members/invite \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "leave-workspace",
+     "method": "DELETE",
+     "path": "/api/workspaces/{id}/members/leave",
+     "summary": "Leave Workspace",
+     "description": "Leave an workspace.\n\nUsers can only leave an workspace if they are not the admin\nand there is at least one other member.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "204",
+     "responseName": "unknown",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/workspaces/{id}/members/leave \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "remove-member",
+     "method": "DELETE",
+     "path": "/api/workspaces/{id}/members/{user_id}",
+     "summary": "Remove Member",
+     "description": "Remove a member from an workspace.\n\nOnly workspace admins can remove members.\nAdmins cannot remove themselves.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      },
+      {
+       "name": "user_id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "204",
+     "responseName": "unknown",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/workspaces/{id}/members/{user_id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "validate-workspace-details-with-ai",
+     "method": "POST",
+     "path": "/api/workspaces/{id}/ai-validation",
+     "summary": "Validate Workspace Details with AI",
+     "description": "Validate workspace details using AI compliance check.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "WorkspaceReviewStatus",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/workspaces/{id}/ai-validation \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "submit-appeal-for-workspace-review",
+     "method": "POST",
+     "path": "/api/workspaces/{id}/appeal",
+     "summary": "Submit Appeal for Workspace Review",
+     "description": "Submit an appeal for workspace review after AI validation failure.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [
+      {
+       "name": "reason",
+       "type": "string",
+       "required": true,
+       "description": "Detailed explanation of why this workspace should be approved. Minimum 50 characters."
+      }
+     ],
+     "bodyName": "WorkspaceAppealRequest",
+     "responseCode": "201",
+     "responseName": "WorkspaceAppealResponse",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/workspaces/{id}/appeal \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "mark-ai-onboarding-complete",
+     "method": "POST",
+     "path": "/api/workspaces/{id}/ai-onboarding-complete",
+     "summary": "Mark AI Onboarding Complete",
+     "description": "Mark the AI onboarding as completed for this workspace.\n\n**Scopes**: `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "Workspace",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/workspaces/{id}/ai-onboarding-complete \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-workspace-review-status",
+     "method": "GET",
+     "path": "/api/workspaces/{id}/review-status",
+     "summary": "Get Workspace Review Status",
+     "description": "Get the current review status and appeal information for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write`",
+     "params": [
+      {
+       "name": "id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace ID."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "WorkspaceReviewStatus",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/workspaces/{id}/review-status \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "get-workspace",
+     "method": "GET",
+     "path": "/api/customer-portal/workspaces/{slug}",
+     "summary": "Get Workspace",
+     "description": "Get a customer portal's workspace by slug.",
+     "params": [
+      {
+       "name": "slug",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": "The workspace slug."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "CustomerWorkspaceData",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/customer-portal/workspaces/{slug} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    }
+   ]
+  },
+  {
+   "slug": "oauth2",
+   "title": "OAuth 2.0",
+   "operations": [
+    {
+     "id": "list-clients",
+     "method": "GET",
+     "path": "/api/oauth2/",
+     "summary": "List Clients",
+     "description": "List OAuth2 clients belonging to the authenticated user.",
+     "params": [
+      {
+       "name": "page",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Page number, defaults to 1."
+      },
+      {
+       "name": "limit",
+       "in": "query",
+       "required": false,
+       "type": "integer",
+       "description": "Size of a page, defaults to 10. Maximum is 100."
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "PaginatedList_OAuth2Client_",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/oauth2/ \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "create-client",
+     "method": "POST",
+     "path": "/api/oauth2/register",
+     "summary": "Create Client",
+     "description": "Register a new OAuth2 client (RFC 7591).",
+     "params": [],
+     "body": [
+      {
+       "name": "client_name",
+       "type": "string",
+       "required": true,
+       "description": "Client Name"
+      },
+      {
+       "name": "redirect_uris",
+       "type": "string[]",
+       "required": true,
+       "description": "Redirect Uris"
+      },
+      {
+       "name": "token_endpoint_auth_method",
+       "type": "\"client_secret_basic\" | \"client_secret_post\" | \"none\"",
+       "required": false,
+       "description": "Token Endpoint Auth Method"
+      },
+      {
+       "name": "grant_types",
+       "type": "\"authorization_code\" | \"refresh_token\"[]",
+       "required": false,
+       "description": "Grant Types"
+      },
+      {
+       "name": "response_types",
+       "type": "string[]",
+       "required": false,
+       "description": "Response Types"
+      },
+      {
+       "name": "scope",
+       "type": "string",
+       "required": false,
+       "description": "Scope"
+      },
+      {
+       "name": "client_uri",
+       "type": "string | null",
+       "required": false,
+       "description": "Client Uri"
+      },
+      {
+       "name": "logo_uri",
+       "type": "string | null",
+       "required": false,
+       "description": "Logo Uri"
+      },
+      {
+       "name": "tos_uri",
+       "type": "string | null",
+       "required": false,
+       "description": "Tos Uri"
+      },
+      {
+       "name": "policy_uri",
+       "type": "string | null",
+       "required": false,
+       "description": "Policy Uri"
+      },
+      {
+       "name": "default_sub_type",
+       "type": "\"user\" | \"workspace\"",
+       "required": false,
+       "description": "SubType"
+      }
+     ],
+     "bodyName": "OAuth2ClientConfiguration",
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/oauth2/register \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "get-client",
+     "method": "GET",
+     "path": "/api/oauth2/register/{client_id}",
+     "summary": "Get Client",
+     "description": "Read an OAuth2 client's configuration (RFC 7592).",
+     "params": [
+      {
+       "name": "client_id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/oauth2/register/{client_id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "update-client",
+     "method": "PUT",
+     "path": "/api/oauth2/register/{client_id}",
+     "summary": "Update Client",
+     "description": "Update an OAuth2 client's configuration (RFC 7592).",
+     "params": [
+      {
+       "name": "client_id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [
+      {
+       "name": "client_id",
+       "type": "string | null",
+       "required": false,
+       "description": "Client Id"
+      },
+      {
+       "name": "client_name",
+       "type": "string | null",
+       "required": false,
+       "description": "Client Name"
+      },
+      {
+       "name": "redirect_uris",
+       "type": "string[] | null",
+       "required": false,
+       "description": "Redirect Uris"
+      },
+      {
+       "name": "token_endpoint_auth_method",
+       "type": "\"client_secret_basic\" | \"client_secret_post\" | \"none\" | null",
+       "required": false,
+       "description": "Token Endpoint Auth Method"
+      },
+      {
+       "name": "grant_types",
+       "type": "\"authorization_code\" | \"refresh_token\"[] | null",
+       "required": false,
+       "description": "Grant Types"
+      },
+      {
+       "name": "response_types",
+       "type": "string[] | null",
+       "required": false,
+       "description": "Response Types"
+      },
+      {
+       "name": "scope",
+       "type": "string | null",
+       "required": false,
+       "description": "Scope"
+      },
+      {
+       "name": "client_uri",
+       "type": "string | null",
+       "required": false,
+       "description": "Client Uri"
+      },
+      {
+       "name": "logo_uri",
+       "type": "string | null",
+       "required": false,
+       "description": "Logo Uri"
+      },
+      {
+       "name": "tos_uri",
+       "type": "string | null",
+       "required": false,
+       "description": "Tos Uri"
+      },
+      {
+       "name": "policy_uri",
+       "type": "string | null",
+       "required": false,
+       "description": "Policy Uri"
+      },
+      {
+       "name": "default_sub_type",
+       "type": "\"user\" | \"workspace\" | null",
+       "required": false,
+       "description": ""
+      }
+     ],
+     "bodyName": "OAuth2ClientConfigurationUpdate",
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X PUT \\\n  https://api.rapidly.tech/api/oauth2/register/{client_id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "delete-client",
+     "method": "DELETE",
+     "path": "/api/oauth2/register/{client_id}",
+     "summary": "Delete Client",
+     "description": "Soft-delete an OAuth2 client (RFC 7592).",
+     "params": [
+      {
+       "name": "client_id",
+       "in": "path",
+       "required": true,
+       "type": "string",
+       "description": ""
+      }
+     ],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X DELETE \\\n  https://api.rapidly.tech/api/oauth2/register/{client_id} \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "authorize",
+     "method": "GET",
+     "path": "/api/oauth2/authorize",
+     "summary": "Authorize",
+     "description": "Begin the authorization code flow (returns consent metadata or auto-approves).",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/oauth2/authorize \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    },
+    {
+     "id": "consent",
+     "method": "POST",
+     "path": "/api/oauth2/consent",
+     "summary": "Consent",
+     "description": "Handle the user's consent decision (allow or deny).",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "object",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/oauth2/consent \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "request-token",
+     "method": "POST",
+     "path": "/api/oauth2/token",
+     "summary": "Request Token",
+     "description": "Exchange a grant for an access token.",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "TokenResponse",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/oauth2/token \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "revoke-token",
+     "method": "POST",
+     "path": "/api/oauth2/revoke",
+     "summary": "Revoke Token",
+     "description": "Revoke an access or refresh token.",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "RevokeTokenResponse",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/oauth2/revoke \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "introspect-token",
+     "method": "POST",
+     "path": "/api/oauth2/introspect",
+     "summary": "Introspect Token",
+     "description": "Return metadata about an active token.",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "IntrospectTokenResponse",
+     "curl": "curl -X POST \\\n  https://api.rapidly.tech/api/oauth2/introspect \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\" \\\n  -H \"Content-Type: application/json\" \\\n  -d '{ ... }'"
+    },
+    {
+     "id": "get-user-info",
+     "method": "GET",
+     "path": "/api/oauth2/userinfo",
+     "summary": "Get User Info",
+     "description": "Return OpenID Connect claims for the authenticated subject.",
+     "params": [],
+     "body": [],
+     "bodyName": null,
+     "responseCode": "200",
+     "responseName": "UserInfoUser | UserInfoWorkspace",
+     "curl": "curl -X GET \\\n  https://api.rapidly.tech/api/oauth2/userinfo \\\n  -H \"Authorization: Bearer $RAPIDLY_ACCESS_TOKEN\""
+    }
+   ]
+  }
+ ]
+}

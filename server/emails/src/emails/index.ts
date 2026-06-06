@@ -4,7 +4,6 @@ import { CustomerSessionCode } from './customer_session_code'
 import { EmailUpdate } from './email_update'
 import { LoginCode } from './login_code'
 import { NotificationCreateAccount } from './notification_create_account'
-import { NotificationCreditsGranted } from './notification_credits_granted'
 import { NotificationFileShareDownloadCompleted } from './notification_file_share_download_completed'
 import { NotificationFileSharePaymentReceived } from './notification_file_share_payment_received'
 import { NotificationFileShareSessionExpired } from './notification_file_share_session_expired'
@@ -17,6 +16,10 @@ import OrganizationReviewed from './organization_reviewed'
 import { OrganizationUnderReview } from './organization_under_review'
 import { WebhookEndpointDisabled } from './webhook_endpoint_disabled'
 
+// NOTE: keys are the backend EmailTemplate *string values*, which kept
+// the legacy organization_* names when the enum members were renamed
+// (workspace_invite = "organization_invite"). Do not "fix" these to
+// workspace_* without a coordinated backend value migration.
 const TEMPLATES: Record<string, React.FC<any>> = {
   login_code: LoginCode,
   customer_session_code: CustomerSessionCode,
@@ -30,7 +33,6 @@ const TEMPLATES: Record<string, React.FC<any>> = {
   organization_reviewed: OrganizationReviewed,
   webhook_endpoint_disabled: WebhookEndpointDisabled,
   notification_create_account: NotificationCreateAccount,
-  notification_credits_granted: NotificationCreditsGranted,
   notification_file_share_download_completed:
     NotificationFileShareDownloadCompleted,
   notification_file_share_session_expired: NotificationFileShareSessionExpired,
