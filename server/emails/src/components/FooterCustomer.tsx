@@ -3,10 +3,10 @@ import { schemas } from '../types'
 
 /** Organisation-branded email footer with customer support links. */
 const FooterCustomer = ({
-  organization,
+  workspace,
   email,
 }: {
-  organization: schemas['Organization']
+  workspace: schemas['Workspace']
   email: string
 }) => (
   <>
@@ -37,8 +37,7 @@ const FooterCustomer = ({
       </Text>
       <Text className="text-xs text-gray-400">
         Payment processing services provided to{' '}
-        <span className="font-medium text-gray-500">{organization.name}</span>{' '}
-        by{' '}
+        <span className="font-medium text-gray-500">{workspace.name}</span> by{' '}
         <span className="font-medium text-gray-500">Rapidly Software Ltd.</span>
       </Text>
     </Section>
