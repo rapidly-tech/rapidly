@@ -212,6 +212,21 @@ async def list_by_customers(
     return await repo.list_by_customers(session, customer_ids)
 
 
+async def find_case_insensitive_email_duplicates(
+    session: AsyncReadSession,
+) -> Sequence[tuple[UUID, str, int]]:
+    """Report active (customer_id, lower(email)) groups with >1
+    members — operators dedupe these before the case-insensitive
+    unique constraint migration (queued) can land.
+
+    Returns ``(customer_id, lower_email, count)`` tuples ordered
+    by count desc. Empty list = no duplicates = constraint
+    migration is safe to apply.
+    """
+    repo = MemberRepository.from_session(session)
+    return await repo.find_case_insensitive_email_duplicates()
+
+
 # ── Authenticated creation ───────────────────────────────────────
 
 
