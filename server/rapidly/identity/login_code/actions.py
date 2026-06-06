@@ -112,6 +112,16 @@ async def authenticate(
     return user, is_signup
 
 
+async def delete_expired(session: AsyncSession) -> None:
+    """Purge stale login codes whose expiry has passed.
+
+    Invoked by the daily ``login_code.delete_expired`` cron actor.
+    Mirrors ``auth_service.delete_expired`` for UserSession.
+    """
+    repo = LoginCodeRepository.from_session(session)
+    await repo.delete_expired()
+
+
 async def _lookup_valid_code(
     session: AsyncSession, code: str, email: str
 ) -> LoginCode | None:
