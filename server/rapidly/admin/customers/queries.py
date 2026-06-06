@@ -53,11 +53,13 @@ class AdminCustomerRepository(Repository[Customer]):
                 escaped = escape_like(query.lower())
                 stmt = stmt.where(
                     or_(
-                        func.lower(Customer.email).ilike(f"%{escaped}%"),
-                        func.lower(Customer.name).ilike(f"%{escaped}%"),
-                        func.lower(Customer.external_id).ilike(f"%{escaped}%"),
-                        func.lower(Workspace.slug).ilike(f"%{escaped}%"),
-                        func.lower(Workspace.name).ilike(f"%{escaped}%"),
+                        func.lower(Customer.email).ilike(f"%{escaped}%", escape="\\"),
+                        func.lower(Customer.name).ilike(f"%{escaped}%", escape="\\"),
+                        func.lower(Customer.external_id).ilike(
+                            f"%{escaped}%", escape="\\"
+                        ),
+                        func.lower(Workspace.slug).ilike(f"%{escaped}%", escape="\\"),
+                        func.lower(Workspace.name).ilike(f"%{escaped}%", escape="\\"),
                     )
                 )
 

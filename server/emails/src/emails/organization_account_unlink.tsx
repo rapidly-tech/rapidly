@@ -8,13 +8,13 @@ import type { schemas } from '../types'
 /** Notification email when a payout account is unlinked from an organisation. */
 export function OrganizationAccountUnlink({
   email,
-  organization_kept_name,
-  organizations_unlinked,
-}: schemas['OrganizationAccountUnlinkProps']) {
+  workspace_kept_name,
+  workspaces_unlinked,
+}: schemas['WorkspaceAccountUnlinkProps']) {
   return (
     <WrapperRapidly>
       <Preview>
-        Important: Organization Account Update for {organization_kept_name}
+        Important: Organization Account Update for {workspace_kept_name}
       </Preview>
       <Intro>
         We'd like to inform you that some of your Stripe payout accounts
@@ -25,9 +25,9 @@ export function OrganizationAccountUnlink({
       </Intro>
       <Section>
         <BodyText>
-          Your organization{' '}
-          <span className="font-bold">{organization_kept_name}</span> has
-          retained the connected Stripe payout account, and{' '}
+          Your workspace{' '}
+          <span className="font-bold">{workspace_kept_name}</span> has retained
+          the connected Stripe payout account, and{' '}
           <span className="font-bold">no data has been lost</span>.
         </BodyText>
       </Section>
@@ -37,15 +37,14 @@ export function OrganizationAccountUnlink({
         </Text>
         <ul className="ml-4 list-disc p-0 text-[14px] text-blue-900">
           <li className="">
-            <span className="font-bold">{organization_kept_name}</span> keeps
-            the existing Stripe payout account with no changes required on your
-            end.
+            <span className="font-bold">{workspace_kept_name}</span> keeps the
+            existing Stripe payout account with no changes required on your end.
           </li>
           <li className="mt-2">
             The following organizations require you to connect a new Stripe
             payout account:
             <ul className="ml-4 list-disc p-0">
-              {organizations_unlinked.map((org: string) => (
+              {workspaces_unlinked.map((org: string) => (
                 <li key={org} className="mt-2">
                   <span className="font-bold">{org}</span> at{' '}
                   <Link
@@ -76,8 +75,7 @@ export function OrganizationAccountUnlink({
           <li className="mt-2">
             <span className="font-bold">Payout history:</span> All payout
             history is still available on{' '}
-            <span className="font-bold">{organization_kept_name}</span>{' '}
-            organization.
+            <span className="font-bold">{workspace_kept_name}</span> workspace.
           </li>
         </ul>
       </Section>
@@ -94,8 +92,8 @@ export function OrganizationAccountUnlink({
 
 OrganizationAccountUnlink.PreviewProps = {
   email: 'admin@example.com',
-  organization_kept_name: 'Acme Inc.',
-  organizations_unlinked: ['Beta Corp', 'Gamma LLC'],
+  workspace_kept_name: 'Acme Inc.',
+  workspaces_unlinked: ['Beta Corp', 'Gamma LLC'],
 }
 
 export default OrganizationAccountUnlink

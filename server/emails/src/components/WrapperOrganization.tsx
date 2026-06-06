@@ -6,15 +6,15 @@ import WrapperBase from './WrapperBase'
 /** Organisation-branded email layout with the org avatar and name header. */
 const WrapperOrganization = ({
   children,
-  organization,
+  workspace,
 }: {
   children: React.ReactNode
-  organization: schemas['Organization']
+  workspace: schemas['Workspace']
 }) => {
   return (
     <WrapperBase>
       <Container className="px-[20px] pt-[20px] pb-[10px]">
-        <OrganizationHeader organization={organization} />
+        <OrganizationHeader workspace={workspace} />
       </Container>
       <Container className="px-[20px] pt-[10px] pb-[20px]">
         {children}
