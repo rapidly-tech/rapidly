@@ -36,6 +36,8 @@ from rapidly.platform.workspace_access_token.actions import (
     create,
     delete,
     get_by_token,
+    hard_delete_aged_soft_deletes,
+    soft_delete_expired,
     update,
 )
 
@@ -352,3 +354,102 @@ class TestDelete:
         await delete(MagicMock(), token)
 
         repo.soft_delete.assert_called_once_with(token)
+
+
+@pytest.mark.asyncio
+class TestSoftDeleteExpired:
+    """The action layer thin-wrappers the repo's bulk soft-
+    delete. Pin that it forwards correctly + returns the
+    rowcount so the M5-era cron actor's logging stays stable.
+    """
+
+    async def test_forwards_to_repository_and_returns_rowcount(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        repo = MagicMock()
+        repo.soft_delete_expired = AsyncMock(return_value=42)
+        monkeypatch.setattr(
+            "rapidly.platform.workspace_access_token.actions"
+            ".WorkspaceAccessTokenRepository.from_session",
+            MagicMock(return_value=repo),
+        )
+
+        n = await soft_delete_expired(MagicMock())
+
+        # The action layer is a thin pass-through — it must not
+        # filter, transform, or swallow the rowcount.
+        repo.soft_delete_expired.assert_called_once_with()
+        assert n == 42
+
+    async def test_returns_zero_when_no_rows_affected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        # Symmetric to test_returns_zero_when_no_rows_affected
+        # at the query layer — the action must not coerce 0 to
+        # a falsy-but-non-int value that breaks the actor's
+        # ``if rowcount:`` log gate.
+        repo = MagicMock()
+        repo.soft_delete_expired = AsyncMock(return_value=0)
+        monkeypatch.setattr(
+            "rapidly.platform.workspace_access_token.actions"
+            ".WorkspaceAccessTokenRepository.from_session",
+            MagicMock(return_value=repo),
+        )
+
+        n = await soft_delete_expired(MagicMock())
+        assert n == 0
+        assert isinstance(n, int)
+
+
+@pytest.mark.asyncio
+class TestHardDeleteAgedSoftDeletes:
+    """The action layer forwards
+    ``settings.WORKSPACE_ACCESS_TOKEN_HARD_DELETE_AFTER`` to
+    the repository. Three load-bearing pins:
+
+    - Forwards correctly + returns rowcount (M5-era logging
+      shape).
+    - Uses the settings-configured retention, NOT a hardcoded
+      literal. Drift would let the retention window diverge
+      between env (production may want 30d, dev 7d, etc.).
+    - Zero-row case coerces to int 0.
+    """
+
+    async def test_forwards_to_repository_and_returns_rowcount(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        repo = MagicMock()
+        repo.hard_delete_expiry_soft_deletes_older_than = AsyncMock(return_value=42)
+        monkeypatch.setattr(
+            "rapidly.platform.workspace_access_token.actions"
+            ".WorkspaceAccessTokenRepository.from_session",
+            MagicMock(return_value=repo),
+        )
+
+        n = await hard_delete_aged_soft_deletes(MagicMock())
+
+        # Forwards with the settings retention value.
+        repo.hard_delete_expiry_soft_deletes_older_than.assert_called_once()
+        # The forwarded arg is the settings value.
+        from rapidly.config import settings
+
+        assert (
+            repo.hard_delete_expiry_soft_deletes_older_than.call_args.args[0]
+            == settings.WORKSPACE_ACCESS_TOKEN_HARD_DELETE_AFTER
+        )
+        assert n == 42
+
+    async def test_returns_zero_when_no_rows_affected(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        repo = MagicMock()
+        repo.hard_delete_expiry_soft_deletes_older_than = AsyncMock(return_value=0)
+        monkeypatch.setattr(
+            "rapidly.platform.workspace_access_token.actions"
+            ".WorkspaceAccessTokenRepository.from_session",
+            MagicMock(return_value=repo),
+        )
+
+        n = await hard_delete_aged_soft_deletes(MagicMock())
+        assert n == 0
+        assert isinstance(n, int)

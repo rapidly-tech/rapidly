@@ -10,7 +10,6 @@ export function LoginCode({
   email,
   code,
   code_lifetime_minutes,
-  domain,
 }: schemas['LoginCodeProps']) {
   return (
     <WrapperRapidly>
@@ -24,7 +23,7 @@ export function LoginCode({
           This code is only valid for the next {code_lifetime_minutes} minutes.
         </span>
       </Intro>
-      <OTPCode code={code} domain={domain} />
+      <OTPCode code={code} domain="rapidly.tech" />
       <Text className="text-gray-500">
         If you didn't request this email, you can safely ignore it.
       </Text>
@@ -37,7 +36,6 @@ LoginCode.PreviewProps = {
   email: 'john@example.com',
   code: 'ABC123',
   code_lifetime_minutes: 10,
-  domain: 'rapidly.tech',
 }
 
 export default LoginCode

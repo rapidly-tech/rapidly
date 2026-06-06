@@ -1,0 +1,1550 @@
+{
+ "pages": [
+  {
+   "href": "/docs/api-reference/introduction",
+   "title": "API Overview",
+   "description": "Base URLs, authentication, pagination, rate limits, and the difference between the Core API and the Customer Portal API",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "base-urls",
+     "text": "Base URLs",
+     "level": 2
+    },
+    {
+     "id": "authentication",
+     "text": "Authentication",
+     "level": 2
+    },
+    {
+     "id": "workspace-access-tokens-oat",
+     "text": "Workspace Access Tokens (OAT)",
+     "level": 3
+    },
+    {
+     "id": "customer-access-tokens",
+     "text": "Customer Access Tokens",
+     "level": 3
+    },
+    {
+     "id": "core-api-vs-customer-portal-api",
+     "text": "Core API vs Customer Portal API",
+     "level": 2
+    },
+    {
+     "id": "quick-examples",
+     "text": "Quick Examples",
+     "level": 2
+    },
+    {
+     "id": "using-the-api-directly",
+     "text": "Using the API Directly",
+     "level": 2
+    },
+    {
+     "id": "pagination",
+     "text": "Pagination",
+     "level": 2
+    },
+    {
+     "id": "query-parameters",
+     "text": "Query Parameters",
+     "level": 3
+    },
+    {
+     "id": "response-format",
+     "text": "Response Format",
+     "level": 3
+    },
+    {
+     "id": "example",
+     "text": "Example",
+     "level": 3
+    },
+    {
+     "id": "rate-limits",
+     "text": "Rate Limits",
+     "level": 2
+    }
+   ],
+   "body": "API Overview Base URLs, authentication, pagination, rate limits, and the difference between the Core API and the Customer Portal API https://api.rapidly.tech/api Use a Workspace Access Token (OAT) in the Authorization: Bearer header Use a Customer Access Token created via /api/customer-sessions/ Base URLs | Environment | Base URL | Purpose | | ----------- | ------------------------------ | ------------------------------ | | Production | https://api.rapidly.tech/api | Real customers & live payments | Authentication Workspace Access Tokens (OAT) Use an OAT to act on behalf of your workspace (manage shares, customers, etc.). Authorization: Bearer rapidly oat xxxxxxxxxxxxxxxxx Create OATs in your workspace settings. See: Workspace Access Tokens Never expose an OAT in client-side code, public repos, or logs. If leaked, it will be revoked automatically by our secret scanning integrations. Customer Access Tokens Do not use OATs in the browser. For customer-facing flows, generate a Customer Session server-side, then use the returned customer access token with the Customer Portal API to let a signed-in customer view their own data. Core API vs Customer Portal API | Aspect | Core API | Customer Portal API | | -------------------- | ---------------------------------------------------------- | ---------------------------------------------- | | Audience | Your server / backend | One of your customer | | Auth Type | Workspace Access Token (OAT) | Customer Access Token | | Scope | Full workspace resources (shares, customers, files) | Only the authenticated customer’s data | | Typical Use | Admin dashboards, internal tools, automation, provisioning | Building a custom customer portal or gated app | | Token Creation | Via dashboard (manual) | Via /api/customer-sessions/ (server-side) | | Sensitive Operations | Yes (create/update shares, manage customers, etc.) | No (read/update only what the customer owns) | The Customer Portal API is a restricted surface designed for safe exposure in user-facing contexts (after exchanging a session). It cannot perform privileged workspace-level mutations like creating shares or managing other customers. Quick Examples curl https://api.rapidly.tech/api/shares/ \\ -H \"Authorization: Bearer $RAPIDLY OAT\" \\ -H \"Accept: application/json\" curl https://api.rapidly.tech/api/customer-portal/ \\ -H \"Authorization: Bearer $RAPIDLY CUSTOMER TOKEN\" \\ -H \"Accept: application/json\" Using the API Directly You can call the Rapidly API directly using fetch (TypeScript) or httpx (Python). Use the appropriate base URL for your environment: const response = await fetch(\"https://api.rapidly.tech/api/shares/\", { headers: { Authorization: Bearer ${process.env.RAPIDLY ACCESS TOKEN!} , Accept: \"application/json\", }, }); const data = await response.json(); import os import httpx client = httpx.Client( base url=\"https://api.rapidly.tech\", headers={\"Authorization\": f\"Bearer {os.environ['RAPIDLY ACCESS TOKEN']}\"}, ) response = client.get(\"/api/shares/\") data = response.json() Pagination List endpoints in the Rapidly API support pagination to help you efficiently retrieve large datasets. Use the page and limit query parameters to control pagination. Query Parameters | Parameter | Type | Default | Max | Description | | --------- | ------- | ------- | ----- | ------------------------------------------------ | | page | integer | 1 | - | Page number, starting from 1 | | limit | integer | 10 | 100 | Number of items to return per page (window size) | The page parameter works as a window offset. For example, page=2&limit=10 means the API will skip the first 10 elements and return the next 10. Response Format All paginated responses include a pagination object with metadata about the current page and total results: | Field | Type | Description | | ------------- | ------- | ---------------------------------------------------------------- | | total count | integer | Total number of items matching your query across all pages | | max page | integer | Total number of pages available, given the current limit value | Example Let's say you want to fetch shares with a limit of 100 items per page: curl https://api.rapidly.tech/api/shares/?page=1&limit=100 \\ -H \"Authorization: Bearer $RAPIDLY OAT\" \\ -H \"Accept: application/json\" { \"items\": [ { \"id\": \"...\", \"name\": \"Product 1\", ... }, ... ], \"pagination\": { \"total count\": 250, \"max page\": 3 } } In this example: - total count=250 indicates there are 250 total shares - limit=100 means each page contains up to 100 shares - max page=3 means you need to make 3 requests to retrieve all shares (pages 1, 2, and 3) To retrieve all pages, increment the page parameter from 1 to max page . Our SDKs provide built-in pagination helpers to automatically iterate through all pages. Rate Limits Rapidly API has rate limits to ensure fair usage and maintain performance. The limits are as follows: - Default : 500 requests per minute - Restricted endpoints (e.g., login, token exchange): 60 requests per minute If you exceed the rate limit, you will receive a 429 Too Many Requests response. The response will include a Retry-After header indicating how long you should wait before making another request. Workspaces requiring higher rate limits for production workloads may contact our support team to discuss elevated limits."
+  },
+  {
+   "href": "/docs/changelog/api",
+   "title": "API Changelog",
+   "description": "Stay up to date with the latest changes, improvements and deprecations to the Rapidly API.",
+   "section": "Changelog",
+   "headings": [],
+   "body": "API Changelog Stay up to date with the latest changes, improvements and deprecations to the Rapidly API. No API changes to report yet. This page will be updated as the API evolves."
+  },
+  {
+   "href": "/docs/changelog/recent",
+   "title": "Product Updates",
+   "description": "Stay up to date with the latest changes and improvements to Rapidly.",
+   "section": "Changelog",
+   "headings": [
+    {
+     "id": "platform-fee",
+     "text": "Platform Fee",
+     "level": 2
+    },
+    {
+     "id": "documentation-portal",
+     "text": "Documentation Portal",
+     "level": 2
+    },
+    {
+     "id": "self-hosted-signaling-turn",
+     "text": "Self-Hosted Signaling & TURN",
+     "level": 2
+    },
+    {
+     "id": "paid-file-sharing",
+     "text": "Paid File Sharing",
+     "level": 2
+    },
+    {
+     "id": "secret-sharing",
+     "text": "Secret Sharing",
+     "level": 2
+    },
+    {
+     "id": "p2p-encrypted-file-sharing",
+     "text": "P2P Encrypted File Sharing",
+     "level": 2
+    }
+   ],
+   "body": "Product Updates Stay up to date with the latest changes and improvements to Rapidly. Platform Fee Rapidly charges a 2% platform fee on paid file-share and storefront transactions. Free file sharing and secret exchange incur no fees. - Stripe processing fees (typically 2.9% + 30¢, plus +1.5% for international cards) are charged separately by Stripe and are not included in our 2% - See the Fees policy for the full breakdown and worked example Documentation Portal Launched the Rapidly documentation portal with comprehensive guides for all platform features: - File Sharing — P2P encrypted file transfer with WebRTC - Secret Sharing — One-time encrypted text and file secrets - Analytics — Event ingestion, metrics, and real-time streaming - Customer Management — CRM with custom fields and metadata - Finance & Payouts — Stripe Connect integration for sellers Self-Hosted Signaling & TURN Replaced third-party signaling with a custom WebSocket signaling server and self-hosted COTURN for reliable peer-to-peer connections: - WebSocket signaling at /api/file-sharing/signal/{slug} — handles SDP offers/answers and ICE candidates - COTURN relay — fallback for restrictive NAT/firewalls, encrypted data never exposed to relay - Rate limiting — 20 connections per IP per 60s, 60 messages per connection per 10s - Room management — per-channel peer cap of 50, empty rooms garbage-collected after 15 min Paid File Sharing Monetize file shares with integrated Stripe payments: - Payment gating — require Stripe Checkout before downloading - Pricing — USD (additional currencies planned) - Download limits — customizable from 1 to 1,000, or unlimited - Real-time dashboard — monitor active downloaders with per-peer progress - Platform fee — 2% on paid file shares, no monthly fees Secret Sharing Share sensitive information that self-destructs after reading: - Encrypted text secrets — passwords, API keys, credentials - Encrypted file secrets — sensitive documents - Zero-knowledge — OpenPGP encryption, server never sees plaintext - One-time read — automatically deleted after first access - Expiration — optional TTL for unread secrets P2P Encrypted File Sharing Core file sharing feature launched: - WebRTC peer-to-peer — files transfer directly between browsers - AES-256-GCM encryption — all files encrypted before leaving your device - Zero-knowledge architecture — encryption key in URL fragment, never sent to server - Password protection — optional secondary layer of security - Checksum verification — SHA-256 integrity checking for transferred files - Abuse reporting — flag and close channels that violate terms"
+  },
+  {
+   "href": "/docs/features/analytics",
+   "title": "Analytics",
+   "description": "Track file sharing activity, revenue, and custom events across your workspace",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "metrics-dashboard",
+     "text": "Metrics Dashboard",
+     "level": 2
+    },
+    {
+     "id": "filters",
+     "text": "Filters",
+     "level": 3
+    },
+    {
+     "id": "file-sharing-metrics",
+     "text": "File Sharing Metrics",
+     "level": 3
+    },
+    {
+     "id": "revenue-metrics",
+     "text": "Revenue Metrics",
+     "level": 3
+    },
+    {
+     "id": "cost-metrics",
+     "text": "Cost Metrics",
+     "level": 3
+    },
+    {
+     "id": "event-ingestion-api",
+     "text": "Event Ingestion API",
+     "level": 2
+    },
+    {
+     "id": "batch-ingestion",
+     "text": "Batch Ingestion",
+     "level": 3
+    },
+    {
+     "id": "structured-metadata",
+     "text": "Structured Metadata",
+     "level": 3
+    },
+    {
+     "id": "deduplication",
+     "text": "Deduplication",
+     "level": 3
+    },
+    {
+     "id": "event-types",
+     "text": "Event Types",
+     "level": 2
+    },
+    {
+     "id": "time-series-statistics",
+     "text": "Time-Series Statistics",
+     "level": 2
+    },
+    {
+     "id": "real-time-streaming",
+     "text": "Real-Time Streaming",
+     "level": 2
+    }
+   ],
+   "body": "Analytics Track file sharing activity, revenue, and custom events across your workspace Rapidly provides built-in analytics for your file sharing workspace: a metrics dashboard, an event ingestion API for custom tracking, and real-time streaming via SSE. Metrics Dashboard The metrics dashboard gives you time-bucketed views of your file sharing activity and revenue. All metrics are scoped to your workspace. Filters Every metric supports the following filters: - Interval -- Hourly, Daily, Weekly, Monthly, or Yearly - Date range -- Custom start and end dates - Timezone -- All timestamps adjusted to your selected timezone - Share -- Filter by specific file share - Customer -- Filter by customer File Sharing Metrics - File Share Sessions -- Total number of file sharing sessions created. - File Share Downloads -- Total number of file downloads across all sessions. - Avg Downloads Per Share -- Average downloads per sharing session. - Active Sessions -- Sessions currently in progress. - Completed Sessions -- Sessions that finished successfully. - Expired Sessions -- Sessions that expired before completion. - Free File Shares -- Sessions with no price attached. - Paid File Shares -- Sessions that require payment. - Total Data Shared (bytes) -- Cumulative file size transferred. - Cumulative File Shares -- Running total of all sessions over time. - Cumulative Downloads -- Running total of all downloads over time. Revenue Metrics - File Share Revenue -- Total revenue from completed file share payments (in cents). - Average Share Price -- Average price across paid file shares. - Payment Conversion Rate -- Percentage of paid sessions that resulted in a completed payment. - File Share Platform Fees -- Platform fees collected from file share payments. - Cumulative Platform Fees -- Running total of platform fees over time. Cost Metrics - Costs -- Aggregate costs from events with cost metadata. - Cumulative Costs -- Running total of costs over time. - Cost Per User -- Average cost per active customer. - Active Users -- Distinct customers with recorded events. - Cashflow -- Revenue minus costs. Event Ingestion API Rapidly tracks system events automatically (e.g., customer.created , customer.updated , customer.deleted ). You can also ingest your own custom events via the API for application-specific tracking. Batch Ingestion Send events in bulk via POST /api/events/ingest : { \"events\": [ { \"name\": \"file.scanned\", \"customer id\": \"cust uuid\", \"timestamp\": \"2026-03-27T10:00:00Z\", \"metadata\": { \"file type\": \"pdf\", \"size bytes\": 1048576 } } ] } Each event requires a name and either a customer id (Rapidly customer) or external customer id (your system's ID). Events can include arbitrary key-value metadata and support parent-child relationships via parent id and external id for hierarchical tracking. Structured Metadata Two metadata keys receive special handling: - cost -- { \"amount\": 0.0025, \"currency\": \"usd\" } -- tracked and aggregated in cost metrics. - llm -- { \"vendor\": \"...\", \"model\": \"...\", \"input tokens\": 100, \"output tokens\": 50, ... } -- structured LLM usage tracking. Deduplication Set external id on your events to enable deduplication. Duplicate events with the same external id are skipped during ingestion. Event Types Event types act as a schema registry for your events. They are created automatically when new event names are ingested and track: - Occurrence counts - First and last seen timestamps - Source (system or user) - Custom labels for display in the dashboard Update labels via PATCH /api/event-types/{id} to give events human-readable names in the UI. Time-Series Statistics The GET /api/events/statistics/timeseries endpoint returns aggregate statistics grouped by event name over configurable time periods. This powers the event-level analytics view with: - Per-period occurrence counts and customer counts - Aggregated metadata field totals and averages (e.g., cost per trace) - Percentile breakdowns (p10, p90, p99) for numeric metadata fields Real-Time Streaming Rapidly streams events to connected clients via Server-Sent Events (SSE) over Redis pub/sub: - User stream -- GET /api/stream/user -- events for the authenticated user. - Workspace stream -- GET /api/stream/workspaces/{id} -- events scoped to a workspace. Use these endpoints to build real-time dashboards or trigger client-side updates when new file shares, payments, or custom events occur."
+  },
+  {
+   "href": "/docs/features/customer-management",
+   "title": "Customer Management",
+   "description": "Get insights on your customers and sales",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "managing-customers",
+     "text": "Managing Customers",
+     "level": 2
+    },
+    {
+     "id": "customer-types",
+     "text": "Customer Types",
+     "level": 3
+    },
+    {
+     "id": "short-id",
+     "text": "Short ID",
+     "level": 3
+    },
+    {
+     "id": "payment-methods-billing",
+     "text": "Payment Methods & Billing",
+     "level": 3
+    },
+    {
+     "id": "oauth-account-linking",
+     "text": "OAuth Account Linking",
+     "level": 3
+    },
+    {
+     "id": "external-id",
+     "text": "External ID",
+     "level": 2
+    },
+    {
+     "id": "metadata",
+     "text": "Metadata",
+     "level": 2
+    }
+   ],
+   "body": "Customer Management Get insights on your customers and sales Managing Customers Rapidly has a built-in feature to view and manage your Customers. Everyone who has ever purchased something from you will be recorded as a Customer to your Workspace. You’re able to see past purchases and file share transactions, as well as some additional metrics. Customer Types Customers can be one of two types: - Individual -- A single user (the default). - Team -- A customer that can have multiple members with different roles. Useful for seat-based pricing. Once upgraded to a team, a customer cannot be downgraded back to individual. Short ID Each customer is assigned an 8-character base-26 short ID for easy reference and display in the dashboard. Payment Methods & Billing Customers can have associated payment methods and a billing address on file, managed through the API or the customer portal. OAuth Account Linking Customers can link third-party accounts via the customer portal: - Microsoft -- Link a Microsoft account for identity verification. - Discord -- Link a Discord account for community integration. External ID Quite often, you'll have your own users management system in your application, where your customer already have an ID. To ease reconciliation between Rapidly and your system, we have a dedicated external id field on Customers. It's unique across your workspace and can't be changed once set. Metadata You may set additional metadata on Customers. This can be very useful to store additional data about your customer you want to be available through our API and webhooks. It can be set through the dashboard or through the API."
+  },
+  {
+   "href": "/docs/features/customer-portal",
+   "title": "Customer Portal",
+   "description": "A self-service portal where customers view file share sessions, downloads, and payments",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "portal-url",
+     "text": "Portal URL",
+     "level": 2
+    },
+    {
+     "id": "what-customers-can-see",
+     "text": "What Customers Can See",
+     "level": 2
+    },
+    {
+     "id": "pre-authenticated-session-links",
+     "text": "Pre-Authenticated Session Links",
+     "level": 2
+    },
+    {
+     "id": "session-options",
+     "text": "Session Options",
+     "level": 3
+    }
+   ],
+   "body": "Customer Portal A self-service portal where customers view file share sessions, downloads, and payments The Customer Portal is where your customers can view their file sharing sessions, track downloads, and review payments. Each workspace gets a portal at its own URL. Portal URL The customer portal is available at: https://rapidly.tech/{workspace-slug}/portal Customers authenticate by entering the email address associated with their account. Rapidly sends a one-time code to that email, which the customer exchanges for a session token. Rate limiting is applied to prevent abuse. If a customer’s email is associated with multiple workspaces, they will be prompted to select which one to sign into. What Customers Can See Once authenticated, customers have access to: - File sharing sessions -- A list of all their file sharing sessions, with details like status, file size, and download count. - Downloads -- Per-session download history. - Payments -- Payment records for paid file shares. - Profile -- View and update their customer profile. - Real-time updates -- The portal streams live updates via SSE, so new sessions and payments appear without refreshing. Pre-Authenticated Session Links You can create a pre-authenticated portal link from your backend so customers skip the email login flow. Call POST /api/customer-sessions/ with the customer’s ID to receive a customer portal url you can redirect them to. async function run() { const response = await fetch( 'https://api.rapidly.tech/api/customer-sessions/', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: Bearer ${process.env['RAPIDLY ACCESS TOKEN'] ?? ''} , }, body: JSON.stringify({ customer id: ' ', }), }, ) const result = await response.json() redirect(result.customer portal url) } run() You can also create sessions using external customer id if you track customers by your own system’s IDs. Session Options When creating a session, you can optionally pass: - return url -- Shows a back button in the portal that links to this URL. - member id or external member id -- For workspaces with member model enabled, create a member-scoped session instead of a customer-level session."
+  },
+  {
+   "href": "/docs/features/file-sharing",
+   "title": "File Sharing",
+   "description": "Securely share files peer-to-peer with end-to-end encryption \\u2014 no server storage, no size limits",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "how-it-works",
+     "text": "How It Works",
+     "level": 2
+    },
+    {
+     "id": "key-features",
+     "text": "Key Features",
+     "level": 2
+    },
+    {
+     "id": "end-to-end-encryption",
+     "text": "End-to-End Encryption",
+     "level": 3
+    },
+    {
+     "id": "no-size-limits",
+     "text": "No Size Limits",
+     "level": 3
+    },
+    {
+     "id": "download-limits-expiration",
+     "text": "Download Limits & Expiration",
+     "level": 3
+    },
+    {
+     "id": "password-protection",
+     "text": "Password Protection",
+     "level": 3
+    },
+    {
+     "id": "payment-gating",
+     "text": "Payment Gating",
+     "level": 3
+    },
+    {
+     "id": "real-time-dashboard",
+     "text": "Real-Time Dashboard",
+     "level": 3
+    },
+    {
+     "id": "checksum-verification",
+     "text": "Checksum Verification",
+     "level": 3
+    },
+    {
+     "id": "sharing-flow",
+     "text": "Sharing Flow",
+     "level": 2
+    },
+    {
+     "id": "for-the-uploader",
+     "text": "For the Uploader",
+     "level": 3
+    },
+    {
+     "id": "for-the-downloader",
+     "text": "For the Downloader",
+     "level": 3
+    },
+    {
+     "id": "security",
+     "text": "Security",
+     "level": 2
+    },
+    {
+     "id": "relay-fallback",
+     "text": "Relay Fallback",
+     "level": 2
+    }
+   ],
+   "body": "File Sharing Securely share files peer-to-peer with end-to-end encryption — no server storage, no size limits Share files directly between browsers using peer-to-peer WebRTC connections. Files are encrypted with AES-256-GCM before leaving your device — the server never sees your files or encryption keys. How It Works 1. Select files — Drag-and-drop or pick files of any size 2. Configure — Set download limits, optional password, and optional pricing 3. Share link — Recipients get a unique URL with the encryption key embedded in the fragment (never sent to the server) 4. Direct transfer — Files stream peer-to-peer via WebRTC, decrypted on the recipient's device The encryption key lives in the URL fragment ( ), which browsers never transmit to the server. This ensures true zero-knowledge architecture. Key Features End-to-End Encryption Every file is encrypted with AES-256-GCM on your device before transmission. The encryption key is generated client-side and shared only through the URL fragment. The server stores no keys, no files, and no unencrypted content. No Size Limits Share files of any size — from small documents to multi-gigabyte archives. Since files transfer directly between browsers, there are no server-side upload restrictions. Download Limits & Expiration Control how your files are accessed: - Custom limit — Set any download cap from 1 to 1,000 - Unlimited — Set to 0 for no download cap (expires when you close the browser or stop sharing) Free channels expire after 1 hour by default; paid channels last 24 hours . You can renew the TTL from your sharing dashboard. Password Protection Add an optional password for an extra layer of security beyond encryption. The password is hashed client-side (SHA-256) and never transmitted in plaintext to the server. Payment Gating Monetize your file shares with Stripe integration. Recipients complete a Stripe Checkout before downloading. Requires an active Stripe Connect account. - Configurable pricing in USD, EUR, GBP, CAD, or AUD - Platform handles payment processing and payouts Real-Time Dashboard Monitor active downloads from your sharing dashboard: - Live connection list with per-downloader progress - File completion status - Auto-stop when the download limit is reached - Manual stop sharing at any time Checksum Verification Optional SHA-256 checksums allow recipients to verify file integrity after download. Sharing Flow For the Uploader 1. Navigate to the file sharing page 2. Select your files (drag-and-drop or file picker) 3. Configure download limits, optional password, and optional price 4. Click Start Sharing to generate an encrypted share link 5. Share the link via the built-in options (copy, QR code, email, or social) 6. Monitor downloads in real-time from the dashboard For the Downloader 1. Open the share link received from the uploader 2. Complete payment if required (Stripe Checkout) 3. Enter the password if one was set 4. Files download and decrypt automatically in your browser 5. Optionally verify file integrity via checksums Security | Property | Implementation | | --------------------------- | ------------------------------------------------------------------ | | Encryption | AES-256-GCM, key generated and used entirely client-side | | Zero knowledge | Server never accesses files, keys, or passwords | | Authenticated transfers | Reader token derived from encryption key prevents slug enumeration | | Download enforcement | Server-side counter with slot-based tracking | | Abuse prevention | Report mechanism to flag and close abusive shares | | Rate limiting | IP-based connection limits and per-message throttling | Relay Fallback If a direct peer-to-peer connection cannot be established (e.g., restrictive NAT or firewalls), the platform supports two fallback mechanisms: 1. TURN relay (COTURN) -- A self-hosted TURN server relays WebRTC media when direct connections fail. Ephemeral credentials are generated per-session for security. 2. WebSocket relay -- The signaling server can relay encrypted file chunks over the existing WebSocket connection. Since files are already encrypted client-side with AES-256-GCM, neither relay ever has access to unencrypted content."
+  },
+  {
+   "href": "/docs/features/finance/accounts",
+   "title": "Setup a Payout Account",
+   "description": "",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "connect-payout-account",
+     "text": "Connect Payout Account",
+     "level": 2
+    },
+    {
+     "id": "stripe-connect-express",
+     "text": "Stripe Connect Express",
+     "level": 3
+    }
+   ],
+   "body": "Setup a Payout Account Connect Payout Account You need to setup an account so that we can issue payouts. 1. Go to the Finance page in your Rapidly dashboard 2. Click Setup in the card shown above in your dashboard 3. Choose account type & follow their setup instructions This is only required the first time and you can do this proactively too in order - recommended to avoid any additional delays. Stripe Connect Express Stripe is the default and recommended option since it enables instant transfers."
+  },
+  {
+   "href": "/docs/features/finance/balance",
+   "title": "Account Balance & Transparent Fees",
+   "description": "Monitor your Rapidly balance without hidden fees",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "settlement-currency",
+     "text": "Settlement currency",
+     "level": 2
+    },
+    {
+     "id": "payouts-in-isk-huf-twd-or-ugx",
+     "text": "Payouts in ISK, HUF, TWD, or UGX",
+     "level": 2
+    }
+   ],
+   "body": "Account Balance & Transparent Fees Monitor your Rapidly balance without hidden fees You can see your available balance for payout at any time under your Finance page. Your balance is all the earnings minus: 1. Our platform fee (2% on paid file shares) All historic transactions are available in chronological order along with their associated fees that have been deducted. Note: Upon payout (withdrawal), Stripe incurs additional fees that will be deducted before the final payout of the balance. Settlement currency Share payments support multiple currencies including USD, EUR, GBP, CAD, and AUD. Your account balance reflects earnings after platform fees are deducted. Payouts in ISK, HUF, TWD, or UGX If your Stripe account pays out in Icelandic króna (ISK), Hungarian forint (HUF), New Taiwan dollar (TWD), or Ugandan shilling (UGX), Stripe requires payout amounts to be in whole currency units. Any fractional amount will remain in your balance and be included in your next payout."
+  },
+  {
+   "href": "/docs/features/finance/payouts",
+   "title": "Payouts",
+   "description": "Easily withdraw money from your Rapidly account at any time",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "minimum-payout-thresholds",
+     "text": "Minimum Payout Thresholds",
+     "level": 2
+    },
+    {
+     "id": "manual-withdrawal",
+     "text": "Manual Withdrawal",
+     "level": 2
+    },
+    {
+     "id": "stripe-payout-fees",
+     "text": "**Stripe Payout Fees**",
+     "level": 2
+    },
+    {
+     "id": "reverse-invoices",
+     "text": "Reverse invoices",
+     "level": 2
+    },
+    {
+     "id": "frequently-asked-questions",
+     "text": "Frequently Asked Questions",
+     "level": 2
+    }
+   ],
+   "body": "Payouts Easily withdraw money from your Rapidly account at any time You can issue a withdrawal, i.e payout, at any time once your balance meets the minimum threshold for your account currency. We will then transfer the balance minus Stripe payout fees (see below) to your Stripe account & issue a payout on their side. Minimum Payout Thresholds The minimum balance required to issue a payout varies based out the payout currency. Certain currencies having a higher limit due to Stripe requirements. These limits can change at a later point. | Currency | Minimum Balance (USD) | | ---------------- | --------------------- | | USD | $10.00 | | EUR | $13.00 | | GBP | $15.00 | | CHF | $15.00 | | AOA | $30.00 | | ALL | $40.00 | | AMD | $40.00 | | AZN | $40.00 | | BAM | $40.00 | | BOB | $40.00 | | BTN | $40.00 | | CLP | $40.00 | | GMD | $40.00 | | GYD | $40.00 | | KHR | $40.00 | | KRW | $40.00 | | LAK | $40.00 | | MDL | $40.00 | | MGA | $40.00 | | MKD | $40.00 | | MNT | $40.00 | | MYR | $40.00 | | MZN | $40.00 | | NAD | $40.00 | | PYG | $40.00 | | RSD | $40.00 | | THB | $40.00 | | TWD | $40.00 | | UZS | $40.00 | | COP | $50.00 | | Other currencies | $10.00 (default) | Manual Withdrawal We require this to be done manually since: 1. Users have requested control for easier accounting vs. frequent & small payouts 2. Giving users control of Stripe payout fees Stripe Payout Fees 1. $2 per month of active payout(s) 2. 0.25% + $0.25 per payout 3. Cross border fees (currency conversion): 0.25% (EU) - 1% in other countries. Given the fixed costs, we want to default to manual payouts so you can control when you want to incur them and do it once vs. per each individual transaction in order to reduce the overall fees. Reverse invoices Your customers get an invoice from Rapidly. Thus, for your accounting, you need to issue an invoice to Rapidly for the amount we paid out to you. To ease this process, we can automatically generate a reverse invoice for you, detailing the sales processed on your behalf, minus our fees. You can generate them from the Payouts page under Finance in your Rapidly dashboard. Click on the ellipsis next to the payout you want to generate a reverse invoice for, and select Download invoice . A modal will open, allowing you to: - Set your billing name and address. - Add information shown below your billing address. - Add notes shown at the bottom of the invoice. - Customize the invoice number. By default, we generate one like RAPIDLY-0001 , but you can change it to your own format and sequence. Once the reverse invoice is generated, it cannot be changed. Make sure to double-check the information before generating it. Frequently Asked Questions Payouts typically take 4-7 business days. Payouts are processed in batches 24 hours after initiation. For individual accounts, yes. For business accounts, you will need a business bank account."
+  },
+  {
+   "href": "/docs/features/products",
+   "title": "Shares",
+   "description": "Create and manage paid file-sharing channels in your workspace",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "create-a-share",
+     "text": "Create a Share",
+     "level": 2
+    },
+    {
+     "id": "name-description",
+     "text": "Name & Description",
+     "level": 3
+    },
+    {
+     "id": "pricing",
+     "text": "Pricing",
+     "level": 3
+    },
+    {
+     "id": "visibility",
+     "text": "Visibility",
+     "level": 3
+    },
+    {
+     "id": "media-attachments",
+     "text": "Media Attachments",
+     "level": 3
+    },
+    {
+     "id": "custom-fields",
+     "text": "Custom Fields",
+     "level": 3
+    },
+    {
+     "id": "update-a-share",
+     "text": "Update a Share",
+     "level": 2
+    },
+    {
+     "id": "archive-a-share",
+     "text": "Archive a Share",
+     "level": 2
+    },
+    {
+     "id": "delete-a-share",
+     "text": "Delete a Share",
+     "level": 2
+    },
+    {
+     "id": "api-reference",
+     "text": "API Reference",
+     "level": 2
+    }
+   ],
+   "body": "Shares Create and manage paid file-sharing channels in your workspace Shares are your catalog A share is an item in your workspace catalog that represents a paid (or free) file-sharing channel. Shares let you attach pricing, custom fields, and media to your file transfers so you can monetize content distribution. Create a Share Name & Description - Name -- The title of your share, visible to customers. - Description -- Supports Markdown for rich formatting. Pricing Set how customers pay for access to this file-sharing channel. Fixed price -- Set a specific amount customers must pay for access. Pay what you want -- Let customers choose their price. You can set a minimum and a suggested default. Free -- No charge. Useful for public file distribution or lead generation. Metered / Usage-based -- Charge customers based on consumption (per-unit pricing). Seat-based -- Charge per team member for team customers. For fixed-price shares, set the amount. For pay-what-you-want shares, configure a minimum amount and a default amount that will be pre-filled. Shares can be priced in USD , EUR , GBP , CAD , AUD , and more. Available currencies depend on your Stripe account's capabilities. Pricing type cannot be changed after the share is created. You can update the price amount at any time. Visibility Control who can see and access your share: - Draft -- Only visible to workspace members. Use this while preparing content. - Private -- Accessible only via direct link. Not listed publicly. - Public -- Listed on your workspace storefront and discoverable by anyone. Media Attachments - Upload images to showcase what the share contains (previews, thumbnails) - Up to 10 MB per image - Drag to reorder; click to remove Custom Fields Collect additional information from customers when they access a share. Manage fields from your workspace settings, then attach them per share. Supported field types: - Text - Number - Date - Checkbox - Select Making a checkbox field required is useful for terms-of-service acceptance. Update a Share You can edit any share details except the pricing type . For fixed-price shares, you can change the amount -- existing customers keep their original pricing. Archive a Share Shares cannot be deleted, but they can be archived . Click the Archive button on the share detail page. Archived shares are no longer accessible to new customers, but existing customers retain their access. You can unarchive a share via the Shares Update API. Delete a Share Shares that have never been purchased can be permanently deleted via the API. Once a share has any associated transactions, it can only be archived. API Reference Manage shares programmatically at /api/shares/ : | Endpoint | Method | Description | | -------------------------- | -------- | ----------------------------------- | | /api/shares/ | POST | Create a new share | | /api/shares/ | GET | List shares in your workspace | | /api/shares/{id} | GET | Get share details | | /api/shares/{id} | PATCH | Update a share | | /api/shares/{id}/archive | POST | Archive a share | | /api/shares/{id} | DELETE | Delete a share (if no transactions) | See the full Shares API documentation for request/response schemas."
+  },
+  {
+   "href": "/docs/features/secret-sharing",
+   "title": "Secret Sharing",
+   "description": "Share passwords, API keys, and sensitive files with one-time encrypted links that self-destruct after a single view",
+   "section": "Features",
+   "headings": [
+    {
+     "id": "how-it-works",
+     "text": "How It Works",
+     "level": 2
+    },
+    {
+     "id": "use-cases",
+     "text": "Use Cases",
+     "level": 2
+    },
+    {
+     "id": "key-features",
+     "text": "Key Features",
+     "level": 2
+    },
+    {
+     "id": "zero-knowledge-encryption",
+     "text": "Zero-Knowledge Encryption",
+     "level": 3
+    },
+    {
+     "id": "one-time-read",
+     "text": "One-Time Read",
+     "level": 3
+    },
+    {
+     "id": "automatic-expiration",
+     "text": "Automatic Expiration",
+     "level": 3
+    },
+    {
+     "id": "text-and-file-support",
+     "text": "Text and File Support",
+     "level": 3
+    },
+    {
+     "id": "payment-gating",
+     "text": "Payment Gating",
+     "level": 3
+    },
+    {
+     "id": "no-account-required",
+     "text": "No Account Required",
+     "level": 3
+    },
+    {
+     "id": "api-endpoints",
+     "text": "API Endpoints",
+     "level": 2
+    },
+    {
+     "id": "create-a-text-secret",
+     "text": "Create a Text Secret",
+     "level": 3
+    },
+    {
+     "id": "fetch-a-text-secret",
+     "text": "Fetch a Text Secret",
+     "level": 3
+    },
+    {
+     "id": "create-a-file-secret",
+     "text": "Create a File Secret",
+     "level": 3
+    },
+    {
+     "id": "fetch-a-file-secret",
+     "text": "Fetch a File Secret",
+     "level": 3
+    },
+    {
+     "id": "security-properties",
+     "text": "Security Properties",
+     "level": 2
+    },
+    {
+     "id": "share-link-format",
+     "text": "Share Link Format",
+     "level": 2
+    }
+   ],
+   "body": "Secret Sharing Share passwords, API keys, and sensitive files with one-time encrypted links that self-destruct after a single view Send encrypted text secrets and files that can only be viewed once. Every secret is encrypted with OpenPGP on your device before it reaches the server — the decryption key never leaves your browser. After the recipient opens the link, the ciphertext is permanently deleted. How It Works 1. Compose your secret — Enter text (a password, API key, config snippet) or select a file 2. Client-side encryption — The browser generates a random passphrase and encrypts the content with OpenPGP symmetric encryption 3. Server stores ciphertext — Only the encrypted payload is sent to the server, which stores it in Redis with an expiration timer 4. Share the link — The generated URL contains the secret identifier in the path and the decryption key in the URL fragment ( ), which browsers never transmit to the server 5. One-time reveal — When the recipient clicks \"Reveal Secret\", the server returns the ciphertext and atomically deletes it. The browser decrypts using the key from the fragment The decryption key lives exclusively in the URL fragment. It is never included in HTTP requests, server logs, or analytics. The server only ever stores and returns OpenPGP ciphertext. Use Cases - Passwords and credentials — Share login details with a colleague without leaving a trace in Slack or email history - API keys and tokens — Distribute secrets to developers or CI systems without committing them to a repository - Sensitive documents — Share contracts, tax forms, or private notes that should not persist anywhere - Incident response — Relay compromised credentials to security teams over a channel that guarantees single use Key Features Zero-Knowledge Encryption Secrets are encrypted using OpenPGP symmetric encryption entirely in the browser. The server receives and stores only the armored ciphertext. There is no key escrow — if the link is lost, the secret is unrecoverable. One-Time Read Every secret is deleted from storage the moment it is retrieved. The server uses an atomic GETDEL operation in Redis to ensure the ciphertext cannot be read twice, even under concurrent requests. Automatic Expiration Secrets that are never retrieved are automatically purged after their expiration window. The expiration is configurable between 1 minute and 7 days (default: 1 hour). Redis TTLs handle cleanup with no background jobs required. Text and File Support Both plain-text secrets and encrypted files are supported through separate endpoints. Files follow the same encryption and one-time-read model as text secrets. Payment Gating Optionally require payment before a secret can be revealed. Payment-gated secrets support pricing in USD, EUR, GBP, CAD, or AUD. Recipients complete a Stripe Checkout before the ciphertext is returned. No Account Required Secret sharing is fully anonymous. Neither the sender nor the recipient needs to create an account or authenticate. API Endpoints All endpoints are served under the /api/file-sharing prefix. Create a Text Secret OpenPGP-encrypted (armored) secret message. Maximum 1 MB. Time-to-live in seconds. Minimum 60 (1 minute), maximum 604800 (7 days). POST /api/file-sharing/secret Content-Type: application/json { \"message\": \"-----BEGIN PGP MESSAGE----- ...\", \"expiration\": 3600 } Response ( 201 Created ): { \"message\": \"a1b2c3d4-e5f6-7890-abcd-ef1234567890\" } The message field in the response is the secret's UUID identifier, not the encrypted content. Use this identifier to construct the share link. Fetch a Text Secret GET /api/file-sharing/secret/{secret id} Response ( 200 OK ): { \"message\": \"-----BEGIN PGP MESSAGE----- ...\" } Returns the encrypted ciphertext and permanently deletes the secret from storage. A second request to the same URL returns 404 . Create a File Secret POST /api/file-sharing/file Content-Type: application/json { \"message\": \"-----BEGIN PGP MESSAGE----- ...\", \"expiration\": 3600 } The request and response format is identical to text secrets. The encrypted file content is sent as an armored OpenPGP message in the message field. Fetch a File Secret GET /api/file-sharing/file/{file id} Behaves identically to the text secret fetch endpoint — returns the ciphertext and deletes it atomically. Security Properties | Property | Implementation | | ------------------------ | ------------------------------------------------------------------------------------------ | | Encryption algorithm | OpenPGP symmetric encryption (AES-256) via the openpgp library | | Key management | Random passphrase generated client-side, embedded in URL fragment only | | Zero knowledge | Server stores and returns only armored ciphertext; decryption key never reaches the server | | Atomic deletion | Redis GETDEL ensures ciphertext is read at most once, even under race conditions | | Automatic expiry | Redis TTL purges unclaimed secrets after the configured expiration window | | Rate limiting | 30 creates per 10 minutes and 60 fetches per minute per IP address | | Payload limit | 1 MB maximum for encrypted payloads, enforced server-side | | No persistence | Secrets live only in Redis (in-memory); nothing is written to disk or a database | Share Link Format The share link follows this structure: https://rapidly.tech/secret/{secret id} {decryption key} - {secret id} — UUID identifying the stored ciphertext, sent to the server - {decryption key} — OpenPGP passphrase in the URL fragment, never sent to the server When the recipient opens this link, the frontend extracts the key from the fragment, fetches the ciphertext from the API, and decrypts it locally."
+  },
+  {
+   "href": "/docs/guides/change-email-as-merchant",
+   "title": "How to Change Account Email (as a Merchant)",
+   "description": "Learn how to change your account email on Rapidly as a Merchant.",
+   "section": "Guides",
+   "headings": [],
+   "body": "How to Change Account Email (as a Merchant) Learn how to change your account email on Rapidly as a Merchant. To access account settings, open the menu in the bottom left corner in the dashboard and click Account Settings . Click Change Email button in the Account Connections section to start changing your email. Enter the new email in the input box that appears. Rapidly would send an email to the new email that is entered in the previous step. Click the Update my email button in the email. Confirm the email change by pressing the Update the email button."
+  },
+  {
+   "href": "/docs/guides/create-multiple-organizations",
+   "title": "How to Create Multiple Workspaces",
+   "description": "Learn how to create multiple workspaces.",
+   "section": "Guides",
+   "headings": [],
+   "body": "How to Create Multiple Workspaces Learn how to create multiple workspaces. To create your first workspace, sign up on Rapidly. To create a workspace in addition to your first workspace, open the menu in the bottom left corner in the dashboard and click New Workspace . Now that you have multiple workspaces, to switch between then, just open the menu in the bottom left corner in the dashboard, and then select the desired workspace you want to switch to."
+  },
+  {
+   "href": "/docs/guides/introduction",
+   "title": "Introduction",
+   "description": "A collection of how-tos with Rapidly in form of step-by-step guides and tutorials.",
+   "section": "Guides",
+   "headings": [
+    {
+     "id": "get-started",
+     "text": "Get Started",
+     "level": 2
+    }
+   ],
+   "body": "Introduction A collection of how-tos with Rapidly in form of step-by-step guides and tutorials. This section is your starting point for learning how to use Rapidly with various stacks, environments, etc. Here you will find step-by-step guides and tutorials to help you integrate Rapidly into your projects, set up your environment, and make the most of our platform. Get Started Browse the guides in the sidebar to find the right one based on your needs. If you want to request a new guide, please create an issue on rapidly-tech/rapidly."
+  },
+  {
+   "href": "/docs/integrate/authentication",
+   "title": "Authentication",
+   "description": "",
+   "section": "Integrate",
+   "headings": [
+    {
+     "id": "workspace-access-tokens-oat",
+     "text": "Workspace Access Tokens (OAT)",
+     "level": 2
+    },
+    {
+     "id": "security",
+     "text": "Security",
+     "level": 2
+    }
+   ],
+   "body": "Authentication All bearer tokens should be kept private and never shared or exposed in client-side code. To authenticate requests, Rapidly API has two mechanisms. 1. Workspace Access Tokens (OAT) - Recommended 2. OAuth 2.0 Provider (Partner Integrations) Workspace Access Tokens (OAT) They are tied to one of your workspace. You can create them from your workspace settings. Security To protect your data and ensure the security of Rapidly, we've several mechanisms in place to automatically revoke tokens that may have been leaked publicly on the web. In particular, we're part of the GitHub Secret Scanning Program. If GitHub systems detect a Rapidly token in a code repository or public discussion, our systems are notified and the tokens are immediately revoked. If you received an email about one of your token being leaked, it means that we were notified of such situation. The email contains the details about the nature of the token and the source of the leak. In the future, it's crucial that you remain extra cautious about not leaking your tokens publicly online. You can read more about the good practices to manage secrets in the OWASP Secrets Management Cheat Sheet."
+  },
+  {
+   "href": "/docs/integrate/oat",
+   "title": "Workspace Access Tokens",
+   "description": "",
+   "section": "Integrate",
+   "headings": [],
+   "body": "Workspace Access Tokens All bearer tokens should be kept private and never shared or exposed in client-side code. Workspace Access Tokens (OAT) are tied to one of your workspace. You can create them from your workspace settings as follows: In the Rapidly dashboard sidebar, navigate to Settings General for your workspace. You can also go directly to: https://rapidly.tech/dashboard/${org slug}/settings Scroll down to Developers and click New Token - Give your token a name : Choose a descriptive name so you remember what this token is used for. - Set an expiration date : Decide how long the token should be valid. - Select the required scopes : Pick the permissions your token needs."
+  },
+  {
+   "href": "/docs/integrate/oauth2/connect",
+   "title": "OAuth 2.0 Connect",
+   "description": "",
+   "section": "Integrate",
+   "headings": [
+    {
+     "id": "authorize",
+     "text": "Authorize",
+     "level": 2
+    },
+    {
+     "id": "make-authenticated-requests",
+     "text": "Make authenticated requests",
+     "level": 3
+    }
+   ],
+   "body": "OAuth 2.0 Connect Authorize To start the authorization flow you need to redirect the user to the authorization URL. It looks like this: https://rapidly.tech/oauth2/authorize? response type=code &client id=CLIENT ID &redirect uri=https%3A%2F%2Fexample.com%2Fcallback &scope=openid%20email The parameters are the one described in the OpenID Connect specification. The most important ones are: Indicates that you want to use the authorization code flow. Most common and the only one supported by Rapidly. The Client ID you got when creating the OAuth 2.0 client. The URL where the user will be redirected after granting access to their data. Make sure you declared it when creating the OAuth2 client. A space-separated list of scopes you want to ask for. Make sure they are part of the scopes you declared when creating the OAuth2 client. If you redirect the user to this URL, they'll see a page asking them to grant access to their data, corresponding to the scopes you asked for. By default, the user will also be prompted to select one of their workspaces, as Rapidly generates workspace-level access tokens by default. If they allow it and select a workspace, they'll be redirected to your redirect uri with a code parameter in the query string. This code is a one-time code that you can exchange for an access token. To skip the workspace selection and get a user-scoped token instead, you can add sub type=user to the authorization URL: https://rapidly.tech/oauth2/authorize? response type=code &client id=CLIENT ID &redirect uri=https%3A%2F%2Fexample.com%2Fcallback &scope=openid%20email &sub type=user Exchange code token Once you have the authorization code, you can exchange it for an access token. To do so, you'll need to make a POST request to the token endpoint. This call needs to be authenticated with the Client ID and Client Secret you got when creating the OAuth2 client. Here is an example with cURL: curl -X POST https://api.rapidly.tech/api/oauth2/token \\ -H 'Content-Type: application/x-www-form-urlencoded' \\ -d 'grant type=authorization code&code=AUTHORIZATION CODE&client id=CLIENT ID&client secret=CLIENT SECRET&redirect uri=https://example.com/callback' You should get the following response: { \"token type\": \"Bearer\", \"access token\": \"rapidly at XXX\", \"expires in\": 864000, \"refresh token\": \"rapidly rt XXX\", \"scope\": \"openid email\", \"id token\": \"ID TOKEN\" } The access token will allow you to make authenticated API requests on behalf of the user. The refresh token is a long-lived token that you can use to get new access tokens when the current one expires. The id token is a signed JWT token containing information about the user, as per the OpenID Connect specification. Workspace vs User Access Tokens By default, Rapidly OAuth2 flow generates workspace-level access tokens. These tokens are tied to a specific workspace rather than a user, allowing requests to operate only on that workspace's data, which improves privacy and security. When using the default flow, the user will be prompted to select one of their workspaces before allowing access to their data: https://rapidly.tech/oauth2/authorize?response type=code&client id=rapidly ci j3X95 MgfdSCeCd2qkFnUw&redirect uri=https%3A%2F%2Fexample.com%2Fcallback&scope=openid%20email To request a user-scoped access token instead, you need to explicitly add the parameter sub type=user to the authorization URL: https://rapidly.tech/oauth2/authorize?response type=code&client id=rapidly ci j3X95 MgfdSCeCd2qkFnUw&redirect uri=https%3A%2F%2Fexample.com%2Fcallback&scope=openid%20email&sub type=user The rest of the flow remains unchanged. The access token you'll get will be tied to either the selected workspace (default) or the user (when explicitly requested). Public Clients Public clients are clients where the Client Secret can't be kept safe, as it would be accessible by the final user. This is the case for SPA, mobile applications, or any client running on the user's device. In this case, and only if the client is configured as a Public Client , the request to the token endpoint won't require the client secret parameter. However, the PKCE method will be required to maximize security. Make authenticated requests Once you have an access token, either from a Personal Access Token or from the OpenID Connect flow, you can make authenticated requests to the API. Here is a simple example with cURL: curl -X GET https://api.rapidly.tech/api/oauth2/userinfo \\ -H 'Authorization: Bearer rapidly at XXX'"
+  },
+  {
+   "href": "/docs/integrate/oauth2/introduction",
+   "title": "Introduction",
+   "description": "For partners building services and extensions for Rapidly customers",
+   "section": "Integrate",
+   "headings": [
+    {
+     "id": "openid-connect-oauth2",
+     "text": "OpenID Connect (OAuth2)",
+     "level": 3
+    }
+   ],
+   "body": "Introduction For partners building services and extensions for Rapidly customers OpenID Connect (OAuth2) Only use our OpenID Connect in case you want to act on the behalf of other users via our API, e.g building an app/service for Rapidly customers. Otherwise, always use an Workspace Access Token (OAT) to integrate Rapidly for your own service. Rapidly implements the OpenID Connect specification to enable third-party authentication. It's a layer on top of the OAuth2 framework aiming at making integration more standard and predictable. In particular, it comes with a discovery endpoint allowing compatible clients to automatically work with the OpenID Connect server. Here is Rapidly's one: OpenID Configuration"
+  },
+  {
+   "href": "/docs/integrate/oauth2/setup",
+   "title": "Create an OAuth 2.0 Client",
+   "description": "",
+   "section": "Integrate",
+   "headings": [],
+   "body": "Create an OAuth 2.0 Client Before being able to make authentication requests, you'll need an OAuth2 Client . It's the entity that'll identify you, as a third-party developer, between Rapidly and the final user. You can manage them from your User Settings Here are the required fields: - Application Name : the name of the application that'll be shown to the final users. - Client Type : the type of client you are creating. Read more - Redirect URIs : for security reasons, you need to declare your application URL where the users will be redirected after granting access to their data. When configuring your OAuth client, you must use an https:// URL for security reasons. We block http:// URLs, except when the hostname is localhost . This exception allows you to use http://localhost for convenient testing in development mode. - Scopes : the list of scopes your app will be able to ask for. To improve privacy and security, select only the scopes you really need for your application. - Homepage URL : the URL of your application. It'll be shown to the final users on the authorization page. Optionally, you can also add a logo , terms of service and privacy policy URL. They'll all be shown to the final users on the authorization page. Once your client is created, you'll get a Client ID and a Client Secret . You'll need those values to make authentication requests. Those values are super sensitive and should be kept secret. They allow making authentication requests on Rapidly!"
+  },
+  {
+   "href": "/docs/integrate/webhooks/delivery",
+   "title": "Handle & monitor webhook deliveries",
+   "description": "How to parse, validate and handle webhooks and monitor their",
+   "section": "Integrate",
+   "headings": [
+    {
+     "id": "validate-parse-webhooks",
+     "text": "Validate & parse webhooks",
+     "level": 2
+    },
+    {
+     "id": "using-the-standard-webhooks-library",
+     "text": "Using the Standard Webhooks library",
+     "level": 3
+    },
+    {
+     "id": "custom-validation",
+     "text": "Custom validation",
+     "level": 3
+    },
+    {
+     "id": "ip-allowlist",
+     "text": "IP Allowlist",
+     "level": 2
+    },
+    {
+     "id": "failure-handling",
+     "text": "Failure Handling",
+     "level": 2
+    },
+    {
+     "id": "delivery-retries",
+     "text": "Delivery Retries",
+     "level": 3
+    },
+    {
+     "id": "delivery-timeouts",
+     "text": "Delivery Timeouts",
+     "level": 3
+    },
+    {
+     "id": "endpoint-disabling",
+     "text": "Endpoint Disabling",
+     "level": 3
+    },
+    {
+     "id": "troubleshooting",
+     "text": "Troubleshooting",
+     "level": 2
+    },
+    {
+     "id": "not-receiving-webhooks",
+     "text": "Not receiving webhooks",
+     "level": 3
+    },
+    {
+     "id": "invalid-signature-exceptions",
+     "text": "Invalid signature exceptions",
+     "level": 3
+    }
+   ],
+   "body": "Handle & monitor webhook deliveries How to parse, validate and handle webhooks and monitor their Once a webhook endpoint is setup you will have access to the delivery overview page. Here you can: - See historic deliveries - Review payload sent - Trigger redelivery in case of failure Now, let's integrate our endpoint route to validate, parse & handle incoming webhooks. Validate & parse webhooks You now need to setup a route handler for the endpoint registered on Rapidly to receive, validate and parse webhooks before handling them according to your needs. Using the Standard Webhooks library You can use the Standard Webhooks library to validate and parse webhook events. See full examples below. import express, { Request, Response } from 'express' import { Webhook } from 'standardwebhooks' const app = express() app.post( '/webhook', express.raw({ type: 'application/json' }), (req: Request, res: Response) = { try { const secret = process.env['RAPIDLY WEBHOOK SECRET'] ?? '' const base64Secret = Buffer.from(secret, 'utf-8').toString('base64') const wh = new Webhook(base64Secret) const headers: Record = {} for (const [key, value] of Object.entries(req.headers)) { headers[key] = Array.isArray(value) ? value[0] : (value || '') } const event = wh.verify(req.body.toString(), headers) // Process the event res.status(202).send('') } catch (error) { res.status(403).send('') } }, ) import os import base64 import json from flask import Flask, request from standardwebhooks.webhooks import Webhook app = Flask( name ) @app.route('/webhook', methods=['POST']) def webhook(): try: secret = os.getenv('RAPIDLY WEBHOOK SECRET', '') base64 secret = base64.b64encode(secret.encode('utf-8')).decode('utf-8') wh = Webhook(base64 secret) event = wh.verify(request.data.decode('utf-8'), dict(request.headers)) Process the event return \"\", 202 except Exception: return \"\", 403 Both examples above expect an environment variable named RAPIDLY WEBHOOK SECRET to be set to the secret you configured during the endpoint setup. Note: Secret needs to be base64 encoded The Standard Webhooks library expects the secret to be base64 encoded. The examples above handle this encoding for you. Custom validation We follow the Standard Webhooks standard which offers many libraries across languages to easily validate signatures. Or you can follow their specification in case you want to roll your own. Note: Secret needs to be base64 encoded One common gotcha with the specification is that the webhook secret is expected to be base64 encoded. You don't have to do this with our SDK as it takes care of the implementation details with better developer ergonomics. IP Allowlist If you are using a firewall or a reverse proxy that requires IP allowlisting, here are the IPs range you need to allow: New IP ranges Starting October 27th, 2025 , new IP ranges will be added: 74.220.50.0/24 74.220.58.0/24 3.134.238.10 3.129.111.220 52.15.118.168 74.220.50.0/24 74.220.58.0/24 Failure Handling Delivery Retries If we hit an error while trying to reach your endpoint, whether it is a temporary network error or a bug, we'll retry to send the event up to 10 times with an exponential backoff. Delivery Timeouts We currently timeout our requests to your endpoint after 10 seconds , triggering a retry attempt after a delay as explained above. However, we strongly recommend you optimize your endpoint route to respond within 2 seconds to ensure reliable delivery. We may lower the timeout threshold in the future, so we advise implementing your webhook handler to queue a background worker task to handle the payload asynchronously. Endpoint Disabling Webhook endpoints are automatically disabled after 10 consecutive failed deliveries (non-2xx responses). When this happens: - The endpoint is marked as disabled and will no longer receive new events. - Admin of the workspace will receive an email notification. To re-enable a disabled endpoint, go to your workspace's webhook settings in the dashboard and manually enable it. Before re-enabling, ensure your endpoint is properly configured and reachable to avoid repeated disabling. Troubleshooting Not receiving webhooks Seeing deliveries on Rapidly, but not receiving them on your end? Below are some common techniques to resolve the issue depending on the reported error status. General Start ngrok or similar Make sure you have started ngrok or whatever tunneling service you're using during local development. Add excessive logging E.g console.log('webhook.handler called') , console.log('webhook.validate signature') , console.log('webhook.signature validated') etc. So you can easily confirm if the handler is called and how far it gets before any issues arise. HTTP 404 - Try curl -vvv -X POST in your terminal to confirm the route exists and see any issues along the way - Try adding trailing / to the URL on Rapidly. Often /foo is resolved to /foo/ by frameworks. HTTP 3xx Redirect responses (301, 302, 307, etc.) are treated as failures. Rapidly does not follow redirects for webhook deliveries. Update your webhook URL to the final destination URL to avoid redirects. A common cause is hosting providers like Vercel that redirect between www and non- www domains. Make sure your configured URL matches your actual domain. HTTP 403 - Using middleware for authorization? Make sure to exclude the webhook route from it since it needs to be publicly accessible - Using Cloudflare? - Check the firewall logs to verify if they are blocking our requests and setup a custom WAF rule to accept incoming requests from Rapidly. - Webhook delivery failures with 403 errors can occur when Cloudflare's Bot Fight Mode is enabled. Bot Fight Mode automatically blocks requests it identifies as bots, including legitimate webhook requests from Rapidly. Adding Rapidly's IP addresses to your IP Allow List or creating custom WAF rules will not resolve this issue. To fix webhook delivery problems, disable Bot Fight Mode in your Cloudflare dashboard under Security Bots. Alternatively, you can check your Cloudflare firewall logs to confirm if requests are being blocked and create appropriate firewall rules if needed. Invalid signature exceptions Rolling your own webhook validation logic? Make sure to base64 encode the secret you configured on Rapidly in your code before generating the signature to validate against."
+  },
+  {
+   "href": "/docs/integrate/webhooks/endpoints",
+   "title": "Setup Webhooks",
+   "description": "Get notifications asynchronously when events occur instead of",
+   "section": "Integrate",
+   "headings": [
+    {
+     "id": "get-started",
+     "text": "Get Started",
+     "level": 2
+    }
+   ],
+   "body": "Setup Webhooks Get notifications asynchronously when events occur instead of Our webhook implementation follows the Standard Webhooks specification and our SDKs offer: - Built-in webhook signature validation for security - Fully typed webhook payloads In addition, our webhooks offer built-in support for Slack & Discord formatting. Making it a breeze to setup in-chat notifications for your team. Get Started Testing webhooks during development Use a free share to test file share access and trigger webhook events without spending real money. Head over to your workspace settings and click on the Add Endpoint button to create a new webhook. Enter the URL to which the webhook events should be sent. For standard, custom integrations, leave this parameter on Raw . This will send a payload in JSON format. If you wish to send notifications to a Discord or Slack channel, you can select the corresponding format here. Rapidly will then adapt the payload so properly formatted messages are sent to your channel. If you paste a Discord or Slack Webhook URL, the format will be automatically selected. We cryptographically sign the requests using this secret. So you can easily verify them using our SDKs to ensure they are legitimate webhook payloads from Rapidly. You can set your own or generate a random one. Finally, select all the events you want to be notified about and you're done 🎉 Developing locally? Use a tool like ngrok or localtunnel to expose your local server to the internet, then register the tunnel URL as a webhook endpoint in your workspace settings. For example, with ngrok: ngrok http 3000 Then copy the generated https://...ngrok-free.app URL and add it as a webhook endpoint in your Rapidly dashboard. Now, it's time to integrate our endpoint to receive events &rarr;"
+  },
+  {
+   "href": "/docs/integrate/webhooks/events",
+   "title": "Webhook Events",
+   "description": "Complete reference of Rapidly webhook events",
+   "section": "Integrate",
+   "headings": [
+    {
+     "id": "customer-events",
+     "text": "Customer Events",
+     "level": 2
+    },
+    {
+     "id": "share-events",
+     "text": "Share Events",
+     "level": 2
+    },
+    {
+     "id": "file-sharing-events",
+     "text": "File Sharing Events",
+     "level": 2
+    },
+    {
+     "id": "workspace-events",
+     "text": "Workspace Events",
+     "level": 2
+    }
+   ],
+   "body": "Webhook Events Complete reference of Rapidly webhook events Customer Events | Event | Description | | ------------------------ | ------------------------------- | | customer.created | A new customer has been created | | customer.updated | A customer has been updated | | customer.deleted | A customer has been deleted | | customer.state changed | A customer's state has changed | Share Events | Event | Description | | --------------- | ---------------------------- | | share.created | A new share has been created | | share.updated | A share has been updated | File Sharing Events | Event | Description | | ----------------------------------------- | -------------------------------------------- | | file sharing session.created | A new file sharing session has been created | | file sharing session.download completed | A file download has been completed | | file sharing session.expired | A file sharing session has expired | | file sharing session.payment received | A payment has been received for a file share | Workspace Events | Event | Description | | ------------------- | ---------------------------- | | workspace.updated | A workspace has been updated |"
+  },
+  {
+   "href": "/docs/integrate/webhooks/locally",
+   "title": "Integrating Webhooks Locally",
+   "description": "Setup Webhook delivery to your local machine",
+   "section": "Integrate",
+   "headings": [
+    {
+     "id": "using-a-tunnel-service",
+     "text": "Using a tunnel service",
+     "level": 2
+    },
+    {
+     "id": "ngrok",
+     "text": "ngrok",
+     "level": 3
+    },
+    {
+     "id": "localtunnel",
+     "text": "localtunnel",
+     "level": 3
+    },
+    {
+     "id": "configure-the-webhook-endpoint",
+     "text": "Configure the webhook endpoint",
+     "level": 2
+    },
+    {
+     "id": "verify-webhook-signatures",
+     "text": "Verify webhook signatures",
+     "level": 2
+    },
+    {
+     "id": "all-set",
+     "text": "All set!",
+     "level": 2
+    }
+   ],
+   "body": "Integrating Webhooks Locally Setup Webhook delivery to your local machine To test webhooks during local development, you need to expose your local server to the internet so Rapidly can deliver events to it. Using a tunnel service Use a tunnel service like ngrok or localtunnel to create a public URL that forwards to your local machine. ngrok ngrok http 3000 This gives you a public URL like https://abc123.ngrok.io that forwards to http://localhost:3000 . localtunnel npx localtunnel --port 3000 Configure the webhook endpoint 1. Go to your workspace settings in the Rapidly dashboard 2. Navigate to Webhooks and create a new endpoint 3. Set the URL to your tunnel URL (e.g. https://abc123.ngrok.io/api/webhooks ) 4. Select the events you want to receive 5. Copy the webhook secret and set it in your environment variables: .env RAPIDLY WEBHOOK SECRET=your webhook secret here Verify webhook signatures Always verify webhook signatures in your handler to ensure the payload is authentic. Use the secret from step 5 to validate the webhook-signature header. All set! Events will now be delivered to your local machine via the tunnel. You'll see them arrive in your terminal and in the Rapidly dashboard under webhook deliveries."
+  },
+  {
+   "href": "/docs",
+   "title": "Rapidly: Secure File Sharing with Built-in Payments",
+   "description": "Share files securely with end-to-end encryption. Monetize your content with payment-gated channels. No infrastructure required.",
+   "section": "Getting Started",
+   "headings": [
+    {
+     "id": "what-is-rapidly",
+     "text": "What is Rapidly?",
+     "level": 2
+    },
+    {
+     "id": "problems-we-solve",
+     "text": "Problems We Solve",
+     "level": 2
+    },
+    {
+     "id": "core-features",
+     "text": "Core Features",
+     "level": 2
+    },
+    {
+     "id": "quick-start",
+     "text": "Quick Start",
+     "level": 2
+    },
+    {
+     "id": "integration-options",
+     "text": "Integration Options",
+     "level": 2
+    },
+    {
+     "id": "transparent-pricing",
+     "text": "Transparent Pricing",
+     "level": 2
+    },
+    {
+     "id": "open-source-community",
+     "text": "Open Source & Community",
+     "level": 2
+    },
+    {
+     "id": "ready-to-start",
+     "text": "Ready to Start?",
+     "level": 2
+    }
+   ],
+   "body": "Rapidly: Secure File Sharing with Built-in Payments Share files securely with end-to-end encryption. Monetize your content with payment-gated channels. No infrastructure required. What is Rapidly? Rapidly is a secure file-sharing platform with built-in payment gating. Share files peer-to-peer with end-to-end encryption (AES-256-GCM over WebRTC), monetize your shares via Stripe Connect, and manage everything from a workspace dashboard. Files transfer directly between peers via WebRTC. AES-256-GCM encryption ensures only the intended recipient can access your content. Attach prices to file shares and get paid via Stripe Connect. Fixed pricing, pay-what-you-want, or free -- your choice. Problems We Solve The Problem : Sharing files securely -- especially large or sensitive ones -- requires complex infrastructure: S3 buckets, signed URLs, access control, and encryption. Rapidly's Solution : P2P encrypted file transfers via WebRTC with download quotas and ClamAV malware scanning. No third-party cloud storage needed -- files go directly from sender to receiver. The Problem : Selling access to files means stitching together a payment processor, access control layer, delivery mechanism, and customer management system. Rapidly's Solution : Create a share, set a price, and distribute the link. Rapidly handles payment collection, access gating, and customer tracking in one platform. The Problem : Sharing passwords, API keys, or sensitive documents via email or chat leaves data exposed in message histories and server logs. Rapidly's Solution : One-time encrypted secrets with automatic expiration. Once viewed, the secret is destroyed. No trace left behind. Core Features P2P encrypted transfers via WebRTC with download quotas and ClamAV scanning One-time encrypted text and file secrets with expiration controls Track share views, downloads, and customer activity with event streams Manage customers across your workspace with profiles, history, and metadata Stripe Connect integration for payouts in 143 countries Real-time event notifications for automation and integrations Quick Start Sign up for Rapidly using Google, Microsoft, Apple, or email. Create a workspace to organize your shares, customers, and team members. Create a file-sharing channel from your dashboard: - Upload a file or start a live P2P channel - Optionally set a price (fixed, pay-what-you-want, or free) - Share the generated link with your recipient The recipient connects directly to you via WebRTC -- no file ever touches our servers. Learn more about File Sharing To accept payments on your shares, connect your Stripe account via Stripe Connect in the workspace settings. Rapidly handles checkout and deposits payouts directly to your bank account. Learn more about Finance & Payouts Get notified when shares are accessed, payments complete, or customers are created: - Configure webhook endpoints in your dashboard - React to events in real time - Keep your systems in sync Read the Webhooks guide Integration Options Full programmatic control over shares, customers, events, and payouts Real-time event delivery to your servers for automation Use Rapidly as an identity provider for your applications Access tokens, OAuth2, and API authentication Transparent Pricing On paid shares only Free for basic sharing -- simple, transparent pricing Monthly fees or setup costs Pay only when you earn, no fixed costs Additional fees may apply : Some transactions may incur additional fees (international cards, currency conversion). Payout fees are charged by Stripe. See our detailed fees page for complete information. Open Source & Community Rapidly is built in the open with full transparency and a growing community of contributors. Apache 2.0 license -- inspect, modify, and self-host Feature requests, roadmap, and issues -- all developed in public Join the discussion on GitHub for help, feedback, and feature requests No hidden fees or surprise charges. What you see is what you pay. Ready to Start? Free signup, no credit card required Get started in under 2 minutes Complete API documentation Interactive examples and SDKs"
+  },
+  {
+   "href": "/docs/policies/acceptable-use",
+   "title": "Acceptable Use",
+   "description": "Acceptable products and use policies",
+   "section": "Policies & Fees",
+   "headings": [
+    {
+     "id": "acceptable-content-businesses",
+     "text": "Acceptable Content & Businesses",
+     "level": 2
+    },
+    {
+     "id": "prohibited-businesses",
+     "text": "Prohibited Businesses",
+     "level": 2
+    },
+    {
+     "id": "restricted-businesses",
+     "text": "Restricted Businesses",
+     "level": 2
+    },
+    {
+     "id": "faq",
+     "text": "FAQ",
+     "level": 2
+    }
+   ],
+   "body": "Acceptable Use Acceptable products and use policies We focus exclusively on digital content and file shares. Therefore we cannot support physical goods or entirely human services, e.g consultation or support. In addition to not accepting the sale of anything illegal, harmful, abusive, deceptive or sketchy. Acceptable Content & Businesses - Digital content and file shares: Templates, eBooks, PDFs, code, icons, fonts, design assets, photos, videos, audio etc - Premium content & access: courses and content delivered via file sharing. General rule of acceptable services Digital content or files that can be fulfilled by... 1. Rapidly on your behalf (File Downloads, secure file sharing links, etc) 2. Your site/service using our APIs to grant immediate access to digital content for customers with a one-time purchase Combined with being something you'd proudly boast about in public, i.e nothing illegal, unfair, deceptive, abusive, harmful or shady. Don't hesitate to reach out to us in advance in case you're unsure if your use case would be approved. Prohibited Businesses Not an exhaustive list We reserve the right to add to it at any time. Combined with placing your account under further review or suspend it in case we consider the usage deceptive, fraudulent, high-risk or of low quality for consumers with high refund/chargeback risks. - Illegal or age restricted, e.g drugs, alcohol, tobacco or vaping products - Violates laws in the jurisdictions where your business is located or to which your business is targeted - Violates any rules or regulations from payment processors & credit card networks, e.g Stripe - Reselling or distributing customer data to other parties for commercial, promotional or any other reason (disclosed service providers are accepted). - Threatens reputation of Rapidly or any of our partners and payment providers - Causes or has a significant risk of refunds, chargebacks, fines, damages, or harm and liability - Services used by-, intended for or advertised towards minors - Physical goods of any kind. Including services offering or requiring fulfilment via physical delivery or human services. - Human services, e.g marketing, design, web development and consulting in general. - Donations or charity, i.e price is greater than product value or there is no exchange at all (pure money transfer). - Marketplaces. Selling others' products or services using Rapidly against an upfront payment or with an agreed upon revenue share. - Adult services or content. Including by AI or proxy, e.g - AI Girlfriend/Boyfriend services. - OnlyFans related services. - Explicit/NSFW content generated with AI - Low-quality products, services or sites, e.g - E-books generated with AI or 4 pages sold for $50 - Quickly & poorly executed websites, products or services - Services with a lot of bugs and issues - Products, services or websites we determine to have a low trust score - Fake testimonials, reviews, social proof, and review inflation platforms. It's deceptive to consumers which is behaviour we do not tolerate. - Trademark violations - \"Get rich\" schemes or content - Gambling & betting services (including lootboxes, mystery boxes and pack openings of random nature) - Regulated services or products - Counterfeit goods - Job boards - NFT & Crypto assets. - Cheating: Utilizing macros, cheat codes, hacks, or any unauthorized modifications that alter gameplay or provide an unfair advantage. - Reselling Licenses: Selling, distributing, or otherwise transferring software licenses at reduced prices or without proper authorization. - Services to circumvent rules or terms of other services: Attempting to bypass, manipulate, or undermine any established rules, gameplay mechanics, or pricing structures of other vendors/games. - Financial services, e.g facilitating transactions, investments or balances for customers. - Financial trading, trading bots, brokerage, or investment advisory services (including insights platforms). - Financial advice, e.g content or services related to tax guidance, wealth management, trading signals, investment strategies etc. - IPTV services, including software or platforms that enable IPTV service delivery - Virus & Spyware - Telecommunication & eSIM Services - Products you don't own the IP of or have the required licenses to resell - Standardized test prep platforms reselling real or past exam questions (e.g. IELTS, SAT, GMAT). Due to the high risk of copyright infringement and illegal distribution of proprietary exam content, we disallow this category entirely. - Advertising & unsolicited marketing services. Including services to: - Generate, scrape or sell leads - Send SMS/WhatsApp messages in bulk - Automate outreach (spam risks) - Automate mass content generation & submission across sites - API & IP cloaking services, e.g services to circumvent IP bans, API rate limits etc. - Products or services associated with pseudo-science; clairvoyance, horoscopes, fortune-telling etc. - Travel services, reservation services, travel clubs and timeshares - Medical advice services or products, e.g. pharmaceutical, weight loss, muscle building - Watermark removal services - Third-party content downloaders (e.g., YouTube, Instagram, Snapchat, etc.) Restricted Businesses Requires closer review and a higher bar of quality, execution, trust and compliance standards to be accepted. - Directories & boards - Marketing services - Pre-orders & Paid waitlist - Ticket sales - eBooks FAQ Why do directories & boards require closer review? They often sell premium placement, i.e ads, without meeting compliance requirements for advertising. Or even where it's their sole purpose to sell placement. Why do marketing services require closer review? Too many services offer sketchy marketing tactics and mass outreach (unsolicited) features. There is no short-cut to sales beyond offering a great product & service. We love marketing services that reflect that and focus on the long game vs. shortcuts and hacks. Can I sell pre-orders or use paid waitlists for my service to validate demand before build? Generally, no. It's a high risk category. Sellers could withdraw funds and never deliver the service or not as promised. Causing consumers to demand refunds or dispute the sale at a later date. For high-trust cases from developers with a track record, we're able to make exceptions, but simultaneously need to adapt our payout process to withhold all funds until verified fulfilment. Why are marketplaces or human services (consultancy) not allowed? Both come with additional compliance and risk challenges. Since fulfilment is not digital, immediate or between known parties to us, we cannot fulfil our compliance & risk requirements or effectively mitigate potential disputes. Why are OnlyFans services not allowed? Close & blurred lines between the service and the content & service provided on OnlyFans, i.e often adult content. In addition to us having seen fraudulent & deceptive behavior in the category. We're simply not comfortable with the risk profile here."
+  },
+  {
+   "href": "/docs/policies/account-reviews",
+   "title": "Account Reviews",
+   "description": "How account reviews work on Rapidly",
+   "section": "Policies & Fees",
+   "headings": [
+    {
+     "id": "first-payout-review",
+     "text": "First payout review",
+     "level": 3
+    },
+    {
+     "id": "continuous-reviews-async",
+     "text": "Continuous reviews (Async)",
+     "level": 3
+    },
+    {
+     "id": "operational-guidelines",
+     "text": "Operational Guidelines",
+     "level": 2
+    },
+    {
+     "id": "frequently-asked-questions",
+     "text": "Frequently Asked Questions",
+     "level": 2
+    },
+    {
+     "id": "why-is-my-account-under-review-again",
+     "text": "Why is my account under review again?",
+     "level": 3
+    },
+    {
+     "id": "why-do-you-need-my-social-media-in-settings",
+     "text": "Why do you need my social media in settings?",
+     "level": 3
+    },
+    {
+     "id": "are-social-media-settings-visible-publicly",
+     "text": "Are social media settings visible publicly?",
+     "level": 3
+    },
+    {
+     "id": "why-do-i-need-to-share-a-video-recording-showing-the-product-working",
+     "text": "Why do I need to share a video recording showing the product working?",
+     "level": 3
+    },
+    {
+     "id": "how-does-changing-the-admin-of-a-workspace-work",
+     "text": "How does changing the admin of a workspace work?",
+     "level": 3
+    }
+   ],
+   "body": "Account Reviews How account reviews work on Rapidly We need to make sure that businesses using Rapidly comply with our acceptable products & use policies. Combined with continuously monitoring, reviewing and preventing fraud, unacceptable use, bad actors and high risk accounts. Account reviews are typically completed within a week on average. However, sometimes it can take longer due to weekends, holidays etc. We process them as quickly as possible and resolve every single one. First payout review You will need to go through our main review ahead of the initial payout. We'll reach out over email for: 1. A quick survey about your business, products and intended use case with Rapidly. 2. Identity verification (KYC) using Passport/ID Card/Driver License and a selfie. It's secure, easy and quick to submit using Stripe Identity. We need to perform this review to ensure compliance with our acceptable products & use policy. Combined with meeting our own KYC/AML requirements as a file-sharing platform. Submit upfront (Soon) We'll soon offer the ability to submit all of this information in advance to speed up the initial payout even further and without concern of any issues or delays. Continuous reviews (Async) We continuously monitor all transactions across our platform to proactively prevent fraud. In addition to performing asynchronous reviews of accounts at certain sale thresholds. These reviews are often completed within a day or two and without any additional information required from you. You'll get notified over email that a review is taking place. Payouts will be paused during this time, but it has no impact on your customers' experience or ability to purchase or checkout at any time. We look at: - Risk scores across historic transactions - Refunds & Chargebacks ratio - Appropriate next sales threshold for a review given the above High chargeback ratios Credit card networks, e.g Visa/Mastercard, consider 0.7% of sales in chargebacks excessive. Exceeding it can lead to monitoring programs with high costs, penalties and ultimately termination. We therefore reach out proactively to collaborate on maintaining a low chargeback ratio and reducing it ahead of getting close to these thresholds. Operational Guidelines To maintain platform integrity and ensure smooth operations, we have established clear guidelines for merchants using Rapidly. Expected Responsiveness We expect merchants to maintain high standards of customer support and responsiveness to their customers: - Support Ticket Management : Maintain a low rate of support tickets from customers - Merchant Communication : When we include you in customer support communications, we require a response within 48 hours - If no response is received within 48 hours, we may issue refunds to affected customers and a warning to merchants - In case of repeated issues, we'll have to offboard unresponsive merchants - Customer Service Quality : We evaluate your customer service history and approach when determining appropriate actions Test Transactions To maintain platform security and prevent abuse: - Use Free Shares for Testing : Use a free share to test file sharing and webhook flows without real money. Chargeback Management We monitor chargeback rates closely to protect both merchants and customers: - Acceptable Threshold : We maintain a chargeback rate threshold of 0.4% for merchants - Timeframe : Chargebacks can be filed up to 120 days from the original transaction date - Consequences of High Chargeback Rates : We work proactively to maintain a low chargeback rate throughout the platform and strive to collaborate with merchants at risk of exceeding our thresholds to reverse the trend. However, we reserve the right to (in order of severity): - Refund transactions as needed - Pause payouts pending review – up until the timeframe for chargebacks have been surpassed - Pause future payments - Block accounts and refund customers We don't take this responsibility or actions lightly, and always strive to mitigate and avoid them, but have to take appropriate and proactive actions in case of issues. We also have integrations with credit card networks to receive early chargeback signals before they're officially filed. We automatically refund such transactions under a certain value and revoke any file share access associated with the customer to reduce chargebacks proactively. Policy Violations For merchants who violate our acceptable use policies (and don't have high chargeback rates): - Immediate Action : We will offboard merchants who violate our policies - Payment Processing : All payment processing will be blocked - Payout Management : Payouts will be paused pending review - Resolution Process : - We may conduct test transactions to verify account status - In case of strong suspicion of fraud or intentional abuse, we block the account immediately - We reach out merchants about the issue and give them 48 hours to respond - Failure to respond may result in refunds to affected customers - We pause future payments in the meantime if deemed necessary - We pause payouts during the resolution process - We strive to collaborate with merchants on the best possible path forward. Clear fraud or abuse, however, is immediately blocked. - We have to revoke file share access and refund payments made in violation of our acceptable use policies for compliance and risk, and strive to do so in collaboration with the merchant. Frequently Asked Questions Why is my account under review again? Your account may go through multiple reviews as your business grows. We perform continuous reviews at certain sales thresholds to maintain platform integrity and prevent fraud. This is a standard practice across payment platforms and is part of our ongoing risk management process. Why do you need my social media in settings? We request social media information as part of our identity verification and fraud prevention processes. This helps us: - Verify that you're a real business or creator with an online presence - Understand your products and services better - Ensure compliance with our acceptable use policies Providing accurate social media information helps speed up the review process and demonstrates the legitimacy of your business. Are social media settings visible publicly? No, your social media settings are not publicly visible. This information is used internally for verification and compliance purposes only. We treat all merchant information with strict confidentiality and use it solely for risk assessment and account review processes. Why do I need to share a video recording showing the product working? To help us verify that everything is working correctly in line with our acceptable use policy, our team would ask you to share a free access link by email. This is our preferred method, as it allows the team to go through the full journey themselves and confirm the automated fulfillment from an unpaid user to a paid user. Alternatively, you can provide a video recording that clearly shows the complete flow from an unpaid user to a paid user, including how the product is automatically accessible after purchase. How does changing the admin of a workspace work? To change the admin of a workspace: 1. Invite the new admin to the team via Settings Members in the Rapidly dashboard 2. Ask that new admin to complete identity verification under Finance Account after logging in via that email in the Rapidly dashboard 3. Make sure no payout is pending 4. Send an email from the current admin email to our support confirming the transfer to the new admin If you need assistance with changing workspace ownership or have special circumstances, please contact support@rapidly.tech."
+  },
+  {
+   "href": "/docs/policies/fees",
+   "title": "Fees",
+   "description": "Transparent and competitive fees",
+   "section": "Policies & Fees",
+   "headings": [
+    {
+     "id": "transaction-fees",
+     "text": "Transaction Fees",
+     "level": 2
+    },
+    {
+     "id": "additional-stripe-fees",
+     "text": "**Additional Stripe Fees**",
+     "level": 3
+    },
+    {
+     "id": "disputechargeback-fees",
+     "text": "Dispute/Chargeback Fees",
+     "level": 3
+    },
+    {
+     "id": "payout-fees",
+     "text": "Payout Fees",
+     "level": 2
+    },
+    {
+     "id": "volume-pricing",
+     "text": "Volume pricing",
+     "level": 2
+    }
+   ],
+   "body": "Fees Transparent and competitive fees Transaction Fees Rapidly charges a 2% platform fee on paid file-share and storefront transactions. Free file sharing and secret exchange incur no fees. The minimum price for paid shares is $20 . Payments are processed through Stripe Connect. Stripe's own processing fees (typically 2.9% + 30 cents) are charged separately by Stripe and are not included in our 2%. Additional Stripe Fees - +1.5% for international cards (non-US) - Additional fees may apply depending on card type and region — see Stripe's pricing for details. Example Below is a $20 paid file share purchased by a US-based customer. | Item | Amount | | ----------------------------------- | ---------- | | File Share Price | $20 | | Total Transaction Value | $20 | | Rapidly Platform Fee (2%) | $0.40 | | Stripe Processing (2.9% + 30 cents) | $0.88 | | Total Fees | $1.28 | | Seller Receives | $18.72 | Dispute/Chargeback Fees Sometimes, customers can open a dispute/chargeback via their bank for a purchase. Disputes cost $15 per dispute regardless of outcome and is deducted from your balance directly. This fee is charged by the underlying credit card networks & PSPs regardless of outcome and therefore something we cannot refund. However, we continuously work to proactively reduce the rate of chargebacks across Rapidly to be at or lower than industry standards. Credit card networks impose monitoring programs, penalties and higher chargeback costs for sellers with high chargeback rates (~0.7%+). We therefore always monitor and proactively prevent rates from coming close to these thresholds. Therefore, we might need to intervene and even suspend your account unless swift and proactive measures are taken to reduce chargebacks to an acceptable industry standard. Payout Fees While payouts may incur fees charged by our payout provider (Stripe), Rapidly does not add any extra fees or markup. These are strictly Stripe's fees, and Rapidly does not profit from them. In addition, Rapidly offers manual withdrawals for developers. Keeping you in control of when to issue payouts. Unless you have a Rapidly balance that you haven't withdrawn for several months, at which point we'll eventually need to trigger a payout on your behalf. Fees (Stripe) - $2 per month of active payout(s) - 0.25% + $0.25 per payout - Cross border fees (currency conversion): 0.25% (EU) - 1% in other countries. Volume pricing Large or fast-growing business? We can offer custom pricing to better fit your needs. Reach out to us."
+  },
+  {
+   "href": "/docs/policies/supported-countries",
+   "title": "Supported Countries",
+   "description": "Countries supported for payments and payouts",
+   "section": "Policies & Fees",
+   "headings": [
+    {
+     "id": "payments",
+     "text": "Payments",
+     "level": 3
+    },
+    {
+     "id": "payouts",
+     "text": "Payouts",
+     "level": 3
+    },
+    {
+     "id": "frequently-asked-questions",
+     "text": "Frequently Asked Questions",
+     "level": 2
+    }
+   ],
+   "body": "Supported Countries Countries supported for payments and payouts Payments We support payments globally except from countries with US sanctions (Cuba, Russia, Iran, North Korea, and Syria). Payouts Rapidly uses Stripe Connect Express to issue payouts to residents or businesses in any of the countries below. FAQ: Stripe is not supported in my country Stripe Connect Express for payouts is a separate product from Stripe Payments. In some cases, Stripe Payments might not be available for merchants in your country, but Stripe Connect Express is for payouts using cross-border transfers. Since Rapidly uses Stripe Connect Express for payouts, we're able to support sellers in all of the countries below. - 🇦🇱 Albania - 🇩🇿 Algeria - 🇦🇴 Angola - 🇦🇬 Antigua and Barbuda - 🇦🇷 Argentina - 🇦🇲 Armenia - 🇦🇺 Australia - 🇦🇹 Austria - 🇦🇿 Azerbaijan - 🇧🇸 Bahamas - 🇧🇭 Bahrain - 🇧🇩 Bangladesh - 🇧🇪 Belgium - 🇧🇯 Benin - 🇧🇹 Bhutan - 🇧🇴 Bolivia - 🇧🇦 Bosnia and Herzegovina - 🇧🇼 Botswana - 🇧🇳 Brunei - 🇧🇬 Bulgaria - 🇰🇭 Cambodia - 🇨🇦 Canada - 🇨🇱 Chile - 🇨🇴 Colombia - 🇨🇷 Costa Rica - 🇭🇷 Croatia - 🇨🇾 Cyprus - 🇨🇿 Czech Republic - 🇩🇰 Denmark - 🇩🇴 Dominican Republic - 🇪🇨 Ecuador - 🇪🇬 Egypt - 🇸🇻 El Salvador - 🇪🇪 Estonia - 🇪🇹 Ethiopia - 🇫🇮 Finland - 🇫🇷 France - 🇬🇦 Gabon - 🇬🇲 Gambia - 🇩🇪 Germany - 🇬🇭 Ghana - 🇬🇷 Greece - 🇬🇹 Guatemala - 🇬🇾 Guyana - 🇭🇰 Hong Kong - 🇭🇺 Hungary - 🇮🇸 Iceland - 🇮🇳 India - 🇮🇩 Indonesia - 🇮🇪 Ireland - 🇮🇱 Israel - 🇮🇹 Italy - 🇨🇮 Ivory Coast - 🇯🇲 Jamaica - 🇯🇵 Japan - 🇯🇴 Jordan - 🇰🇿 Kazakhstan - 🇰🇪 Kenya - 🇰🇼 Kuwait - 🇱🇦 Laos - 🇱🇻 Latvia - 🇱🇮 Liechtenstein - 🇱🇹 Lithuania - 🇱🇺 Luxembourg - 🇲🇴 Macao - 🇲🇬 Madagascar - 🇲🇾 Malaysia - 🇲🇹 Malta - 🇲🇺 Mauritius - 🇲🇽 Mexico - 🇲🇩 Moldova - 🇲🇨 Monaco - 🇲🇳 Mongolia - 🇲🇦 Morocco - 🇲🇿 Mozambique - 🇳🇦 Namibia - 🇳🇱 Netherlands - 🇳🇿 New Zealand - 🇳🇪 Niger - 🇳🇬 Nigeria - 🇲🇰 North Macedonia - 🇳🇴 Norway - 🇴🇲 Oman - 🇵🇰 Pakistan - 🇵🇦 Panama - 🇵🇾 Paraguay - 🇵🇪 Peru - 🇵🇭 Philippines - 🇵🇱 Poland - 🇵🇹 Portugal - 🇶🇦 Qatar - 🇷🇴 Romania - 🇷🇼 Rwanda - 🇱🇨 Saint Lucia - 🇸🇲 San Marino - 🇸🇦 Saudi Arabia - 🇸🇳 Senegal - 🇷🇸 Serbia - 🇸🇬 Singapore - 🇸🇰 Slovakia - 🇸🇮 Slovenia - 🇿🇦 South Africa - 🇰🇷 South Korea - 🇪🇸 Spain - 🇱🇰 Sri Lanka - 🇸🇪 Sweden - 🇨🇭 Switzerland - 🇹🇼 Taiwan - 🇹🇿 Tanzania - 🇹🇭 Thailand - 🇹🇹 Trinidad and Tobago - 🇹🇳 Tunisia - 🇹🇷 Turkey - 🇦🇪 United Arab Emirates - 🇬🇧 United Kingdom - 🇺🇸 United States - 🇺🇾 Uruguay - 🇺🇿 Uzbekistan - 🇻🇳 Vietnam Frequently Asked Questions Stripe Connect Express is a different product than the regular Stripe payments. Yes, any individual or company operating in our supported countries can receive payouts from Rapidly even if Stripe standalone is invite-only there. This is possible because all payments from customers are processed through Rapidly (US). Stripe Connect Express is then used to issue payouts, and is supported in more countries via cross-border transfer than Stripe Payments standalone. You might still see a warning in Stripe Connect Express that payments are invite-only, but don't worry. No direct sales are made directly to the Stripe Connect Express account. They're all processed through Rapidly (US) as a platform. We only use the transfer and payout feature of Stripe Connect Express which is available in all of our supported countries. Yes, given that Stripe Connect Express supports individual as a business type in your region. To know which business type is supported in your country, follow steps as below: - Open required verification information by Stripe to set up a business or personal account in your country. - Ensure Platform Country is set to United States (US) . - Ensure Dashboard Type is set to express . - Ensure Service Agreement is set to recipient . - Ensure Capability is set to transfers . - Select the correct Account Country relevant to you. - Click on the toggle for Business Type which will allow you know if individual, business, company or LLC/LLP is supported by Stripe Connect Express in that region."
+  },
+  {
+   "href": "/docs/support",
+   "title": "Support",
+   "description": "",
+   "section": "Getting Started",
+   "headings": [
+    {
+     "id": "support-channels",
+     "text": "Support channels",
+     "level": 2
+    },
+    {
+     "id": "email",
+     "text": "Email",
+     "level": 2
+    },
+    {
+     "id": "github",
+     "text": "GitHub",
+     "level": 2
+    },
+    {
+     "id": "etiquette",
+     "text": "Etiquette",
+     "level": 2
+    },
+    {
+     "id": "customer-responsibilities",
+     "text": "Customer responsibilities",
+     "level": 2
+    },
+    {
+     "id": "changes-to-the-support-policy",
+     "text": "Changes to the support policy",
+     "level": 2
+    }
+   ],
+   "body": "Support This page outlines Rapidly's support plans, available channels, and policies. To learn how to access support, please refer to the Support channels section. Identify the channels available to you based on your usage and follow the links to navigate to the relevant information. Support channels The support channels you can access differ according to your use of Rapidly. | Support channels | Community support | Billing support | Standard support | | :---------------- | :---------------: | :-------------: | :--------------: | | GitHub | &check; | &cross; | &cross; | | Email | - | &check; | &check; | Email You can reach us at support@rapidly.tech. GitHub - Found a bug? - Have a feature request? - Join the discussion — community Q&A and feature talk lives here. Etiquette Regardless of the method or location through which Rapidly provides Support, communication should be professional and respectful. Any communication that is deemed objectionable by Rapidly staff is not tolerated. This includes but is not limited to any communication that is abusive or contains profane language. Rapidly reserves the right to terminate Support Services in the event of any such objectionable communication. Customer responsibilities To ensure efficient resolution of issues, customers are expected to (1) provide detailed information about the issue, (2) cooperate with the Support team during troubleshooting, and (3) utilize available self-service resources for basic inquiries. Changes to the support policy We reserve the right to modify, amend, or update this Support Policy, including the types of support offered, support hours, response times, and support plans, at any time and at our sole discretion. Any changes to the Support Policy will be effective immediately upon posting a revised version of this Support Policy. Continued use of our services after such modifications will constitute acknowledgment and acceptance of the changes."
+  },
+  {
+   "href": "/docs/api-reference/customers",
+   "title": "Customers API",
+   "description": "REST API reference for Customers",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "list-customers",
+     "text": "List Customers",
+     "level": 2
+    },
+    {
+     "id": "create-customer",
+     "text": "Create Customer",
+     "level": 2
+    },
+    {
+     "id": "export-customers",
+     "text": "Export Customers",
+     "level": 2
+    },
+    {
+     "id": "get-customer",
+     "text": "Get Customer",
+     "level": 2
+    },
+    {
+     "id": "update-customer",
+     "text": "Update Customer",
+     "level": 2
+    },
+    {
+     "id": "delete-customer",
+     "text": "Delete Customer",
+     "level": 2
+    },
+    {
+     "id": "get-customer-by-external-id",
+     "text": "Get Customer by External ID",
+     "level": 2
+    },
+    {
+     "id": "update-customer-by-external-id",
+     "text": "Update Customer by External ID",
+     "level": 2
+    },
+    {
+     "id": "delete-customer-by-external-id",
+     "text": "Delete Customer by External ID",
+     "level": 2
+    },
+    {
+     "id": "get-customer-state",
+     "text": "Get Customer State",
+     "level": 2
+    },
+    {
+     "id": "get-customer-state-by-external-id",
+     "text": "Get Customer State by External ID",
+     "level": 2
+    },
+    {
+     "id": "get-customer",
+     "text": "Get Customer",
+     "level": 2
+    },
+    {
+     "id": "update-customer",
+     "text": "Update Customer",
+     "level": 2
+    }
+   ],
+   "body": "List Customers GET /api/customers/ List customers.\n\n**Scopes**: `customers:read` `customers:write` Create Customer POST /api/customers/ Create a customer.\n\n**Scopes**: `customers:write` Export Customers GET /api/customers/export Export customers as a CSV file.\n\n**Scopes**: `customers:read` `customers:write` Get Customer GET /api/customers/{id} Get a customer by ID.\n\n**Scopes**: `customers:read` `customers:write` Update Customer PATCH /api/customers/{id} Update a customer.\n\n**Scopes**: `customers:write` Delete Customer DELETE /api/customers/{id} Delete a customer.\n\nThis action cannot be undone and will immediately:\n- Soft-delete the customer record\n- Clear any `external_id`\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write` Get Customer by External ID GET /api/customers/external/{external_id} Get a customer by external ID.\n\n**Scopes**: `customers:read` `customers:write` Update Customer by External ID PATCH /api/customers/external/{external_id} Update a customer by external ID.\n\n**Scopes**: `customers:write` Delete Customer by External ID DELETE /api/customers/external/{external_id} Delete a customer by external ID.\n\nSoft-deletes the customer record.\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write` Get Customer State GET /api/customers/{id}/state Get a customer state by ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write` Get Customer State by External ID GET /api/customers/external/{external_id}/state Get a customer state by external ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write` Get Customer GET /api/customer-portal/customers/me Get authenticated customer.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Update Customer PATCH /api/customer-portal/customers/me Update authenticated customer."
+  },
+  {
+   "href": "/docs/api-reference/customer-portal",
+   "title": "Customer Portal API",
+   "description": "REST API reference for Customer Portal",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "get-customer",
+     "text": "Get Customer",
+     "level": 2
+    },
+    {
+     "id": "update-customer",
+     "text": "Update Customer",
+     "level": 2
+    },
+    {
+     "id": "get-authenticated-portal-user",
+     "text": "Get Authenticated Portal User",
+     "level": 2
+    },
+    {
+     "id": "introspect-customer-session",
+     "text": "Introspect Customer Session",
+     "level": 2
+    },
+    {
+     "id": "customer-portalcustomer-sessionrequest",
+     "text": "Customer Portal.Customer Session.Request",
+     "level": 2
+    },
+    {
+     "id": "customer-portalcustomer-sessionauthenticate",
+     "text": "Customer Portal.Customer Session.Authenticate",
+     "level": 2
+    },
+    {
+     "id": "list-file-sharing-sessions",
+     "text": "List File Sharing Sessions",
+     "level": 2
+    },
+    {
+     "id": "get-file-sharing-session",
+     "text": "Get File Sharing Session",
+     "level": 2
+    },
+    {
+     "id": "list-session-downloads",
+     "text": "List Session Downloads",
+     "level": 2
+    },
+    {
+     "id": "list-session-payments",
+     "text": "List Session Payments",
+     "level": 2
+    },
+    {
+     "id": "list-members",
+     "text": "List Members",
+     "level": 2
+    },
+    {
+     "id": "add-member",
+     "text": "Add Member",
+     "level": 2
+    },
+    {
+     "id": "update-member",
+     "text": "Update Member",
+     "level": 2
+    },
+    {
+     "id": "remove-member",
+     "text": "Remove Member",
+     "level": 2
+    },
+    {
+     "id": "customer-portaloauth-accountsauthorize",
+     "text": "Customer Portal.Oauth Accounts.Authorize",
+     "level": 2
+    },
+    {
+     "id": "customer-portaloauth-accountscallback",
+     "text": "Customer Portal.Oauth Accounts.Callback",
+     "level": 2
+    },
+    {
+     "id": "list-payment-methods",
+     "text": "List Payment Methods",
+     "level": 2
+    },
+    {
+     "id": "add-payment-method",
+     "text": "Add Payment Method",
+     "level": 2
+    },
+    {
+     "id": "confirm-payment-method",
+     "text": "Confirm Payment Method",
+     "level": 2
+    },
+    {
+     "id": "delete-payment-method",
+     "text": "Delete Payment Method",
+     "level": 2
+    },
+    {
+     "id": "set-default-payment-method",
+     "text": "Set Default Payment Method",
+     "level": 2
+    },
+    {
+     "id": "get-workspace",
+     "text": "Get Workspace",
+     "level": 2
+    }
+   ],
+   "body": "Get Customer GET /api/customer-portal/customers/me Get authenticated customer.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Update Customer PATCH /api/customer-portal/customers/me Update authenticated customer. Get Authenticated Portal User GET /api/customer-portal/customer-session/user Return info about the currently authenticated portal user.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Introspect Customer Session GET /api/customer-portal/customer-session/introspect Introspect the current session and return its information.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Customer Portal.Customer Session.Request POST /api/customer-portal/customer-session/request  Customer Portal.Customer Session.Authenticate POST /api/customer-portal/customer-session/authenticate  List File Sharing Sessions GET /api/customer-portal/file-sharing/sessions List file sharing sessions for the authenticated member's workspace.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Get File Sharing Session GET /api/customer-portal/file-sharing/sessions/{id} Get a file sharing session by ID.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Session Downloads GET /api/customer-portal/file-sharing/sessions/{id}/downloads List downloads for a file sharing session.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Session Payments GET /api/customer-portal/file-sharing/sessions/{id}/payments List payments for a file sharing session.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Members GET /api/customer-portal/members List all members of the customer's team.\n\nOnly available to owners and billing managers of team customers. Add Member POST /api/customer-portal/members Add a new member to the customer's team.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot add a member with the owner role (there must be exactly one owner)\n- If a member with this email already exists, the existing member is returned Update Member PATCH /api/customer-portal/members/{id} Update a member's role.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot modify your own role (to prevent self-demotion)\n- Customer must have exactly one owner at all times Remove Member DELETE /api/customer-portal/members/{id} Remove a member from the team.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot remove yourself\n- Cannot remove the only owner Customer Portal.Oauth Accounts.Authorize GET /api/customer-portal/oauth-accounts/authorize **Scopes**: `customer_portal:write` Customer Portal.Oauth Accounts.Callback GET /api/customer-portal/oauth-accounts/callback **Scopes**: `customer_portal:write` List Payment Methods GET /api/customer-portal/payment-methods List all saved payment methods for the authenticated customer. Add Payment Method POST /api/customer-portal/payment-methods Add a new payment method via Stripe SetupIntent.\n\nReturns ``succeeded`` with the saved payment method, or\n``requires_action`` with a ``client_secret`` for 3D Secure. Confirm Payment Method POST /api/customer-portal/payment-methods/confirm Complete the add-card flow after 3D Secure verification. Delete Payment Method DELETE /api/customer-portal/payment-methods/{id} Remove a saved payment method. Set Default Payment Method POST /api/customer-portal/payment-methods/{id}/default Set a payment method as the customer's default. Get Workspace GET /api/customer-portal/workspaces/{slug} Get a customer portal's workspace by slug."
+  },
+  {
+   "href": "/docs/api-reference/shares",
+   "title": "Shares API",
+   "description": "REST API reference for Shares",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "list-shares",
+     "text": "List Shares",
+     "level": 2
+    },
+    {
+     "id": "create-share",
+     "text": "Create Share",
+     "level": 2
+    },
+    {
+     "id": "get-share",
+     "text": "Get Share",
+     "level": 2
+    },
+    {
+     "id": "update-share",
+     "text": "Update Share",
+     "level": 2
+    }
+   ],
+   "body": "List Shares GET /api/shares/ List products.\n\n**Scopes**: `shares:read` `shares:write` Create Share POST /api/shares/ Create a share.\n\n**Scopes**: `shares:write` Get Share GET /api/shares/{id} Get a share by ID.\n\n**Scopes**: `shares:read` `shares:write` Update Share PATCH /api/shares/{id} Update a share.\n\n**Scopes**: `shares:write`"
+  },
+  {
+   "href": "/docs/api-reference/files",
+   "title": "Files API",
+   "description": "REST API reference for Files",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "create-file",
+     "text": "Create File",
+     "level": 2
+    },
+    {
+     "id": "list-files",
+     "text": "List Files",
+     "level": 2
+    },
+    {
+     "id": "complete-file-upload",
+     "text": "Complete File Upload",
+     "level": 2
+    },
+    {
+     "id": "update-file",
+     "text": "Update File",
+     "level": 2
+    },
+    {
+     "id": "delete-file",
+     "text": "Delete File",
+     "level": 2
+    }
+   ],
+   "body": "Create File POST /api/files/ Initiate a file upload by requesting pre-signed URLs.\n\n**Scopes**: `files:write` List Files GET /api/files/ List files.\n\n**Scopes**: `files:read` `files:write` Complete File Upload POST /api/files/{id}/uploaded Mark a file upload as completed.\n\n**Scopes**: `files:write` Update File PATCH /api/files/{id} Update a file.\n\n**Scopes**: `files:write` Delete File DELETE /api/files/{id} Delete a file.\n\n**Scopes**: `files:write`"
+  },
+  {
+   "href": "/docs/api-reference/events",
+   "title": "Events API",
+   "description": "REST API reference for Events",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "ingest-events",
+     "text": "Ingest Events",
+     "level": 2
+    },
+    {
+     "id": "get-event",
+     "text": "Get Event",
+     "level": 2
+    },
+    {
+     "id": "list-events",
+     "text": "List Events",
+     "level": 2
+    },
+    {
+     "id": "list-event-names",
+     "text": "List Event Names",
+     "level": 2
+    },
+    {
+     "id": "list-statistics-timeseries",
+     "text": "List statistics timeseries",
+     "level": 2
+    }
+   ],
+   "body": "Ingest Events POST /api/events/ingest Ingest batch of events.\n\n**Scopes**: `events:write` Get Event GET /api/events/{id} Get an event by ID.\n\n**Scopes**: `events:read` `events:write` List Events GET /api/events/ List events.\n\n**Scopes**: `events:read` `events:write` List Event Names GET /api/events/names List event names.\n\n**Scopes**: `events:read` `events:write` List statistics timeseries GET /api/events/statistics/timeseries Get aggregate statistics grouped by root event name over time.\n\nReturns time series data with periods and totals, similar to the metrics endpoint.\nEach period contains stats grouped by event name, and totals show overall stats\nacross all periods.\n\n**Scopes**: `events:read` `events:write`"
+  },
+  {
+   "href": "/docs/api-reference/metrics",
+   "title": "Metrics API",
+   "description": "REST API reference for Metrics",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "get-metrics-limits",
+     "text": "Get Metrics Limits",
+     "level": 2
+    },
+    {
+     "id": "get-metrics",
+     "text": "Get Metrics",
+     "level": 2
+    }
+   ],
+   "body": "Get Metrics Limits GET /api/metrics/limits Return the allowed day-ranges for each time interval.\n\n**Scopes**: `metrics:read` Get Metrics GET /api/metrics/ Get metrics about your file shares and costs.\n\nCurrency values are output in cents.\n\n**Scopes**: `metrics:read`"
+  },
+  {
+   "href": "/docs/api-reference/webhooks",
+   "title": "Webhooks API",
+   "description": "REST API reference for Webhooks",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "redeliver-webhook-event",
+     "text": "Redeliver Webhook Event",
+     "level": 2
+    },
+    {
+     "id": "list-webhook-deliveries",
+     "text": "List Webhook Deliveries",
+     "level": 2
+    },
+    {
+     "id": "list-webhook-endpoints",
+     "text": "List Webhook Endpoints",
+     "level": 2
+    },
+    {
+     "id": "create-webhook-endpoint",
+     "text": "Create Webhook Endpoint",
+     "level": 2
+    },
+    {
+     "id": "get-webhook-endpoint",
+     "text": "Get Webhook Endpoint",
+     "level": 2
+    },
+    {
+     "id": "update-webhook-endpoint",
+     "text": "Update Webhook Endpoint",
+     "level": 2
+    },
+    {
+     "id": "delete-webhook-endpoint",
+     "text": "Delete Webhook Endpoint",
+     "level": 2
+    },
+    {
+     "id": "reset-webhook-endpoint-secret",
+     "text": "Reset Webhook Endpoint Secret",
+     "level": 2
+    }
+   ],
+   "body": "Redeliver Webhook Event POST /api/webhooks/events/{id}/redeliver Schedule the re-delivery of a webhook event.\n\n**Scopes**: `webhooks:write` List Webhook Deliveries GET /api/webhooks/deliveries List webhook deliveries.\n\nDeliveries are all the attempts to deliver a webhook event to an endpoint.\n\n**Scopes**: `webhooks:read` `webhooks:write` List Webhook Endpoints GET /api/webhooks/endpoints List webhook endpoints.\n\n**Scopes**: `webhooks:read` `webhooks:write` Create Webhook Endpoint POST /api/webhooks/endpoints Create a webhook endpoint.\n\n**Scopes**: `webhooks:write` Get Webhook Endpoint GET /api/webhooks/endpoints/{id} Get a webhook endpoint by ID.\n\n**Scopes**: `webhooks:read` `webhooks:write` Update Webhook Endpoint PATCH /api/webhooks/endpoints/{id} Update a webhook endpoint.\n\n**Scopes**: `webhooks:write` Delete Webhook Endpoint DELETE /api/webhooks/endpoints/{id} Delete a webhook endpoint.\n\n**Scopes**: `webhooks:write` Reset Webhook Endpoint Secret PATCH /api/webhooks/endpoints/{id}/secret Regenerate a webhook endpoint secret.\n\n**Scopes**: `webhooks:write`"
+  },
+  {
+   "href": "/docs/api-reference/workspaces",
+   "title": "Workspaces API",
+   "description": "REST API reference for Workspaces",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "list-workspaces",
+     "text": "List Workspaces",
+     "level": 2
+    },
+    {
+     "id": "create-workspace",
+     "text": "Create Workspace",
+     "level": 2
+    },
+    {
+     "id": "get-workspace",
+     "text": "Get Workspace",
+     "level": 2
+    },
+    {
+     "id": "update-workspace",
+     "text": "Update Workspace",
+     "level": 2
+    },
+    {
+     "id": "delete-workspace",
+     "text": "Delete Workspace",
+     "level": 2
+    },
+    {
+     "id": "get-workspace-account",
+     "text": "Get Workspace Account",
+     "level": 2
+    },
+    {
+     "id": "switch-workspace-stripe-account",
+     "text": "Switch Workspace Stripe Account",
+     "level": 2
+    },
+    {
+     "id": "get-workspace-payment-status",
+     "text": "Get Workspace Payment Status",
+     "level": 2
+    },
+    {
+     "id": "members",
+     "text": "Members",
+     "level": 2
+    },
+    {
+     "id": "invite-member",
+     "text": "Invite Member",
+     "level": 2
+    },
+    {
+     "id": "leave-workspace",
+     "text": "Leave Workspace",
+     "level": 2
+    },
+    {
+     "id": "remove-member",
+     "text": "Remove Member",
+     "level": 2
+    },
+    {
+     "id": "validate-workspace-details-with-ai",
+     "text": "Validate Workspace Details with AI",
+     "level": 2
+    },
+    {
+     "id": "submit-appeal-for-workspace-review",
+     "text": "Submit Appeal for Workspace Review",
+     "level": 2
+    },
+    {
+     "id": "mark-ai-onboarding-complete",
+     "text": "Mark AI Onboarding Complete",
+     "level": 2
+    },
+    {
+     "id": "get-workspace-review-status",
+     "text": "Get Workspace Review Status",
+     "level": 2
+    },
+    {
+     "id": "get-workspace",
+     "text": "Get Workspace",
+     "level": 2
+    }
+   ],
+   "body": "List Workspaces GET /api/workspaces/ List workspaces.\n\n**Scopes**: `workspaces:read` `workspaces:write` Create Workspace POST /api/workspaces/ Create an workspace.\n\n**Scopes**: `workspaces:write` Get Workspace GET /api/workspaces/{id} Get an workspace by ID.\n\n**Scopes**: `workspaces:read` `workspaces:write` Update Workspace PATCH /api/workspaces/{id} Update an workspace.\n\n**Scopes**: `workspaces:write` Delete Workspace DELETE /api/workspaces/{id} Request deletion of a workspace.\n\nIf the workspace has no blocking resources, it will be immediately\nsoft-deleted. If it has a Stripe account, that will be deleted first.\n\nIf deletion cannot proceed immediately (e.g. Stripe deletion fails),\na support ticket will be created for manual handling.\n\n**Scopes**: `workspaces:write` Get Workspace Account GET /api/workspaces/{id}/account Get the account for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Switch Workspace Stripe Account POST /api/workspaces/{id}/switch-account Switch the workspace's active Stripe account to an existing one.\n\n**Scopes**: `workspaces:write` Get Workspace Payment Status GET /api/workspaces/{id}/payment-status Get payment status and onboarding steps for an workspace. Members GET /api/workspaces/{id}/members List members in an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Invite Member POST /api/workspaces/{id}/members/invite Invite a user to join an workspace.\n\n**Scopes**: `workspaces:write` Leave Workspace DELETE /api/workspaces/{id}/members/leave Leave an workspace.\n\nUsers can only leave an workspace if they are not the admin\nand there is at least one other member.\n\n**Scopes**: `workspaces:write` Remove Member DELETE /api/workspaces/{id}/members/{user_id} Remove a member from an workspace.\n\nOnly workspace admins can remove members.\nAdmins cannot remove themselves.\n\n**Scopes**: `workspaces:write` Validate Workspace Details with AI POST /api/workspaces/{id}/ai-validation Validate workspace details using AI compliance check.\n\n**Scopes**: `workspaces:write` Submit Appeal for Workspace Review POST /api/workspaces/{id}/appeal Submit an appeal for workspace review after AI validation failure.\n\n**Scopes**: `workspaces:write` Mark AI Onboarding Complete POST /api/workspaces/{id}/ai-onboarding-complete Mark the AI onboarding as completed for this workspace.\n\n**Scopes**: `workspaces:write` Get Workspace Review Status GET /api/workspaces/{id}/review-status Get the current review status and appeal information for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Get Workspace GET /api/customer-portal/workspaces/{slug} Get a customer portal's workspace by slug."
+  },
+  {
+   "href": "/docs/api-reference/oauth2",
+   "title": "OAuth 2.0 API",
+   "description": "REST API reference for OAuth 2.0",
+   "section": "API Reference",
+   "headings": [
+    {
+     "id": "list-clients",
+     "text": "List Clients",
+     "level": 2
+    },
+    {
+     "id": "create-client",
+     "text": "Create Client",
+     "level": 2
+    },
+    {
+     "id": "get-client",
+     "text": "Get Client",
+     "level": 2
+    },
+    {
+     "id": "update-client",
+     "text": "Update Client",
+     "level": 2
+    },
+    {
+     "id": "delete-client",
+     "text": "Delete Client",
+     "level": 2
+    },
+    {
+     "id": "authorize",
+     "text": "Authorize",
+     "level": 2
+    },
+    {
+     "id": "consent",
+     "text": "Consent",
+     "level": 2
+    },
+    {
+     "id": "request-token",
+     "text": "Request Token",
+     "level": 2
+    },
+    {
+     "id": "revoke-token",
+     "text": "Revoke Token",
+     "level": 2
+    },
+    {
+     "id": "introspect-token",
+     "text": "Introspect Token",
+     "level": 2
+    },
+    {
+     "id": "get-user-info",
+     "text": "Get User Info",
+     "level": 2
+    }
+   ],
+   "body": "List Clients GET /api/oauth2/ List OAuth2 clients belonging to the authenticated user. Create Client POST /api/oauth2/register Register a new OAuth2 client (RFC 7591). Get Client GET /api/oauth2/register/{client_id} Read an OAuth2 client's configuration (RFC 7592). Update Client PUT /api/oauth2/register/{client_id} Update an OAuth2 client's configuration (RFC 7592). Delete Client DELETE /api/oauth2/register/{client_id} Soft-delete an OAuth2 client (RFC 7592). Authorize GET /api/oauth2/authorize Begin the authorization code flow (returns consent metadata or auto-approves). Consent POST /api/oauth2/consent Handle the user's consent decision (allow or deny). Request Token POST /api/oauth2/token Exchange a grant for an access token. Revoke Token POST /api/oauth2/revoke Revoke an access or refresh token. Introspect Token POST /api/oauth2/introspect Return metadata about an active token. Get User Info GET /api/oauth2/userinfo Return OpenID Connect claims for the authenticated subject."
+  }
+ ]
+}

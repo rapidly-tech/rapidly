@@ -67,7 +67,7 @@ class TestBuildScopesSection:
 
     def test_each_scope_is_wrapped_in_individual_backticks(self) -> None:
         # Pinning ``` `x` `y` ``` rather than ```` ``x, y`` ```` — the
-        # inline-code format is what renders correctly in Mintlify /
+        # inline-code format is what renders correctly in the docs /
         # ReDoc / Swagger UI.
         result = _build_scopes_section({Scope.openid, Scope.profile})
         # No comma between scopes, no leading backtick-sequence.

@@ -14,15 +14,18 @@ import {
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { ComponentProps, PropsWithChildren } from 'react'
+import { ComponentProps, PropsWithChildren, useEffect, useState } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { NavPopover, NavPopoverSection } from './NavPopover'
 
 // ── Main Layout ──
 
 export default function Layout({ children }: PropsWithChildren) {
+  // overflow-x-clip (not overflow-hidden) — horizontal clipping for the
+  // hero decorations without creating a scroll container, which would
+  // silently break position:sticky in the docs sidebars.
   return (
-    <div className="rp-page-bg relative flex min-h-dvh flex-col overflow-hidden px-0 md:w-full md:items-center md:px-4">
+    <div className="rp-page-bg relative flex min-h-dvh flex-col overflow-x-clip px-0 md:w-full md:items-center md:px-4">
       <a
         href="#main-content"
         className="focus:rp-text-primary sr-only focus:not-sr-only focus:fixed focus:top-4 focus:left-4 focus:z-50 focus:rounded-md focus:bg-(--surface-inset) focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:shadow-lg focus:outline-none"
@@ -105,22 +108,18 @@ const mobileDocsItems: NavigationItem[] = [
   {
     title: 'Documentation Portal',
     href: CONFIG.DOCS_BASE_URL,
-    target: '_blank',
   },
   {
     title: 'File Sharing',
     href: `${CONFIG.DOCS_BASE_URL}/features/file-sharing`,
-    target: '_blank',
   },
   {
     title: 'Secret Messages',
     href: `${CONFIG.DOCS_BASE_URL}/features/secret-sharing`,
-    target: '_blank',
   },
   {
     title: 'Payments',
     href: `${CONFIG.DOCS_BASE_URL}/features/products`,
-    target: '_blank',
   },
 ]
 
@@ -200,8 +199,25 @@ const LandingPageMobileNavigation = () => {
 
 // ── Desktop Navigation ──
 
+// Transparent over the hero at the top of the page; gains the page
+// background + blur once scrolled so the pinned nav stays legible
+// without cutting the hero decorations.
+const useScrolled = () => {
+  const [scrolled, setScrolled] = useState(false)
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 16)
+    onScroll()
+    window.addEventListener('scroll', onScroll, { passive: true })
+    return () => window.removeEventListener('scroll', onScroll)
+  }, [])
+
+  return scrolled
+}
+
 const LandingPageDesktopNavigation = () => {
   const pathname = usePathname()
+  const scrolled = useScrolled()
 
   const featuresSections: NavPopoverSection[] = [
     {
@@ -257,19 +273,16 @@ const LandingPageDesktopNavigation = () => {
         {
           href: CONFIG.DOCS_BASE_URL,
           label: 'Documentation Portal',
-          target: '_blank',
           subtitle: 'Get started with Rapidly',
         },
         {
           href: `${CONFIG.DOCS_BASE_URL}/features/file-sharing`,
           label: 'File Sharing',
-          target: '_blank',
           subtitle: 'Send files securely',
         },
         {
           href: `${CONFIG.DOCS_BASE_URL}/features/secret-sharing`,
           label: 'Secret Messages',
-          target: '_blank',
           subtitle: 'Encrypted text sharing',
         },
       ],
@@ -280,14 +293,12 @@ const LandingPageDesktopNavigation = () => {
         {
           href: `${CONFIG.DOCS_BASE_URL}/features/products`,
           label: 'Payments',
-          target: '_blank',
           subtitle: 'Accept payments for files',
         },
         {
           href: `${CONFIG.DOCS_BASE_URL}/features/finance/payouts`,
           label: 'Finance & Payouts',
           subtitle: 'Detailed financial insights',
-          target: '_blank',
         },
       ],
     },
@@ -296,7 +307,10 @@ const LandingPageDesktopNavigation = () => {
   return (
     <nav
       aria-label="Main navigation"
-      className="rp-text-primary relative z-20 hidden w-full flex-col items-center gap-12 py-8 md:flex"
+      className={twMerge(
+        'rp-text-primary sticky top-0 z-40 hidden w-full flex-col items-center gap-12 px-4 py-4 transition-colors duration-300 md:flex',
+        scrolled && 'bg-(--background)/85 backdrop-blur-xl',
+      )}
     >
       <div className="relative flex w-full flex-row items-center justify-between lg:max-w-6xl">
         <RapidlyLogotype logoVariant="icon" size={40} href="/" />
