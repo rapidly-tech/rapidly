@@ -6,15 +6,129 @@ used by login code and customer portal session endpoints.
 
 import hashlib
 import hmac
+import ipaddress
 import time
 
 import structlog
 from fastapi import HTTPException, Request
 from redis.asyncio import Redis
+from starlette.types import Scope
 
 from rapidly.config import settings
 
 _log = structlog.get_logger(__name__)
+
+
+# ── Client IP resolution ──
+
+
+def _is_trusted_proxy(ip_str: str) -> bool:
+    """Return True if *ip_str* is a trusted reverse-proxy address.
+
+    Trusts the standard RFC 1918 + loopback + link-local + unique-
+    local ranges — these can only originate inside the deployment
+    network (load balancer, sidecar proxy, ingress controller).
+    A public IP in the X-Forwarded-For chain is treated as
+    untrusted (could be a spoofed header from a malicious client
+    that the trusted proxy faithfully forwarded).
+
+    Returns False for unparseable strings rather than raising —
+    a malformed chain element shouldn't crash the rate-limit path.
+    """
+    try:
+        ip = ipaddress.ip_address(ip_str)
+    except ValueError:
+        return False
+    return (
+        ip.is_private or ip.is_loopback or ip.is_link_local
+        # ip.is_private already covers RFC 1918 + ULA (fc00::/7);
+        # call out is_loopback + is_link_local explicitly because
+        # those are valid proxy locations too (localhost reverse
+        # proxies, k8s pod-local sidecars).
+    )
+
+
+def resolve_client_ip(request: Request) -> str:
+    """Return the originating client IP.
+
+    Walks ``X-Forwarded-For`` RIGHT-to-LEFT, peeling off trusted
+    proxies (RFC 1918 / loopback / link-local ranges), and
+    returns the first untrusted address — that's the real
+    client. If no XFF or all chain entries are trusted, falls
+    back to ``request.client.host``.
+
+    Trust model: an attacker on the public internet can forge
+    XFF headers, but their request must traverse our trusted
+    proxy chain to reach the app — the proxy will APPEND its
+    own observation to XFF, so the rightmost entry is always
+    the proxy and we never trust it as the client. Earlier
+    entries are only trusted if they ARE proxies (private IPs).
+
+    Returns ``"unknown"`` if everything fails so callers can
+    use the result as a stable rate-limit key without None-
+    checks.
+    """
+    # Walk the XFF chain right-to-left.
+    xff = request.headers.get("X-Forwarded-For")
+    if xff:
+        # XFF is comma-separated, leftmost = original client
+        # (per most proxy conventions). But we walk right-to-
+        # left because each proxy APPENDS its own observation,
+        # so the rightmost = nearest-to-us = always trusted-
+        # by-construction; the FIRST untrusted entry walking
+        # back is the client.
+        for raw in reversed([p.strip() for p in xff.split(",") if p.strip()]):
+            if not _is_trusted_proxy(raw):
+                return raw
+        # All entries were trusted (chain of only-proxies, no
+        # client) — extremely unusual but possible in
+        # service-mesh-internal traffic. Fall through to
+        # request.client.host.
+
+    # No XFF or all-trusted chain: socket-level peer.
+    if request.client:
+        return request.client.host
+    return "unknown"
+
+
+def resolve_client_ip_from_scope(scope: Scope) -> str:
+    """ASGI-Scope version of ``resolve_client_ip`` for middleware
+    that runs before FastAPI wraps the scope in a ``Request``.
+
+    The rate-limit ASGI middleware uses this to bucket anonymous
+    requests by real client IP rather than by the proxy's IP
+    (which previously let one attacker behind a shared XFF-only
+    proxy burn the global anonymous bucket for everyone).
+
+    Same trust model as ``resolve_client_ip``: walk
+    ``X-Forwarded-For`` right-to-left, peel trusted proxies,
+    return the first untrusted entry. Falls back to
+    ``scope["client"][0]`` (the socket peer), then ``"unknown"``.
+
+    Returns ``"unknown"`` if scope is malformed so callers can
+    always use the result as a rate-limit key.
+    """
+    # ASGI scope.headers is a list of (bytes, bytes) tuples.
+    xff_bytes: bytes | None = None
+    for name, value in scope.get("headers", []):
+        if name == b"x-forwarded-for":
+            xff_bytes = value
+            break
+    if xff_bytes:
+        try:
+            xff = xff_bytes.decode("ascii")
+        except UnicodeDecodeError:
+            xff = ""
+        if xff:
+            for raw in reversed([p.strip() for p in xff.split(",") if p.strip()]):
+                if not _is_trusted_proxy(raw):
+                    return raw
+
+    client = scope.get("client")
+    if client and len(client) >= 1:
+        return str(client[0])
+    return "unknown"
+
 
 # ── OTP verification rate limiting ──
 
@@ -39,7 +153,7 @@ async def check_otp_rate_limit(
         request: HTTP request (used to extract client IP).
         key_prefix: Distinguishes rate limit buckets (e.g. ``"login"``, ``"portal"``).
     """
-    client_ip = request.client.host if request.client else "unknown"
+    client_ip = resolve_client_ip(request)
     ip_hash = hmac.new(
         settings.SECRET.encode(), client_ip.encode(), hashlib.sha256
     ).hexdigest()[:16]

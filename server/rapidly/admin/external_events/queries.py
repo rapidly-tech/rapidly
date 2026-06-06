@@ -43,8 +43,8 @@ class AdminExternalEventRepository(Repository[ExternalEvent]):
                 escaped = escape_like(query)
                 stmt = stmt.where(
                     or_(
-                        ExternalEvent.external_id.ilike(f"%{escaped}%"),
-                        ExternalEvent.task_name.ilike(f"%{escaped}%"),
+                        ExternalEvent.external_id.ilike(f"%{escaped}%", escape="\\"),
+                        ExternalEvent.task_name.ilike(f"%{escaped}%", escape="\\"),
                     )
                 )
 

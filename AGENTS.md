@@ -21,7 +21,7 @@ A **Next.js** application orchestrated with **Turborepo** and **pnpm**:
 ### Supporting Directories
 
 - `dev/` — development scripts and tooling.
-- `docs/` — developer and user documentation, built with Mintlify (https://mintlify.com/docs/llms.txt).
+- Documentation is self-hosted in the web app: `clients/apps/web/src/app/(main)/(website)/(landing)/docs/` (MDX pages served at rapidly.tech/docs).
 
 ## File Sharing Domain
 
@@ -249,8 +249,16 @@ uv run pytest tests/path/to/test_file.py::TestClassName::test_method_name
 
 ## Documentation
 
-Project documentation lives in `docs/` and is built with Mintlify. To preview locally:
+Project documentation is self-hosted inside the web app — MDX pages under
+`clients/apps/web/src/app/(main)/(website)/(landing)/docs/`, served at
+rapidly.tech/docs. Preview with the regular web dev server:
 
 ```bash
-pnpm dev
+cd clients && pnpm dev   # http://127.0.0.1:3000/docs
+```
+
+After adding or editing docs pages, regenerate the search index:
+
+```bash
+cd clients/apps/web && pnpm docs:index
 ```
