@@ -42,22 +42,22 @@ class AuthSubjectFixture:
 
 
 CUSTOMER_AUTH_SUBJECT = AuthSubjectFixture(
-    subject="customer", scopes={Scope.customer_portal_read, Scope.customer_portal_write}
+    subject="customer", scopes={Scope.web_read, Scope.web_write}
 )
 
 MEMBER_OWNER_AUTH_SUBJECT = AuthSubjectFixture(
     subject="member_owner",
-    scopes={Scope.customer_portal_read, Scope.customer_portal_write},
+    scopes={Scope.web_read, Scope.web_write},
 )
 
 MEMBER_BILLING_MANAGER_AUTH_SUBJECT = AuthSubjectFixture(
     subject="member_billing_manager",
-    scopes={Scope.customer_portal_read, Scope.customer_portal_write},
+    scopes={Scope.web_read, Scope.web_write},
 )
 
 MEMBER_AUTH_SUBJECT = AuthSubjectFixture(
     subject="member",
-    scopes={Scope.customer_portal_read, Scope.customer_portal_write},
+    scopes={Scope.web_read, Scope.web_write},
 )
 
 

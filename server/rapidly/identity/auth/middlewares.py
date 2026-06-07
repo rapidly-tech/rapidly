@@ -127,13 +127,13 @@ async def _resolve_from_token(
     if token.startswith(MEMBER_SESSION_TOKEN_PREFIX):
         ms = await get_member_session(session, token)
         if ms:
-            return AuthPrincipal(ms.member, {Scope.customer_portal_write}, ms)
+            return AuthPrincipal(ms.member, {Scope.web_write}, ms)
         raise InvalidTokenError()
 
     if token.startswith(CUSTOMER_SESSION_TOKEN_PREFIX):
         cs = await get_customer_session(session, token)
         if cs:
-            return AuthPrincipal(cs.customer, {Scope.customer_portal_write}, cs)
+            return AuthPrincipal(cs.customer, {Scope.web_write}, cs)
         raise InvalidTokenError()
 
     # Unprefixed tokens: check OAT, then OAuth2.

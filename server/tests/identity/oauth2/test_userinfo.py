@@ -74,7 +74,7 @@ class TestUserClaims:
 
     def test_email_scope_alongside_other_scopes(self) -> None:
         sub = _user_sub()
-        info = generate_user_info(sub, scope="openid email customer_portal:read")
+        info = generate_user_info(sub, scope="openid email webhooks:read")
         assert info["email"] == sub[1].email
 
     def test_unverified_email_is_surfaced_as_false(self) -> None:
@@ -93,7 +93,7 @@ class TestWorkspaceClaims:
 
     def test_without_openid_scope_no_name(self) -> None:
         sub = _workspace_sub()
-        info = generate_user_info(sub, scope="customer_portal:read")
+        info = generate_user_info(sub, scope="webhooks:read")
         assert "name" not in info
 
     def test_workspace_does_not_leak_email(self) -> None:

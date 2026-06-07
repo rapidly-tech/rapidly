@@ -28,7 +28,6 @@ from rapidly.catalog.share.api import router as product_router
 
 # ── Customer lifecycle ──
 from rapidly.customers.customer.api import router as customer_router
-from rapidly.customers.customer_portal.api import router as customer_portal_router
 from rapidly.customers.customer_session.api import router as customer_session_router
 from rapidly.identity.auth.api import router as auth_router
 from rapidly.identity.login_code.api import router as login_code_router
@@ -125,8 +124,6 @@ router.include_router(collab_router)
 router.include_router(customer_router)
 # customer auth sessions
 router.include_router(customer_session_router)
-# self-service customer portal
-router.include_router(customer_portal_router)
 # email address changes
 router.include_router(email_update_router)
 # payment processing
