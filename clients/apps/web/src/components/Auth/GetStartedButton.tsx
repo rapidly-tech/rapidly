@@ -2,9 +2,8 @@
 
 import { usePostHog } from '@/hooks/posthog'
 import { Icon } from '@iconify/react'
-import { schemas } from '@rapidly-tech/client'
 import Button from '@rapidly-tech/ui/components/forms/Button'
-import { ComponentProps, FormEvent, useCallback, useMemo } from 'react'
+import { ComponentProps, FormEvent, useCallback } from 'react'
 import { twMerge } from 'tailwind-merge'
 import { Modal } from '../Modal'
 import { useModal } from '../Modal/useModal'
@@ -13,18 +12,21 @@ import { AuthModal } from './AuthModal'
 interface GetStartedButtonProps extends ComponentProps<typeof Button> {
   text?: string
   orgSlug?: string
-  storefrontOrg?: schemas['CustomerWorkspace']
 }
 
 /**
  * CTA button that opens the signup modal on click.
- * Optionally tracks a storefront attribution if provided.
+ *
+ * Previously also tracked a ``storefrontOrg`` attribution so signups
+ * from a workspace's public storefront were tagged with the source
+ * org. That surface was removed in M1.3 (no public workspace
+ * profiles in the engineering suite); the attribution path went with
+ * it.
  */
 const GetStartedButton = ({
   text: _text,
   wrapperClassNames,
   orgSlug: slug,
-  storefrontOrg,
   size = 'lg',
   ...props
 }: GetStartedButtonProps) => {
@@ -32,15 +34,10 @@ const GetStartedButton = ({
   const { isShown: isModalShown, hide: hideModal, show: showModal } = useModal()
   const text = _text || 'Get Started'
 
-  const attribution = useMemo(() => {
-    if (!storefrontOrg?.id) return undefined
-    return { from_storefront: storefrontOrg.id as string }
-  }, [storefrontOrg])
-
   const handleClick = useCallback(() => {
-    posthog.capture('global:user:signup:click', attribution)
+    posthog.capture('global:user:signup:click')
     showModal()
-  }, [attribution, posthog, showModal])
+  }, [posthog, showModal])
 
   const handleSubmit = useCallback(
     (e: FormEvent) => {
@@ -80,7 +77,6 @@ const GetStartedButton = ({
             returnParams={slug ? { slug, auto: 'true' } : {}}
             signup={{
               intent: 'creator',
-              ...attribution,
             }}
           />
         }

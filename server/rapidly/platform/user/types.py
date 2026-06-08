@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from fastapi import Depends
 from pydantic import UUID4, EmailStr, Field
 
-from rapidly.core.types import AuditableSchema, Schema, UUID4ToStr
+from rapidly.core.types import AuditableSchema, Schema
 from rapidly.identity.auth.scope import Scope
 from rapidly.models.user import IdentityVerificationStatus, OAuthPlatform
 
@@ -56,9 +56,6 @@ class UserSignupAttribution(Schema):
     """Marketing attribution data captured at signup time."""
 
     intent: _SIGNUP_INTENTS | None = None
-
-    # Source tracking
-    from_storefront: UUID4ToStr | None = None
 
     # Referrer
     path: str | None = None

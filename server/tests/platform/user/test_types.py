@@ -38,7 +38,6 @@ class TestUserSignupAttributionIsFullyOptional:
         # not 422.
         attr = UserSignupAttribution.model_validate({})
         assert attr.intent is None
-        assert attr.from_storefront is None
         assert attr.path is None
         assert attr.host is None
         assert attr.utm_source is None
