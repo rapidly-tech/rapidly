@@ -7,7 +7,7 @@ from typing import Annotated, Literal
 from fastapi import Depends
 from pydantic import UUID4, EmailStr, Field
 
-from rapidly.core.types import AuditableSchema, Schema, UUID4ToStr
+from rapidly.core.types import AuditableSchema, Schema
 from rapidly.identity.auth.scope import Scope
 from rapidly.models.user import IdentityVerificationStatus, OAuthPlatform
 
