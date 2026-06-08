@@ -1,5 +1,5 @@
 /**
- * Registry of the 2 public product chambers (Secret / Collab). Used by
+ * Registry of the 2 public product chambers (Secret / Markup). Used by
  * the chamber-strip nav on the public landing and by per-chamber page
  * metadata.
  *
@@ -12,10 +12,13 @@
  *   engineering use cases. Removed entirely (M1.1 in M1_EXECUTION.md).
  *
  * What remains here is intentionally small — Secret as a no-account
- * one-time-message surface, Collab as the kept whiteboard chamber
- * (which is renamed to Markup in M1.4). Both stay because they map
- * cleanly to engineering workflows (a quick share with a consultant;
- * a live drawing markup session).
+ * one-time-message surface, Markup as the engineering-markup chamber
+ * (renamed from Collab in M1.4; internal identifiers in
+ * sharing/markup/ still use the historical ``collab`` prefix and the
+ * Redis key namespace ``file-sharing:collab:*`` stays the same to
+ * preserve in-flight session compatibility). Both stay because they
+ * map cleanly to engineering workflows (a quick share with a
+ * consultant; a live drawing markup session).
  *
  * "live" chambers link to a working route. "soon" chambers render with a
  * muted treatment and surface a "coming soon" pill so visitors learn what
@@ -50,11 +53,11 @@ export const CHAMBERS: readonly Chamber[] = [
     tagline: 'Share a one-time secret that self-destructs on open.',
   },
   {
-    id: 'collab',
-    label: 'Collab',
+    id: 'markup',
+    label: 'Markup',
     icon: 'solar:users-group-rounded-linear',
-    href: '/collab',
+    href: '/markup',
     status: 'live',
-    tagline: 'Realtime docs and whiteboards, locally-first.',
+    tagline: 'Realtime engineering markup on PDFs, images, and models.',
   },
 ]
