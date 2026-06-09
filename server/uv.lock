@@ -851,7 +851,7 @@ wheels = [
 
 [[package]]
 name = "githubkit"
-version = "0.14.3"
+version = "0.15.5"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "anyio" },
@@ -860,9 +860,9 @@ dependencies = [
     { name = "pydantic" },
     { name = "typing-extensions" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/d3/1f/4e2cf1520e502728f4e86e7a5bfeda59e33ae99e7d1c39856536fc44b84f/githubkit-0.14.3.tar.gz", hash = "sha256:e90bf2e19fa2bef49dfb163392b57dc081a2522bdf1f500e71d447151ffa2015", size = 2648900, upload-time = "2026-01-21T12:54:32.286Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/ff/ac/857b78d82bf95a91413322614d6751db2f55ab214b24239f31729d8821e6/githubkit-0.15.5.tar.gz", hash = "sha256:5ee487b77d3f4332c73fe5dbc69f932d8012ff0bb1aa9c544c238aef74ef1ae0", size = 5550333, upload-time = "2026-05-01T08:57:12.016Z" }
 wheels = [
-    { url = "https://files.pythonhosted.org/packages/96/8a/9381b67278edd4310fcd15fe4739bf387835b695d3bbdd6d93144ee53395/githubkit-0.14.3-py3-none-any.whl", hash = "sha256:d72e42cba43c826ebcfb08e4381fc9f966387404743d217a0259d84398163853", size = 6452979, upload-time = "2026-01-21T12:54:33.761Z" },
+    { url = "https://files.pythonhosted.org/packages/76/ed/d08de6b425a6cce4554ea70a559e03d545058881b5b1d2d0a193d886d3a8/githubkit-0.15.5-py3-none-any.whl", hash = "sha256:69934fdce7e4f197f24d85ea91d808ef245f4463bb982e4c19ac32d827bc7a40", size = 13436716, upload-time = "2026-05-01T08:57:07.644Z" },
 ]
 
 [[package]]
@@ -2385,7 +2385,7 @@ requires-dist = [
     { name = "email-validator", specifier = ">=2.1.0.post1" },
     { name = "exponent-server-sdk", specifier = ">=2.1.0" },
     { name = "fastapi", specifier = ">=0.120.2" },
-    { name = "githubkit", specifier = "==0.14.3" },
+    { name = "githubkit", specifier = "==0.15.5" },
     { name = "greenlet", specifier = ">=3.1.1" },
     { name = "httpx", specifier = ">=0.23.0" },
     { name = "httpx-oauth", specifier = ">=0.16.0" },
@@ -2414,7 +2414,7 @@ requires-dist = [
     { name = "sqlalchemy-utils", specifier = ">=0.41.1" },
     { name = "sse-starlette", specifier = ">=2.0.0" },
     { name = "standardwebhooks", specifier = ">=1.0.0" },
-    { name = "stripe", specifier = ">=14,<15" },
+    { name = "stripe", specifier = ">=14,<16" },
     { name = "structlog", specifier = ">=24.4.0" },
     { name = "tagflow", specifier = ">=0.7.0" },
     { name = "taskipy", specifier = ">=1.10.3" },
