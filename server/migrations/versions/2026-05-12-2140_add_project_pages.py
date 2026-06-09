@@ -6,6 +6,8 @@ Create Date: 2026-05-12 21:40:06.089569
 
 """
 
+from enum import StrEnum
+
 import sqlalchemy as sa
 from alembic import op
 from alembic_utils.pg_grant_table import PGGrantTable
@@ -13,7 +15,14 @@ from sqlalchemy import text as sql_text
 from sqlalchemy.dialects import postgresql
 
 from rapidly.core.extensions.sqlalchemy.types import StringEnum
-from rapidly.models.project_page import ProjectPageAccess
+
+
+class ProjectPageAccess(StrEnum):
+    """Inlined for M1.5 post-deletion compatibility."""
+
+    private = "private"
+    public = "public"
+
 
 # Rapidly Custom Imports
 
