@@ -26,12 +26,25 @@ Create Date: 2026-05-31 17:00:00.000000
 
 """
 
+from enum import StrEnum
+
 import sqlalchemy as sa
 from alembic import op
 from alembic_utils.pg_grant_table import PGGrantTable
 
 from rapidly.core.extensions.sqlalchemy.types import StringEnum
-from rapidly.models.user_favorite import UserFavoriteEntityType
+
+
+# ``UserFavoriteEntityType`` and its model were removed in M1.5 along
+# with the user_favorites table. This migration still references the
+# enum it originally created, so keep a local copy — migrations must
+# stay loadable after the model code is deleted.
+class UserFavoriteEntityType(StrEnum):
+    project = "project"
+    cycle = "cycle"
+    module = "module"
+    page = "page"
+
 
 # revision identifiers, used by Alembic.
 revision = "a3f6d9e21b48"
