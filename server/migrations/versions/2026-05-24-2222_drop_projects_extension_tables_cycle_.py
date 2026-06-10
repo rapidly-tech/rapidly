@@ -21,7 +21,7 @@ from alembic import op
 
 # revision identifiers, used by Alembic.
 revision = "e5da4a23c32a"
-down_revision = "27ed2e68876f"
+down_revision = "b4e7c1d92a85"
 branch_labels: tuple[str] | None = None
 depends_on: tuple[str] | None = None
 
