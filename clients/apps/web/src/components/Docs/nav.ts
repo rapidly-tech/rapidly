@@ -29,7 +29,6 @@ export const docsNav: DocsNavSection[] = [
         title: 'Customer Management',
         href: '/docs/features/customer-management',
       },
-      { title: 'Customer Portal', href: '/docs/features/customer-portal' },
     ],
   },
   {
@@ -95,7 +94,6 @@ export const docsNav: DocsNavSection[] = [
     items: [
       { title: 'Introduction', href: '/docs/api-reference/introduction' },
       { title: 'Customers', href: '/docs/api-reference/customers' },
-      { title: 'Customer Portal', href: '/docs/api-reference/customer-portal' },
       { title: 'Shares', href: '/docs/api-reference/shares' },
       { title: 'Files', href: '/docs/api-reference/files' },
       { title: 'Events', href: '/docs/api-reference/events' },

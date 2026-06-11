@@ -1,14 +1,13 @@
 export const metadata = {
   title: 'API Overview | Rapidly Docs',
   description:
-    'Base URLs, authentication, pagination, rate limits, and the difference between the Core API and the Customer Portal API',
+    'Base URLs, authentication, pagination, and rate limits for the Rapidly API',
 }
 
 # API Overview
 
 <p className="docs-lead">
-  Base URLs, authentication, pagination, rate limits, and the difference between
-  the Core API and the Customer Portal API
+  Base URLs, authentication, pagination, and rate limits for the Rapidly API
 </p>
 
 <CardGroup cols={2}>
@@ -17,13 +16,6 @@ export const metadata = {
   </Card>
   <Card title="Auth (Workspace)" icon="key" href="/integrate/oat">
     Use a **Workspace Access Token (OAT)** in the `Authorization: Bearer` header
-  </Card>
-  <Card
-    title="Auth (Customer Portal)"
-    icon="user-lock"
-    href="/api-reference/customer-portal/sessions/create"
-  >
-    Use a **Customer Access Token** created via `/api/customer-sessions/`
   </Card>
 </CardGroup>
 
@@ -53,40 +45,12 @@ Authorization: Bearer rapidly_oat_xxxxxxxxxxxxxxxxx
   will be revoked automatically by our secret scanning integrations.
 </Warning>
 
-### Customer Access Tokens
-
-Do **not** use OATs in the browser. For customer-facing flows, [generate a **Customer Session**](/docs/api-reference/customer-portal/sessions/create) server-side, then use the returned **customer access token** with the **Customer Portal API** to let a signed-in customer view their own data.
-
-## Core API vs Customer Portal API
-
-| Aspect               | Core API                                                   | Customer Portal API                            |
-| -------------------- | ---------------------------------------------------------- | ---------------------------------------------- |
-| Audience             | Your server / backend                                      | One of your customer                           |
-| Auth Type            | Workspace Access Token (OAT)                               | Customer Access Token                          |
-| Scope                | Full workspace resources (shares, customers, files)        | Only the authenticated customer’s data         |
-| Typical Use          | Admin dashboards, internal tools, automation, provisioning | Building a custom customer portal or gated app |
-| Token Creation       | Via dashboard (manual)                                     | Via `/api/customer-sessions/` (server-side)    |
-| Sensitive Operations | Yes (create/update shares, manage customers, etc.)         | No (read/update only what the customer owns)   |
-
-<Note>
-  The Customer Portal API is a *restricted* surface designed for safe exposure
-  in user-facing contexts (after exchanging a session). It cannot perform
-  privileged workspace-level mutations like creating shares or managing other
-  customers.
-</Note>
-
 ## Quick Examples
 
 <CodeGroup>
-```bash curl (Production - Core API)
+```bash curl (Production)
 curl https://api.rapidly.tech/api/shares/ \
   -H "Authorization: Bearer $RAPIDLY_OAT" \
-  -H "Accept: application/json"
-```
-
-```bash curl (Customer Portal API)
-curl https://api.rapidly.tech/api/customer-portal/ \
-  -H "Authorization: Bearer $RAPIDLY_CUSTOMER_TOKEN" \
   -H "Accept: application/json"
 ```
 

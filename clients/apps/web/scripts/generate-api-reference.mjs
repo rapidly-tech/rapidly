@@ -20,7 +20,6 @@ const outFile = join(root, 'src/generated/api-reference.json')
 // Public surface only — matches the coverage of the previous docs site.
 const GROUPS = [
   { tag: 'customers', slug: 'customers', title: 'Customers' },
-  { tag: 'customer_portal', slug: 'customer-portal', title: 'Customer Portal' },
   { tag: 'shares', slug: 'shares', title: 'Shares' },
   { tag: 'files', slug: 'files', title: 'Files' },
   { tag: 'events', slug: 'events', title: 'Events' },
