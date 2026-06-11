@@ -3,7 +3,7 @@
   {
    "href": "/docs/api-reference/introduction",
    "title": "API Overview",
-   "description": "Base URLs, authentication, pagination, rate limits, and the difference between the Core API and the Customer Portal API",
+   "description": "Base URLs, authentication, pagination, and rate limits for the Rapidly API",
    "section": "API Reference",
    "headings": [
     {
@@ -20,16 +20,6 @@
      "id": "workspace-access-tokens-oat",
      "text": "Workspace Access Tokens (OAT)",
      "level": 3
-    },
-    {
-     "id": "customer-access-tokens",
-     "text": "Customer Access Tokens",
-     "level": 3
-    },
-    {
-     "id": "core-api-vs-customer-portal-api",
-     "text": "Core API vs Customer Portal API",
-     "level": 2
     },
     {
      "id": "quick-examples",
@@ -67,7 +57,7 @@
      "level": 2
     }
    ],
-   "body": "API Overview Base URLs, authentication, pagination, rate limits, and the difference between the Core API and the Customer Portal API https://api.rapidly.tech/api Use a Workspace Access Token (OAT) in the Authorization: Bearer header Use a Customer Access Token created via /api/customer-sessions/ Base URLs | Environment | Base URL | Purpose | | ----------- | ------------------------------ | ------------------------------ | | Production | https://api.rapidly.tech/api | Real customers & live payments | Authentication Workspace Access Tokens (OAT) Use an OAT to act on behalf of your workspace (manage shares, customers, etc.). Authorization: Bearer rapidly oat xxxxxxxxxxxxxxxxx Create OATs in your workspace settings. See: Workspace Access Tokens Never expose an OAT in client-side code, public repos, or logs. If leaked, it will be revoked automatically by our secret scanning integrations. Customer Access Tokens Do not use OATs in the browser. For customer-facing flows, generate a Customer Session server-side, then use the returned customer access token with the Customer Portal API to let a signed-in customer view their own data. Core API vs Customer Portal API | Aspect | Core API | Customer Portal API | | -------------------- | ---------------------------------------------------------- | ---------------------------------------------- | | Audience | Your server / backend | One of your customer | | Auth Type | Workspace Access Token (OAT) | Customer Access Token | | Scope | Full workspace resources (shares, customers, files) | Only the authenticated customer’s data | | Typical Use | Admin dashboards, internal tools, automation, provisioning | Building a custom customer portal or gated app | | Token Creation | Via dashboard (manual) | Via /api/customer-sessions/ (server-side) | | Sensitive Operations | Yes (create/update shares, manage customers, etc.) | No (read/update only what the customer owns) | The Customer Portal API is a restricted surface designed for safe exposure in user-facing contexts (after exchanging a session). It cannot perform privileged workspace-level mutations like creating shares or managing other customers. Quick Examples curl https://api.rapidly.tech/api/shares/ \\ -H \"Authorization: Bearer $RAPIDLY OAT\" \\ -H \"Accept: application/json\" curl https://api.rapidly.tech/api/customer-portal/ \\ -H \"Authorization: Bearer $RAPIDLY CUSTOMER TOKEN\" \\ -H \"Accept: application/json\" Using the API Directly You can call the Rapidly API directly using fetch (TypeScript) or httpx (Python). Use the appropriate base URL for your environment: const response = await fetch(\"https://api.rapidly.tech/api/shares/\", { headers: { Authorization: Bearer ${process.env.RAPIDLY ACCESS TOKEN!} , Accept: \"application/json\", }, }); const data = await response.json(); import os import httpx client = httpx.Client( base url=\"https://api.rapidly.tech\", headers={\"Authorization\": f\"Bearer {os.environ['RAPIDLY ACCESS TOKEN']}\"}, ) response = client.get(\"/api/shares/\") data = response.json() Pagination List endpoints in the Rapidly API support pagination to help you efficiently retrieve large datasets. Use the page and limit query parameters to control pagination. Query Parameters | Parameter | Type | Default | Max | Description | | --------- | ------- | ------- | ----- | ------------------------------------------------ | | page | integer | 1 | - | Page number, starting from 1 | | limit | integer | 10 | 100 | Number of items to return per page (window size) | The page parameter works as a window offset. For example, page=2&limit=10 means the API will skip the first 10 elements and return the next 10. Response Format All paginated responses include a pagination object with metadata about the current page and total results: | Field | Type | Description | | ------------- | ------- | ---------------------------------------------------------------- | | total count | integer | Total number of items matching your query across all pages | | max page | integer | Total number of pages available, given the current limit value | Example Let's say you want to fetch shares with a limit of 100 items per page: curl https://api.rapidly.tech/api/shares/?page=1&limit=100 \\ -H \"Authorization: Bearer $RAPIDLY OAT\" \\ -H \"Accept: application/json\" { \"items\": [ { \"id\": \"...\", \"name\": \"Product 1\", ... }, ... ], \"pagination\": { \"total count\": 250, \"max page\": 3 } } In this example: - total count=250 indicates there are 250 total shares - limit=100 means each page contains up to 100 shares - max page=3 means you need to make 3 requests to retrieve all shares (pages 1, 2, and 3) To retrieve all pages, increment the page parameter from 1 to max page . Our SDKs provide built-in pagination helpers to automatically iterate through all pages. Rate Limits Rapidly API has rate limits to ensure fair usage and maintain performance. The limits are as follows: - Default : 500 requests per minute - Restricted endpoints (e.g., login, token exchange): 60 requests per minute If you exceed the rate limit, you will receive a 429 Too Many Requests response. The response will include a Retry-After header indicating how long you should wait before making another request. Workspaces requiring higher rate limits for production workloads may contact our support team to discuss elevated limits."
+   "body": "API Overview Base URLs, authentication, pagination, and rate limits for the Rapidly API https://api.rapidly.tech/api Use a Workspace Access Token (OAT) in the Authorization: Bearer header Base URLs | Environment | Base URL | Purpose | | ----------- | ------------------------------ | ------------------------------ | | Production | https://api.rapidly.tech/api | Real customers & live payments | Authentication Workspace Access Tokens (OAT) Use an OAT to act on behalf of your workspace (manage shares, customers, etc.). Authorization: Bearer rapidly oat xxxxxxxxxxxxxxxxx Create OATs in your workspace settings. See: Workspace Access Tokens Never expose an OAT in client-side code, public repos, or logs. If leaked, it will be revoked automatically by our secret scanning integrations. Quick Examples curl https://api.rapidly.tech/api/shares/ \\ -H \"Authorization: Bearer $RAPIDLY OAT\" \\ -H \"Accept: application/json\" Using the API Directly You can call the Rapidly API directly using fetch (TypeScript) or httpx (Python). Use the appropriate base URL for your environment: const response = await fetch(\"https://api.rapidly.tech/api/shares/\", { headers: { Authorization: Bearer ${process.env.RAPIDLY ACCESS TOKEN!} , Accept: \"application/json\", }, }); const data = await response.json(); import os import httpx client = httpx.Client( base url=\"https://api.rapidly.tech\", headers={\"Authorization\": f\"Bearer {os.environ['RAPIDLY ACCESS TOKEN']}\"}, ) response = client.get(\"/api/shares/\") data = response.json() Pagination List endpoints in the Rapidly API support pagination to help you efficiently retrieve large datasets. Use the page and limit query parameters to control pagination. Query Parameters | Parameter | Type | Default | Max | Description | | --------- | ------- | ------- | ----- | ------------------------------------------------ | | page | integer | 1 | - | Page number, starting from 1 | | limit | integer | 10 | 100 | Number of items to return per page (window size) | The page parameter works as a window offset. For example, page=2&limit=10 means the API will skip the first 10 elements and return the next 10. Response Format All paginated responses include a pagination object with metadata about the current page and total results: | Field | Type | Description | | ------------- | ------- | ---------------------------------------------------------------- | | total count | integer | Total number of items matching your query across all pages | | max page | integer | Total number of pages available, given the current limit value | Example Let's say you want to fetch shares with a limit of 100 items per page: curl https://api.rapidly.tech/api/shares/?page=1&limit=100 \\ -H \"Authorization: Bearer $RAPIDLY OAT\" \\ -H \"Accept: application/json\" { \"items\": [ { \"id\": \"...\", \"name\": \"Product 1\", ... }, ... ], \"pagination\": { \"total count\": 250, \"max page\": 3 } } In this example: - total count=250 indicates there are 250 total shares - limit=100 means each page contains up to 100 shares - max page=3 means you need to make 3 requests to retrieve all shares (pages 1, 2, and 3) To retrieve all pages, increment the page parameter from 1 to max page . Our SDKs provide built-in pagination helpers to automatically iterate through all pages. Rate Limits Rapidly API has rate limits to ensure fair usage and maintain performance. The limits are as follows: - Default : 500 requests per minute - Restricted endpoints (e.g., login, token exchange): 60 requests per minute If you exceed the rate limit, you will receive a 429 Too Many Requests response. The response will include a Retry-After header indicating how long you should wait before making another request. Workspaces requiring higher rate limits for production workloads may contact our support team to discuss elevated limits."
   },
   {
    "href": "/docs/changelog/api",
@@ -228,35 +218,6 @@
     }
    ],
    "body": "Customer Management Get insights on your customers and sales Managing Customers Rapidly has a built-in feature to view and manage your Customers. Everyone who has ever purchased something from you will be recorded as a Customer to your Workspace. You’re able to see past purchases and file share transactions, as well as some additional metrics. Customer Types Customers can be one of two types: - Individual -- A single user (the default). - Team -- A customer that can have multiple members with different roles. Useful for seat-based pricing. Once upgraded to a team, a customer cannot be downgraded back to individual. Short ID Each customer is assigned an 8-character base-26 short ID for easy reference and display in the dashboard. Payment Methods & Billing Customers can have associated payment methods and a billing address on file, managed through the API or the customer portal. OAuth Account Linking Customers can link third-party accounts via the customer portal: - Microsoft -- Link a Microsoft account for identity verification. - Discord -- Link a Discord account for community integration. External ID Quite often, you'll have your own users management system in your application, where your customer already have an ID. To ease reconciliation between Rapidly and your system, we have a dedicated external id field on Customers. It's unique across your workspace and can't be changed once set. Metadata You may set additional metadata on Customers. This can be very useful to store additional data about your customer you want to be available through our API and webhooks. It can be set through the dashboard or through the API."
-  },
-  {
-   "href": "/docs/features/customer-portal",
-   "title": "Customer Portal",
-   "description": "A self-service portal where customers view file share sessions, downloads, and payments",
-   "section": "Features",
-   "headings": [
-    {
-     "id": "portal-url",
-     "text": "Portal URL",
-     "level": 2
-    },
-    {
-     "id": "what-customers-can-see",
-     "text": "What Customers Can See",
-     "level": 2
-    },
-    {
-     "id": "pre-authenticated-session-links",
-     "text": "Pre-Authenticated Session Links",
-     "level": 2
-    },
-    {
-     "id": "session-options",
-     "text": "Session Options",
-     "level": 3
-    }
-   ],
-   "body": "Customer Portal A self-service portal where customers view file share sessions, downloads, and payments The Customer Portal is where your customers can view their file sharing sessions, track downloads, and review payments. Each workspace gets a portal at its own URL. Portal URL The customer portal is available at: https://rapidly.tech/{workspace-slug}/portal Customers authenticate by entering the email address associated with their account. Rapidly sends a one-time code to that email, which the customer exchanges for a session token. Rate limiting is applied to prevent abuse. If a customer’s email is associated with multiple workspaces, they will be prompted to select which one to sign into. What Customers Can See Once authenticated, customers have access to: - File sharing sessions -- A list of all their file sharing sessions, with details like status, file size, and download count. - Downloads -- Per-session download history. - Payments -- Payment records for paid file shares. - Profile -- View and update their customer profile. - Real-time updates -- The portal streams live updates via SSE, so new sessions and payments appear without refreshing. Pre-Authenticated Session Links You can create a pre-authenticated portal link from your backend so customers skip the email login flow. Call POST /api/customer-sessions/ with the customer’s ID to receive a customer portal url you can redirect them to. async function run() { const response = await fetch( 'https://api.rapidly.tech/api/customer-sessions/', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: Bearer ${process.env['RAPIDLY ACCESS TOKEN'] ?? ''} , }, body: JSON.stringify({ customer id: ' ', }), }, ) const result = await response.json() redirect(result.customer portal url) } run() You can also create sessions using external customer id if you track customers by your own system’s IDs. Session Options When creating a session, you can optionally pass: - return url -- Shows a back button in the portal that links to this URL. - member id or external member id -- For workspaces with member model enabled, create a member-scoped session instead of a customer-level session."
   },
   {
    "href": "/docs/features/file-sharing",
@@ -1090,138 +1051,9 @@
      "id": "get-customer-state-by-external-id",
      "text": "Get Customer State by External ID",
      "level": 2
-    },
-    {
-     "id": "get-customer",
-     "text": "Get Customer",
-     "level": 2
-    },
-    {
-     "id": "update-customer",
-     "text": "Update Customer",
-     "level": 2
     }
    ],
-   "body": "List Customers GET /api/customers/ List customers.\n\n**Scopes**: `customers:read` `customers:write` Create Customer POST /api/customers/ Create a customer.\n\n**Scopes**: `customers:write` Export Customers GET /api/customers/export Export customers as a CSV file.\n\n**Scopes**: `customers:read` `customers:write` Get Customer GET /api/customers/{id} Get a customer by ID.\n\n**Scopes**: `customers:read` `customers:write` Update Customer PATCH /api/customers/{id} Update a customer.\n\n**Scopes**: `customers:write` Delete Customer DELETE /api/customers/{id} Delete a customer.\n\nThis action cannot be undone and will immediately:\n- Soft-delete the customer record\n- Clear any `external_id`\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write` Get Customer by External ID GET /api/customers/external/{external_id} Get a customer by external ID.\n\n**Scopes**: `customers:read` `customers:write` Update Customer by External ID PATCH /api/customers/external/{external_id} Update a customer by external ID.\n\n**Scopes**: `customers:write` Delete Customer by External ID DELETE /api/customers/external/{external_id} Delete a customer by external ID.\n\nSoft-deletes the customer record.\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write` Get Customer State GET /api/customers/{id}/state Get a customer state by ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write` Get Customer State by External ID GET /api/customers/external/{external_id}/state Get a customer state by external ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write` Get Customer GET /api/customer-portal/customers/me Get authenticated customer.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Update Customer PATCH /api/customer-portal/customers/me Update authenticated customer."
-  },
-  {
-   "href": "/docs/api-reference/customer-portal",
-   "title": "Customer Portal API",
-   "description": "REST API reference for Customer Portal",
-   "section": "API Reference",
-   "headings": [
-    {
-     "id": "get-customer",
-     "text": "Get Customer",
-     "level": 2
-    },
-    {
-     "id": "update-customer",
-     "text": "Update Customer",
-     "level": 2
-    },
-    {
-     "id": "get-authenticated-portal-user",
-     "text": "Get Authenticated Portal User",
-     "level": 2
-    },
-    {
-     "id": "introspect-customer-session",
-     "text": "Introspect Customer Session",
-     "level": 2
-    },
-    {
-     "id": "customer-portalcustomer-sessionrequest",
-     "text": "Customer Portal.Customer Session.Request",
-     "level": 2
-    },
-    {
-     "id": "customer-portalcustomer-sessionauthenticate",
-     "text": "Customer Portal.Customer Session.Authenticate",
-     "level": 2
-    },
-    {
-     "id": "list-file-sharing-sessions",
-     "text": "List File Sharing Sessions",
-     "level": 2
-    },
-    {
-     "id": "get-file-sharing-session",
-     "text": "Get File Sharing Session",
-     "level": 2
-    },
-    {
-     "id": "list-session-downloads",
-     "text": "List Session Downloads",
-     "level": 2
-    },
-    {
-     "id": "list-session-payments",
-     "text": "List Session Payments",
-     "level": 2
-    },
-    {
-     "id": "list-members",
-     "text": "List Members",
-     "level": 2
-    },
-    {
-     "id": "add-member",
-     "text": "Add Member",
-     "level": 2
-    },
-    {
-     "id": "update-member",
-     "text": "Update Member",
-     "level": 2
-    },
-    {
-     "id": "remove-member",
-     "text": "Remove Member",
-     "level": 2
-    },
-    {
-     "id": "customer-portaloauth-accountsauthorize",
-     "text": "Customer Portal.Oauth Accounts.Authorize",
-     "level": 2
-    },
-    {
-     "id": "customer-portaloauth-accountscallback",
-     "text": "Customer Portal.Oauth Accounts.Callback",
-     "level": 2
-    },
-    {
-     "id": "list-payment-methods",
-     "text": "List Payment Methods",
-     "level": 2
-    },
-    {
-     "id": "add-payment-method",
-     "text": "Add Payment Method",
-     "level": 2
-    },
-    {
-     "id": "confirm-payment-method",
-     "text": "Confirm Payment Method",
-     "level": 2
-    },
-    {
-     "id": "delete-payment-method",
-     "text": "Delete Payment Method",
-     "level": 2
-    },
-    {
-     "id": "set-default-payment-method",
-     "text": "Set Default Payment Method",
-     "level": 2
-    },
-    {
-     "id": "get-workspace",
-     "text": "Get Workspace",
-     "level": 2
-    }
-   ],
-   "body": "Get Customer GET /api/customer-portal/customers/me Get authenticated customer.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Update Customer PATCH /api/customer-portal/customers/me Update authenticated customer. Get Authenticated Portal User GET /api/customer-portal/customer-session/user Return info about the currently authenticated portal user.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Introspect Customer Session GET /api/customer-portal/customer-session/introspect Introspect the current session and return its information.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Customer Portal.Customer Session.Request POST /api/customer-portal/customer-session/request  Customer Portal.Customer Session.Authenticate POST /api/customer-portal/customer-session/authenticate  List File Sharing Sessions GET /api/customer-portal/file-sharing/sessions List file sharing sessions for the authenticated member's workspace.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` Get File Sharing Session GET /api/customer-portal/file-sharing/sessions/{id} Get a file sharing session by ID.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Session Downloads GET /api/customer-portal/file-sharing/sessions/{id}/downloads List downloads for a file sharing session.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Session Payments GET /api/customer-portal/file-sharing/sessions/{id}/payments List payments for a file sharing session.\n\n**Scopes**: `customer_portal:read` `customer_portal:write` List Members GET /api/customer-portal/members List all members of the customer's team.\n\nOnly available to owners and billing managers of team customers. Add Member POST /api/customer-portal/members Add a new member to the customer's team.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot add a member with the owner role (there must be exactly one owner)\n- If a member with this email already exists, the existing member is returned Update Member PATCH /api/customer-portal/members/{id} Update a member's role.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot modify your own role (to prevent self-demotion)\n- Customer must have exactly one owner at all times Remove Member DELETE /api/customer-portal/members/{id} Remove a member from the team.\n\nOnly available to owners and billing managers of team customers.\n\nRules:\n- Cannot remove yourself\n- Cannot remove the only owner Customer Portal.Oauth Accounts.Authorize GET /api/customer-portal/oauth-accounts/authorize **Scopes**: `customer_portal:write` Customer Portal.Oauth Accounts.Callback GET /api/customer-portal/oauth-accounts/callback **Scopes**: `customer_portal:write` List Payment Methods GET /api/customer-portal/payment-methods List all saved payment methods for the authenticated customer. Add Payment Method POST /api/customer-portal/payment-methods Add a new payment method via Stripe SetupIntent.\n\nReturns ``succeeded`` with the saved payment method, or\n``requires_action`` with a ``client_secret`` for 3D Secure. Confirm Payment Method POST /api/customer-portal/payment-methods/confirm Complete the add-card flow after 3D Secure verification. Delete Payment Method DELETE /api/customer-portal/payment-methods/{id} Remove a saved payment method. Set Default Payment Method POST /api/customer-portal/payment-methods/{id}/default Set a payment method as the customer's default. Get Workspace GET /api/customer-portal/workspaces/{slug} Get a customer portal's workspace by slug."
+   "body": "List Customers GET /api/customers/ List customers.\n\n**Scopes**: `customers:read` `customers:write` Create Customer POST /api/customers/ Create a customer.\n\n**Scopes**: `customers:write` Export Customers GET /api/customers/export Export customers as a CSV file.\n\n**Scopes**: `customers:read` `customers:write` Get Customer GET /api/customers/{id} Get a customer by ID.\n\n**Scopes**: `customers:read` `customers:write` Update Customer PATCH /api/customers/{id} Update a customer.\n\n**Scopes**: `customers:write` Delete Customer DELETE /api/customers/{id} Delete a customer.\n\nThis action cannot be undone and will immediately:\n- Soft-delete the customer record\n- Clear any `external_id`\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write` Get Customer by External ID GET /api/customers/external/{external_id} Get a customer by external ID.\n\n**Scopes**: `customers:read` `customers:write` Update Customer by External ID PATCH /api/customers/external/{external_id} Update a customer by external ID.\n\n**Scopes**: `customers:write` Delete Customer by External ID DELETE /api/customers/external/{external_id} Delete a customer by external ID.\n\nSoft-deletes the customer record.\n\nSet `anonymize=true` to also anonymize PII for GDPR compliance.\n\n**Scopes**: `customers:write` Get Customer State GET /api/customers/{id}/state Get a customer state by ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write` Get Customer State by External ID GET /api/customers/external/{external_id}/state Get a customer state by external ID.\n\nThe customer state includes information about\nthe customer's active meters.\n\nIt's the ideal endpoint to use when you need to get a full overview\nof a customer's status.\n\n**Scopes**: `customers:read` `customers:write`"
   },
   {
    "href": "/docs/api-reference/shares",
@@ -1473,14 +1305,9 @@
      "id": "get-workspace-review-status",
      "text": "Get Workspace Review Status",
      "level": 2
-    },
-    {
-     "id": "get-workspace",
-     "text": "Get Workspace",
-     "level": 2
     }
    ],
-   "body": "List Workspaces GET /api/workspaces/ List workspaces.\n\n**Scopes**: `workspaces:read` `workspaces:write` Create Workspace POST /api/workspaces/ Create an workspace.\n\n**Scopes**: `workspaces:write` Get Workspace GET /api/workspaces/{id} Get an workspace by ID.\n\n**Scopes**: `workspaces:read` `workspaces:write` Update Workspace PATCH /api/workspaces/{id} Update an workspace.\n\n**Scopes**: `workspaces:write` Delete Workspace DELETE /api/workspaces/{id} Request deletion of a workspace.\n\nIf the workspace has no blocking resources, it will be immediately\nsoft-deleted. If it has a Stripe account, that will be deleted first.\n\nIf deletion cannot proceed immediately (e.g. Stripe deletion fails),\na support ticket will be created for manual handling.\n\n**Scopes**: `workspaces:write` Get Workspace Account GET /api/workspaces/{id}/account Get the account for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Switch Workspace Stripe Account POST /api/workspaces/{id}/switch-account Switch the workspace's active Stripe account to an existing one.\n\n**Scopes**: `workspaces:write` Get Workspace Payment Status GET /api/workspaces/{id}/payment-status Get payment status and onboarding steps for an workspace. Members GET /api/workspaces/{id}/members List members in an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Invite Member POST /api/workspaces/{id}/members/invite Invite a user to join an workspace.\n\n**Scopes**: `workspaces:write` Leave Workspace DELETE /api/workspaces/{id}/members/leave Leave an workspace.\n\nUsers can only leave an workspace if they are not the admin\nand there is at least one other member.\n\n**Scopes**: `workspaces:write` Remove Member DELETE /api/workspaces/{id}/members/{user_id} Remove a member from an workspace.\n\nOnly workspace admins can remove members.\nAdmins cannot remove themselves.\n\n**Scopes**: `workspaces:write` Validate Workspace Details with AI POST /api/workspaces/{id}/ai-validation Validate workspace details using AI compliance check.\n\n**Scopes**: `workspaces:write` Submit Appeal for Workspace Review POST /api/workspaces/{id}/appeal Submit an appeal for workspace review after AI validation failure.\n\n**Scopes**: `workspaces:write` Mark AI Onboarding Complete POST /api/workspaces/{id}/ai-onboarding-complete Mark the AI onboarding as completed for this workspace.\n\n**Scopes**: `workspaces:write` Get Workspace Review Status GET /api/workspaces/{id}/review-status Get the current review status and appeal information for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Get Workspace GET /api/customer-portal/workspaces/{slug} Get a customer portal's workspace by slug."
+   "body": "List Workspaces GET /api/workspaces/ List workspaces.\n\n**Scopes**: `workspaces:read` `workspaces:write` Create Workspace POST /api/workspaces/ Create an workspace.\n\n**Scopes**: `workspaces:write` Get Workspace GET /api/workspaces/{id} Get an workspace by ID.\n\n**Scopes**: `workspaces:read` `workspaces:write` Update Workspace PATCH /api/workspaces/{id} Update an workspace.\n\n**Scopes**: `workspaces:write` Delete Workspace DELETE /api/workspaces/{id} Request deletion of a workspace.\n\nIf the workspace has no blocking resources, it will be immediately\nsoft-deleted. If it has a Stripe account, that will be deleted first.\n\nIf deletion cannot proceed immediately (e.g. Stripe deletion fails),\na support ticket will be created for manual handling.\n\n**Scopes**: `workspaces:write` Get Workspace Account GET /api/workspaces/{id}/account Get the account for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Switch Workspace Stripe Account POST /api/workspaces/{id}/switch-account Switch the workspace's active Stripe account to an existing one.\n\n**Scopes**: `workspaces:write` Get Workspace Payment Status GET /api/workspaces/{id}/payment-status Get payment status and onboarding steps for an workspace. Members GET /api/workspaces/{id}/members List members in an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write` Invite Member POST /api/workspaces/{id}/members/invite Invite a user to join an workspace.\n\n**Scopes**: `workspaces:write` Leave Workspace DELETE /api/workspaces/{id}/members/leave Leave an workspace.\n\nUsers can only leave an workspace if they are not the admin\nand there is at least one other member.\n\n**Scopes**: `workspaces:write` Remove Member DELETE /api/workspaces/{id}/members/{user_id} Remove a member from an workspace.\n\nOnly workspace admins can remove members.\nAdmins cannot remove themselves.\n\n**Scopes**: `workspaces:write` Validate Workspace Details with AI POST /api/workspaces/{id}/ai-validation Validate workspace details using AI compliance check.\n\n**Scopes**: `workspaces:write` Submit Appeal for Workspace Review POST /api/workspaces/{id}/appeal Submit an appeal for workspace review after AI validation failure.\n\n**Scopes**: `workspaces:write` Mark AI Onboarding Complete POST /api/workspaces/{id}/ai-onboarding-complete Mark the AI onboarding as completed for this workspace.\n\n**Scopes**: `workspaces:write` Get Workspace Review Status GET /api/workspaces/{id}/review-status Get the current review status and appeal information for an workspace.\n\n**Scopes**: `workspaces:read` `workspaces:write`"
   },
   {
    "href": "/docs/api-reference/oauth2",
