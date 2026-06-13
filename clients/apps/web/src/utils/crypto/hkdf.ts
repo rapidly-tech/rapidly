@@ -7,8 +7,9 @@
  * chambers is then safe because the ``info`` binding ensures two
  * chambers never end up sharing a derived key by coincidence.
  *
- * See ``specs/collab-e2ee.md`` §3 for the specific ``info`` strings
- * Collab will use (``collab:sync:v1`` etc).
+ * ``info`` strings are namespaced ``<purpose>:<channel>:<version>``
+ * (e.g. ``<purpose>:sync:v1``) so a key derived for one purpose can
+ * never be reused for another.
  */
 
 /** Convert an AES-GCM master key (which is extractable for

@@ -12,13 +12,12 @@ import { describe, expect, it } from 'vitest'
 import { CHAMBERS } from './chambers'
 
 describe('chamber registry', () => {
-  it('has exactly 2 chambers', () => {
+  it('has exactly 1 chamber', () => {
     // Pinned at the test boundary so adds / drops surface in review.
-    // After the engineering-suite pivot, only Secret + Markup remain as
-    // public product chambers. Files / Screen / Watch / Call were
-    // removed in M1.0 + M1.1, and Collab was renamed to Markup in M1.4
-    // (see RAPIDLY_ENGINEERING_SUITE_PLAN.md §2).
-    expect(CHAMBERS).toHaveLength(2)
+    // After the engineering-suite pivot only Secret remains as a public
+    // product chamber. Files / Screen / Watch / Call were removed in
+    // M1.0 + M1.1, and the Markup (ex-Collab) chamber was removed after.
+    expect(CHAMBERS).toHaveLength(1)
   })
 
   it('uses unique ids', () => {
@@ -27,16 +26,16 @@ describe('chamber registry', () => {
   })
 
   it('exposes the expected chamber set', () => {
-    expect(CHAMBERS.map((c) => c.id).sort()).toEqual(['markup', 'secret'])
+    expect(CHAMBERS.map((c) => c.id).sort()).toEqual(['secret'])
   })
 
-  it.each(['files', 'screen', 'watch', 'call', 'collab'])(
+  it.each(['files', 'screen', 'watch', 'call', 'collab', 'markup'])(
     'does not include the removed chamber "%s"',
     (id) => {
       // file_sharing stays in code as transport but is not a product
-      // chamber; the media chambers (screen/watch/call) were removed
-      // entirely. Re-adding any here would surface them in the chamber-
-      // strip nav, which contradicts the engineering-suite framing.
+      // chamber; the media chambers (screen/watch/call) and the markup
+      // (ex-collab) chamber were removed entirely. Re-adding any here
+      // would surface them in the chamber-strip nav.
       expect(CHAMBERS.map((c) => c.id)).not.toContain(id)
     },
   )
@@ -76,12 +75,12 @@ describe('chamber registry', () => {
     },
   )
 
-  it('ships both remaining chambers as live', () => {
-    // Both chambers are live with no remaining ``soon`` tiles. If a
-    // future chamber is added in preview, explicitly update this
-    // assertion instead of silently letting it drift.
+  it('ships the remaining chamber as live', () => {
+    // The remaining chamber is live with no ``soon`` tiles. If a future
+    // chamber is added in preview, explicitly update this assertion
+    // instead of silently letting it drift.
     const liveIds = CHAMBERS.filter((c) => c.status === 'live').map((c) => c.id)
-    expect(liveIds.sort()).toEqual(['markup', 'secret'])
+    expect(liveIds.sort()).toEqual(['secret'])
   })
 
   it('has no soon chambers', () => {

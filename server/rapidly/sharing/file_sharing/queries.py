@@ -67,18 +67,17 @@ def _hash_secret(raw_secret: str) -> str:
 # This gives uploaders time to detect abuse and cancel the destruction
 CHANNEL_DESTRUCTION_DELAY = 30
 
-# Registry of supported session kinds. Extended by each chamber. Kept as
-# a single source of truth so validation at call sites can fail closed on
-# typos or malicious input.
-#   "file"   — file sharing (the transport infrastructure)
-#   "collab" — Collab chamber (renamed to Markup in M1.4)
+# Registry of supported session kinds. Kept as a single source of truth so
+# validation at call sites can fail closed on typos or malicious input.
+#   "file" — file sharing (the transport infrastructure)
 #
-# The "screen", "watch", "call" kinds were removed in M1.1 along with
-# their chambers. ChannelData.from_dict still tolerates them in historical
-# Redis state (validate_session_kind is not called there) so a session
-# in-flight at the cutover doesn't crash on read — but no new channel of
-# those kinds can be created.
-SESSION_KINDS: set[str] = {"file", "collab"}
+# The "screen", "watch", "call" kinds were removed in M1.1 and "collab"
+# (the Markup chamber) was removed afterwards, along with their chambers.
+# ChannelData.from_dict still tolerates them in historical Redis state
+# (validate_session_kind is not called there) so a session in-flight at the
+# cutover doesn't crash on read — but no new channel of those kinds can be
+# created.
+SESSION_KINDS: set[str] = {"file"}
 
 
 def validate_session_kind(kind: str) -> None:

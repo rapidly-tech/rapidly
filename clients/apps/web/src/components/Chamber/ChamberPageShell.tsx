@@ -1,8 +1,8 @@
 'use client'
 
 /**
- * Standard layout for a chamber page (/secret, /screen, /watch, /call,
- * /collab). Renders the same hero treatment as the file-sharing landing
+ * Standard layout for a chamber page (e.g. /secret). Renders the same
+ * hero treatment as the file-sharing landing
  * — big title + subtitle above, action area in the middle, chamber
  * strip below — so every chamber reads like part of the same product
  * instead of a standalone route with its own visual grammar.

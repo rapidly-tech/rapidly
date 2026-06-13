@@ -7,11 +7,6 @@ single ``APIRouter`` instance consumed by the application factory.
 
 from fastapi import APIRouter
 
-# Importing the signaling validators module registers
-# ("screen", "host") and ("screen", "guest") at import time — before any
-# WebSocket can dispatch to the registry. The import is a side-effect
-# (registration via decorator); the name itself is unused here.
-import rapidly.sharing.markup.signaling_validators  # noqa: F401
 from rapidly.analytics.event.api import router as event_router
 from rapidly.analytics.event_type.api import router as event_type_router
 from rapidly.analytics.eventstream.api import router as stream_router
@@ -65,7 +60,6 @@ from rapidly.projects.project.api import router as project_router
 from rapidly.projects.state.api import router as project_state_router
 from rapidly.projects.work_item.api import router as work_item_router
 from rapidly.sharing.file_sharing.api import router as file_sharing_router
-from rapidly.sharing.markup.api import router as collab_router
 
 router = APIRouter(prefix="/api")
 
@@ -106,8 +100,6 @@ router.include_router(metrics_router)
 router.include_router(files_router)
 # shared file access links
 router.include_router(file_sharing_router)
-# collab sessions (gated by FILE_SHARING_COLLAB_ENABLED)
-router.include_router(collab_router)
 
 # ── Customer lifecycle ──
 

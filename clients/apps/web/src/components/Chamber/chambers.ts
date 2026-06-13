@@ -1,24 +1,17 @@
 /**
- * Registry of the 2 public product chambers (Secret / Markup). Used by
- * the chamber-strip nav on the public landing and by per-chamber page
- * metadata.
+ * Registry of the public product chambers. Used by the chamber-strip nav
+ * on the public landing and by per-chamber page metadata.
  *
  * What's gone vs. the original six-chamber product:
  * - Files: file_sharing is kept in code as transport infrastructure
- *   (powers the markup chamber and /share/<slug> anonymous-receive),
- *   but no longer surfaced as a top-level chamber per the engineering-
- *   suite framing decision (RAPIDLY_ENGINEERING_SUITE_PLAN.md §2.6).
- * - Screen / Watch / Call: the media chambers are consumer-y, not
- *   engineering use cases. Removed entirely (M1.1 in M1_EXECUTION.md).
+ *   (powers /share/<slug> anonymous-receive), but no longer surfaced as
+ *   a top-level chamber.
+ * - Screen / Watch / Call: the media chambers were removed entirely.
+ * - Markup (ex-Collab): the realtime markup chamber was removed; only its
+ *   shared transport/crypto utilities remain in file_sharing.
  *
- * What remains here is intentionally small — Secret as a no-account
- * one-time-message surface, Markup as the engineering-markup chamber
- * (renamed from Collab in M1.4; internal identifiers in
- * sharing/markup/ still use the historical ``collab`` prefix and the
- * Redis key namespace ``file-sharing:collab:*`` stays the same to
- * preserve in-flight session compatibility). Both stay because they
- * map cleanly to engineering workflows (a quick share with a
- * consultant; a live drawing markup session).
+ * What remains is intentionally small — Secret as a no-account one-time-
+ * message surface that maps cleanly to a quick engineering workflow.
  *
  * "live" chambers link to a working route. "soon" chambers render with a
  * muted treatment and surface a "coming soon" pill so visitors learn what
@@ -51,13 +44,5 @@ export const CHAMBERS: readonly Chamber[] = [
     href: '/secret',
     status: 'live',
     tagline: 'Share a one-time secret that self-destructs on open.',
-  },
-  {
-    id: 'markup',
-    label: 'Markup',
-    icon: 'solar:users-group-rounded-linear',
-    href: '/markup',
-    status: 'live',
-    tagline: 'Realtime engineering markup on PDFs, images, and models.',
   },
 ]

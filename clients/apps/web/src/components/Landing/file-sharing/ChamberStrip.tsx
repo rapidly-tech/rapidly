@@ -28,17 +28,6 @@ const SVGS: Record<string, React.ReactNode> = {
       <path strokeLinecap="round" d="M6 10V8a6 6 0 1 1 12 0v2" />
     </g>
   ),
-  collab: (
-    <g fill="none" stroke="currentColor" strokeWidth="1.5">
-      <circle cx="9" cy="6" r="4" />
-      <path strokeLinecap="round" d="M15 9a3 3 0 1 0 0-6" />
-      <ellipse cx="9" cy="17" rx="7" ry="4" />
-      <path
-        strokeLinecap="round"
-        d="M18 14c1.754.385 3 1.359 3 2.5c0 1.03-1.014 1.923-2.5 2.37"
-      />
-    </g>
-  ),
 }
 
 interface ChamberStripProps {

@@ -1,21 +1,20 @@
 import { CONFIG } from '@/utils/config'
 import { MetadataRoute } from 'next'
 
-// Per-session ephemeral URLs. The remaining chambers each have a
+// Per-session ephemeral URLs. The remaining chamber has a
 // ``/<chamber>/<slug>`` guest route whose slug expires with the Redis
-// channel TTL; indexing them just parks soon-to-404 entries in the
+// channel TTL; indexing it just parks soon-to-404 entries in the
 // search index (and leaks session slugs into crawler logs). The
-// chamber host pages themselves (``/markup``, ``/secret``) remain
-// indexable — those are the "Start a session" landings.
+// chamber host page itself (``/secret``) remains indexable — that is
+// the "Start a session" landing.
 export const DISALLOWED_PATHS = [
   '/dashboard/',
   '/login/',
   '/verify-email/',
   '/file-sharing/',
-  '/markup/',
-  // Internal dev harnesses (e.g. /dev/markup-perf). The pages
-  // themselves carry ``robots: {index: false}`` metadata; this is
-  // defence-in-depth so crawlers skip the prefix entirely.
+  // Internal dev harnesses. The pages themselves carry
+  // ``robots: {index: false}`` metadata; this is defence-in-depth so
+  // crawlers skip the prefix entirely.
   '/dev/',
 ]
 
