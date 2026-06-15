@@ -19,17 +19,13 @@ describe('landing sitemap', () => {
   // Each live chamber's feature page must appear. If this list ever
   // lags behind ``components/Chamber/chambers.ts``, a chamber ships
   // without SEO coverage — that's why we pin every expected suffix.
-  it.each([
-    '/features/shares',
-    '/features/secret-messages',
-    '/features/screen-share',
-    '/features/watch-together',
-    '/features/call',
-    '/features/collab',
-  ])('includes %s', (suffix) => {
-    const matches = urls.filter((u) => u.endsWith(suffix))
-    expect(matches).toHaveLength(1)
-  })
+  it.each(['/features/shares', '/features/secret-messages'])(
+    'includes %s',
+    (suffix) => {
+      const matches = urls.filter((u) => u.endsWith(suffix))
+      expect(matches).toHaveLength(1)
+    },
+  )
 
   it('every entry has an absolute URL', () => {
     for (const entry of entries) {

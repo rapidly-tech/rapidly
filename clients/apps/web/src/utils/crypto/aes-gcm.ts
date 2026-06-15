@@ -3,18 +3,17 @@
  *
  * The file-sharing chamber has its own ``utils/file-sharing/encryption.ts``
  * with domain-specific framing (per-chunk headers, reader tokens,
- * metadata commitment). This module is the **portable subset** the
- * Collab chamber needs for its E2EE v1.1 rollout — no chunk framing,
- * no file names, no reader tokens. Just encrypt-bytes / decrypt-bytes
- * with explicit IV handling so callers can choose their own envelope
- * (Collab uses a ``{t, iv, bytes}`` JSON envelope on the DC; future
- * chambers can reuse this without touching the file-sharing module).
+ * metadata commitment). This module is the **portable subset** for
+ * chamber E2EE — no chunk framing, no file names, no reader tokens.
+ * Just encrypt-bytes / decrypt-bytes with explicit IV handling so
+ * callers can choose their own envelope (e.g. a ``{t, iv, bytes}`` JSON
+ * envelope) without touching the file-sharing module.
  *
- * See ``specs/collab-e2ee.md`` for why these primitives live here
- * instead of being pulled out of ``encryption.ts``: extracting without
- * disturbing the shipping file-sharing path would require careful
- * audit of ~20 call sites. A clean new module is safer and almost
- * free — Web Crypto itself is ~3 lines per operation.
+ * These primitives live here rather than being pulled out of
+ * ``encryption.ts`` because extracting without disturbing the shipping
+ * file-sharing path would require careful audit of ~20 call sites. A
+ * clean module is safer and almost free — Web Crypto itself is ~3 lines
+ * per operation.
  */
 
 /** AES-GCM recommended IV length in bytes (NIST SP 800-38D §8.2.1). */

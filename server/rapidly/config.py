@@ -313,11 +313,6 @@ class Settings(BaseSettings):
     FILE_SHARING_MAX_PRICE_CENTS: int = 100_000_000
     FILE_SHARING_PAID_CHANNEL_TTL: int = 86400
 
-    # Enables the Collab chamber API (/api/v1/collab/*). Default False.
-    # See specs/collab-chamber-plan.md. Backed by a Yjs CRDT synced
-    # over the existing PeerDataConnection.
-    FILE_SHARING_COLLAB_ENABLED: bool = False
-
     # Signaling backend. "memory" keeps room state in-process (requires a
     # single worker); "redis" uses Redis hashes + pub/sub for cross-worker
     # signaling. Default stays on "memory" so existing deployments keep

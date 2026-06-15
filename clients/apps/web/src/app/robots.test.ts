@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest'
 import { DISALLOWED_PATHS } from './robots'
 
 describe('robots DISALLOWED_PATHS', () => {
-  it.each(['/file-sharing/', '/markup/'])(
+  it.each(['/file-sharing/'])(
     'disallows %s (per-session slug trees)',
     (path) => {
       expect(DISALLOWED_PATHS).toContain(path)
@@ -28,9 +28,9 @@ describe('robots DISALLOWED_PATHS', () => {
   )
 
   it('does not disallow the public chamber host pages', () => {
-    // The no-slash variants (``/markup``, ``/secret``) remain
-    // allowed so the "Start a session" landings get indexed.
-    for (const path of ['/markup', '/secret']) {
+    // The no-slash variant (``/secret``) remains allowed so the
+    // "Start a session" landing gets indexed.
+    for (const path of ['/secret']) {
       expect(DISALLOWED_PATHS).not.toContain(path)
     }
   })

@@ -96,10 +96,6 @@ interface NavigationItem {
 const mobileFeatureItems: NavigationItem[] = [
   { title: 'Secure Sharing', href: '/features/shares' },
   { title: 'Secret Messages', href: '/features/secret-messages' },
-  { title: 'Screen Share', href: '/features/screen-share' },
-  { title: 'Watch Together', href: '/features/watch-together' },
-  { title: 'Call', href: '/features/call' },
-  { title: 'Collab', href: '/features/collab' },
   { title: 'Payments', href: '/features/payments' },
   { title: 'Finance', href: '/features/finance' },
 ]
@@ -231,26 +227,6 @@ const LandingPageDesktopNavigation = () => {
           href: '/features/secret-messages',
           label: 'Secret Messages',
           subtitle: 'Encrypted text sharing',
-        },
-        {
-          href: '/features/screen-share',
-          label: 'Screen Share',
-          subtitle: 'End-to-end encrypted P2P screen sharing',
-        },
-        {
-          href: '/features/watch-together',
-          label: 'Watch Together',
-          subtitle: 'Synced peer-to-peer watch parties',
-        },
-        {
-          href: '/features/call',
-          label: 'Call',
-          subtitle: 'E2E-encrypted P2P voice & video',
-        },
-        {
-          href: '/features/collab',
-          label: 'Collab',
-          subtitle: 'Realtime peer-to-peer docs',
         },
         {
           href: '/features/payments',
