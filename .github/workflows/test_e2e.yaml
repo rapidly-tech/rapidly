@@ -45,7 +45,7 @@ jobs:
         github.event_name == 'workflow_dispatch' ||
         needs.changes.outputs.clients == 'true'
       )
-    timeout-minutes: 15
+    timeout-minutes: 30
     runs-on: ubuntu-latest
 
     env:
@@ -94,18 +94,22 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        # The browser download has no built-in ceiling, so a slow/stalled
-        # CDN fetch would silently consume the whole 15m job budget and
-        # time the job out before any test runs. Bound each attempt and
-        # retry so a transient stall fails fast and recovers instead.
+        # The browser download (~170 MiB) has no built-in ceiling and the
+        # CDN throughput to CI runners is often slow (~4-5 min), so a single
+        # stalled fetch could otherwise consume the whole job budget. Bound
+        # each attempt generously (the download must finish *and* extract
+        # within it) and retry so a genuine mid-transfer drop recovers.
+        # Once a scheduled run on the default branch succeeds, the populated
+        # ~/.cache/ms-playwright is cached and shared to PRs (cache-hit path),
+        # so this download only happens on a cold cache.
         run: |
-          for attempt in 1 2 3; do
-            if timeout 240 pnpm exec playwright install chromium; then
+          for attempt in 1 2; do
+            if timeout 600 pnpm exec playwright install chromium; then
               exit 0
             fi
             echo "::warning::playwright install attempt ${attempt} failed or timed out; retrying"
           done
-          echo "::error::playwright install failed after 3 attempts"
+          echo "::error::playwright install failed after 2 attempts"
           exit 1
 
       - name: Run E2E tests
