@@ -34,10 +34,17 @@ jobs:
   e2e:
     name: "E2E Tests 🎭"
     needs: changes
+    # ``changes`` only runs on pull_request, so on schedule/workflow_dispatch
+    # it is *skipped* — and a skipped ``needs`` job makes this dependent job
+    # skip too, regardless of the conditions below. ``!cancelled()`` is a
+    # status check that overrides that auto-skip (so the explicit event
+    # checks decide) while still bailing out if the run is cancelled.
     if: |
-      github.event_name == 'schedule' ||
-      github.event_name == 'workflow_dispatch' ||
-      needs.changes.outputs.clients == 'true'
+      !cancelled() && (
+        github.event_name == 'schedule' ||
+        github.event_name == 'workflow_dispatch' ||
+        needs.changes.outputs.clients == 'true'
+      )
     timeout-minutes: 15
     runs-on: ubuntu-latest
 
@@ -87,7 +94,19 @@ jobs:
 
       - name: Install Playwright browsers
         if: steps.playwright-cache.outputs.cache-hit != 'true'
-        run: pnpm exec playwright install chromium
+        # The browser download has no built-in ceiling, so a slow/stalled
+        # CDN fetch would silently consume the whole 15m job budget and
+        # time the job out before any test runs. Bound each attempt and
+        # retry so a transient stall fails fast and recovers instead.
+        run: |
+          for attempt in 1 2 3; do
+            if timeout 240 pnpm exec playwright install chromium; then
+              exit 0
+            fi
+            echo "::warning::playwright install attempt ${attempt} failed or timed out; retrying"
+          done
+          echo "::error::playwright install failed after 3 attempts"
+          exit 1
 
       - name: Run E2E tests
         run: pnpm test:e2e
