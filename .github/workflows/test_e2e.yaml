@@ -45,8 +45,16 @@ jobs:
         github.event_name == 'workflow_dispatch' ||
         needs.changes.outputs.clients == 'true'
       )
-    timeout-minutes: 30
+    timeout-minutes: 15
     runs-on: ubuntu-latest
+    # Run inside the official Playwright image so the browsers are already
+    # baked in (at /ms-playwright). This removes the cdn.playwright.dev
+    # download entirely — that fetch reliably reached 100% then hung in
+    # extraction on the hosted runners, timing the job out before any test
+    # ran. The tag MUST track ``@playwright/test`` in clients/apps/web (the
+    # lockfile pins 1.59.1); a mismatch makes Playwright re-download at runtime.
+    container:
+      image: mcr.microsoft.com/playwright:v1.59.1-noble
 
     env:
       TURBO_TOKEN: ${{ secrets.TURBO_TOKEN }}
@@ -73,44 +81,8 @@ jobs:
         run: pnpm install --frozen-lockfile
         working-directory: ./clients
 
-      - name: Get Playwright version
-        id: playwright-version
-        # ``pnpm exec`` emits warnings to stdout in this workspace
-        # (``pnpm.overrides`` in nested package.json files). Those lines
-        # poison ``$GITHUB_OUTPUT``, which expects strict ``key=value``
-        # entries, yielding "Invalid format 'Command'" step failures.
-        # Silence pnpm and extract only the version-shaped string to
-        # harden the step against future warning noise.
-        run: |
-          version=$(pnpm --silent exec playwright --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-          echo "version=${version}" >> "$GITHUB_OUTPUT"
-
-      - name: Cache Playwright browsers
-        id: playwright-cache
-        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
-        with:
-          path: ~/.cache/ms-playwright
-          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
-
-      - name: Install Playwright browsers
-        if: steps.playwright-cache.outputs.cache-hit != 'true'
-        # The browser download (~170 MiB) has no built-in ceiling and the
-        # CDN throughput to CI runners is often slow (~4-5 min), so a single
-        # stalled fetch could otherwise consume the whole job budget. Bound
-        # each attempt generously (the download must finish *and* extract
-        # within it) and retry so a genuine mid-transfer drop recovers.
-        # Once a scheduled run on the default branch succeeds, the populated
-        # ~/.cache/ms-playwright is cached and shared to PRs (cache-hit path),
-        # so this download only happens on a cold cache.
-        run: |
-          for attempt in 1 2; do
-            if timeout 600 pnpm exec playwright install chromium; then
-              exit 0
-            fi
-            echo "::warning::playwright install attempt ${attempt} failed or timed out; retrying"
-          done
-          echo "::error::playwright install failed after 2 attempts"
-          exit 1
+      # No browser-install step: the Playwright container image already
+      # ships the matching browsers at /ms-playwright.
 
       - name: Run E2E tests
         run: pnpm test:e2e
