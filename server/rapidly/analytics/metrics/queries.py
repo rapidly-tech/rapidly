@@ -324,13 +324,20 @@ class MetricsQueryService:
         Returns the timezone key actually applied (may differ from the
         requested one when the fallback kicks in).
 
-        Pydantic's ``TimeZoneName`` validates against Python's
-        :mod:`zoneinfo`, which carries more aliases than PostgreSQL's
-        bundled tzdata (e.g. ``Asia/Saigon`` is a valid Python alias
-        for ``Asia/Ho_Chi_Minh`` but is NOT in
-        :data:`pg_catalog.pg_timezone_names`). Passing such a value to
-        :func:`pg_catalog.set_config` raises ``invalid value for
-        parameter \"TimeZone\"`` and 500s the metrics request.
+        Defence-in-depth against tzdata divergence between Python's
+        :mod:`zoneinfo` and PostgreSQL's bundled
+        :data:`pg_catalog.pg_timezone_names`. Passing a value that
+        zoneinfo accepts but PG doesn't to :func:`pg_catalog.set_config`
+        would raise ``invalid value for parameter "TimeZone"`` and 500
+        the metrics request.
+
+        Note: ``pydantic_extra_types.TimeZoneName`` already rejects
+        most deprecated aliases (``Asia/Saigon``, ``Asia/Calcutta``)
+        at the HTTP boundary, so the fallback won't fire for HTTP
+        callers under current pydantic_extra_types. It remains
+        load-bearing for direct call sites and for any future PG
+        tzdata regression where a name accepted by ``TimeZoneName``
+        is unknown to PG.
 
         Probe ``pg_timezone_names`` first; if the requested zone isn't
         recognised, fall back to UTC. Slight UX cost (buckets in UTC

@@ -80,12 +80,6 @@ class TestGetMetrics:
             "America/New_York",
             "Asia/Yangon",
             "Asia/Kolkata",
-            # Pydantic's TimeZoneName accepts these legacy IANA aliases
-            # but PostgreSQL's bundled tzdata may not, which used to 500
-            # the metrics request (Sentry: DBAPIError invalid value for
-            # parameter "TimeZone"). Now falls back to UTC server-side.
-            "Asia/Saigon",
-            "Asia/Calcutta",
         ],
     )
     @pytest.mark.auth(
