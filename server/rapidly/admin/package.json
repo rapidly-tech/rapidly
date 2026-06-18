@@ -14,7 +14,7 @@
     "@tailwindcss/cli": "^4.1.17",
     "@tailwindcss/postcss": "^4.1.17",
     "daisyui": "^5.4.7",
-    "esbuild": "^0.25.12",
+    "esbuild": "^0.28.1",
     "event-source-plus": "^0.1.15",
     "htmx.org": "^2.0.8",
     "hyperscript.org": "^0.9.14",
