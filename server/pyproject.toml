@@ -32,7 +32,7 @@ dependencies = [
   "pyjwt>=2.12.0",
   "authlib>=1.6.12",
   "httpx-oauth>=0.16.0",
-  "cryptography>=46.0.7",
+  "cryptography>=48.0.1",
   "itsdangerous>=2.2.0",
   "safe-redirect-url>=0.1.1",
   # ── Payments ─────────────────────────────────────────────────
