@@ -24,7 +24,7 @@ dependencies = [
   "dramatiq[redis,watch]>=1.17.1",
   # ── Validation & serialisation ───────────────────────────────
   "pydantic>=2.11",
-  "pydantic-settings>=2.5.2",
+  "pydantic-settings>=2.14.2",
   "pydantic-extra-types>=2.9.0",
   "email-validator>=2.1.0.post1",
   "python-dateutil>=2.9.0.post0",
